@@ -1,0 +1,15 @@
+https://gamebanana.com/tools/9273 -- A cool rating spr.
+https://gamebanana.com/mods/587210 -- Add a cover to strum notes.
+
+[These Lua mods are really cool! Above are their original links]
+
+These Lua scripts can enhance your gaming experience. They are optional and entirely up to your preference!
+
+The reason I haven't integrated them into the source code is that keeping them as Lua mods provides greater customization options
+If they were part of the source code, it would be painful for players to adjust or remove them :skull:
+
+In future Frozen Engine projects, there may be even more fun and interesting Lua mods like these :D
+
+ENJOY THE GAME! <3
+
+TieGao / Ice_Axe

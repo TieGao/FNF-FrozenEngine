@@ -1,3 +1,10 @@
+Hello! I'm TieGao, the creator of this project (you can also call me Ice_Axe).
+
+This project was created purely out of my personal interest. I don't have extensive programming expertise, so I utilized AI assistance for much of the work. Some features are inspired by other engines or Lua mods that I enjoy.
+
+JUST ENJOY THE ENGINE LOL <3
+
+
 ![PsychionalEngineLogo](docs/img/PsychEngineLogoTweak.png)
 
 Engine originally used on [Mind Games Mod](https://gamebanana.com/mods/301107), intended to be a fix for the vanilla version's many issues while keeping the casual play aspect of it. Also aiming to be an easier alternative to newbie coders.
