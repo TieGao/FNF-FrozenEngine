@@ -5,6 +5,7 @@ import flixel.input.gamepad.FlxGamepad;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxTimer;
+import flixel.addons.display.FlxBackdrop;
 import states.MainMenuState;
 import backend.StageData;
 
@@ -26,7 +27,7 @@ class KEOptionsMenu extends MusicBeatSubstate
 
 	var notes:Array<String> = Mods.mergeAllTextsNamed('images/noteSkins/list.txt');
 	var splashes:Array<String> = Mods.mergeAllTextsNamed('images/noteSplashes/list.txt');
-	
+
 	var changedOption:Bool = false;
 	public var descText:FlxText;
 	public var descBack:FlxSprite;
@@ -81,7 +82,6 @@ class KEOptionsMenu extends MusicBeatSubstate
 
 		// 创建彩色背景
 		background = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
-		background.color = 0xFFea71fd;
 		background.screenCenter();
 		background.alpha = 0;
 		background.scrollFactor.set();
@@ -92,14 +92,11 @@ class KEOptionsMenu extends MusicBeatSubstate
 		descBack.scrollFactor.set();
 		add(descBack);
 
-		if (isInPause)
-		{
-			var bg:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
-			bg.alpha = 0;
-			bg.scrollFactor.set();
-			add(bg);
-			cameras = [FlxG.cameras.list[FlxG.cameras.list.length - 1]];
-		}
+		var bg:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+		bg.alpha = 0;
+		bg.scrollFactor.set();
+		add(bg);
+		cameras = [FlxG.cameras.list[FlxG.cameras.list.length - 1]];
 
 		add(shownStuff);
 
@@ -127,8 +124,47 @@ class KEOptionsMenu extends MusicBeatSubstate
 		startFadeIn();
 		
 		super.create();
+
+		var colorArray:Array<FlxColor> = [
+			FlxColor.fromRGB(148, 0, 211),
+			FlxColor.fromRGB(75, 0, 130),
+			FlxColor.fromRGB(0, 0, 255),
+			FlxColor.fromRGB(0, 255, 0),
+			FlxColor.fromRGB(255, 255, 0),
+			FlxColor.fromRGB(255, 127, 0),
+			FlxColor.fromRGB(255, 0, 0)
+		];
+
+		// 按顺序渐变而不是随机
+		var currentColorIndex:Int = 0;
+		var nextColorIndex:Int = 1;
+		var colorTransitionTime:Float = 2.0;
+
+		// 设置初始颜色
+		background.color = colorArray[currentColorIndex];
+
+		// 开始颜色渐变循环
+			function startColorCycle():Void
+			{
+				FlxTween.color(background, colorTransitionTime, background.color, colorArray[nextColorIndex], {
+					onComplete: function(twn:FlxTween)
+					{
+						// 更新颜色索引
+						currentColorIndex = nextColorIndex;
+						nextColorIndex = (nextColorIndex + 1) % colorArray.length;
+						
+						// 继续下一个渐变
+						startColorCycle();
+					}
+				});
+			}
+
+			// 开始循环
+			startColorCycle();
 	}
 	
+	
+
 	// 渐入效果 - 还原原本的透明度
 	function startFadeIn()
 	{
@@ -138,11 +174,9 @@ class KEOptionsMenu extends MusicBeatSubstate
 		// 背景和UI元素淡入 - 使用原本的透明度值
 		FlxTween.tween(background, {alpha: isInPause ? 0.5 : 0.6}, 0.3, {ease: FlxEase.expoOut});
 		
-		if (isInPause)
-		{
-			var bg = members[members.length - 1]; // 获取暂停菜单的黑色背景
-			FlxTween.tween(bg, {alpha: 0.6}, 0.3, {ease: FlxEase.expoOut});
-		}
+		var bg = members[members.length - 1]; // 获取暂停菜单的黑色背景
+		FlxTween.tween(bg, {alpha: 0.6}, 0.3, {ease: FlxEase.expoOut});
+		
 		
 		// 描述背景和文字淡入 - 使用原本的透明度
 		FlxTween.tween(descBack, {alpha: 0.3}, 0.3, {ease: FlxEase.expoOut});
@@ -269,13 +303,14 @@ class KEOptionsMenu extends MusicBeatSubstate
 	{
 		return [
 			KEOption.create("Hide HUD", "Hide most HUD elements", "hideHud", "bool"),
-			KEOption.create("Note Skins" , "Select your prefered Note skin", "noteSkin","string" , notes),
-			KEOption.create("Note Splashes", "Select your prefered Note Splash variation","splashSkin","string", splashes),
 			KEOption.create("Flashing Lights", "Enable screen flashes", "flashing", "bool"),
 			KEOption.create("Camera Zooms", "Zoom camera on beat", "camZooms", "bool"),
 			KEOption.create("Score Zoom", "Grow score text on hit", "scoreZoom", "bool"),
 			KEOption.create('Time Bar:',"What should the Time Bar display?","timeBarType","string",['Time Left', 'Time Elapsed', 'Song Name', 'Disabled']),
 			KEOption.create("Health Bar Alpha", "Health bar transparency", "healthBarAlpha", "float", 1, 0, 1, 0.1),
+			KEOption.create("Note Skins" , "Select your prefered Note skin", "noteSkin","string" , notes),
+			KEOption.create("Note Splashes", "Select your prefered Note Splash variation","splashSkin","string", splashes),
+			KEOption.create("Note Alpha", "Note transparency", "noteAlpha", "float", 0.6, 0, 1, 0.1),
 			KEOption.create("Note Splash Alpha", "Note splash transparency", "splashAlpha", "float", 0.6, 0, 1, 0.1),
 			KEOption.create("Combo Stacking", "Stack combo numbers", "comboStacking", "bool"),
 			KEOption.create("Center Pause", "Center pause menu", "centerPause", "bool"),

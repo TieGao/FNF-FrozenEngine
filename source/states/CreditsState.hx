@@ -76,7 +76,10 @@ class CreditsState extends MusicBeatState
 			["kawaisprite",			"kawaisprite",		"Composer of Friday Night Funkin'",							"https://x.com/kawaisprite",		"378FC7"],
 			[""],
 			["Psych Engine Discord"],
-			["Join the Psych Ward!", "discord", "", "https://discord.gg/2ka77eMXDv", "5165F6"]
+			["Join the Psych Ward!", "discord", "", "https://discord.gg/2ka77eMXDv", "5165F6"],
+			[""],
+			["Frozen Engine Creator"],
+			["Ice_Axe",			"IceAxe",		"Creator of Frozen Engine",							"",		"87CEEB"]
 		];
 		
 		for(i in defaultList)

@@ -1,108 +1,200 @@
-# This is a basic workflow to help you get started with Actions
+name: Build and Release Frozen Engine
 
-name: Build
-
-
-# Controls when the action will run.
+# 只在推送v*标签时运行（发布模式）
 on:
-  # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ main, experimental ]
-  pull_request:
-    branches: [ main, experimental ]
-
-  # Allows you to run this workflow manually from the Actions tab
+    tags:
+      - 'v*'  # 例如 v1.0.0, v2.0.0-beta.1
+  # 保留手动触发功能
   workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
+  # 1. Linux编译
   buildLinux:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4.1.7
-
-      - uses: krdlab/setup-haxe@master
+      - name: Checkout code
+        uses: actions/checkout@v4.1.7
+        
+      - name: Setup Haxe
+        uses: krdlab/setup-haxe@master
         with:
           haxe-version: 4.3.7
-      # Runs a set of commands using the runners shell
-      - name: Install Haxelib
+          
+      - name: Install Haxelib and Dependencies
         run: |
-          sudo apt-get install libvlc-dev
-          sudo apt-get install libvlccore-dev
+          sudo apt-get update
+          sudo apt-get install -y libvlc-dev libvlccore-dev zip
           haxelib setup ~/haxelib
           haxelib install hxcpp > /dev/null --quiet
           chmod +x ./setup/unix.sh
           sh ./setup/unix.sh
+          
       - name: Skip SScript setup mode
         run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> ~/settings.cocoa
-      - name: Create Version Tag
-        run: echo "${{github.run_id}}" > VERSION
-      - name: Compile
-        run: haxelib run lime build Project.xml linux --app-version="4.0.0-${{ github.run_id}}" -D officialBuild
-      - name: Publish Artifact
+          
+      - name: Create Version File
+        run: echo "${{ github.ref_name }}" > VERSION
+          
+      - name: Compile for Linux
+        run: haxelib run lime build Project.xml linux --app-version="${{ github.ref_name }}" -D officialBuild
+          
+      - name: Prepare Linux Artifacts
+        run: |
+          mkdir -p release-artifacts/linux
+          cp -r export/release/linux/bin/* release-artifacts/linux/
+          # 使用zip压缩
+          cd release-artifacts/linux && zip -r FrozenEngine-${{ github.ref_name }}-Linux.zip ./*
+          
+      - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4.3.4
         with:
-          name: linuxBuild
-          path: 'export/release/linux/bin'
+          name: FrozenEngine-${{ github.ref_name }}-Linux
+          path: release-artifacts/linux/*.zip
+          if-no-files-found: error
+          
+  # 2. Windows编译
   buildWindows:
     runs-on: windows-latest
-
+    
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4.1.7
-
-      - uses: krdlab/setup-haxe@master
+      - name: Checkout code
+        uses: actions/checkout@v4.1.7
+        
+      - name: Setup Haxe
+        uses: krdlab/setup-haxe@master
         with:
           haxe-version: 4.3.7
-      # Runs a set of commands using the runners shell
-      - name: Install Haxelib
+          
+      - name: Install Haxelib and Dependencies
         run: |
           haxelib setup C:/haxelib
-          haxelib install hxcpp > /dev/null --quiet
-          .\"setup/windows.bat"
+          haxelib install hxcpp > $null --quiet
+          .\setup\windows.bat
         shell: cmd
+          
       - name: Skip SScript setup mode
         run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> %USERPROFILE%/settings.cocoa
         shell: cmd
-      - name: Create Version Tag
-        run: echo "${{github.run_id}}" > VERSION
-      - name: Compile
-        run: haxelib run lime build windows --app-version="4.0.0-${{ github.run_id}}"  -D officialBuild
-      - name: Publish Artifact
+          
+      - name: Create Version File
+        run: echo "${{ github.ref_name }}" > VERSION
+        shell: cmd
+          
+      - name: Compile for Windows
+        run: haxelib run lime build windows --app-version="${{ github.ref_name }}" -D officialBuild
+        shell: cmd
+          
+      - name: Prepare Windows Artifacts
+        run: |
+          mkdir release-artifacts\windows
+          copy export\release\windows\bin\* release-artifacts\windows\
+          # 使用Windows内置的Compress-Archive
+          Compress-Archive -Path release-artifacts\windows\* -DestinationPath release-artifacts\windows\FrozenEngine-${{ github.ref_name }}-Windows.zip -Force
+        shell: powershell
+          
+      - name: Upload Windows Artifacts
         uses: actions/upload-artifact@v4.3.4
         with:
-          name: windowsBuild
-          path: export/release/windows/bin
+          name: FrozenEngine-${{ github.ref_name }}-Windows
+          path: release-artifacts/windows/*.zip
+          if-no-files-found: error
+          
+  # 3. Mac编译
   buildMac:
     runs-on: macos-15
-
+    
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4.1.7
-
-      - uses: krdlab/setup-haxe@master
+      - name: Checkout code
+        uses: actions/checkout@v4.1.7
+        
+      - name: Setup Haxe
+        uses: krdlab/setup-haxe@master
         with:
           haxe-version: 4.3.7
-      # Runs a set of commands using the runners shell
-      - name: Install Haxelib
+          
+      - name: Install Haxelib and Dependencies
         run: |
           haxelib setup ~/haxelib
           haxelib install hxcpp > /dev/null --quiet
           chmod +x ./setup/unix.sh
           sh ./setup/unix.sh
+          
       - name: Skip SScript setup mode
         run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> ~/settings.cocoa
-      - name: Create Version Tag
-        run: echo "${{github.run_id}}" > VERSION
-      - name: Compile
-        run: haxelib run lime build mac --app-version="4.0.0-${{ github.run_id}}"  -D officialBuild
-      - name: Publish Artifact
+          
+      - name: Create Version File
+        run: echo "${{ github.ref_name }}" > VERSION
+          
+      - name: Compile for Mac
+        run: haxelib run lime build mac --app-version="${{ github.ref_name }}" -D officialBuild
+          
+      - name: Prepare Mac Artifacts
+        run: |
+          mkdir -p release-artifacts/mac
+          cp -r export/release/macos/bin/* release-artifacts/mac/
+          cd release-artifacts/mac && zip -r FrozenEngine-${{ github.ref_name }}-Mac.zip ./*
+          
+      - name: Upload Mac Artifacts
         uses: actions/upload-artifact@v4.3.4
         with:
-          name: macBuild
-          path: export/release/macos/bin
+          name: FrozenEngine-${{ github.ref_name }}-Mac
+          path: release-artifacts/mac/*.zip
+          if-no-files-found: error
+          
+  # 4. 创建GitHub Release（在所有编译完成后运行）
+  create-release:
+    # 需要等待所有平台编译完成
+    needs: [buildLinux, buildWindows, buildMac]
+    runs-on: ubuntu-latest
+    
+    # 只有在所有前置任务成功时才运行
+    if: success()
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4.1.7
+        with:
+          path: ./release-files
+          
+      - name: List downloaded files
+        run: |
+          echo "=== 已下载的文件 ==="
+          find ./release-files -type f -name "*.zip" | sort
+          echo "=================="
+          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2.0.8
+        with:
+          # 使用GitHub自动提供的token
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+          # 上传所有找到的.zip文件
+          files: ./release-files/**/*.zip
+          
+          # 自动从标签名生成Release名称
+          tag_name: ${{ github.ref_name }}
+          
+          # 自动生成更新说明（可选）
+          generate_release_notes: true
+          
+          # 设为false立即发布，true则为草稿
+          draft: false
+          
+          # 设为true标记为预发布版（如beta版）
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
+          
+          # Release正文
+          body: |
+            ## Frozen Engine ${{ github.ref_name }}
+            
+            此版本包含以下平台的构建：
+            - Linux (.zip)
+            - Windows (.zip)
+            - macOS (.zip)
+            
+            自动构建于 ${{ github.event.head_commit.timestamp || github.run_started_at }}
+            
+      - name: Clean up temporary files
+        run: rm -rf ./release-files
