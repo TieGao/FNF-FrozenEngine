@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TextureAtlas imagePatheight="holdCover-Chip.png" width="251" height="1182">
+    <SubTexture name="holdCoverEnd0000" x="0" y="0" width="251" height="109"/>
+    <SubTexture name="holdCoverEnd0001" x="0" y="116" width="251" height="109"/>
+    <SubTexture name="holdCoverEnd0002" x="0" y="232" width="251" height="109"/>
+    <SubTexture name="holdCoverEnd0003" x="0" y="348" width="251" height="109"/>
+    <SubTexture name="holdCoverEnd0004" x="0" y="464" width="251" height="109"/>
+    <SubTexture name="holdCoverEnd0005" x="0" y="580" width="251" height="109"/>
+    <SubTexture name="holdCoverEnd0006" x="0" y="696" width="251" height="109"/>
+    <SubTexture name="holdCoverEnd0007" x="0" y="812" width="251" height="109"/>
+    <SubTexture name="holdCoverLoop0000" x="0" y="928" width="140" height="45"/>
+    <SubTexture name="holdCoverLoop0001" x="0" y="980" width="140" height="45"/>
+    <SubTexture name="holdCoverLoop0002" x="0" y="1032" width="140" height="45"/>
+    <SubTexture name="holdCoverLoop0003" x="0" y="1084" width="140" height="45"/>
+    <SubTexture name="holdCoverStart0000" x="147" y="1084" width="99" height="98"/>
+</TextureAtlas>

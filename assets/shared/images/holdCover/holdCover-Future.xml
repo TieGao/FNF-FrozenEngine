@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with TexturePacker https://www.codeandweb.com/texturepacker -->
+<!-- $TexturePacker:SmartUpdate:4c0a6f023d56a981576904de44aaafe0:97251e0cf7b7516f20ac147cc31d07ef:e84a33f94ce904acdc2713dfcb4b84a2$ -->
+<TextureAtlas imagePath="holdCover-Future.png" width="270" height="1904">
+    <SubTexture name="holdCoverEnd0000" x="0" y="0" width="270" height="238"/>
+    <SubTexture name="holdCoverEnd0001" x="0" y="248" width="270" height="238"/>
+    <SubTexture name="holdCoverEnd0002" x="0" y="496" width="270" height="238"/>
+    <SubTexture name="holdCoverEnd0003" x="0" y="744" width="270" height="238"/>
+    <SubTexture name="holdCoverEnd0004" x="0" y="992" width="270" height="238"/>
+    <SubTexture name="holdCoverEnd0005" x="0" y="1240" width="270" height="238"/>
+    <SubTexture name="holdCoverEnd0006" x="0" y="1240" width="1" height="1"/>
+    <SubTexture name="holdCoverLoop0000" x="0" y="1488" width="269" height="132"/>
+    <SubTexture name="holdCoverLoop0001" x="0" y="1630" width="269" height="132"/>
+    <SubTexture name="holdCoverLoop0002" x="0" y="1772" width="269" height="132"/>
+</TextureAtlas>
