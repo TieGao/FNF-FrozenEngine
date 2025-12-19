@@ -124,32 +124,23 @@ class KEOption
 					KEOptionsMenu.instance.openSubState(new options.KEKeyBindMenu());
 					return false;   
 				case "Reset KeyBinds":
-					// 如果有警告，返回false让菜单处理警告
-					if (hasWarning) {
-						return false;
-					}
 					ClientPrefs.resetKeys();
 					ClientPrefs.saveSettings();
 					return true;
 				case "Reset Settings":
-					// 如果有警告，返回false让菜单处理警告
-					if (hasWarning) {
-						return false;
-					}
 					ClientPrefs.data = ClientPrefs.defaultData;
 					ClientPrefs.saveSettings();
 					ClientPrefs.loadPrefs();
 					return true;
 				case "Reset Scores":
-					// 如果有警告，返回false让菜单处理警告
-					if (hasWarning) {
-						return false;
-					}
-					// 这里需要实现重置分数的逻辑
 					#if desktop
 					
 					#end
 					return true;
+				case "Adjust Delay and Combo":
+					MusicBeatState.switchState(new options.NoteOffsetState());
+					return false;
+
 			}
 			return true;
 		}
@@ -535,6 +526,7 @@ class KEOption
 		
 		option.acceptValues = (type == "int" || type == "float" || type == "string" && option.options.length > 0);
 		return option;
+
 	}
 
 	// 创建带选项列表的字符串选项的便捷方法

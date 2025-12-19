@@ -3,7 +3,6 @@ package backend;
 #if sys
 import sys.io.File;
 #end
-// 移除 Controls.Control 导入，因为可能不存在
 import flixel.FlxG;
 import openfl.events.IOErrorEvent;
 import openfl.events.Event;

@@ -13,7 +13,6 @@ class OptionsState extends MusicBeatState
 		'Visuals',
 		'Gameplay'
 		#if TRANSLATIONS_ALLOWED , 'Language' #end,
-		'KE Settings [BETA]'
 	];
 	private var grpOptions:FlxTypedGroup<Alphabet>;
 	private static var curSelected:Int = 0;
@@ -37,9 +36,6 @@ class OptionsState extends MusicBeatState
 				MusicBeatState.switchState(new options.NoteOffsetState());
 			case 'Language':
 				openSubState(new options.LanguageSubState());
-			case 'KE Settings [BETA]':
-				openSubState(new options.KEOptionsMenu());
-
 		}
 	}
 

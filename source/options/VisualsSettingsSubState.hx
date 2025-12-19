@@ -67,6 +67,26 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			option.onChange = onChangeSplashSkin;
 		}
 
+		var holdCovers:Array<String> = Mods.mergeAllTextsNamed('images/holdCover/list.txt');
+		if(holdCovers.length > 0)
+		{
+			if(!holdCovers.contains(ClientPrefs.data.holdCoverSkin))
+				ClientPrefs.data.holdCoverSkin = ClientPrefs.defaultData.holdCoverSkin; //Reset to default if saved splashskin couldnt be found
+
+			holdCovers.insert(0, ClientPrefs.defaultData.holdCoverSkin); //Default skin always comes first
+			var option:Option = new Option('Note holdCovers:',
+				"Select your prefered Note holdCover variation.",
+				'holdCoverSkin',
+				STRING,
+				holdCovers);
+			addOption(option);
+		}
+
+		var option:Option = new Option('Note Opacity',
+			'How much transparent should the Note be.',
+			'noteAlpha',
+			PERCENT);
+
 		var option:Option = new Option('Note Splash Opacity',
 			'How much transparent should the Note Splashes be.',
 			'splashAlpha',

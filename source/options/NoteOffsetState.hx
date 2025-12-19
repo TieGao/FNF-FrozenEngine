@@ -192,13 +192,7 @@ class NoteOffsetState extends MusicBeatState
 		}
 
 		#if !mobile
-    if (FlxG.mouse.justPressedRight)
-    {
-        FlxG.sound.play(Paths.sound('cancelMenu'));
-		MusicBeatState.switchState(new options.OptionsState());
-		FlxG.sound.playMusic(Paths.music('freakyMenu'));
-        return;
-    }
+
     #end
 
 		if(FlxG.gamepads.anyJustPressed(ANY)) controls.controllerMode = true;
@@ -409,13 +403,20 @@ class NoteOffsetState extends MusicBeatState
 			updateMode();
 		}
 
-		if(controls.BACK)
+		if(controls.BACK || FlxG.mouse.justPressedRight)
 		{
 			if(zoomTween != null) zoomTween.cancel();
 			if(beatTween != null) beatTween.cancel();
 
 			persistentUpdate = false;
+			if(ClientPrefs.data.keOptions)
+		{
+			MusicBeatState.switchState(new options.KEOptionsMenu());
+		}
+		else
+		{
 			MusicBeatState.switchState(new options.OptionsState());
+		}
 			if(OptionsState.onPlayState)
 			{
 				if(ClientPrefs.data.pauseMusic != 'None')

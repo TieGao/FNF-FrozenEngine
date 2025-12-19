@@ -5,11 +5,11 @@ import flixel.input.gamepad.FlxGamepad;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxTimer;
-import flixel.addons.display.FlxBackdrop;
 import states.MainMenuState;
+import backend.MusicBeatState;
 import backend.StageData;
 
-class KEOptionsMenu extends MusicBeatSubstate
+class KEOptionsMenu extends MusicBeatState
 {
 	public static var instance:KEOptionsMenu;
 
@@ -27,7 +27,8 @@ class KEOptionsMenu extends MusicBeatSubstate
 
 	var notes:Array<String> = Mods.mergeAllTextsNamed('images/noteSkins/list.txt');
 	var splashes:Array<String> = Mods.mergeAllTextsNamed('images/noteSplashes/list.txt');
-
+	var holdCovers:Array<String> = Mods.mergeAllTextsNamed('images/holdCover/list.txt');
+	
 	var changedOption:Bool = false;
 	public var descText:FlxText;
 	public var descBack:FlxSprite;
@@ -49,13 +50,18 @@ class KEOptionsMenu extends MusicBeatSubstate
 	// 防二次点击保护
 	var optionClickCooldown:Float = 0;
 	var optionClickProtected:Bool = false;
+	
+	// 可见选项数量
+	static var VISIBLE_OPTIONS:Int = 10;
 
 	public function new(pauseMenu:Bool = false)
 	{
 		super();
+
 		isInPause = pauseMenu;
 		notes.insert(0, ClientPrefs.defaultData.noteSkin);
 		splashes.insert(0, ClientPrefs.defaultData.splashSkin);
+		holdCovers.insert(0, ClientPrefs.defaultData.holdCoverSkin);
 	}
 
 	override function create()
@@ -77,7 +83,6 @@ class KEOptionsMenu extends MusicBeatSubstate
 			new KEOptionCata(50, 104, "Advanced", getAdvancedOptions())
 		];
 
-		instance = this;
 		shownStuff = new FlxTypedGroup<FlxText>();
 
 		// 创建彩色背景
@@ -92,11 +97,14 @@ class KEOptionsMenu extends MusicBeatSubstate
 		descBack.scrollFactor.set();
 		add(descBack);
 
-		var bg:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
-		bg.alpha = 0;
-		bg.scrollFactor.set();
-		add(bg);
-		cameras = [FlxG.cameras.list[FlxG.cameras.list.length - 1]];
+		if (isInPause)
+		{
+			var bg:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+			bg.alpha = 0;
+			bg.scrollFactor.set();
+			add(bg);
+			cameras = [FlxG.cameras.list[FlxG.cameras.list.length - 1]];
+		}
 
 		add(shownStuff);
 
@@ -123,7 +131,6 @@ class KEOptionsMenu extends MusicBeatSubstate
 		// 开始渐入动画
 		startFadeIn();
 		
-		super.create();
 
 		var colorArray:Array<FlxColor> = [
 			FlxColor.fromRGB(148, 0, 211),
@@ -144,27 +151,25 @@ class KEOptionsMenu extends MusicBeatSubstate
 		background.color = colorArray[currentColorIndex];
 
 		// 开始颜色渐变循环
-			function startColorCycle():Void
-			{
-				FlxTween.color(background, colorTransitionTime, background.color, colorArray[nextColorIndex], {
-					onComplete: function(twn:FlxTween)
-					{
-						// 更新颜色索引
-						currentColorIndex = nextColorIndex;
-						nextColorIndex = (nextColorIndex + 1) % colorArray.length;
-						
-						// 继续下一个渐变
-						startColorCycle();
-					}
-				});
-			}
+		function startColorCycle():Void
+		{
+			FlxTween.color(background, colorTransitionTime, background.color, colorArray[nextColorIndex], {
+				onComplete: function(twn:FlxTween)
+				{
+					// 更新颜色索引
+					currentColorIndex = nextColorIndex;
+					nextColorIndex = (nextColorIndex + 1) % colorArray.length;
+					
+					// 继续下一个渐变
+					startColorCycle();
+				}
+			});
+		}
 
-			// 开始循环
-			startColorCycle();
+		// 开始循环
+		startColorCycle();
 	}
 	
-	
-
 	// 渐入效果 - 还原原本的透明度
 	function startFadeIn()
 	{
@@ -174,9 +179,11 @@ class KEOptionsMenu extends MusicBeatSubstate
 		// 背景和UI元素淡入 - 使用原本的透明度值
 		FlxTween.tween(background, {alpha: isInPause ? 0.5 : 0.6}, 0.3, {ease: FlxEase.expoOut});
 		
-		var bg = members[members.length - 1]; // 获取暂停菜单的黑色背景
-		FlxTween.tween(bg, {alpha: 0.6}, 0.3, {ease: FlxEase.expoOut});
-		
+		if (isInPause)
+		{
+			var bg = members[members.length - 1]; // 获取暂停菜单的黑色背景
+			FlxTween.tween(bg, {alpha: 0.6}, 0.3, {ease: FlxEase.expoOut});
+		}
 		
 		// 描述背景和文字淡入 - 使用原本的透明度
 		FlxTween.tween(descBack, {alpha: 0.3}, 0.3, {ease: FlxEase.expoOut});
@@ -207,61 +214,9 @@ class KEOptionsMenu extends MusicBeatSubstate
 			}
 		}
 	}
-	
-	// 渐出效果并关闭菜单
-	public function closeMenu()
-	{
-		if (isClosing) return;
-		
-		isClosing = true;
-		FlxG.sound.play(Paths.sound('cancelMenu'));
-		
-		// 所有元素淡出
-		FlxTween.tween(background, {alpha: 0}, 0.3, {ease: FlxEase.expoIn});
-		FlxTween.tween(descBack, {alpha: 0}, 0.3, {ease: FlxEase.expoIn});
-		FlxTween.tween(descText, {alpha: 0}, 0.3, {ease: FlxEase.expoIn});
-		
-		if (isInPause)
-		{
-			var bg = members[members.length - 1];
-			FlxTween.tween(bg, {alpha: 0}, 0.3, {ease: FlxEase.expoIn});
-		}
-		
-		// 分类标题淡出
-		for (i in 0...options.length)
-		{
-			var cat = options[i];
-			FlxTween.tween(cat, {alpha: 0}, 0.3, {ease: FlxEase.expoIn});
-			FlxTween.tween(cat.titleObject, {alpha: 0}, 0.3, {ease: FlxEase.expoIn});
-		}
-		
-		// 当前分类的选项淡出
-		if (selectedCat != null && selectedCat.optionObjects != null)
-		{
-			for (option in selectedCat.optionObjects)
-			{
-				if (option != null)
-					FlxTween.tween(option, {alpha: 0}, 0.2, {ease: FlxEase.expoIn});
-			}
-		}
-		
-		// 黑色背景最后淡出
-		FlxTween.tween(blackBox, {alpha: 0}, 0.3, {ease: FlxEase.expoIn});
-		
-		// 使用计时器在动画完成后关闭
-		closeTimer = new FlxTimer().start(0.35, function(tmr:FlxTimer)
-		{
-			close();
-		});
-	}
 
 	override function destroy()
 	{
-		if (closeTimer != null)
-		{
-			closeTimer.cancel();
-			closeTimer = null;
-		}
 		super.destroy();
 	}
 
@@ -310,6 +265,7 @@ class KEOptionsMenu extends MusicBeatSubstate
 			KEOption.create("Health Bar Alpha", "Health bar transparency", "healthBarAlpha", "float", 1, 0, 1, 0.1),
 			KEOption.create("Note Skins" , "Select your prefered Note skin", "noteSkin","string" , notes),
 			KEOption.create("Note Splashes", "Select your prefered Note Splash variation","splashSkin","string", splashes),
+			KEOption.create("Note HoldCover", "Select your prefered Note Hold Cover","holdCoverSkin","string", holdCovers),
 			KEOption.create("Note Alpha", "Note transparency", "noteAlpha", "float", 0.6, 0, 1, 0.1),
 			KEOption.create("Note Splash Alpha", "Note splash transparency", "splashAlpha", "float", 0.6, 0, 1, 0.1),
 			KEOption.create("Combo Stacking", "Stack combo numbers", "comboStacking", "bool"),
@@ -330,7 +286,8 @@ class KEOptionsMenu extends MusicBeatSubstate
 		return [
 			KEOption.create("Open Note Colors", "Customize note colors", "", "action"),
 			KEOption.create("Open Controls", "Customize key bindings", "", "action"),
-			KEOption.create("Open KE Styled KeyBinds", "Customize key bindings in KE Styled Menu", "", "action"),   
+			KEOption.create("Open KE Styled KeyBinds", "Customize key bindings in KE Styled Menu", "", "action"),
+			KEOption.create("Adjust Delay and Combo", "Customize ingame experience", "", "action"),   
 			KEOption.create("Reset KeyBinds", "Reset to default keys", "", "action"),
 			KEOption.create("Reset Key", "Reset keybind", "reset", "keybind")
 		];
@@ -351,7 +308,7 @@ class KEOptionsMenu extends MusicBeatSubstate
 	// 分类切换函数
 	public function doSwitchToCat(cat:KEOptionCata, checkForOutOfBounds:Bool = true)
 	{
-		visibleRange = [164, 640];
+		// 重置滚动
 		scrollOffset = 0;
 		
 		// 清除前一个分类的高亮
@@ -384,10 +341,7 @@ class KEOptionsMenu extends MusicBeatSubstate
 		}
 
 		// 清空显示的内容
-		while (shownStuff.members.length > 0)
-		{
-			shownStuff.members.remove(shownStuff.members[0]);
-		}
+		shownStuff.clear();
 		
 		// 设置新分类
 		selectedCat = cat;
@@ -414,7 +368,7 @@ class KEOptionsMenu extends MusicBeatSubstate
 		}
 
 		// 计算最大滚动偏移
-		maxScrollOffset = Std.int(Math.max(0, selectedCat.options.length - 8));
+		maxScrollOffset = Std.int(Math.max(0, selectedCat.options.length - VISIBLE_OPTIONS));
 		
 		// 更新可见性并选择当前选项
 		updateOptionPositions();
@@ -429,22 +383,39 @@ class KEOptionsMenu extends MusicBeatSubstate
 		{
 			var object = selectedCat.optionObjects.members[i];
 			if(object != null && i < selectedCat.options.length) {
-				object.text = selectedCat.options[i].getValue();
+				var currentValue = selectedCat.options[i].getValue();
+				// 移除可能存在的 > 符号
+				if (currentValue.startsWith("> ")) {
+					object.text = currentValue.substring(2);
+				} else {
+					object.text = currentValue;
+				}
 			}
 		}
 		
 		// 为当前选中的选项添加 > 符号
 		var object = selectedCat.optionObjects.members[selectedOptionIndex];
 		if(object != null) {
-			object.text = "> " + selectedOption.getValue();
+			var currentValue = selectedOption.getValue();
+			// 检查是否已经包含 > 符号
+			if (!currentValue.startsWith("> ")) {
+				object.text = "> " + currentValue;
+			} else {
+				object.text = currentValue;
+			}
 			descText.text = selectedOption.getDescription();
 			descText.color = FlxColor.WHITE;
 		}
+		
+		// 确保选中项在可见区域内
+		ensureOptionVisible();
 	}
 
-	// 更新选项位置 - 修复版本
+	// 更新选项位置
 	function updateOptionPositions()
 	{
+		if (selectedCat == null || selectedCat.optionObjects == null) return;
+		
 		for (i in 0...selectedCat.optionObjects.members.length)
 		{
 			var optionText = selectedCat.optionObjects.members[i];
@@ -454,57 +425,78 @@ class KEOptionsMenu extends MusicBeatSubstate
 			var displayIndex = i - scrollOffset;
 			optionText.y = 120 + 54 + (46 * displayIndex);
 			
-			// 更新可见性 - 简化逻辑
-			if (optionText.y < visibleRange[0] - 24 || optionText.y > visibleRange[1] - 24)
+			// 判断是否在可见区域内
+			var isVisible = (displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS);
+			
+			if (isVisible)
 			{
-				// 超出可见范围，完全隐藏
-				optionText.alpha = 0.1;
-			}
-			else
-			{
-				// 在可见范围内
+				// 在可见区域内
 				if (i == selectedOptionIndex)
 				{
-					// 选中项完全可见
-					optionText.alpha = 1;
+					optionText.alpha = 1.0;
 				}
 				else
 				{
-					// 非选中项半透明
 					optionText.alpha = 0.6;
 				}
 			}
+			else
+			{
+				// 不在可见区域内，完全隐藏
+				optionText.alpha = 0;
+			}
+		}
+	}
+
+	// 确保选中项可见
+	private function ensureOptionVisible()
+	{
+		if (selectedOptionIndex < scrollOffset) {
+			// 选中项在滚动区域上方，向上滚动
+			scrollOffset = selectedOptionIndex;
+			updateOptionPositions();
+		} else if (selectedOptionIndex >= scrollOffset + VISIBLE_OPTIONS) {
+			// 选中项在滚动区域下方，向下滚动
+			scrollOffset = selectedOptionIndex - (VISIBLE_OPTIONS - 1);
+			updateOptionPositions();
 		}
 	}
 
 	// 滚动函数 - 支持长按
 	function scrollOptions(change:Int, isLongPress:Bool = false)
 	{
-		// 长按时使用更快的滚动速度
-		var scrollSpeed = isLongPress ? 3 : 1;
-		var newOffset = scrollOffset + (change * scrollSpeed);
+		if (selectedCat == null || selectedCat.options.length <= VISIBLE_OPTIONS) return;
 		
-		if (newOffset >= 0 && newOffset <= maxScrollOffset) {
-			scrollOffset = newOffset;
-			updateOptionPositions();
-			
-			// 确保选中项在可见范围内
-			if (selectedOptionIndex < scrollOffset) {
-				selectedOptionIndex = scrollOffset;
-				selectedOption = selectedCat.options[selectedOptionIndex];
-			} else if (selectedOptionIndex >= scrollOffset + 8) {
-				selectedOptionIndex = scrollOffset + 7;
-				selectedOption = selectedCat.options[selectedOptionIndex];
-			}
-			
+		var newOffset = scrollOffset + change;
+		
+		// 限制滚动范围
+		if (newOffset < 0) newOffset = 0;
+		if (newOffset > maxScrollOffset) newOffset = maxScrollOffset;
+		
+		// 如果滚动位置没有变化，直接返回
+		if (newOffset == scrollOffset) return;
+		
+		scrollOffset = newOffset;
+		
+		// 更新位置
+		updateOptionPositions();
+		
+		// 如果选中项不再可见，调整选中项索引
+		if (selectedOptionIndex < scrollOffset) {
+			selectedOptionIndex = scrollOffset;
+			selectedOption = selectedCat.options[selectedOptionIndex];
 			doSelectCurrentOption();
-			
-			// 长按时降低音量和频率
-			if (!isLongPress) {
-				FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
-			} else if (scrollHoldTime % 2 == 0) { // 长按时每2帧播放一次音效
-				FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
-			}
+		} else if (selectedOptionIndex >= scrollOffset + VISIBLE_OPTIONS) {
+			selectedOptionIndex = scrollOffset + (VISIBLE_OPTIONS - 1);
+			selectedOption = selectedCat.options[selectedOptionIndex];
+			doSelectCurrentOption();
+		}
+		
+		// 长按时降低音量和频率
+		if (!isLongPress) {
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
+		} else if (scrollHoldTime % 2 == 0) { // 长按时每2帧播放一次音效
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
 		}
 	}
 
@@ -527,7 +519,6 @@ class KEOptionsMenu extends MusicBeatSubstate
 		// 退出检测 - 添加鼠标右键支持
 		if (!isClosing && (controls.BACK || FlxG.mouse.justPressedRight))
 		{
-			
 			if(onMainMenuState && !onPlayState)
 			{
 				MusicBeatState.switchState(new MainMenuState());
@@ -543,14 +534,6 @@ class KEOptionsMenu extends MusicBeatSubstate
 			{
 				MusicBeatState.switchState(new MainMenuState());
 				onMainMenuState = false;
-			}
-			else if(!ClientPrefs.data.keOptions && !onMainMenuState)
-			{
-				closeMenu();
-			}
-			else
-			{
-				closeMenu();
 			}
 		}
 
@@ -662,6 +645,9 @@ class KEOptionsMenu extends MusicBeatSubstate
 				// 设置当前选中选项为悬停的选项
 				selectedOptionIndex = hoveredOptionIndex;
 				selectedOption = hoveredOptionIsValue;
+				
+				// 确保可见并更新显示
+				ensureOptionVisible();
 				updateOptionPositions();
 				doSelectCurrentOption();
 				
@@ -756,6 +742,9 @@ class KEOptionsMenu extends MusicBeatSubstate
 					// 设置新选项并更新高亮
 					selectedOptionIndex = i;
 					selectedOption = option;
+					
+					// 确保可见并更新显示
+					ensureOptionVisible();
 					updateOptionPositions();
 					doSelectCurrentOption();
 					
@@ -781,8 +770,12 @@ class KEOptionsMenu extends MusicBeatSubstate
 						FlxG.sound.play(Paths.sound('scrollMenu'));
 						selectedOptionIndex = i;
 						selectedOption = option;
+						
+						// 确保可见并更新显示
+						ensureOptionVisible();
 						updateOptionPositions();
 						doSelectCurrentOption();
+						
 						option.left();
 						ClientPrefs.saveSettings();
 						doSelectCurrentOption();
@@ -795,8 +788,12 @@ class KEOptionsMenu extends MusicBeatSubstate
 						FlxG.sound.play(Paths.sound('scrollMenu'));
 						selectedOptionIndex = i;
 						selectedOption = option;
+						
+						// 确保可见并更新显示
+						ensureOptionVisible();
 						updateOptionPositions();
 						doSelectCurrentOption();
+						
 						option.right();
 						ClientPrefs.saveSettings();
 						doSelectCurrentOption();
@@ -883,42 +880,50 @@ class KEOptionsMenu extends MusicBeatSubstate
 	// 处理上键
 	private function handleUpKey(isLongPress:Bool = false)
 	{
+		if (selectedCat == null || selectedCat.options.length == 0) return;
+		
 		if (selectedOptionIndex > 0) {
 			selectedOptionIndex--;
+			selectedOption = selectedCat.options[selectedOptionIndex];
 			
-			// 检查是否需要滚动
-			if (selectedOptionIndex < scrollOffset && scrollOffset > 0) {
-				scrollOptions(-1, isLongPress);
-			} else {
-				selectedOption = selectedCat.options[selectedOptionIndex];
-				updateOptionPositions();
-				doSelectCurrentOption();
-			}
+			// 确保选中项可见
+			ensureOptionVisible();
+			
+			// 更新显示
+			doSelectCurrentOption();
 			
 			if (!isLongPress) {
-				FlxG.sound.play(Paths.sound('scrollMenu'));
+				FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
 			}
+		} else if (isLongPress && scrollOffset > 0) {
+			// 如果在顶部且长按，向上滚动
+			scrollOptions(-1, isLongPress);
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
 		}
 	}
 	
 	// 处理下键
 	private function handleDownKey(isLongPress:Bool = false)
 	{
+		if (selectedCat == null || selectedCat.options.length == 0) return;
+		
 		if (selectedOptionIndex < selectedCat.options.length - 1) {
 			selectedOptionIndex++;
+			selectedOption = selectedCat.options[selectedOptionIndex];
 			
-			// 检查是否需要滚动
-			if (selectedOptionIndex >= scrollOffset + 8 && scrollOffset < maxScrollOffset) {
-				scrollOptions(1, isLongPress);
-			} else {
-				selectedOption = selectedCat.options[selectedOptionIndex];
-				updateOptionPositions();
-				doSelectCurrentOption();
-			}
+			// 确保选中项可见
+			ensureOptionVisible();
+			
+			// 更新显示
+			doSelectCurrentOption();
 			
 			if (!isLongPress) {
-				FlxG.sound.play(Paths.sound('scrollMenu'));
+				FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
 			}
+		} else if (isLongPress && scrollOffset < maxScrollOffset) {
+			// 如果在底部且长按，向下滚动
+			scrollOptions(1, isLongPress);
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
 		}
 	}
 	
@@ -927,14 +932,14 @@ class KEOptionsMenu extends MusicBeatSubstate
 	{
 		if (selectedOption.getAccept())
 		{
-			FlxG.sound.play(Paths.sound('scrollMenu'));
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
 			selectedOption.right();
 			ClientPrefs.saveSettings();
 			doSelectCurrentOption();
 		}
 		else
 		{
-			FlxG.sound.play(Paths.sound('scrollMenu'));
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
 			selectedCatIndex++;
 			if (selectedCatIndex >= options.length)
 				selectedCatIndex = 0;
@@ -947,14 +952,14 @@ class KEOptionsMenu extends MusicBeatSubstate
 	{
 		if (selectedOption.getAccept())
 		{
-			FlxG.sound.play(Paths.sound('scrollMenu'));
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
 			selectedOption.left();
 			ClientPrefs.saveSettings();
 			doSelectCurrentOption();
 		}
 		else
 		{
-			FlxG.sound.play(Paths.sound('scrollMenu'));
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
 			selectedCatIndex--;
 			if (selectedCatIndex < 0)
 				selectedCatIndex = options.length - 1;

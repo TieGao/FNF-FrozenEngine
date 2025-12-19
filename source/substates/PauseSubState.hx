@@ -448,7 +448,7 @@ class PauseSubState extends MusicBeatSubstate
 				PlayState.instance.canResync = false;
 				if(ClientPrefs.data.keOptions)
 				{
-					MusicBeatState.switchState(new KEOptionsMenu());
+					MusicBeatState.switchState(new options.KEOptionsMenu());
 				}
 				else
 				{
@@ -587,4 +587,5 @@ class PauseSubState extends MusicBeatSubstate
 		if(skipTimeText != null)
 			skipTimeText.text = FlxStringUtil.formatTime(Math.max(0, Math.floor(curTime / 1000)), false) + ' / ' + FlxStringUtil.formatTime(Math.max(0, Math.floor(FlxG.sound.music.length / 1000)), false);
 	}
+	
 }

@@ -17,6 +17,7 @@ import states.TitleState;
 	public var antialiasing:Bool = true;
 	public var noteSkin:String = 'Default';
 	public var splashSkin:String = 'Psych';
+	public var holdCoverSkin:String = 'Default';
 	public var noteAlpha:Float = 0.6;
 	public var splashAlpha:Float = 0.6;
 	public var lowQuality:Bool = false;

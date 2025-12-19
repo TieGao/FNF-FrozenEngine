@@ -171,6 +171,7 @@ class PlayState extends MusicBeatState
 	public var opponentStrums:FlxTypedGroup<StrumNote> = new FlxTypedGroup<StrumNote>();
 	public var playerStrums:FlxTypedGroup<StrumNote> = new FlxTypedGroup<StrumNote>();
 	public var grpNoteSplashes:FlxTypedGroup<NoteSplash> = new FlxTypedGroup<NoteSplash>();
+	public var noteHoldCover:NoteHoldCover;
 
 	public var camZooming:Bool = false;
 	public var camZoomingMult:Float = 1;
@@ -203,6 +204,7 @@ class PlayState extends MusicBeatState
 	public var instakillOnMiss:Bool = false;
 	public var cpuControlled:Bool = false;
 	public var practiceMode:Bool = false;
+	public var opponentMode:Bool = false;
 	public var pressMissDamage:Float = 0.05;
 
 	public var botplaySine:Float = 0;
@@ -329,6 +331,7 @@ class PlayState extends MusicBeatState
 		instakillOnMiss = ClientPrefs.getGameplaySetting('instakill');
 		practiceMode = ClientPrefs.getGameplaySetting('practice');
 		cpuControlled = ClientPrefs.getGameplaySetting('botplay');
+		opponentMode = ClientPrefs.getGameplaySetting('opponentplay');
 		guitarHeroSustains = ClientPrefs.data.guitarHeroSustains;
 
 		// var gameCam:FlxCamera = FlxG.camera;
@@ -498,9 +501,11 @@ class PlayState extends MusicBeatState
 
 		uiGroup = new FlxSpriteGroup();
 		comboGroup = new FlxSpriteGroup();
+		videoGroup = new FlxSpriteGroup();
 		noteGroup = new FlxTypedGroup<FlxBasic>();
 		add(comboGroup);
 		add(uiGroup);
+		add(videoGroup);
 		add(noteGroup);
 
 		Conductor.songPosition = -Conductor.crochet * 5 + Conductor.offset;
@@ -529,6 +534,8 @@ class PlayState extends MusicBeatState
 
 		noteGroup.add(strumLineNotes);
 
+		noteHoldCover = new NoteHoldCover();
+		noteGroup.add(noteHoldCover);
 		if(ClientPrefs.data.timeBarType == 'Song Name')
 		{
 			timeTxt.size = 24;
@@ -619,6 +626,7 @@ class PlayState extends MusicBeatState
 
 		uiGroup.cameras = [camHUD];
 		noteGroup.cameras = [camHUD];
+		videoGroup.cameras = [camHUD];
 		comboGroup.cameras = [camHUD];
 
 		startingSong = true;
@@ -985,6 +993,109 @@ class PlayState extends MusicBeatState
 		return null;
 	}
 
+			#if VIDEOS_ALLOWED
+			public var midSongVideo:VideoSprite = null;
+			#end
+			public function playMidSongVideo(videoName:String, canSkip:Bool = false, loop:Bool = false, ?callback:String):Bool {
+		#if VIDEOS_ALLOWED
+		var fileName:String = Paths.video(videoName);
+		var foundFile:Bool = false;
+		
+		#if sys
+		if (FileSystem.exists(fileName))
+		#else
+		if (OpenFlAssets.exists(fileName))
+		#end
+		foundFile = true;
+
+		if (!foundFile) {
+			trace('Video file not found: ' + fileName);
+			return false;
+		}
+		
+		// Remove existing midSongVideo
+		if (midSongVideo != null) {
+			// Try to stop if playing
+			if (midSongVideo.videoSprite != null && midSongVideo.videoSprite.bitmap != null) {
+				midSongVideo.videoSprite.bitmap.stop();
+			}
+			// Remove from game
+			if (members.contains(midSongVideo)) {
+				remove(midSongVideo);
+			}
+			midSongVideo.destroy();
+		}
+		
+		// Create new VideoSprite
+		midSongVideo = new VideoSprite(fileName, true, canSkip, loop);
+		
+		// Set playback rate
+		if (midSongVideo.videoSprite != null && midSongVideo.videoSprite.bitmap != null) {
+			midSongVideo.videoSprite.bitmap.rate = playbackRate;
+		}
+		
+		// Configure video properties
+		midSongVideo.cameras = [camHUD];
+		midSongVideo.scrollFactor.set(1, 1);
+		
+		// Position and size
+		midSongVideo.x = 0;
+		midSongVideo.y = 0;
+		midSongVideo.setGraphicSize(Std.int(FlxG.width));
+		midSongVideo.updateHitbox();
+		
+		// Set finish callback
+		midSongVideo.finishCallback = function() {
+			trace('Video finished: ' + videoName);
+			
+			// Lua callback
+			if (callback != null && callback.length > 0) {
+				callOnLuas(callback, [videoName]);
+			}
+		};
+		
+		// Set skip callback (if skippable)
+		if (canSkip) {
+			midSongVideo.onSkip = function() {
+				trace('Video skipped: ' + videoName);
+				
+				// Lua callback for skip
+				if (callback != null && callback.length > 0) {
+					callOnLuas(callback + 'Skip', [videoName]);
+				}
+			};
+		}
+		
+		// Add to game at correct position
+		// Find strumLineNotes position
+		var arrowIndex:Int = -1;
+		for (i in 0...members.length) {
+			if (members[i] == strumLineNotes) {
+				arrowIndex = i;
+				break;
+			}
+		}
+		
+		if (arrowIndex > 0) {
+			// Insert before arrows
+			insert(arrowIndex, midSongVideo);
+		} else {
+			// Add to game
+			videoGroup.add(midSongVideo);
+		}
+		
+
+		// Play video
+		midSongVideo.play();
+
+		trace('Playing mid-song video: ' + videoName);
+		return true;
+		#else
+		trace('Videos not allowed on this platform');
+		return false;
+		#end
+	}
+
 	function startAndEnd()
 	{
 		if(endingSong)
@@ -1321,8 +1432,7 @@ class PlayState extends MusicBeatState
             textObj.borderSize = 2.00;
             textObj.visible = !ClientPrefs.data.hideHud;
             add(textObj);
-			uiGroup.add(textObj);
-            
+            uiGroup.add(textObj);
             Reflect.setField(this, textInfo.obj, textObj);
         }
 		}
@@ -2870,6 +2980,7 @@ class PlayState extends MusicBeatState
 	public var comboGroup:FlxSpriteGroup;
 	// Stores HUD Objects in a Group
 	public var uiGroup:FlxSpriteGroup;
+	public var videoGroup:FlxSpriteGroup;
 	// Stores Note Objects in a Group
 	public var noteGroup:FlxTypedGroup<FlxBasic>;
 
@@ -3434,6 +3545,17 @@ private function keysCheck():Void
     var result:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
     if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('opponentNoteHit', [note]);
 
+	if (note.isSustainNote && noteHoldCover != null)
+	{
+		if (opponentMode)
+		{
+		noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+		}
+		else
+		{
+		noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+		}
+	}
     if (!note.isSustainNote) invalidateNote(note);
 }
 
@@ -3569,6 +3691,18 @@ private function keysCheck():Void
         noteMiss(note);
         if(!note.noteSplashData.disabled && !note.isSustainNote) spawnNoteSplashOnNote(note);
     }
+
+		if (note.isSustainNote && noteHoldCover != null)
+	{
+		if (opponentMode)
+		{
+		noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+		}
+		else
+		{
+		noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+		}
+	}
 
     stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
     var result:Dynamic = callOnLuas('goodNoteHit', [notes.members.indexOf(note), leData, leType, isSus]);

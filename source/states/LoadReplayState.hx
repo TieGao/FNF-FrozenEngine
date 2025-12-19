@@ -123,14 +123,12 @@ class LoadReplayState extends MusicBeatState
     {
         trace('Loading replay: $filename');
         
-        // 加载回放
         PlayState.rep = Replay.LoadReplay(filename);
         PlayState.loadRep = true;
         PlayState.rep.startPlayback();
         
         // 切换到对应歌曲的PlayState
         // 这里需要根据回放文件中的歌曲信息加载对应的歌曲
-        // 简化版：直接使用当前选中的歌曲
         LoadingState.loadAndSwitchState(new PlayState());
     }
     
