@@ -6,16 +6,20 @@ import flixel.FlxState;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import flixel.group.FlxGroup.FlxTypedGroup;
-import flixel.addons.transition.FlxTransitionableState;
 import backend.Replay;
 import sys.FileSystem;
-import sys.io.File;
+import backend.Song;
+import backend.Difficulty;
+import backend.ClientPrefs;
 
 class LoadReplayState extends MusicBeatState
 {
     var grpReplays:FlxTypedGroup<Alphabet>;
     var replays:Array<String> = [];
     var curSelected:Int = 0;
+    
+    var infoText:FlxText;
+    var noReplaysText:FlxText;
     
     override function create()
     {
@@ -27,41 +31,81 @@ class LoadReplayState extends MusicBeatState
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
         
-        #if sys
         // 读取回放文件
+        loadReplays();
+        
+        grpReplays = new FlxTypedGroup<Alphabet>();
+        add(grpReplays);
+        
+        createReplayList();
+        
+        // 信息文本
+        infoText = new FlxText(5, FlxG.height - 44, FlxG.width - 10, 
+            "ENTER - Load | BACK - Return | F - Delete", 16);
+        infoText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        infoText.borderSize = 2;
+        add(infoText);
+        
+        // 无回放文本
+        noReplaysText = new FlxText(0, FlxG.height / 2 - 20, FlxG.width, 
+            "No Replays Found\nPress BACK to return", 24);
+        noReplaysText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        noReplaysText.borderSize = 2;
+        noReplaysText.visible = (replays.length == 0);
+        add(noReplaysText);
+        
+        changeSelection();
+        
+        super.create();
+    }
+    
+    function loadReplays()
+    {
+        #if sys
+        replays = [];
+        
         var replayDir = "assets/replays/";
         if (FileSystem.exists(replayDir)) {
-            for (file in FileSystem.readDirectory(replayDir)) {
+            var files = FileSystem.readDirectory(replayDir);
+            files.sort(function(a:String, b:String):Int {
+                var aTime = getFileTime(a);
+                var bTime = getFileTime(b);
+                return Std.int(bTime - aTime);
+            });
+            
+            for (file in files) {
                 if (file.endsWith(".kadeReplay")) {
                     replays.push(file);
                 }
             }
         }
         #end
-        
-        if (replays.length == 0) {
-            replays.push("No Replays Found");
+    }
+    
+    function getFileTime(filename:String):Float
+    {
+        var timeMatch = ~/time(\d+)\.kadeReplay$/;
+        if (timeMatch.match(filename)) {
+            return Std.parseFloat(timeMatch.matched(1));
         }
+        return 0;
+    }
+    
+    function createReplayList()
+    {
+        grpReplays.clear();
         
-        grpReplays = new FlxTypedGroup<Alphabet>();
-        add(grpReplays);
-        
-        for (i in 0...replays.length) {
-            var replayText:Alphabet = new Alphabet(0, (70 * i) + 30, replays[i], true, false);
+        for (i in 0...replays.length)
+        {
+            var displayName:String = replays[i];
+            displayName = displayName.replace("replay-", "").replace(".kadeReplay", "");
+            displayName = displayName.replace("_", " ");
+            
+            var replayText:Alphabet = new Alphabet(0, (70 * i) + 30, displayName, true);
             replayText.isMenuItem = true;
             replayText.targetY = i;
             grpReplays.add(replayText);
         }
-        
-        var infoText = new FlxText(5, FlxG.height - 64, FlxG.width - 10, 
-            "SELECT - Load Replay | BACK - Return | F - Delete Replay", 16);
-        infoText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-        infoText.borderSize = 2;
-        add(infoText);
-        
-        changeSelection();
-        
-        super.create();
     }
     
     override function update(elapsed:Float)
@@ -82,13 +126,13 @@ class LoadReplayState extends MusicBeatState
         }
         
         if (controls.ACCEPT) {
-            if (replays[curSelected] != "No Replays Found") {
+            if (replays.length > 0) {
                 loadReplay(replays[curSelected]);
             }
         }
         
         if (FlxG.keys.justPressed.F) {
-            if (replays[curSelected] != "No Replays Found") {
+            if (replays.length > 0) {
                 deleteReplay(replays[curSelected]);
             }
         }
@@ -96,6 +140,8 @@ class LoadReplayState extends MusicBeatState
     
     function changeSelection(change:Int = 0)
     {
+        if (replays.length == 0) return;
+        
         curSelected += change;
         
         if (curSelected < 0)
@@ -123,13 +169,79 @@ class LoadReplayState extends MusicBeatState
     {
         trace('Loading replay: $filename');
         
-        PlayState.rep = Replay.LoadReplay(filename);
-        PlayState.loadRep = true;
-        PlayState.rep.startPlayback();
+        // 加载回放
+        var rep:Replay = Replay.LoadReplay(filename);
         
-        // 切换到对应歌曲的PlayState
-        // 这里需要根据回放文件中的歌曲信息加载对应的歌曲
-        LoadingState.loadAndSwitchState(new PlayState());
+        if (rep != null && rep.isValid())
+        {
+            trace('Successfully loaded replay: ${rep.replay.songName}');
+            
+            // 设置模组目录
+            var modPath:String = rep.replay.chartPath;
+            #if MODS_ALLOWED
+            if (modPath != null && modPath.length > 0 && modPath != "null")
+            {
+                Mods.currentModDirectory = modPath;
+            }
+            else
+            {
+                Mods.currentModDirectory = "";
+            }
+            #end
+            
+            // 设置到 PlayState
+            PlayState.rep = rep;
+            PlayState.loadRep = true;
+            
+            // 加载歌曲
+            try
+            {
+                var songName:String = rep.replay.songName;
+                var songDiff:Int = rep.replay.songDiff;
+                var difficulty:String = Difficulty.getFilePath(songDiff);
+                
+                var loadedSong:SwagSong = Song.loadFromJson(songName + difficulty, songName);
+                
+                if (loadedSong != null)
+                {
+                    PlayState.storyDifficulty = songDiff;
+                    PlayState.isStoryMode = false;
+                    
+                    // 切换到PlayState
+                    FlxG.sound.music.stop();
+                    LoadingState.loadAndSwitchState(new PlayState());
+                    return;
+                }
+            }
+            catch(e:Dynamic)
+            {
+                trace('Error loading song: $e');
+            }
+            
+            // 显示错误
+            FlxG.sound.play(Paths.sound('cancelMenu'));
+            showError("Failed to load replay song!");
+        }
+        else
+        {
+            FlxG.sound.play(Paths.sound('cancelMenu'));
+            showError("Invalid replay file!");
+        }
+    }
+    
+    function showError(message:String):Void
+    {
+        var errorMsg:FlxText = new FlxText(0, FlxG.height / 2 - 30, FlxG.width, 
+            message, 20);
+        errorMsg.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
+        errorMsg.borderSize = 2;
+        errorMsg.screenCenter(X);
+        add(errorMsg);
+        
+        new FlxTimer().start(3, function(tmr:FlxTimer) {
+            remove(errorMsg);
+            errorMsg.destroy();
+        });
     }
     
     function deleteReplay(filename:String):Void
@@ -141,7 +253,19 @@ class LoadReplayState extends MusicBeatState
             trace('Deleted replay: $filename');
             
             // 刷新列表
-            create();
+            loadReplays();
+            createReplayList();
+            
+            // 重置选择
+            if (replays.length > 0)
+            {
+                curSelected = 0;
+                changeSelection(0);
+            }
+            else
+            {
+                noReplaysText.visible = true;
+            }
         }
         #end
     }

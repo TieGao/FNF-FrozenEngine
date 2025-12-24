@@ -55,7 +55,7 @@ import states.TitleState;
 	public var songText:Bool = true;
 	public var ImpStory:Bool = false;
 	public var scoreScreen:Bool = true;
-	public var keOptions:Bool = false;
+	public var keOptions:Bool = true;
 	public var gradientTimeBar:Bool = true;
 	public var gameplaySettings:Map<String, Dynamic> = [
 		'scrollspeed' => 1.0,
@@ -89,6 +89,7 @@ import states.TitleState;
 	public var discordRPC:Bool = true;
 	public var loadingScreen:Bool = true;
 	public var language:String = 'en-US';
+	public var saveReplays:Bool = true;
 }
 
 class ClientPrefs {

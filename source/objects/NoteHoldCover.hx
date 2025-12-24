@@ -33,7 +33,7 @@ class NoteHoldCover extends FlxTypedSpriteGroup<FlxSprite>
     // 静态默认配置
     static var defaultImagePath:String = "holdCover/holdCover";
     static var defaultHoldAnim:String = "holdCoverLoop";
-    static var defaultHoldOffset:FlxPoint = new FlxPoint(5, 10);
+    static var defaultHoldOffset:FlxPoint = new FlxPoint(-3, 7);
     static var defaultEndAnim:String = "holdCoverEnd";
     static var defaultEndOffset:FlxPoint = new FlxPoint(42, 35);
     static var defaultScaleVal:FlxPoint = new FlxPoint(0.9, 0.9);
@@ -92,93 +92,143 @@ class NoteHoldCover extends FlxTypedSpriteGroup<FlxSprite>
         coverAlpha = defaultAlphaVal;
     }
     
-    /**
-     * 加载皮肤配置
-     */
-    function loadSkin():Void
+   /**
+ * 加载皮肤配置 - 精简版：只保留带连字符和大写格式
+ */
+function loadSkin():Void
+{
+    var isPixelStage:Bool = PlayState.isPixelStage;
+    var skinName:String = ClientPrefs.data.holdCoverSkin;
+    
+    trace('Loading holdCover skin: "$skinName", pixelStage: $isPixelStage');
+    
+    // 构建可能的JSON文件路径数组，按优先级排序
+    var possiblePaths:Array<String> = [];
+    
+    // 1. 首先尝试assets目录的自定义皮肤（最高优先级）
+    if (skinName != null && skinName.trim() != "" && skinName != "default")
     {
-        var isPixelStage:Bool = PlayState.isPixelStage;
-        var skinPostfix:String = "";
+        var cleanSkinName = skinName.trim();
+        // 确保首字母大写
+        var formattedName = cleanSkinName.charAt(0).toUpperCase() + cleanSkinName.substr(1).toLowerCase();
         
-        // 获取皮肤后缀
-        if (ClientPrefs.data.holdCoverSkin != null && ClientPrefs.data.holdCoverSkin != "")
-        {
-            skinPostfix = '-' + ClientPrefs.data.holdCoverSkin.trim().toLowerCase().replace(' ', '-');
-        }
-        
-        // 检查文件是否存在
-        var jsonPath:String;
+        // assets目录的自定义皮肤 - 只保留带连字符格式
         if (isPixelStage)
         {
-            jsonPath = 'images/pixelUI/holdCover/holdCover${skinPostfix}.json';
-            if (!Paths.fileExists(jsonPath, TEXT))
-            {
-                // 尝试默认像素皮肤
-                jsonPath = 'images/pixelUI/holdCover/holdCover.json';
-            }
+            possiblePaths.push('images/pixelUI/holdCover/holdCover-${formattedName}.json');
         }
         else
         {
-            jsonPath = 'images/holdCover/holdCover${skinPostfix}.json';
-            if (!Paths.fileExists(jsonPath, TEXT))
-            {
-                // 尝试默认皮肤
-                jsonPath = 'images/holdCover/holdCover.json';
-            }
+            possiblePaths.push('images/holdCover/holdCover-${formattedName}.json');
         }
-        
-        // 加载JSON配置
+    }
+    
+    // 2. assets目录的默认配置
+    if (isPixelStage)
+    {
+        possiblePaths.push('images/pixelUI/holdCover/holdCover.json');
+    }
+    else
+    {
+        possiblePaths.push('images/holdCover/holdCover.json');
+    }
+    
+    // 3. 最后才检查mods目录（最低优先级）
+    if (skinName != null && skinName.trim() != "" && skinName != "default")
+    {
+        var cleanSkinName = skinName.trim();
+        var formattedName = cleanSkinName.charAt(0).toUpperCase() + cleanSkinName.substr(1).toLowerCase();
+        possiblePaths.push('mods/holdcovers/holdCover-${formattedName}.json');
+    }
+    
+    // 默认mods配置（最低优先级）
+    possiblePaths.push('mods/holdcovers/holdCover.json');
+    
+    // 调试：打印搜索路径
+    trace('Searching for holdCover config in:');
+    for (i in 0...possiblePaths.length)
+    {
+        trace('  [${i+1}] ${possiblePaths[i]}');
+    }
+    
+    // 尝试加载配置
+    for (jsonPath in possiblePaths)
+    {
         if (Paths.fileExists(jsonPath, TEXT))
         {
-            try
+            if (loadConfigFromFile(jsonPath))
             {
-                var jsonData:String = Paths.getTextFromFile(jsonPath);
-                var parsed:Dynamic = haxe.Json.parse(jsonData);
-                
-                coverImagePath = parsed.imagePath;
-                coverHoldAnim = parsed.holdAnim;
-                
-                if (parsed.holdOffset != null && parsed.holdOffset.length >= 2)
-                {
-                    coverHoldOffset.set(parsed.holdOffset[0], parsed.holdOffset[1]);
-                }
-                
-                coverEndAnim = parsed.endAnim;
-                
-                if (parsed.endOffset != null && parsed.endOffset.length >= 2)
-                {
-                    coverEndOffset.set(parsed.endOffset[0], parsed.endOffset[1]);
-                }
-                
-                if (parsed.scale != null && parsed.scale.length >= 2)
-                {
-                    coverScale.set(parsed.scale[0], parsed.scale[1]);
-                }
-                
-                if (parsed.fps != null) coverFps = parsed.fps;
-                if (parsed.alphaVal != null) coverAlpha = parsed.alphaVal;
-                else if (parsed.alpha != null) coverAlpha = parsed.alpha; // 向后兼容
-                
-                // 如果是像素舞台，确保路径正确
+                trace('Loaded holdCover config from: $jsonPath');
+                // 如果是像素舞台且路径需要调整
                 if (isPixelStage && !coverImagePath.startsWith("pixelUI/"))
                 {
-                    coverImagePath = "pixelUI/" + coverImagePath;
+                    if (!coverImagePath.startsWith("pixelUI/") && !coverImagePath.contains("pixelUI/"))
+                    {
+                        coverImagePath = "pixelUI/" + coverImagePath;
+                    }
                 }
-            }
-            catch (e:Dynamic)
-            {
-                trace('Error loading holdCover config: $e');
+                return;
             }
         }
-        else if (isPixelStage)
+    }
+    
+    // 如果所有配置都没找到，使用硬编码默认值
+    if (isPixelStage)
+    {
+        coverImagePath = "pixelUI/holdCover/holdCover";
+        coverHoldAnim = "pixel hold";
+        coverHoldOffset.set(-40, -20);
+        coverEndAnim = "Splash";
+        coverEndOffset.set(60, 97);
+        coverScale.set(6, 6);
+        coverFps = 24;
+        coverAlpha = 1.0;
+        
+        trace('Using default pixel holdCover config');
+    }
+}
+    
+    /**
+     * 从文件加载配置
+     */
+    function loadConfigFromFile(jsonPath:String):Bool
+    {
+        try
         {
-            // 像素舞台默认值
-            coverImagePath = "pixelUI/holdCover/holdCover";
-            coverHoldAnim = "pixel hold";
-            coverHoldOffset.set(-40, -20);
-            coverEndAnim = "Splash";
-            coverEndOffset.set(60, 97);
-            coverScale.set(6, 6);
+            var jsonData:String = Paths.getTextFromFile(jsonPath);
+            var parsed:Dynamic = haxe.Json.parse(jsonData);
+            
+            coverImagePath = parsed.imagePath;
+            coverHoldAnim = parsed.holdAnim;
+            
+            if (parsed.holdOffset != null && parsed.holdOffset.length >= 2)
+            {
+                coverHoldOffset.set(parsed.holdOffset[0], parsed.holdOffset[1]);
+            }
+            
+            coverEndAnim = parsed.endAnim;
+            
+            if (parsed.endOffset != null && parsed.endOffset.length >= 2)
+            {
+                coverEndOffset.set(parsed.endOffset[0], parsed.endOffset[1]);
+            }
+            
+            if (parsed.scale != null && parsed.scale.length >= 2)
+            {
+                coverScale.set(parsed.scale[0], parsed.scale[1]);
+            }
+            
+            if (parsed.fps != null) coverFps = parsed.fps;
+            if (parsed.alphaVal != null) coverAlpha = parsed.alphaVal;
+            else if (parsed.alpha != null) coverAlpha = parsed.alpha; // 向后兼容
+            
+            // 仅保留读取到的文件信息
+            trace('Loaded holdCover config from: $jsonPath');
+            return true;
+        }
+        catch (e:Dynamic)
+        {
+            return false;
         }
     }
     
@@ -234,55 +284,64 @@ class NoteHoldCover extends FlxTypedSpriteGroup<FlxSprite>
         }
     }
     
-    /**
-     * 创建单个精灵
-     */
-    function createSprite(index:Int, isPlayer:Bool):FlxSprite
+   /**
+ * 创建单个精灵
+ */
+function createSprite(index:Int, isPlayer:Bool):FlxSprite
+{
+    var sprite = new FlxSprite();
+    sprite.animation = new PsychAnimationController(sprite);
+    
+    try
     {
-        var sprite = new FlxSprite();
-        sprite.animation = new PsychAnimationController(sprite);
-        
-        try
+        var frames = Paths.getSparrowAtlas(coverImagePath);
+        if (frames != null)
         {
-            var frames = Paths.getSparrowAtlas(coverImagePath);
-            if (frames != null)
+            sprite.frames = frames;
+            
+            // 添加动画 - 使用正确的帧率
+            sprite.animation.addByPrefix('Loop', coverHoldAnim, coverFps, true);  // 循环
+            sprite.animation.addByPrefix('End', coverEndAnim, coverFps, false);   // 不循环
+            
+            // 设置缩放
+            sprite.scale.set(coverScale.x, coverScale.y);
+            sprite.updateHitbox();
+            
+            // 像素舞台特殊处理：关闭抗锯齿
+            if (PlayState.isPixelStage)
             {
-                sprite.frames = frames;
-                
-                // 添加动画 - 使用正确的帧率
-                sprite.animation.addByPrefix('Loop', coverHoldAnim, coverFps, true);  // 循环
-                sprite.animation.addByPrefix('End', coverEndAnim, coverFps, false);   // 不循环
-                
-                // 设置缩放
-                sprite.scale.set(coverScale.x, coverScale.y);
-                sprite.updateHitbox();
-                
-                // 动画完成回调 - 像Lua一样
-                sprite.animation.finishCallback = function(name:String) {
-                    if (name == 'End')
-                    {
-                        // End动画完成后隐藏
-                        sprite.visible = false;
-                    }
-                    // Loop动画会一直循环，不会触发完成回调
-                };
+                sprite.antialiasing = false;
             }
-            else
-            {
-                trace('Failed to load holdCover frames: $coverImagePath');
-                // 创建占位符
-                sprite.makeGraphic(100, 100, isPlayer ? 0xFFFF0000 : 0xFF0000FF);
-            }
+            
+            // 动画完成回调
+            sprite.animation.finishCallback = function(name:String) {
+                if (name == 'End')
+                {
+                    // End动画完成后隐藏
+                    sprite.visible = false;
+                }
+            };
+            
+            // 初始播放End动画并隐藏
+            sprite.animation.play('End', true);
+            sprite.visible = false;
         }
-        catch (e:Dynamic)
+        else
         {
-            trace('Failed to create holdCover sprite: $e');
+            trace('Failed to load holdCover frames: $coverImagePath');
             // 创建占位符
-            sprite.makeGraphic(100, 100, isPlayer ? 0xFF00FF00 : 0xFFFFFF00);
+            sprite.makeGraphic(100, 100, isPlayer ? 0xFFFF0000 : 0xFF0000FF);
         }
-        
-        return sprite;
     }
+    catch (e:Dynamic)
+    {
+        trace('Failed to create holdCover sprite: $e');
+        // 创建占位符
+        sprite.makeGraphic(100, 100, isPlayer ? 0xFF00FF00 : 0xFFFFFF00);
+    }
+    
+    return sprite;
+}
     
     /**
      * 设置默认颜色
@@ -327,26 +386,26 @@ class NoteHoldCover extends FlxTypedSpriteGroup<FlxSprite>
     }
     
     /**
- * 从音符更新颜色 - 完全按照音符的颜色
- */
-function updateColorsFromNote(noteData:Int, note:Note, isPlayer:Bool):Void
-{
-    var shader = isPlayer ? playerShaders[noteData] : opponentShaders[noteData];
-    
-    // 总是使用音符的颜色（包括特殊音符类型的白色）
-    if (note.rgbShader != null)
+     * 从音符更新颜色 - 完全按照音符的颜色
+     */
+    function updateColorsFromNote(noteData:Int, note:Note, isPlayer:Bool):Void
     {
-        // 直接使用音符的 rgbShader 颜色
-        shader.r = note.rgbShader.r;
-        shader.g = note.rgbShader.g;
-        shader.b = note.rgbShader.b;
+        var shader = isPlayer ? playerShaders[noteData] : opponentShaders[noteData];
+        
+        // 总是使用音符的颜色（包括特殊音符类型的白色）
+        if (note.rgbShader != null)
+        {
+            // 直接使用音符的 rgbShader 颜色
+            shader.r = note.rgbShader.r;
+            shader.g = note.rgbShader.g;
+            shader.b = note.rgbShader.b;
+        }
+        else
+        {
+            // 如果音符没有 rgbShader，使用默认颜色
+            setDefaultColors(noteData);
+        }
     }
-    else
-    {
-        // 如果音符没有 rgbShader，使用默认颜色
-        setDefaultColors(noteData);
-    }
-}
     
     override function update(elapsed:Float):Void
     {

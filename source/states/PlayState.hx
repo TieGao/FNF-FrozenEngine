@@ -209,6 +209,7 @@ class PlayState extends MusicBeatState
 
 	public var botplaySine:Float = 0;
 	public var botplayTxt:FlxText;
+	public var repTxt:FlxText; 
 
 	public var iconP1:HealthIcon;
 	public var iconP2:HealthIcon;
@@ -224,7 +225,11 @@ class PlayState extends MusicBeatState
 
 	//KE replay system
 	public static var rep:Replay;
-	public static var songMultiplier:Float = 1.0;
+	public static var loadRep:Bool = false;
+	private var repPresses:Array<Int> = [];
+	private var repReleases:Array<Int> = [];
+	private var repNoteIndex:Int = 0;
+	public var inReplay:Bool = false; 
 
 	var timeTxt:FlxText;
 	var scoreTxtTween:FlxTween;
@@ -295,115 +300,149 @@ class PlayState extends MusicBeatState
 	private static var _lastLoadedModDirectory:String = '';
 	public static var nextReloadAll:Bool = false;
 	override public function create()
-	{
-		//trace('Playback Rate: ' + playbackRate);
-		_lastLoadedModDirectory = Mods.currentModDirectory;
-		Paths.clearStoredMemory();
-		if(nextReloadAll)
-		{
-			Paths.clearUnusedMemory();
-			Language.reloadPhrases();
-		}
-		nextReloadAll = false;
+{
+    // ========== 回放系统初始化 ==========
+    if (loadRep && rep != null && rep.replay != null)
+    {
+       // trace('=== REPLAY MODE INITIALIZATION ===');
+       // trace('Loading replay: ' + rep.path);
+       // trace('Song: ' + rep.replay.songName);
+       // trace('Difficulty: ' + rep.replay.songDiff);
+       // trace('Player: ' + rep.replay.playerName);
+        
+        // 设置回放模式标志
+        inReplay = true;
+        cpuControlled = false;
+        practiceMode = false;
+        
+        // 初始化回放播放
+        rep.startPlayback();
+        
+        if (rep.replay.noteSpeed > 0)
+        {
+            songSpeed = rep.replay.noteSpeed;
+        }
+        
+        // 创建回放UI
+        createReplayUI();
+    }
+    
+    // ========== 原有代码继续 ==========
+    Paths.clearStoredMemory();
+    if(nextReloadAll)
+    {
+        Paths.clearUnusedMemory();
+        Language.reloadPhrases();
+    }
+    nextReloadAll = false;
 
-		startCallback = startCountdown;
-		endCallback = endSong;
+    startCallback = startCountdown;
+    endCallback = endSong;
 
-		// for lua
-		instance = this;
+    // for lua
+    instance = this;
 
-		PauseSubState.songName = null; //Reset to default
-		playbackRate = ClientPrefs.getGameplaySetting('songspeed');
+    PauseSubState.songName = null; //Reset to default
+    playbackRate = ClientPrefs.getGameplaySetting('songspeed');
 
-		keysArray = [
-			'note_left',
-			'note_down',
-			'note_up',
-			'note_right'
-		];
+    keysArray = [
+        'note_left',
+        'note_down',
+        'note_up',
+        'note_right'
+    ];
 
-		if(FlxG.sound.music != null)
-			FlxG.sound.music.stop();
+    if(FlxG.sound.music != null)
+        FlxG.sound.music.stop();
 
-		// Gameplay settings
-		healthGain = ClientPrefs.getGameplaySetting('healthgain');
-		healthLoss = ClientPrefs.getGameplaySetting('healthloss');
-		instakillOnMiss = ClientPrefs.getGameplaySetting('instakill');
-		practiceMode = ClientPrefs.getGameplaySetting('practice');
-		cpuControlled = ClientPrefs.getGameplaySetting('botplay');
-		opponentMode = ClientPrefs.getGameplaySetting('opponentplay');
-		guitarHeroSustains = ClientPrefs.data.guitarHeroSustains;
+    // Gameplay settings
+    healthGain = ClientPrefs.getGameplaySetting('healthgain');
+    healthLoss = ClientPrefs.getGameplaySetting('healthloss');
+    instakillOnMiss = ClientPrefs.getGameplaySetting('instakill');
+    practiceMode = ClientPrefs.getGameplaySetting('practice');
+    cpuControlled = ClientPrefs.getGameplaySetting('botplay');
+    opponentMode = ClientPrefs.getGameplaySetting('opponentplay');
+    guitarHeroSustains = ClientPrefs.data.guitarHeroSustains;
+    
+    // 回放模式下强制设置
+    if (inReplay)
+    {
+        practiceMode = false;
+        cpuControlled = true;
+        instakillOnMiss = false;
+        trace('Replay mode: practice=' + practiceMode + ', botplay=' + cpuControlled);
+    }
 
-		// var gameCam:FlxCamera = FlxG.camera;
-		camGame = initPsychCamera();
-		camHUD = new FlxCamera();
-		camOther = new FlxCamera();
-		camHUD.bgColor.alpha = 0;
-		camOther.bgColor.alpha = 0;
+    // var gameCam:FlxCamera = FlxG.camera;
+    camGame = initPsychCamera();
+    camHUD = new FlxCamera();
+    camOther = new FlxCamera();
+    camHUD.bgColor.alpha = 0;
+    camOther.bgColor.alpha = 0;
 
-		FlxG.cameras.add(camHUD, false);
-		FlxG.cameras.add(camOther, false);
+    FlxG.cameras.add(camHUD, false);
+    FlxG.cameras.add(camOther, false);
 
-		persistentUpdate = true;
-		persistentDraw = true;
+    persistentUpdate = true;
+    persistentDraw = true;
 
-		Conductor.mapBPMChanges(SONG);
-		Conductor.bpm = SONG.bpm;
+    Conductor.mapBPMChanges(SONG);
+    Conductor.bpm = SONG.bpm;
 
-		#if DISCORD_ALLOWED
-		// String that contains the mode defined here so it isn't necessary to call changePresence for each mode
-		storyDifficultyText = Difficulty.getString();
+    #if DISCORD_ALLOWED
+    // String that contains the mode defined here so it isn't necessary to call changePresence for each mode
+    storyDifficultyText = Difficulty.getString();
 
-		if (isStoryMode)
-			detailsText = "Story Mode: " + WeekData.getCurrentWeek().weekName;
-		else
-			detailsText = "Freeplay";
+    if (isStoryMode)
+        detailsText = "Story Mode: " + WeekData.getCurrentWeek().weekName;
+    else
+        detailsText = "Freeplay";
 
-		// String for when the game is paused
-		detailsPausedText = "Paused - " + detailsText;
-		#end
+    // String for when the game is paused
+    detailsPausedText = "Paused - " + detailsText;
+    #end
 
-		GameOverSubstate.resetVariables();
-		songName = Paths.formatToSongPath(SONG.song);
-		if(SONG.stage == null || SONG.stage.length < 1)
-			SONG.stage = StageData.vanillaSongStage(Paths.formatToSongPath(Song.loadedSongName));
+    GameOverSubstate.resetVariables();
+    songName = Paths.formatToSongPath(SONG.song);
+    if(SONG.stage == null || SONG.stage.length < 1)
+        SONG.stage = StageData.vanillaSongStage(Paths.formatToSongPath(Song.loadedSongName));
 
-		curStage = SONG.stage;
+    curStage = SONG.stage;
 
-		var stageData:StageFile = StageData.getStageFile(curStage);
-		defaultCamZoom = stageData.defaultZoom;
+    var stageData:StageFile = StageData.getStageFile(curStage);
+    defaultCamZoom = stageData.defaultZoom;
 
-		stageUI = "normal";
-		if (stageData.stageUI != null && stageData.stageUI.trim().length > 0)
-			stageUI = stageData.stageUI;
-		else if (stageData.isPixelStage == true) //Backward compatibility
-			stageUI = "pixel";
+    stageUI = "normal";
+    if (stageData.stageUI != null && stageData.stageUI.trim().length > 0)
+        stageUI = stageData.stageUI;
+    else if (stageData.isPixelStage == true) //Backward compatibility
+        stageUI = "pixel";
 
-		BF_X = stageData.boyfriend[0];
-		BF_Y = stageData.boyfriend[1];
-		GF_X = stageData.girlfriend[0];
-		GF_Y = stageData.girlfriend[1];
-		DAD_X = stageData.opponent[0];
-		DAD_Y = stageData.opponent[1];
+    BF_X = stageData.boyfriend[0];
+    BF_Y = stageData.boyfriend[1];
+    GF_X = stageData.girlfriend[0];
+    GF_Y = stageData.girlfriend[1];
+    DAD_X = stageData.opponent[0];
+    DAD_Y = stageData.opponent[1];
 
-		if(stageData.camera_speed != null)
-			cameraSpeed = stageData.camera_speed;
+    if(stageData.camera_speed != null)
+        cameraSpeed = stageData.camera_speed;
 
-		boyfriendCameraOffset = stageData.camera_boyfriend;
-		if(boyfriendCameraOffset == null) //Fucks sake should have done it since the start :rolling_eyes:
-			boyfriendCameraOffset = [0, 0];
+    boyfriendCameraOffset = stageData.camera_boyfriend;
+    if(boyfriendCameraOffset == null) //Fucks sake should have done it since the start :rolling_eyes:
+        boyfriendCameraOffset = [0, 0];
 
-		opponentCameraOffset = stageData.camera_opponent;
-		if(opponentCameraOffset == null)
-			opponentCameraOffset = [0, 0];
+    opponentCameraOffset = stageData.camera_opponent;
+    if(opponentCameraOffset == null)
+        opponentCameraOffset = [0, 0];
 
-		girlfriendCameraOffset = stageData.camera_girlfriend;
-		if(girlfriendCameraOffset == null)
-			girlfriendCameraOffset = [0, 0];
+    girlfriendCameraOffset = stageData.camera_girlfriend;
+    if(girlfriendCameraOffset == null)
+        girlfriendCameraOffset = [0, 0];
 
-		boyfriendGroup = new FlxSpriteGroup(BF_X, BF_Y);
-		dadGroup = new FlxSpriteGroup(DAD_X, DAD_Y);
-		gfGroup = new FlxSpriteGroup(GF_X, GF_Y);
+    boyfriendGroup = new FlxSpriteGroup(BF_X, BF_Y);
+    dadGroup = new FlxSpriteGroup(DAD_X, DAD_Y);
+    gfGroup = new FlxSpriteGroup(GF_X, GF_Y);
 
 		switch (curStage)
 		{
@@ -418,6 +457,13 @@ class PlayState extends MusicBeatState
 			case 'tank': new Tank();					//Week 7 - Ugh, Guns, Stress
 			case 'phillyStreets': new PhillyStreets(); 	//Weekend 1 - Darnell, Lit Up, 2Hot
 			case 'phillyBlazin': new PhillyBlazin();	//Weekend 1 - Blazin
+			case 'stage-erect': new StageErect(); // Week 1 (Erect)
+			case 'spooky-erect': new SpookyErect(); // Week 2 (Erect)
+			case 'philly-erect': new PhillyErect(); // Week 3 (Erect)
+			case 'limo-erect': new LimoErect(); // Week 4 (Erect)
+			case 'mall-erect': new MallErect(); // Week 5 (Erect)
+			case 'school-erect': new SchoolErect(); // Week 6 (Erect) - Senpai, Roses
+			case 'tank-erect': new FranksSpiritsBowling(); // Week 7 (Erect)
 		}
 		if(isPixelStage) introSoundsSuffix = '-pixel';
 
@@ -603,6 +649,13 @@ class PlayState extends MusicBeatState
 		botplayTxt.visible = cpuControlled;
 		uiGroup.add(botplayTxt);
 
+		repTxt = new FlxText(400, healthBar.y + (ClientPrefs.data.downScroll ? -150 : 50), FlxG.width - 800, "Replay", 32);
+		repTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		repTxt.scrollFactor.set();
+		repTxt.borderSize = 1.25;
+		repTxt.visible = inReplay;
+		uiGroup.add(repTxt);
+
 		healthText = new FlxText(0, 0, 300, "Health: " + Math.floor(health * 50), 30);
         healthText.setFormat(Paths.font("vcr.ttf"), 30, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
         healthText.scrollFactor.set();
@@ -697,10 +750,13 @@ class PlayState extends MusicBeatState
 		var splash:NoteSplash = new NoteSplash();
 		grpNoteSplashes.add(splash);
 		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
+    
+    
 
 		super.create();
 
 		rep = new Replay("");
+
 
 		createCounterUI();
 
@@ -2035,235 +2091,288 @@ class PlayState extends MusicBeatState
 	var allowDebugKeys:Bool = true;
 
 	override public function update(elapsed:Float)
-	{
-		if(!inCutscene && !paused && !freezeCamera) {
-			FlxG.camera.followLerp = 0.04 * cameraSpeed * playbackRate;
-			var idleAnim:Bool = (boyfriend.getAnimationName().startsWith('idle') || boyfriend.getAnimationName().startsWith('danceLeft') || boyfriend.getAnimationName().startsWith('danceRight'));
-			if(!startingSong && !endingSong && idleAnim) {
-				boyfriendIdleTime += elapsed;
-				if(boyfriendIdleTime >= 0.15) { // Kind of a mercy thing for making the achievement easier to get as it's apparently frustrating to some playerss
-					boyfriendIdled = true;
-				}
-			} else {
-				boyfriendIdleTime = 0;
-			}
-		}
-		else FlxG.camera.followLerp = 0;
-		callOnScripts('onUpdate', [elapsed]);
-
-		super.update(elapsed);
-
-		setOnScripts('curDecStep', curDecStep);
-		setOnScripts('curDecBeat', curDecBeat);
-
-		if(botplayTxt != null && botplayTxt.visible) {
-			botplaySine += 180 * elapsed;
-			botplayTxt.alpha = 1 - Math.sin((Math.PI * botplaySine) / 180);
-		}
-
-		if (controls.PAUSE && startedCountdown && canPause || FlxG.mouse.justPressedRight || FlxG.mouse.justPressedMiddle)
-		{
-			var ret:Dynamic = callOnScripts('onPause', null, true);
-			if(ret != LuaUtils.Function_Stop) {
-				openPauseMenu();
-			}
-		}
-
-		if(!endingSong && !inCutscene && allowDebugKeys)
-		{
-			if (controls.justPressed('debug_1'))
-				openChartEditor();
-			else if (controls.justPressed('debug_2'))
-				openCharacterEditor();
-		}
-
-		if (healthBar.bounds.max != null && health > healthBar.bounds.max)
-			health = healthBar.bounds.max;
-
-		updateIconsScale(elapsed);
-		updateIconsPosition();
-
-		if (startedCountdown && !paused)
-		{
-			Conductor.songPosition += elapsed * 1000 * playbackRate;
-			if (Conductor.songPosition >= Conductor.offset)
-			{
-				Conductor.songPosition = FlxMath.lerp(FlxG.sound.music.time + Conductor.offset, Conductor.songPosition, Math.exp(-elapsed * 5));
-				var timeDiff:Float = Math.abs((FlxG.sound.music.time + Conductor.offset) - Conductor.songPosition);
-				if (timeDiff > 1000 * playbackRate)
-					Conductor.songPosition = Conductor.songPosition + 1000 * FlxMath.signOf(timeDiff);
-			}
-		}
-
-		if (startingSong)
-		{
-			if (startedCountdown && Conductor.songPosition >= Conductor.offset)
-				startSong();
-			else if(!startedCountdown)
-				Conductor.songPosition = -Conductor.crochet * 5 + Conductor.offset;
-		}
-		else if (!paused && updateTime)
-		{
-			var curTime:Float = Math.max(0, Conductor.songPosition - ClientPrefs.data.noteOffset);
-			songPercent = (curTime / songLength);
-
-			var songCalc:Float = (songLength - curTime);
-			if(ClientPrefs.data.timeBarType == 'Time Elapsed') songCalc = curTime;
-
-			var secondsTotal:Int = Math.floor(songCalc / 1000);
-			if(secondsTotal < 0) secondsTotal = 0;
-
-			if(ClientPrefs.data.timeBarType != 'Song Name')
-				timeTxt.text = FlxStringUtil.formatTime(secondsTotal, false);
-		}
-
-		if (camZooming)
-		{
-			FlxG.camera.zoom = FlxMath.lerp(defaultCamZoom, FlxG.camera.zoom, Math.exp(-elapsed * 3.125 * camZoomingDecay * playbackRate));
-			camHUD.zoom = FlxMath.lerp(1, camHUD.zoom, Math.exp(-elapsed * 3.125 * camZoomingDecay * playbackRate));
-		}
-
-		FlxG.watch.addQuick("secShit", curSection);
-		FlxG.watch.addQuick("beatShit", curBeat);
-		FlxG.watch.addQuick("stepShit", curStep);
-
-		// RESET = Quick Game Over Screen
-		if (!ClientPrefs.data.noReset && controls.RESET && canReset && !inCutscene && startedCountdown && !endingSong)
-		{
-			health = 0;
-			trace("RESET = True");
-		}
-		doDeathCheck();
-
-		if (unspawnNotes[0] != null)
-		{
-			var time:Float = spawnTime * playbackRate;
-			if(songSpeed < 1) time /= songSpeed;
-			if(unspawnNotes[0].multSpeed < 1) time /= unspawnNotes[0].multSpeed;
-
-			while (unspawnNotes.length > 0 && unspawnNotes[0].strumTime - Conductor.songPosition < time)
-			{
-				var dunceNote:Note = unspawnNotes[0];
-				notes.insert(0, dunceNote);
-				dunceNote.spawned = true;
-
-				callOnLuas('onSpawnNote', [notes.members.indexOf(dunceNote), dunceNote.noteData, dunceNote.noteType, dunceNote.isSustainNote, dunceNote.strumTime]);
-				callOnHScript('onSpawnNote', [dunceNote]);
-
-				var index:Int = unspawnNotes.indexOf(dunceNote);
-				unspawnNotes.splice(index, 1);
-			}
-		}
-
-		if (generatedMusic)
-		{
-			if(!inCutscene)
-			{
-				if(!cpuControlled)
-					keysCheck();
-				else
-					playerDance();
-
-				if(notes.length > 0)
 {
-    if(startedCountdown)
+    // ========== 回放播放逻辑 ==========
+    if (inReplay && rep != null && generatedMusic && !endingSong && !startingSong && !paused)
     {
-        var fakeCrochet:Float = (60 / SONG.bpm) * 1000;
-        var i:Int = 0;
-        while(i < notes.length)
+        var currentTime:Float = Conductor.songPosition;
+        
+        while (true)
         {
-            var daNote:Note = notes.members[i];
-            if(daNote == null) continue;
-
-            // 根据音符的mustPress选择正确的轨道
-            var strumGroup:FlxTypedGroup<StrumNote> = daNote.mustPress ? 
-                backend.OpponentModeSystem.getPlayerStrums() : 
-                backend.OpponentModeSystem.getOpponentStrums();
+            var noteData:Array<Dynamic> = rep.getNextNote(currentTime);
+            if (noteData == null) break;
             
-            var strum:StrumNote = strumGroup.members[daNote.noteData];
-            daNote.followStrumNote(strum, fakeCrochet, songSpeed / playbackRate);
-
-            // 玩家控制的音符（在generateSong中已经设置好mustPress）
-            if(daNote.mustPress)
+            var strumTime:Float = noteData[0];
+            var noteColumn:Int = Std.int(noteData[2] % 4);
+            var diff:Float = noteData[3];
+            
+            if (strumTime <= currentTime + 50)
             {
-                if(cpuControlled && !daNote.blockHit && daNote.canBeHit && (daNote.isSustainNote || daNote.strumTime <= Conductor.songPosition))
-                    goodNoteHit(daNote);
-            }
-            // 对手控制的音符（自动播放）
-            else
-            {
-                if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote)
-                    opponentNoteHit(daNote);
-            }
-
-            if(daNote.isSustainNote && strum.sustainReduce) daNote.clipToStrumNote(strum);
-    
-
-             // 判断是否应该miss
-            if (Conductor.songPosition - daNote.strumTime > noteKillOffset)
-            {
-                // 玩家控制的音符如果miss了
-                if (daNote.mustPress && !cpuControlled && !daNote.ignoreNote && !endingSong && (daNote.tooLate || !daNote.wasGoodHit))
+                if (diff < 9999) // 正常音符
                 {
-                    noteMiss(daNote);
-                }
-                
-                // 对手控制的音符自动miss
-                else if (!daNote.mustPress && !daNote.ignoreNote && !endingSong && (daNote.tooLate || !daNote.wasGoodHit))
-                {
-                    // 对手音符miss不计入玩家miss计数，但可以触发对手miss动画
-                    if (!daNote.noMissAnimation)
+                    var foundNote:Note = null;
+                    notes.forEachAlive(function(daNote:Note)
                     {
-                        var oppChar:Character = backend.OpponentModeSystem.getOpponentCharacter();
-                        if (oppChar != null && oppChar.hasMissAnimations)
+                        if (daNote.mustPress && !daNote.wasGoodHit && !daNote.ignoreNote && 
+                            daNote.noteData == noteColumn && Math.abs(daNote.strumTime - strumTime) < 20)
                         {
-                            var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, daNote.noteData)))] + 'miss' + daNote.animSuffix;
-                            oppChar.playAnim(animToPlay, true);
-                            oppChar.specialAnim = true;
+                            foundNote = daNote;
                         }
+                    });
+                    
+                    if (foundNote != null && foundNote.canBeHit)
+                    {
+                        var strum:StrumNote = playerStrums.members[noteColumn];
+                        if (strum != null)
+                        {
+                            strum.playAnim('confirm', true);
+                            strum.resetAnim = 0;
+                        }
+                        
+                        goodNoteHit(foundNote);
                     }
                 }
-
-                    daNote.active = daNote.visible = false;
-                    invalidateNote(daNote);
+                else // miss (diff >= 9999)
+                {
+                    noteMissPress(noteColumn);
                 }
-            
-            if(daNote.exists) i++;
-						}
-					}
-					else
-					{
-						notes.forEachAlive(function(daNote:Note)
-						{
-							daNote.canBeHit = false;
-							daNote.wasGoodHit = false;
-						});
-					}
-				}
-			}
-			checkEventNote();
-		}
+            }
+            else
+            {
+                rep.currentIndex--;
+                break;
+            }
+        }
+        
+        // 更新回放进度显示
+        if (rep.replay.songNotes.length > 0 && repTxt != null && repTxt.visible)
+        {
+            var progress:Float = (rep.currentIndex / rep.replay.songNotes.length) * 100;
+            if (progress > 100) progress = 100;
+            repTxt.text = 'REPLAY - ${rep.replay.playerName} (${Math.round(progress)}%)';
+        }
+    }
+    // ========== 原有代码继续 ==========
+    
+    if(!inCutscene && !paused && !freezeCamera) {
+        FlxG.camera.followLerp = 0.04 * cameraSpeed * playbackRate;
+        var idleAnim:Bool = (boyfriend.getAnimationName().startsWith('idle') || boyfriend.getAnimationName().startsWith('danceLeft') || boyfriend.getAnimationName().startsWith('danceRight'));
+        if(!startingSong && !endingSong && idleAnim) {
+            boyfriendIdleTime += elapsed;
+            if(boyfriendIdleTime >= 0.15) { // Kind of a mercy thing for making the achievement easier to get as it's apparently frustrating to some playerss
+                boyfriendIdled = true;
+            }
+        } else {
+            boyfriendIdleTime = 0;
+        }
+    }
+    else FlxG.camera.followLerp = 0;
+    callOnScripts('onUpdate', [elapsed]);
 
-		#if debug
-		if(!endingSong && !startingSong) {
-			if (FlxG.keys.justPressed.ONE) {
-				KillNotes();
-				FlxG.sound.music.onComplete();
-			}
-			if(FlxG.keys.justPressed.TWO) { //Go 10 seconds into the future :O
-				setSongTime(Conductor.songPosition + 10000);
-				clearNotesBefore(Conductor.songPosition);
-			}
-		}
-		#end
+    super.update(elapsed);
 
-		healthText.text = "Health: " + Math.floor(health * 50);
-        updateHealthTextPosition();
+    setOnScripts('curDecStep', curDecStep);
+    setOnScripts('curDecBeat', curDecBeat);
 
+    if(botplayTxt != null && botplayTxt.visible) {
+        botplaySine += 180 * elapsed;
+        botplayTxt.alpha = 1 - Math.sin((Math.PI * botplaySine) / 180);
+    }
 
-		setOnScripts('botPlay', cpuControlled);
-		callOnScripts('onUpdatePost', [elapsed]);
-	}
+    if (controls.PAUSE && startedCountdown && canPause || FlxG.mouse.justPressedRight || FlxG.mouse.justPressedMiddle)
+    {
+        var ret:Dynamic = callOnScripts('onPause', null, true);
+        if(ret != LuaUtils.Function_Stop) {
+            openPauseMenu();
+        }
+    }
+
+    if(!endingSong && !inCutscene && allowDebugKeys)
+    {
+        if (controls.justPressed('debug_1'))
+            openChartEditor();
+        else if (controls.justPressed('debug_2'))
+            openCharacterEditor();
+    }
+
+    if (healthBar.bounds.max != null && health > healthBar.bounds.max)
+        health = healthBar.bounds.max;
+
+    updateIconsScale(elapsed);
+    updateIconsPosition();
+
+    if (startedCountdown && !paused)
+    {
+        Conductor.songPosition += elapsed * 1000 * playbackRate;
+        if (Conductor.songPosition >= Conductor.offset)
+        {
+            Conductor.songPosition = FlxMath.lerp(FlxG.sound.music.time + Conductor.offset, Conductor.songPosition, Math.exp(-elapsed * 5));
+            var timeDiff:Float = Math.abs((FlxG.sound.music.time + Conductor.offset) - Conductor.songPosition);
+            if (timeDiff > 1000 * playbackRate)
+                Conductor.songPosition = Conductor.songPosition + 1000 * FlxMath.signOf(timeDiff);
+        }
+    }
+
+    if (startingSong)
+    {
+        if (startedCountdown && Conductor.songPosition >= Conductor.offset)
+            startSong();
+        else if(!startedCountdown)
+            Conductor.songPosition = -Conductor.crochet * 5 + Conductor.offset;
+    }
+    else if (!paused && updateTime)
+    {
+        var curTime:Float = Math.max(0, Conductor.songPosition - ClientPrefs.data.noteOffset);
+        songPercent = (curTime / songLength);
+
+        var songCalc:Float = (songLength - curTime);
+        if(ClientPrefs.data.timeBarType == 'Time Elapsed') songCalc = curTime;
+
+        var secondsTotal:Int = Math.floor(songCalc / 1000);
+        if(secondsTotal < 0) secondsTotal = 0;
+
+        if(ClientPrefs.data.timeBarType != 'Song Name')
+            timeTxt.text = FlxStringUtil.formatTime(secondsTotal, false);
+    }
+
+    if (camZooming)
+    {
+        FlxG.camera.zoom = FlxMath.lerp(defaultCamZoom, FlxG.camera.zoom, Math.exp(-elapsed * 3.125 * camZoomingDecay * playbackRate));
+        camHUD.zoom = FlxMath.lerp(1, camHUD.zoom, Math.exp(-elapsed * 3.125 * camZoomingDecay * playbackRate));
+    }
+
+    FlxG.watch.addQuick("secShit", curSection);
+    FlxG.watch.addQuick("beatShit", curBeat);
+    FlxG.watch.addQuick("stepShit", curStep);
+
+    // RESET = Quick Game Over Screen
+    if (!ClientPrefs.data.noReset && controls.RESET && canReset && !inCutscene && startedCountdown && !endingSong)
+    {
+        health = 0;
+        trace("RESET = True");
+    }
+    doDeathCheck();
+
+    if (unspawnNotes[0] != null)
+    {
+        var time:Float = spawnTime * playbackRate;
+        if(songSpeed < 1) time /= songSpeed;
+        if(unspawnNotes[0].multSpeed < 1) time /= unspawnNotes[0].multSpeed;
+
+        while (unspawnNotes.length > 0 && unspawnNotes[0].strumTime - Conductor.songPosition < time)
+        {
+            var dunceNote:Note = unspawnNotes[0];
+            notes.insert(0, dunceNote);
+            dunceNote.spawned = true;
+
+            callOnLuas('onSpawnNote', [notes.members.indexOf(dunceNote), dunceNote.noteData, dunceNote.noteType, dunceNote.isSustainNote, dunceNote.strumTime]);
+            callOnHScript('onSpawnNote', [dunceNote]);
+
+            var index:Int = unspawnNotes.indexOf(dunceNote);
+            unspawnNotes.splice(index, 1);
+        }
+    }
+
+    if (generatedMusic)
+    {
+        if(!inCutscene)
+        {
+            if(!cpuControlled)
+                keysCheck();
+            else
+				 playerDance();
+
+            if(notes.length > 0)
+            {
+                if(startedCountdown)
+                {
+                    var fakeCrochet:Float = (60 / SONG.bpm) * 1000;
+                    notes.forEachAlive(function(daNote:Note)
+                    {
+                        // 根据音符的mustPress选择正确的轨道
+                        var strumGroup:FlxTypedGroup<StrumNote> = daNote.mustPress ? 
+                            backend.OpponentModeSystem.getPlayerStrums() : 
+                            backend.OpponentModeSystem.getOpponentStrums();
+                        
+                        var strum:StrumNote = strumGroup.members[daNote.noteData];
+                        daNote.followStrumNote(strum, fakeCrochet, songSpeed / playbackRate);
+
+                        // 玩家控制的音符
+                        if(daNote.mustPress)
+                        {
+                            if(cpuControlled && !daNote.blockHit && daNote.canBeHit && (daNote.isSustainNote || daNote.strumTime <= Conductor.songPosition))
+                                goodNoteHit(daNote);
+                        }
+                        // 对手控制的音符
+                        else
+                        {
+                            if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote)
+                                opponentNoteHit(daNote);
+                        }
+
+                        if(daNote.isSustainNote && strum.sustainReduce) daNote.clipToStrumNote(strum);
+
+                        // 判断是否应该miss
+                        if (Conductor.songPosition - daNote.strumTime > noteKillOffset)
+                        {
+                            // 玩家控制的音符如果miss了
+                            if (daNote.mustPress && !cpuControlled && !daNote.ignoreNote && !endingSong && (daNote.tooLate || !daNote.wasGoodHit))
+                            {
+                                noteMiss(daNote);
+                            }
+                            
+                            // 对手控制的音符自动miss
+                            else if (!daNote.mustPress && !daNote.ignoreNote && !endingSong && (daNote.tooLate || !daNote.wasGoodHit))
+                            {
+                                if (!daNote.noMissAnimation)
+                                {
+                                    var oppChar:Character = backend.OpponentModeSystem.getOpponentCharacter();
+                                    if (oppChar != null && oppChar.hasMissAnimations)
+                                    {
+                                        var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, daNote.noteData)))] + 'miss' + daNote.animSuffix;
+                                        oppChar.playAnim(animToPlay, true);
+                                        oppChar.specialAnim = true;
+                                    }
+                                }
+                            }
+
+                            daNote.active = daNote.visible = false;
+                            invalidateNote(daNote);
+                        }
+                    });
+                }
+                else
+                {
+                    notes.forEachAlive(function(daNote:Note)
+                    {
+                        daNote.canBeHit = false;
+                        daNote.wasGoodHit = false;
+                    });
+                }
+            }
+            checkEventNote();
+        }
+    }
+
+    #if debug
+    if(!endingSong && !startingSong) {
+        if (FlxG.keys.justPressed.ONE) {
+            KillNotes();
+            FlxG.sound.music.onComplete();
+        }
+        if(FlxG.keys.justPressed.TWO) { //Go 10 seconds into the future :O
+            setSongTime(Conductor.songPosition + 10000);
+            clearNotesBefore(Conductor.songPosition);
+        }
+    }
+    #end
+
+    healthText.text = "Health: " + Math.floor(health * 50);
+    updateHealthTextPosition();
+
+    setOnScripts('botPlay', cpuControlled);
+    callOnScripts('onUpdatePost', [elapsed]);
+}
 
 	// Health icon updaters
 	public dynamic function updateIconsScale(elapsed:Float)
@@ -2802,99 +2911,138 @@ class PlayState extends MusicBeatState
 	public var transitioning = false;
 	public function endSong():Void
 {
-	//Should kill you if you tried to cheat
-	if(!startingSong)
-	{
-		notes.forEachAlive(function(daNote:Note)
-		{
-			if(daNote.strumTime < songLength - Conductor.safeZoneOffset)
-				health -= 0.05 * healthLoss;
-		});
-		for (daNote in unspawnNotes)
-		{
-			if(daNote != null && daNote.strumTime < songLength - Conductor.safeZoneOffset)
-				health -= 0.05 * healthLoss;
-		}
+    // Should kill you if you tried to cheat
+    if (!startingSong)
+    {
+        notes.forEachAlive(function(daNote:Note)
+        {
+            if (daNote.strumTime < songLength - Conductor.safeZoneOffset)
+                health -= 0.05 * healthLoss;
+        });
+        
+        for (daNote in unspawnNotes)
+        {
+            if (daNote != null && daNote.strumTime < songLength - Conductor.safeZoneOffset)
+                health -= 0.05 * healthLoss;
+        }
 
-		if(doDeathCheck()) {
-			return; // 改为return而不是return false
-		}
-	}
-	timeBar.visible = false;
-	timeTxt.visible = false;
-	canPause = false;
-	endingSong = true;
-	camZooming = false;
-	inCutscene = false;
-	updateTime = false;
+        if (doDeathCheck()) {
+            return;
+        }
+    }
+    
+    timeBar.visible = false;
+    timeTxt.visible = false;
+    canPause = false;
+    endingSong = true;
+    camZooming = false;
+    inCutscene = false;
+    updateTime = false;
 
-	deathCounter = 0;
-	seenCutscene = false;
+    deathCounter = 0;
+    seenCutscene = false;
 
-	#if ACHIEVEMENTS_ALLOWED
-	var weekNoMiss:String = WeekData.getWeekFileName() + '_nomiss';
-	checkForAchievement([weekNoMiss, 'ur_bad', 'ur_good', 'hype', 'two_keys', 'toastie' #if BASE_GAME_FILES, 'debugger' #end]);
-	#end
+    #if ACHIEVEMENTS_ALLOWED
+    var weekNoMiss:String = WeekData.getWeekFileName() + '_nomiss';
+    checkForAchievement([weekNoMiss, 'ur_bad', 'ur_good', 'hype', 'two_keys', 'toastie' #if BASE_GAME_FILES, 'debugger' #end]);
+    #end
 
-	var ret:Dynamic = callOnScripts('onEndSong', null, true);
-	if(ret != LuaUtils.Function_Stop && !transitioning)
-	{
-		#if !switch
-		var percent:Float = ratingPercent;
-		if(Math.isNaN(percent)) percent = 0;
-		Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent);
-		#end
-		playbackRate = 1;
+    var ret:Dynamic = callOnScripts('onEndSong', null, true);
+    if (ret != LuaUtils.Function_Stop && !transitioning)
+    {
+        #if !switch
+        var percent:Float = ratingPercent;
+        if (Math.isNaN(percent)) percent = 0;
+        
+        // 只在非回放模式下保存分数
+        if (!loadRep)
+        {
+            Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent);
+        }
+        #end
+        
+        playbackRate = 1;
 
-		if (chartingMode)
-		{
-			openChartEditor();
-			return; // 改为return而不是return false
-		}
+        if (chartingMode)
+        {
+            openChartEditor();
+            return;
+        }
 
-		// ========== 修改开始：添加结算页面逻辑 ==========
-		if (ClientPrefs.data.scoreScreen) // 需要先在ClientPrefs中添加这个设置
-		{
-
-			// 停止音乐
-			vocals.stop();
-			FlxG.sound.music.stop();
-			
-			// 隐藏安卓控制
-			#if android
-			androidControls.visible = false;
-			#end
-			
-			// 暂停游戏
-			paused = true;
-			canPause = false;
-
-			rep.SaveReplay(rep.replay.songNotes, rep.replay.songJudgements, rep.replay.ana);
-			
-			// 显示结算页面
-			openSubState(new ResultsScreen());
-			inResults = true;
-
-			
-			// 设置transitioning为true，防止其他状态切换
-			transitioning = true;
-
-		}
-		else
-		{
-			// 原有逻辑（没有结算页面）
-			proceedToNextState();
-		}
-		// ========== 修改结束 ==========
-	}
-	// 移除最后的return true;
+        // ========== 保存回放数据 ==========
+        if (!loadRep && rep != null && !practiceMode && !cpuControlled && !inReplay && ClientPrefs.data.saveReplays)
+        {
+            try
+            {
+                rep.finishRecording();
+                rep.SaveReplay(rep.replay.songNotes, rep.replay.songJudgements, rep.replay.ana);
+                trace('Replay saved successfully with ' + rep.replay.songNotes.length + ' notes');
+            }
+            catch (e:Dynamic)
+            {
+                trace('Error saving replay: ' + e);
+            }
+        }
+        
+        // ========== 结算页面逻辑 ==========
+        if (ClientPrefs.data.scoreScreen && !loadRep)
+        {
+            if (vocals != null) vocals.stop();
+            if (FlxG.sound.music != null) FlxG.sound.music.stop();
+            
+            paused = true;
+            canPause = false;
+            
+            openSubState(new ResultsScreen());
+            inResults = true;
+            
+            transitioning = true;
+        }
+        else
+        {
+            proceedToNextState();
+        }
+    }
+    
+    // ========== 清理回放数据 ==========
+    if (loadRep)
+    {
+        loadRep = false;
+        repNoteIndex = 0;
+        
+        if (repTxt != null)
+        {
+            repTxt.visible = false;
+        }
+        
+        rep = null;
+        inReplay = false;
+        
+        trace('Replay mode ended');
+    }
+    else if (rep != null)
+    {
+        rep = null;
+    }
 }
+
 
 	public function proceedToNextState():Void
 {
     // 确保游戏音乐已经停止
     if (vocals != null) vocals.stop();
     if (FlxG.sound.music != null) FlxG.sound.music.stop();
+    
+     if (loadRep || inReplay)
+    {
+        trace('Replay finished, returning to main menu');
+        Mods.loadTopMod();
+        FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.7);
+        #if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
+        
+        MusicBeatState.switchState(new MainMenuState());
+        return;
+    }
     
     if (isStoryMode)
     {
@@ -2913,7 +3061,7 @@ class PlayState extends MusicBeatState
             canResync = false;
             MusicBeatState.switchState(new StoryMenuState());
 
-            if(!ClientPrefs.getGameplaySetting('practice') && !ClientPrefs.getGameplaySetting('botplay')) {
+            if (!ClientPrefs.getGameplaySetting('practice') && !ClientPrefs.getGameplaySetting('botplay')) {
                 StoryMenuState.weekCompleted.set(WeekData.weeksList[storyWeek], true);
                 Highscore.saveWeekScore(WeekData.getWeekFileName(), campaignScore, storyDifficulty);
 
@@ -3032,7 +3180,7 @@ class PlayState extends MusicBeatState
 		if(daRating.noteSplash && !note.noteSplashData.disabled)
 			spawnNoteSplashOnNote(note);
 
-		if(!cpuControlled) {
+		if(!practiceMode && !cpuControlled) {
 			songScore += score;
 			if(!note.ratingDisabled)
 			{
@@ -3146,6 +3294,8 @@ class PlayState extends MusicBeatState
 	private function onKeyPress(event:KeyboardEvent):Void
 	{
 
+		  if (loadRep)
+        return;
 		var eventKey:FlxKey = event.keyCode;
 		var key:Int = getKeyFromEvent(keysArray, eventKey);
 
@@ -3223,6 +3373,33 @@ class PlayState extends MusicBeatState
         spr.resetAnim = 0;
     }
     callOnScripts('onKeyPress', [key]);
+	//Replay
+      if (rep != null && !loadRep)
+    {
+        // 只查找当前可以击中的音符
+        var foundNote:Note = null;
+        var minDiff:Float = 9999;
+        
+        notes.forEachAlive(function(daNote:Note)
+        {
+            if (daNote.mustPress && daNote.noteData == key && !daNote.wasGoodHit && daNote.canBeHit)
+            {
+                var diff:Float = Math.abs(daNote.strumTime - Conductor.songPosition);
+                if (diff < minDiff)
+                {
+                    minDiff = diff;
+                    foundNote = daNote;
+                }
+            }
+        });
+        
+        if (foundNote != null)
+        {
+            // 记录实际的时间差
+            var diff = foundNote.strumTime - Conductor.songPosition;
+            rep.recordNote(foundNote.strumTime, key, foundNote.sustainLength, diff);
+        }
+    }
 }
 
 	public static function sortHitNotes(a:Note, b:Note):Int
@@ -3237,6 +3414,8 @@ class PlayState extends MusicBeatState
 
 	private function onKeyRelease(event:KeyboardEvent):Void
 	{
+		 if (loadRep)
+        return;
 		var eventKey:FlxKey = event.keyCode;
 		var key:Int = getKeyFromEvent(keysArray, eventKey);
 		if(!controls.controllerMode && key > -1) keyReleased(key);
@@ -3325,9 +3504,10 @@ private function keysCheck():Void
                 keyReleased(i);
 }
 
-	function noteMiss(daNote:Note):Void { //You didn't hit the key and let it go offscreen, also used by Hurt Notes
-		 var shouldPlayerControl:Bool = backend.OpponentModeSystem.shouldControlNote(daNote);
-    if (!shouldPlayerControl) return; // 如果不是玩家控制的音符，不处理miss
+	function noteMiss(daNote:Note):Void
+{
+    var shouldPlayerControl:Bool = backend.OpponentModeSystem.shouldControlNote(daNote);
+    if (!shouldPlayerControl) return;
     
     //Dupe note remove
     notes.forEachAlive(function(note:Note) {
@@ -3339,47 +3519,58 @@ private function keysCheck():Void
     stagesFunc(function(stage:BaseStage) stage.noteMiss(daNote));
     var result:Dynamic = callOnLuas('noteMiss', [notes.members.indexOf(daNote), daNote.noteData, daNote.noteType, daNote.isSustainNote]);
     if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('noteMiss', [daNote]);
-	  if(scoreTxt != null) {
+    
+    if(scoreTxt != null) {
         if(scoreTxtColorTween != null) {
             scoreTxtColorTween.cancel();
         }
         
         if(ClientPrefs.data.customColor){
-        scoreTxtColorTween = FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFF1512, {
-            onComplete: function(twn:FlxTween) {
-                new FlxTimer().start(0.4, function(tmr:FlxTimer) 
-					{
-                    FlxTween.color(scoreTxt, 0.1, scoreTxt.color, getOpponentHealthColor());
-                });
-            }
-		
-        });}
-		else
-			scoreTxtColorTween = FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFF1512, {
-            onComplete: function(twn:FlxTween) {
-                new FlxTimer().start(0.4, function(tmr:FlxTimer) 
-					{
-                    FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFFFFFF);
-                });
-            }
-		
-        });
-		  recordMiss(daNote.noteData, daNote);
+            scoreTxtColorTween = FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFF1512, {
+                onComplete: function(twn:FlxTween) {
+                    new FlxTimer().start(0.4, function(tmr:FlxTimer) 
+                    {
+                        FlxTween.color(scoreTxt, 0.1, scoreTxt.color, getOpponentHealthColor());
+                    });
+                }
+            });
+        }
+        else {
+            scoreTxtColorTween = FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFF1512, {
+                onComplete: function(twn:FlxTween) {
+                    new FlxTimer().start(0.4, function(tmr:FlxTimer) 
+                    {
+                        FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFFFFFF);
+                    });
+                }
+            });
+        }
     }
-	}
-		
+    
+    // ========== 回放录制 ==========
+      if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
+    {
+        rep.recordMiss(daNote.noteData, daNote.strumTime);
+        rep.recordJudgement("miss");
+        //trace('Replay recorded miss at strumTime: ' + daNote.strumTime);
+    }
+}
 
-	function noteMissPress(direction:Int = 1):Void //You pressed a key when there was no notes to press for this key
+function noteMissPress(direction:Int = 1):Void
 {
-    if(ClientPrefs.data.ghostTapping) return; //fuck it
+    if(ClientPrefs.data.ghostTapping) return;
 
     noteMissCommon(direction);
     FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
     stagesFunc(function(stage:BaseStage) stage.noteMissPress(direction));
     callOnScripts('noteMissPress', [direction]);
     
-    // 记录空按MISS到回放
-    recordMiss(direction);
+    // ========== 回放录制 ==========
+        if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
+    {
+        rep.recordMiss(direction, Conductor.songPosition);
+        rep.recordJudgement("miss");
+    }
 }
 
 	function noteMissCommon(direction:Int, note:Note = null)
@@ -3563,6 +3754,8 @@ private function keysCheck():Void
 {
     if(note.wasGoodHit) return;
     if(cpuControlled && note.ignoreNote) return;
+    
+    note.wasGoodHit = true;
 
     var isSus:Bool = note.isSustainNote;
     var leData:Int = Math.round(Math.abs(note.noteData));
@@ -3631,9 +3824,6 @@ private function keysCheck():Void
         if(!cpuControlled)
         {
             // 关键修改：在玩家当前控制的轨道上显示确认动画
-            // 对手模式下，玩家控制左侧轨道（对手轨道）
-            // 正常模式下，玩家控制右侧轨道（玩家轨道）
-            
             var strumToAnimate:FlxTypedGroup<StrumNote> = null;
             
             if (backend.OpponentModeSystem.isEnabled()) {
@@ -3645,10 +3835,7 @@ private function keysCheck():Void
             }
             
             var spr = strumToAnimate.members[note.noteData];
-            if(spr != null) {
-                spr.playAnim('confirm', true);
-                spr.resetAnim = 0;
-            }
+             if(spr != null) spr.playAnim('confirm', true);
         }
         
         // 播放正确的声音
@@ -3692,44 +3879,41 @@ private function keysCheck():Void
         if(!note.noteSplashData.disabled && !note.isSustainNote) spawnNoteSplashOnNote(note);
     }
 
-		if (note.isSustainNote && noteHoldCover != null)
-	{
-		if (opponentMode)
-		{
-		noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
-		}
-		else
-		{
-		noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
-		}
-	}
+    if (note.isSustainNote && noteHoldCover != null)
+    {
+        if (opponentMode)
+        {
+            noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+        }
+        else
+        {
+            noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+        }
+    }
 
     stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
     var result:Dynamic = callOnLuas('goodNoteHit', [notes.members.indexOf(note), leData, leType, isSus]);
     if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('goodNoteHit', [note]);
     if(!note.isSustainNote) invalidateNote(note);
 
-	 var diff = note.strumTime - Conductor.songPosition;
-    
-    // 记录到replay
-    if (rep != null) {
-        rep.replay.songNotes.push([
-            note.strumTime,
-            note.sustainLength,
-            note.noteData,
-            diff
-        ]);
+       if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
+    {
+        var diff = note.strumTime - Conductor.songPosition;
         
-        // 计算判定类型
-        var judge = "";
+        // 记录音符数据 [strumTime, sustainLength, noteData, diff]
+        rep.recordNote(note.strumTime, note.noteData, note.sustainLength, diff);
+        
+        // 只记录判定类型，不判断是否为miss
         var absDiff = Math.abs(diff);
-        if (absDiff <= 22.5) judge = "sick";
-        else if (absDiff <= 45) judge = "good";
-        else if (absDiff <= 90) judge = "bad";
-        else judge = "shit";
+        var judge = "sick";
+        if (absDiff <= 45) judge = "sick";
+        else if (absDiff <= 90) judge = "good";
+        else if (absDiff <= 135) judge = "bad";
+        else judge = "shit"; // 超过135ms但不超过安全区，仍然是shit
         
-        rep.replay.songJudgements.push(judge);
+        rep.recordJudgement(judge);
     }
+
 }
 
 	public function invalidateNote(note:Note):Void {
@@ -3808,6 +3992,7 @@ private function keysCheck():Void
 
 		NoteSplash.configs.clear();
 		instance = null;
+		loadRep = false;
 		super.destroy();
 	}
 
@@ -4268,38 +4453,28 @@ private function keysCheck():Void
 		return false;
 	}
 
-	function recordMiss(direction:Int = 1, note:Note = null):Void
+	function createReplayUI():Void
 {
-    if (rep != null && rep.replay != null) {
-        var missTime:Float = Conductor.songPosition;
-        var diff:Float = 9999; // miss时给一个大值
-        
-        // 记录miss音符
-        if (note != null) {
-            diff = note.strumTime - Conductor.songPosition;
-            missTime = note.strumTime;
+    if (inReplay && rep != null)
+    {
+        if (repTxt != null)
+        {
+            var info:String = 'REPLAY - ${rep.replay.playerName}\n';
+            info += '${rep.replay.songName} (${Difficulty.getString(rep.replay.songDiff)})\n';
+            info += 'Accuracy: ${Math.round(rep.replay.accuracy * 100) / 100}%';
             
-            rep.replay.songNotes.push([
-                note.strumTime,
-                note.sustainLength,
-                note.noteData,
-                diff
-            ]);
-        } else {
-            // 空按miss
-            rep.replay.songNotes.push([
-                missTime,
-                0,
-                direction,
-                9999 // 表示空按
-            ]);
+            repTxt.text = info;
+            repTxt.visible = true;
+            
+            repTxt.y = healthBar.y + (ClientPrefs.data.downScroll ? -150 : 50);
+            repTxt.screenCenter(X);
         }
         
-        rep.replay.songJudgements.push("miss");
-        
-        trace('Recorded miss at $missTime, direction: $direction');
+        trace('Replay UI created');
     }
-	}
+}
+
+
 /**
  * 获取当前玩家控制的轨道组
  */

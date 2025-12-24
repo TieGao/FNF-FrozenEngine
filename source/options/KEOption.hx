@@ -123,6 +123,9 @@ class KEOption
 				case "Open KE Styled KeyBinds":
 					KEOptionsMenu.instance.openSubState(new options.KEKeyBindMenu());
 					return false;   
+				case "Replay Manager":
+					MusicBeatState.switchState(new states.LoadReplayState());
+					return false;  
 				case "Reset KeyBinds":
 					ClientPrefs.resetKeys();
 					ClientPrefs.saveSettings();

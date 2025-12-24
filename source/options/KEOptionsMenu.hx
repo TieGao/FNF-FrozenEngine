@@ -14,6 +14,7 @@ class KEOptionsMenu extends MusicBeatState
 	public static var instance:KEOptionsMenu;
 
 	public var background:FlxSprite;
+	public var bg:FlxSprite;
 	public var selectedCat:KEOptionCata;
 	public var selectedOption:KEOption;
 	public var selectedCatIndex:Int = 0;
@@ -33,12 +34,9 @@ class KEOptionsMenu extends MusicBeatState
 	public var descText:FlxText;
 	public var descBack:FlxSprite;
 
-	// 滚动支持
 	var scrollOffset:Int = 0;
 	var maxScrollOffset:Int = 0;
 	
-	// 渐入渐出效果相关变量
-	var blackBox:FlxSprite;
 	var isClosing:Bool = false;
 	var closeTimer:FlxTimer;
 	
@@ -68,12 +66,6 @@ class KEOptionsMenu extends MusicBeatState
 	{
 		super.create();
 
-		// 创建黑色背景用于渐入渐出效果
-		blackBox = new FlxSprite(0, 0).makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
-		blackBox.alpha = 0;
-		blackBox.scrollFactor.set();
-		add(blackBox);
-
 		// 创建完整的选项分类
 		options = [
 			new KEOptionCata(50, 40, "Gameplay", getGameplayOptions()),
@@ -92,27 +84,23 @@ class KEOptionsMenu extends MusicBeatState
 		background.scrollFactor.set();
 		add(background);
 
+		bg = new FlxSprite(50, 40).makeGraphic(1180, 640, FlxColor.BLACK);
+		bg.alpha = 0.5;
+		bg.scrollFactor.set();
+		add(bg);
+
 		descBack = new FlxSprite(50, 642).makeGraphic(1180, 38, FlxColor.BLACK);
-		descBack.alpha = 0;
+		descBack.alpha = 0.5;
 		descBack.scrollFactor.set();
 		add(descBack);
-
-		if (isInPause)
-		{
-			var bg:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
-			bg.alpha = 0;
-			bg.scrollFactor.set();
-			add(bg);
-			cameras = [FlxG.cameras.list[FlxG.cameras.list.length - 1]];
-		}
 
 		add(shownStuff);
 
 		for (i in 0...options.length)
 		{
 			var cat = options[i];
-			cat.alpha = 0;
-			cat.titleObject.alpha = 0;
+			cat.alpha = 0.3;
+			cat.titleObject.alpha = 0.7;
 			add(cat);
 			add(cat.titleObject);
 		}
@@ -120,8 +108,7 @@ class KEOptionsMenu extends MusicBeatState
 		descText = new FlxText(62, 648);
 		descText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 		descText.borderSize = 2;
-		descText.alpha = 0;
-
+		descText.alpha = 1;
 		add(descText);
 
 		// 初始化第一个分类
@@ -129,7 +116,6 @@ class KEOptionsMenu extends MusicBeatState
 		doSwitchToCat(selectedCat, false);
 
 		// 开始渐入动画
-		startFadeIn();
 		
 
 		var colorArray:Array<FlxColor> = [
@@ -145,7 +131,7 @@ class KEOptionsMenu extends MusicBeatState
 		// 按顺序渐变而不是随机
 		var currentColorIndex:Int = 0;
 		var nextColorIndex:Int = 1;
-		var colorTransitionTime:Float = 2.0;
+		var colorTransitionTime:Float = 2.5;
 
 		// 设置初始颜色
 		background.color = colorArray[currentColorIndex];
@@ -166,59 +152,17 @@ class KEOptionsMenu extends MusicBeatState
 			});
 		}
 
+		instance = this;
 		// 开始循环
 		startColorCycle();
 	}
 	
-	// 渐入效果 - 还原原本的透明度
-	function startFadeIn()
-	{
-		// 黑色背景淡入
-		FlxTween.tween(blackBox, {alpha: 0.7}, 0.3, {ease: FlxEase.expoOut});
-		
-		// 背景和UI元素淡入 - 使用原本的透明度值
-		FlxTween.tween(background, {alpha: isInPause ? 0.5 : 0.6}, 0.3, {ease: FlxEase.expoOut});
-		
-		if (isInPause)
-		{
-			var bg = members[members.length - 1]; // 获取暂停菜单的黑色背景
-			FlxTween.tween(bg, {alpha: 0.6}, 0.3, {ease: FlxEase.expoOut});
-		}
-		
-		// 描述背景和文字淡入 - 使用原本的透明度
-		FlxTween.tween(descBack, {alpha: 0.3}, 0.3, {ease: FlxEase.expoOut});
-		FlxTween.tween(descText, {alpha: 1}, 0.3, {ease: FlxEase.expoOut});
-		
-		// 分类标题淡入 - 使用原本的透明度值
-		for (i in 0...options.length)
-		{
-			var cat = options[i];
-			FlxTween.tween(cat, {alpha: 0.3}, 0.3, {ease: FlxEase.expoOut, startDelay: 0.05 + i * 0.03});
-			FlxTween.tween(cat.titleObject, {alpha: 0.7}, 0.3, {ease: FlxEase.expoOut, startDelay: 0.05 + i * 0.03});
-		}
-		
-		// 当前分类的选项淡入
-		if (selectedCat != null && selectedCat.optionObjects != null)
-		{
-			for (i in 0...selectedCat.optionObjects.length)
-			{
-				var option = selectedCat.optionObjects.members[i];
-				if (option != null)
-				{
-					var targetAlpha = (i == selectedOptionIndex) ? 1.0 : 0.6;
-					FlxTween.tween(option, {alpha: targetAlpha}, 0.3, {
-						ease: FlxEase.expoOut,
-						startDelay: 0.1 + i * 0.02
-					});
-				}
-			}
-		}
-	}
 
 	override function destroy()
-	{
-		super.destroy();
-	}
+{
+	super.destroy();
+	instance = null;
+}
 
 	// Gameplay 选项
 	function getGameplayOptions():Array<KEOption>
@@ -297,6 +241,8 @@ class KEOptionsMenu extends MusicBeatState
 	function getAdvancedOptions():Array<KEOption>
 	{
 		return [
+			KEOption.create("Enable Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
+			//KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
 			KEOption.create("KE Styled Settings", "Use KE style options", "keOptions", "bool"),
 			KEOption.create("Check Updates", "Check for game updates", "checkForUpdates", "bool"),
 			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
