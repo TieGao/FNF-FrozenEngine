@@ -59,6 +59,16 @@ import crowplexus.hscript.Printer;
 import backend.Replay;
 import backend.OpponentModeSystem;
 
+	typedef ReplayNote = 
+	{
+    var strumTime:Float;
+    var column:Int;
+    var sustainLength:Float;
+    var diff:Float;
+    var isMiss:Bool;
+    var processed:Bool;
+	}
+
 /**
  * This is where all the Gameplay stuff happens and is managed
  *
@@ -226,9 +236,10 @@ class PlayState extends MusicBeatState
 	//KE replay system
 	public static var rep:Replay;
 	public static var loadRep:Bool = false;
-	private var repPresses:Array<Int> = [];
-	private var repReleases:Array<Int> = [];
-	private var repNoteIndex:Int = 0;
+	public var repNoteIndex:Int = 0; // 回放音符索引
+	private var replayMissTimer:FlxTimer; // 回放miss计时器
+	private var lastReplayTime:Float = 0; // 上一次回放时间
+	private var replayNoteQueue:Array<Array<Dynamic>> = []; // 回放音符队列（明确类型）
 	public var inReplay:Bool = false; 
 
 	var timeTxt:FlxText;
@@ -255,6 +266,22 @@ class PlayState extends MusicBeatState
 	public static var deathCounter:Int = 0;
 
 	public var defaultCamZoom:Float = 1.05;
+
+	public var zoomMultiplier:Float = 1.0;
+	public var cameraZoomingRate:Int = 4;
+	public var cameraZoomingMult:Float = 1.0;
+	public var defaultStageZoom:Float = 1.0;
+	public static var cameraBopCounter:Int = 0;
+	public static var cameraBopActive:Bool = false;
+
+
+	// 缓动引用
+	public var camZoomTween:FlxTween;
+	public var moveCameraTween:FlxTween;
+
+	// 相机律动标志
+	public var cameraZoomOnBeat:Bool = true;
+
 
 	// how big to stretch the pixel art assets
 	public static var daPixelZoom:Float = 6;
@@ -299,33 +326,33 @@ class PlayState extends MusicBeatState
 
 	private static var _lastLoadedModDirectory:String = '';
 	public static var nextReloadAll:Bool = false;
+
+	private var modInfoBox:ModInfoBox;
+
 	override public function create()
 {
-    // ========== 回放系统初始化 ==========
-    if (loadRep && rep != null && rep.replay != null)
+     // ========== 回放系统初始化 ==========
+    if (loadRep && rep != null)
     {
-       // trace('=== REPLAY MODE INITIALIZATION ===');
-       // trace('Loading replay: ' + rep.path);
-       // trace('Song: ' + rep.replay.songName);
-       // trace('Difficulty: ' + rep.replay.songDiff);
-       // trace('Player: ' + rep.replay.playerName);
+        trace('=== REPLAY MODE INITIALIZATION ===');
+        trace('Loading replay: ' + rep.path);
+        trace('Song: ' + rep.replay.songName);
         
         // 设置回放模式标志
         inReplay = true;
-        cpuControlled = false;
+        cpuControlled = false; // 回放模式下禁用自动播放
         practiceMode = false;
         
-        // 初始化回放播放
-        rep.startPlayback();
+        // 初始化回放数据
+        initReplayData();
         
-        if (rep.replay.noteSpeed > 0)
-        {
-            songSpeed = rep.replay.noteSpeed;
-        }
-        
-        // 创建回放UI
-        createReplayUI();
+        trace('Replay mode activated with ${replayNoteQueue.length} notes');
     }
+
+	if (inReplay)
+{
+    createReplayUI();
+}
     
     // ========== 原有代码继续 ==========
     Paths.clearStoredMemory();
@@ -363,15 +390,6 @@ class PlayState extends MusicBeatState
     cpuControlled = ClientPrefs.getGameplaySetting('botplay');
     opponentMode = ClientPrefs.getGameplaySetting('opponentplay');
     guitarHeroSustains = ClientPrefs.data.guitarHeroSustains;
-    
-    // 回放模式下强制设置
-    if (inReplay)
-    {
-        practiceMode = false;
-        cpuControlled = true;
-        instakillOnMiss = false;
-        trace('Replay mode: practice=' + practiceMode + ', botplay=' + cpuControlled);
-    }
 
     // var gameCam:FlxCamera = FlxG.camera;
     camGame = initPsychCamera();
@@ -463,14 +481,18 @@ class PlayState extends MusicBeatState
 			case 'limo-erect': new LimoErect(); // Week 4 (Erect)
 			case 'mall-erect': new MallErect(); // Week 5 (Erect)
 			case 'school-erect': new SchoolErect(); // Week 6 (Erect) - Senpai, Roses
+			case 'schoolEvil-erect': new SchoolEvilErect();		//Week 6 （Erect） - Thorns
 			case 'tank-erect': new FranksSpiritsBowling(); // Week 7 (Erect)
 		}
 		if(isPixelStage) introSoundsSuffix = '-pixel';
 
 		#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
+		if (ClientPrefs.data.luadebugPrint)
+		{
 		luaDebugGroup = new FlxTypedGroup<psychlua.DebugLuaText>();
 		luaDebugGroup.cameras = [camOther];
 		add(luaDebugGroup);
+		}
 		#end
 
 		if (!stageData.hide_girlfriend)
@@ -663,16 +685,16 @@ class PlayState extends MusicBeatState
 		healthText.visible = !ClientPrefs.data.hideHud && ClientPrefs.data.healthText;
         uiGroup.add(healthText);
 
-		var version:String = MainMenuState.psychEngineVersion;
+		var version:String = MainMenuState.frozenEngineVersion;
     
-		songText = new FlxText(2, 701, 0, SONG.song + ' - ' + Difficulty.getString() + ' | PE - ' + version, 15);
+		songText = new FlxText(2, 701, 0, SONG.song + ' - ' + Difficulty.getString() + ' | FE - ' + version, 15);
 		songText.setFormat(Paths.font("vcr.ttf"), 15, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		songText.scrollFactor.set();
 		songText.borderSize = 1;
 		songText.visible = !ClientPrefs.data.hideHud && ClientPrefs.data.songText;
 		uiGroup.add(songText);	
 
-
+		createModInfoBox();
 
 		if(ClientPrefs.data.downScroll)
 			botplayTxt.y = healthBar.y + 70;
@@ -750,10 +772,13 @@ class PlayState extends MusicBeatState
 		var splash:NoteSplash = new NoteSplash();
 		grpNoteSplashes.add(splash);
 		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
-    
-    
 
 		super.create();
+
+		defaultStageZoom = defaultCamZoom;
+		
+		// 初始化 zoomMultiplier
+		zoomMultiplier = 1.0;
 
 		rep = new Replay("");
 
@@ -1605,6 +1630,11 @@ class PlayState extends MusicBeatState
 	{
 		startingSong = false;
 
+		if (modInfoBox != null && modInfoBox.shouldDisplay)
+    {
+        modInfoBox.slideIn();
+    }
+
 		@:privateAccess
 		FlxG.sound.playMusic(inst._sound, 1, false);
 		#if FLX_PITCH FlxG.sound.music.pitch = playbackRate; #end
@@ -2092,65 +2122,9 @@ class PlayState extends MusicBeatState
 
 	override public function update(elapsed:Float)
 {
-    // ========== 回放播放逻辑 ==========
-    if (inReplay && rep != null && generatedMusic && !endingSong && !startingSong && !paused)
+     if (inReplay && !paused && !endingSong && !startingSong && generatedMusic)
     {
-        var currentTime:Float = Conductor.songPosition;
-        
-        while (true)
-        {
-            var noteData:Array<Dynamic> = rep.getNextNote(currentTime);
-            if (noteData == null) break;
-            
-            var strumTime:Float = noteData[0];
-            var noteColumn:Int = Std.int(noteData[2] % 4);
-            var diff:Float = noteData[3];
-            
-            if (strumTime <= currentTime + 50)
-            {
-                if (diff < 9999) // 正常音符
-                {
-                    var foundNote:Note = null;
-                    notes.forEachAlive(function(daNote:Note)
-                    {
-                        if (daNote.mustPress && !daNote.wasGoodHit && !daNote.ignoreNote && 
-                            daNote.noteData == noteColumn && Math.abs(daNote.strumTime - strumTime) < 20)
-                        {
-                            foundNote = daNote;
-                        }
-                    });
-                    
-                    if (foundNote != null && foundNote.canBeHit)
-                    {
-                        var strum:StrumNote = playerStrums.members[noteColumn];
-                        if (strum != null)
-                        {
-                            strum.playAnim('confirm', true);
-                            strum.resetAnim = 0;
-                        }
-                        
-                        goodNoteHit(foundNote);
-                    }
-                }
-                else // miss (diff >= 9999)
-                {
-                    noteMissPress(noteColumn);
-                }
-            }
-            else
-            {
-                rep.currentIndex--;
-                break;
-            }
-        }
-        
-        // 更新回放进度显示
-        if (rep.replay.songNotes.length > 0 && repTxt != null && repTxt.visible)
-        {
-            var progress:Float = (rep.currentIndex / rep.replay.songNotes.length) * 100;
-            if (progress > 100) progress = 100;
-            repTxt.text = 'REPLAY - ${rep.replay.playerName} (${Math.round(progress)}%)';
-        }
+        processReplayNotes(elapsed);
     }
     // ========== 原有代码继续 ==========
     
@@ -2170,6 +2144,7 @@ class PlayState extends MusicBeatState
     callOnScripts('onUpdate', [elapsed]);
 
     super.update(elapsed);
+    
 
     setOnScripts('curDecStep', curDecStep);
     setOnScripts('curDecBeat', curDecBeat);
@@ -2571,46 +2546,48 @@ class PlayState extends MusicBeatState
 	}
 
 	public function triggerEvent(eventName:String, value1:String, value2:String, strumTime:Float) {
-		var flValue1:Null<Float> = Std.parseFloat(value1);
-		var flValue2:Null<Float> = Std.parseFloat(value2);
-		if(Math.isNaN(flValue1)) flValue1 = null;
-		if(Math.isNaN(flValue2)) flValue2 = null;
+    var flValue1:Null<Float> = Std.parseFloat(value1);
+    var flValue2:Null<Float> = Std.parseFloat(value2);
+    if(Math.isNaN(flValue1)) flValue1 = null;
+    if(Math.isNaN(flValue2)) flValue2 = null;
 
-		switch(eventName) {
-			case 'Hey!':
-				var value:Int = 2;
-				switch(value1.toLowerCase().trim()) {
-					case 'bf' | 'boyfriend' | '0':
-						value = 0;
-					case 'gf' | 'girlfriend' | '1':
-						value = 1;
-				}
+    switch(eventName) {
+        case 'Hey!':
+            var value:Int = 2;
+            switch(value1.toLowerCase().trim()) {
+                case 'bf' | 'boyfriend' | '0':
+                    value = 0;
+                case 'gf' | 'girlfriend' | '1':
+                    value = 1;
+            }
 
-				if(flValue2 == null || flValue2 <= 0) flValue2 = 0.6;
+            if(flValue2 == null || flValue2 <= 0) flValue2 = 0.6;
 
-				if(value != 0) {
-					if(dad.curCharacter.startsWith('gf')) { //Tutorial GF is actually Dad! The GF is an imposter!! ding ding ding ding ding ding ding, dindinding, end my suffering
-						dad.playAnim('cheer', true);
-						dad.specialAnim = true;
-						dad.heyTimer = flValue2;
-					} else if (gf != null) {
-						gf.playAnim('cheer', true);
-						gf.specialAnim = true;
-						gf.heyTimer = flValue2;
-					}
-				}
-				if(value != 1) {
-					boyfriend.playAnim('hey', true);
-					boyfriend.specialAnim = true;
-					boyfriend.heyTimer = flValue2;
-				}
+            if(value != 0) {
+                if(dad.curCharacter.startsWith('gf')) {
+                    dad.playAnim('cheer', true);
+                    dad.specialAnim = true;
+                    dad.heyTimer = flValue2;
+                } else if (gf != null) {
+                    gf.playAnim('cheer', true);
+                    gf.specialAnim = true;
+                    gf.heyTimer = flValue2;
+                }
+            }
+            if(value != 1) {
+                boyfriend.playAnim('hey', true);
+                boyfriend.specialAnim = true;
+                boyfriend.heyTimer = flValue2;
+            }
 
-			case 'Set GF Speed':
-				if(flValue1 == null || flValue1 < 1) flValue1 = 1;
-				gfSpeed = Math.round(flValue1);
+        case 'Set GF Speed':
+            if(flValue1 == null || flValue1 < 1) flValue1 = 1;
+            gfSpeed = Math.round(flValue1);
 
-			case 'Add Camera Zoom':
-				if(ClientPrefs.data.camZooms && FlxG.camera.zoom < 1.35) {
+        case 'Add Camera Zoom':
+			resetCameraBop();
+		
+            if(ClientPrefs.data.camZooms && FlxG.camera.zoom < 1.35) {
 					if(flValue1 == null) flValue1 = 0.015;
 					if(flValue2 == null) flValue2 = 0.03;
 
@@ -2618,206 +2595,426 @@ class PlayState extends MusicBeatState
 					camHUD.zoom += flValue2;
 				}
 
-			case 'Play Animation':
-				//trace('Anim to play: ' + value1);
-				var char:Character = dad;
-				switch(value2.toLowerCase().trim()) {
-					case 'bf' | 'boyfriend':
-						char = boyfriend;
-					case 'gf' | 'girlfriend':
-						char = gf;
-					default:
-						if(flValue2 == null) flValue2 = 0;
-						switch(Math.round(flValue2)) {
-							case 1: char = boyfriend;
-							case 2: char = gf;
-						}
-				}
+        case 'Play Animation':
+            var char:Character = dad;
+            switch(value2.toLowerCase().trim()) {
+                case 'bf' | 'boyfriend':
+                    char = boyfriend;
+                case 'gf' | 'girlfriend':
+                    char = gf;
+                default:
+                    if(flValue2 == null) flValue2 = 0;
+                    switch(Math.round(flValue2)) {
+                        case 1: char = boyfriend;
+                        case 2: char = gf;
+                    }
+            }
 
-				if (char != null)
-				{
-					char.playAnim(value1, true);
-					char.specialAnim = true;
-				}
+            if (char != null)
+            {
+                char.playAnim(value1, true);
+                char.specialAnim = true;
+            }
 
-			case 'Camera Follow Pos':
-				if(camFollow != null)
-				{
-					isCameraOnForcedPos = false;
-					if(flValue1 != null || flValue2 != null)
-					{
-						isCameraOnForcedPos = true;
-						if(flValue1 == null) flValue1 = 0;
-						if(flValue2 == null) flValue2 = 0;
-						camFollow.x = flValue1;
-						camFollow.y = flValue2;
+        case 'Camera Follow Pos':
+            if(camFollow != null)
+            {
+                isCameraOnForcedPos = false;
+                if(flValue1 != null || flValue2 != null)
+                {
+                    isCameraOnForcedPos = true;
+                    if(flValue1 == null) flValue1 = 0;
+                    if(flValue2 == null) flValue2 = 0;
+                    camFollow.x = flValue1;
+                    camFollow.y = flValue2;
+                }
+            }
+
+        case 'Alt Idle Animation':
+            var char:Character = dad;
+            switch(value1.toLowerCase().trim()) {
+                case 'gf' | 'girlfriend':
+                    char = gf;
+                case 'boyfriend' | 'bf':
+                    char = boyfriend;
+                default:
+                    var val:Int = Std.parseInt(value1);
+                    if(Math.isNaN(val)) val = 0;
+
+                    switch(val) {
+                        case 1: char = boyfriend;
+                        case 2: char = gf;
+                    }
+            }
+
+            if (char != null)
+            {
+                char.idleSuffix = value2;
+                char.recalculateDanceIdle();
+            }
+
+        case 'Screen Shake':
+            var valuesArray:Array<String> = [value1, value2];
+            var targetsArray:Array<FlxCamera> = [camGame, camHUD];
+            for (i in 0...targetsArray.length) {
+                var split:Array<String> = valuesArray[i].split(',');
+                var duration:Float = 0;
+                var intensity:Float = 0;
+                if(split[0] != null) duration = Std.parseFloat(split[0].trim());
+                if(split[1] != null) intensity = Std.parseFloat(split[1].trim());
+                if(Math.isNaN(duration)) duration = 0;
+                if(Math.isNaN(intensity)) intensity = 0;
+
+                if(duration > 0 && intensity != 0) {
+                    targetsArray[i].shake(intensity, duration);
+                }
+            }
+
+        case 'Change Character':
+            var charType:Int = 0;
+            switch(value1.toLowerCase().trim()) {
+                case 'gf' | 'girlfriend':
+                    charType = 2;
+                case 'dad' | 'opponent':
+                    charType = 1;
+                default:
+                    charType = Std.parseInt(value1);
+                    if(Math.isNaN(charType)) charType = 0;
+            }
+
+            switch(charType) {
+                case 0:
+                    if(boyfriend.curCharacter != value2) {
+                        if(!boyfriendMap.exists(value2)) {
+                            addCharacterToList(value2, charType);
+                        }
+
+                        var lastAlpha:Float = boyfriend.alpha;
+                        boyfriend.alpha = 0.00001;
+                        boyfriend = boyfriendMap.get(value2);
+                        boyfriend.alpha = lastAlpha;
+                        iconP1.changeIcon(boyfriend.healthIcon);
+                    }
+                    setOnScripts('boyfriendName', boyfriend.curCharacter);
+
+                case 1:
+                    if(dad.curCharacter != value2) {
+                        if(!dadMap.exists(value2)) {
+                            addCharacterToList(value2, charType);
+                        }
+
+                        var wasGf:Bool = dad.curCharacter.startsWith('gf-') || dad.curCharacter == 'gf';
+                        var lastAlpha:Float = dad.alpha;
+                        dad.alpha = 0.00001;
+                        dad = dadMap.get(value2);
+                        if(!dad.curCharacter.startsWith('gf-') && dad.curCharacter != 'gf') {
+                            if(wasGf && gf != null) {
+                                gf.visible = true;
+                            }
+                        } else if(gf != null) {
+                            gf.visible = false;
+                        }
+                        dad.alpha = lastAlpha;
+                        iconP2.changeIcon(dad.healthIcon);
+                    }
+                    setOnScripts('dadName', dad.curCharacter);
+
+                case 2:
+                    if(gf != null)
+                    {
+                        if(gf.curCharacter != value2)
+                        {
+                            if(!gfMap.exists(value2)) {
+                                addCharacterToList(value2, charType);
+                            }
+
+                            var lastAlpha:Float = gf.alpha;
+                            gf.alpha = 0.00001;
+                            gf = gfMap.get(value2);
+                            gf.alpha = lastAlpha;
+                        }
+                        setOnScripts('gfName', gf.curCharacter);
+                    }
+            }
+            reloadHealthBarColors();
+            if(ClientPrefs.data.customColor){
+                reloadTimeBarAndTextColors();
+                reloadCounterColors();
+            }
+
+        case 'Change Scroll Speed':
+            if (songSpeedType != "constant")
+            {
+                if(flValue1 == null) flValue1 = 1;
+                if(flValue2 == null) flValue2 = 0;
+
+                var newValue:Float = SONG.speed * ClientPrefs.getGameplaySetting('scrollspeed') * flValue1;
+                if(flValue2 <= 0)
+                    songSpeed = newValue;
+                else
+                    songSpeedTween = FlxTween.tween(this, {songSpeed: newValue}, flValue2 / playbackRate, {ease: FlxEase.linear, onComplete:
+                        function (twn:FlxTween)
+                        {
+                            songSpeedTween = null;
+                        }
+                    });
+            }
+
+        case 'Set Property':
+            try
+            {
+                var trueValue:Dynamic = value2.trim();
+                if (trueValue == 'true' || trueValue == 'false') trueValue = trueValue == 'true';
+                else if (flValue2 != null) trueValue = flValue2;
+                else trueValue = value2;
+
+                var split:Array<String> = value1.split('.');
+                if(split.length > 1) {
+                    LuaUtils.setVarInArray(LuaUtils.getPropertyLoop(split), split[split.length-1], trueValue);
+                } else {
+                    LuaUtils.setVarInArray(this, value1, trueValue);
+                }
+            }
+            catch(e:Dynamic)
+            {
+                var len:Int = e.message.indexOf('\n') + 1;
+                if(len <= 0) len = e.message.length;
+                #if (LUA_ALLOWED || HSCRIPT_ALLOWED)
+                addTextToDebug('ERROR ("Set Property" Event) - ' + e.message.substr(0, len), FlxColor.RED);
+                #else
+                FlxG.log.warn('ERROR ("Set Property" Event) - ' + e.message.substr(0, len));
+                #end
+            }
+
+        case 'Play Sound':
+            if(flValue2 == null) flValue2 = 1;
+            FlxG.sound.play(Paths.sound(value1), flValue2);
+
+        case 'Set Camera Target':
+
+            if(value1 == null || value1.trim() == '') {
+                isCameraOnForcedPos = false;
+                cameraSpeed = 1;
+                
+                // 取消缓动
+                if(moveCameraTween != null) {
+                    moveCameraTween.cancel();
+                    moveCameraTween = null;
+                }
+                return;
+            }
+            
+            isCameraOnForcedPos = true;
+            cameraSpeed = 1;
+            
+            // 取消现有缓动
+            if(moveCameraTween != null) {
+                moveCameraTween.cancel();
+                moveCameraTween = null;
+            }
+            
+            // 解析目标数据
+            var split:Array<String> = value1.split(',');
+            for(i in 0...split.length) {
+                split[i] = split[i].trim();
+            }
+            
+            var targetX:Float = 0;
+            var targetY:Float = 0;
+            var char:String = split[0].toLowerCase();
+            
+            // 根据角色确定目标位置
+            switch(char) {
+                case '0', 'bf', 'boyfriend':
+                    targetX = boyfriend.getMidpoint().x - 100 + boyfriendCameraOffset[0];
+                    targetY = boyfriend.getMidpoint().y - 100 + boyfriendCameraOffset[1];
+                case '1', 'dad', 'opponent':
+                    targetX = dad.getMidpoint().x + 150 + opponentCameraOffset[0];
+                    targetY = dad.getMidpoint().y - 100 + opponentCameraOffset[1];
+                case '2', 'gf', 'girlfriend':
+                    if(gf != null) {
+                        targetX = gf.getMidpoint().x + girlfriendCameraOffset[0];
+                        targetY = gf.getMidpoint().y + girlfriendCameraOffset[1];
+                    }
+                default:
+                    targetX = 0;
+                    targetY = 0;
+            }
+            
+            // 应用偏移量
+            if(split.length > 1 && split[1] != null) {
+                var offsetX = Std.parseFloat(split[1]);
+                if(!Math.isNaN(offsetX)) targetX += offsetX;
+            }
+            if(split.length > 2 && split[2] != null) {
+                var offsetY = Std.parseFloat(split[2]);
+                if(!Math.isNaN(offsetY)) targetY += offsetY;
+            }
+            
+            // 处理缓动选项
+            if(value2 == null || value2.trim() == '') {
+                // 立即移动到目标位置
+                camFollow.x = targetX;
+                camFollow.y = targetY;
+            } else {
+                // 解析缓动数据
+                var tweenSplit:Array<String> = value2.split(',');
+                for(i in 0...tweenSplit.length) {
+                    tweenSplit[i] = tweenSplit[i].trim();
+                }
+                
+                if(tweenSplit[0] == '0') {
+                    // 立即移动并瞬间定位
+                    camFollow.x = targetX;
+                    camFollow.y = targetY;
+                    camGame.snapToTarget();
+                } else {
+                    var duration:Float = 0;
+                    if(tweenSplit[0] != null && tweenSplit[0] != '') {
+                        duration = Std.parseFloat(tweenSplit[0]);
+                        if(Math.isNaN(duration)) duration = 0;
+                    }
+                    
+                    var ease:String = 'linear';
+                    if(tweenSplit.length > 1 && tweenSplit[1] != null) {
+                        ease = tweenSplit[1];
+                    }
+                    
+                    var actualDuration:Float = duration;
+                    if(duration > 0) {
+                        // 使用节拍时间（BPM相关）
+                        actualDuration = (Conductor.stepCrochet * duration) / 1000;
+                    }
+                    
+                    if(actualDuration > 0) {
+                        var easeFunc = getTweenEase(ease);
+                        var scrollTargetX = targetX - FlxG.width / 2;
+                        var scrollTargetY = targetY - FlxG.height / 2;
+                        
+                        moveCameraTween = FlxTween.tween(camGame.scroll,
+                            {x: scrollTargetX, y: scrollTargetY},
+                            actualDuration,
+                            {ease: easeFunc}
+                        );
+                    } else {
+                        // 立即移动
+                        camFollow.x = targetX;
+                        camFollow.y = targetY;
+                    }
+                }
+            }
+
+        case 'Set Camera Zoom':
+            if(camZoomTween != null) {
+                camZoomTween.cancel();
+                camZoomTween = null;
+            }
+            
+            // 解析缩放数据
+            var zoomSplit:Array<String> = value1.split(',');
+            for(i in 0...zoomSplit.length) {
+                zoomSplit[i] = zoomSplit[i].trim();
+            }
+            
+            var targetZoom:Float = defaultCamZoom;
+            if(zoomSplit[0] != null && zoomSplit[0] != '') {
+                var parsedZoom = Std.parseFloat(zoomSplit[0]);
+                if(!Math.isNaN(parsedZoom)) {
+                    targetZoom = parsedZoom;
+                }
+            }
+            
+            // 检查是否为舞台相对缩放
+            if(zoomSplit.length > 1 && zoomSplit[1] == 'stage') {
+                targetZoom *= defaultStageZoom;
+            }
+            
+            // 解析缓动数据
+            var tweenSplit:Array<String> = [];
+            if(value2 != null && value2 != '') {
+                tweenSplit = value2.split(',');
+                for(i in 0...tweenSplit.length) {
+                    tweenSplit[i] = tweenSplit[i].trim();
+                }
+            }
+            
+            // 检查是否为立即缩放
+            if(value2 == null || value2.trim() == '' || 
+               (tweenSplit.length > 0 && (tweenSplit[0] == '0' || Std.parseFloat(tweenSplit[0]) <= 0))) {
+                // 立即设置缩放
+                defaultCamZoom = targetZoom;
+            } else {
+                var duration:Float = 0;
+                if(tweenSplit[0] != null && tweenSplit[0] != '') {
+                    duration = Std.parseFloat(tweenSplit[0]);
+                    if(Math.isNaN(duration)) duration = 0;
+                }
+                
+                var ease:String = 'linear';
+                if(tweenSplit.length > 1 && tweenSplit[1] != null) {
+                    ease = tweenSplit[1];
+                }
+                
+                var actualDuration:Float = duration;
+                if(duration > 0) {
+                    // 使用节拍时间（BPM相关）
+                    actualDuration = (Conductor.stepCrochet * duration) / 1000;
+                }
+                
+                if(actualDuration > 0) {
+                    var easeFunc = getTweenEase(ease);
+                    camZoomTween = FlxTween.tween(this,
+                        {defaultCamZoom: targetZoom},
+                        actualDuration,
+                        {ease: easeFunc}
+                    );
+                } else {
+                    defaultCamZoom = targetZoom;
+                }
+            }
+
+        	case 'Set Camera Bop':  
+				var rate:Int = 4;
+				var intensity:Float = 1.0;
+				
+				if(value1 != null && value1.trim() != '') {
+					var parsedRate = Std.parseInt(value1);
+					if(parsedRate != null && parsedRate > 0) {
+						rate = parsedRate;
 					}
 				}
-
-			case 'Alt Idle Animation':
-				var char:Character = dad;
-				switch(value1.toLowerCase().trim()) {
-					case 'gf' | 'girlfriend':
-						char = gf;
-					case 'boyfriend' | 'bf':
-						char = boyfriend;
-					default:
-						var val:Int = Std.parseInt(value1);
-						if(Math.isNaN(val)) val = 0;
-
-						switch(val) {
-							case 1: char = boyfriend;
-							case 2: char = gf;
-						}
-				}
-
-				if (char != null)
-				{
-					char.idleSuffix = value2;
-					char.recalculateDanceIdle();
-				}
-
-			case 'Screen Shake':
-				var valuesArray:Array<String> = [value1, value2];
-				var targetsArray:Array<FlxCamera> = [camGame, camHUD];
-				for (i in 0...targetsArray.length) {
-					var split:Array<String> = valuesArray[i].split(',');
-					var duration:Float = 0;
-					var intensity:Float = 0;
-					if(split[0] != null) duration = Std.parseFloat(split[0].trim());
-					if(split[1] != null) intensity = Std.parseFloat(split[1].trim());
-					if(Math.isNaN(duration)) duration = 0;
-					if(Math.isNaN(intensity)) intensity = 0;
-
-					if(duration > 0 && intensity != 0) {
-						targetsArray[i].shake(intensity, duration);
+				
+				if(value2 != null && value2.trim() != '') {
+					var parsedIntensity = Std.parseFloat(value2);
+					if(!Math.isNaN(parsedIntensity)) {
+						intensity = parsedIntensity;
 					}
 				}
+				
+				// 设置 Psych Engine 原生的相机律动参数
+				camZooming = true; // 确保相机缩放开启
+				camZoomingMult = intensity; // 设置缩放强度
+				camZoomingDecay = 1; // 默认衰减值
+				
+				// 创建自定义的节拍计数器来实现按指定节拍律动
 
+				cameraBopCounter = 0;
 
-			case 'Change Character':
-				var charType:Int = 0;
-				switch(value1.toLowerCase().trim()) {
-					case 'gf' | 'girlfriend':
-						charType = 2;
-					case 'dad' | 'opponent':
-						charType = 1;
-					default:
-						charType = Std.parseInt(value1);
-						if(Math.isNaN(charType)) charType = 0;
+				
+				cameraZoomingRate = rate; // 存储律动节拍间隔
+				cameraBopActive = true; // 标记相机律动激活
+				
+				// 同步到 Lua 脚本（兼容性）
+				try {
+					setOnLuas('cameraZoomRate', rate);
+					setOnLuas('cameraZoomMult', intensity);
+					setOnLuas('cameraBopActive', true);
+				} catch(e:Dynamic) {}
 				}
 
-				switch(charType) {
-					case 0:
-						if(boyfriend.curCharacter != value2) {
-							if(!boyfriendMap.exists(value2)) {
-								addCharacterToList(value2, charType);
-							}
-
-							var lastAlpha:Float = boyfriend.alpha;
-							boyfriend.alpha = 0.00001;
-							boyfriend = boyfriendMap.get(value2);
-							boyfriend.alpha = lastAlpha;
-							iconP1.changeIcon(boyfriend.healthIcon);
-						}
-						setOnScripts('boyfriendName', boyfriend.curCharacter);
-
-					case 1:
-						if(dad.curCharacter != value2) {
-							if(!dadMap.exists(value2)) {
-								addCharacterToList(value2, charType);
-							}
-
-							var wasGf:Bool = dad.curCharacter.startsWith('gf-') || dad.curCharacter == 'gf';
-							var lastAlpha:Float = dad.alpha;
-							dad.alpha = 0.00001;
-							dad = dadMap.get(value2);
-							if(!dad.curCharacter.startsWith('gf-') && dad.curCharacter != 'gf') {
-								if(wasGf && gf != null) {
-									gf.visible = true;
-								}
-							} else if(gf != null) {
-								gf.visible = false;
-							}
-							dad.alpha = lastAlpha;
-							iconP2.changeIcon(dad.healthIcon);
-						}
-						setOnScripts('dadName', dad.curCharacter);
-
-					case 2:
-						if(gf != null)
-						{
-							if(gf.curCharacter != value2)
-							{
-								if(!gfMap.exists(value2)) {
-									addCharacterToList(value2, charType);
-								}
-
-								var lastAlpha:Float = gf.alpha;
-								gf.alpha = 0.00001;
-								gf = gfMap.get(value2);
-								gf.alpha = lastAlpha;
-							}
-							setOnScripts('gfName', gf.curCharacter);
-						}
-				}
-				reloadHealthBarColors();
-				if(ClientPrefs.data.customColor){
-				reloadTimeBarAndTextColors();
-				reloadCounterColors();
-				}
-			case 'Change Scroll Speed':
-				if (songSpeedType != "constant")
-				{
-					if(flValue1 == null) flValue1 = 1;
-					if(flValue2 == null) flValue2 = 0;
-
-					var newValue:Float = SONG.speed * ClientPrefs.getGameplaySetting('scrollspeed') * flValue1;
-					if(flValue2 <= 0)
-						songSpeed = newValue;
-					else
-						songSpeedTween = FlxTween.tween(this, {songSpeed: newValue}, flValue2 / playbackRate, {ease: FlxEase.linear, onComplete:
-							function (twn:FlxTween)
-							{
-								songSpeedTween = null;
-							}
-						});
-				}
-
-			case 'Set Property':
-				try
-				{
-					var trueValue:Dynamic = value2.trim();
-					if (trueValue == 'true' || trueValue == 'false') trueValue = trueValue == 'true';
-					else if (flValue2 != null) trueValue = flValue2;
-					else trueValue = value2;
-
-					var split:Array<String> = value1.split('.');
-					if(split.length > 1) {
-						LuaUtils.setVarInArray(LuaUtils.getPropertyLoop(split), split[split.length-1], trueValue);
-					} else {
-						LuaUtils.setVarInArray(this, value1, trueValue);
-					}
-				}
-				catch(e:Dynamic)
-				{
-					var len:Int = e.message.indexOf('\n') + 1;
-					if(len <= 0) len = e.message.length;
-					#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
-					addTextToDebug('ERROR ("Set Property" Event) - ' + e.message.substr(0, len), FlxColor.RED);
-					#else
-					FlxG.log.warn('ERROR ("Set Property" Event) - ' + e.message.substr(0, len));
-					#end
-				}
-
-			case 'Play Sound':
-				if(flValue2 == null) flValue2 = 1;
-				FlxG.sound.play(Paths.sound(value1), flValue2);
-		}
-
-		stagesFunc(function(stage:BaseStage) stage.eventCalled(eventName, value1, value2, flValue1, flValue2, strumTime));
-		callOnScripts('onEvent', [eventName, value1, value2, strumTime]);
-	}
+    stagesFunc(function(stage:BaseStage) stage.eventCalled(eventName, value1, value2, flValue1, flValue2, strumTime));
+    callOnScripts('onEvent', [eventName, value1, value2, strumTime]);
+}
 
 	public function moveCameraSection(?sec:Null<Int>):Void {
 		if(sec == null) sec = curSection;
@@ -2911,6 +3108,7 @@ class PlayState extends MusicBeatState
 	public var transitioning = false;
 	public function endSong():Void
 {
+	resetCameraBop();
     // Should kill you if you tried to cheat
     if (!startingSong)
     {
@@ -2960,6 +3158,20 @@ class PlayState extends MusicBeatState
             Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent);
         }
         #end
+
+		if (loadRep)
+		{
+			loadRep = false;
+			rep = null;
+			inReplay = false;
+			
+			if (repTxt != null)
+			{
+				repTxt.visible = false;
+			}
+			
+			trace('Replay mode ended');
+		}
         
         playbackRate = 1;
 
@@ -3004,25 +3216,26 @@ class PlayState extends MusicBeatState
         }
     }
     
-    // ========== 清理回放数据 ==========
-    if (loadRep)
+      if (inReplay)
     {
+        trace('Ending replay mode');
+        inReplay = false;
         loadRep = false;
-        repNoteIndex = 0;
         
         if (repTxt != null)
         {
             repTxt.visible = false;
         }
         
-        rep = null;
-        inReplay = false;
+        // 清理回放数据
+        replayNoteQueue = [];
+        repNoteIndex = 0;
         
-        trace('Replay mode ended');
-    }
-    else if (rep != null)
-    {
-        rep = null;
+        // 重置回放对象
+        if (rep != null)
+        {
+            rep = null;
+        }
     }
 }
 
@@ -3292,9 +3505,8 @@ class PlayState extends MusicBeatState
 
 	public var strumsBlocked:Array<Bool> = [];
 	private function onKeyPress(event:KeyboardEvent):Void
-	{
-
-		  if (loadRep)
+{
+    if (loadRep || inReplay)
         return;
 		var eventKey:FlxKey = event.keyCode;
 		var key:Int = getKeyFromEvent(keysArray, eventKey);
@@ -3312,7 +3524,8 @@ class PlayState extends MusicBeatState
 
 	private function keyPressed(key:Int) {
     if(cpuControlled || paused || inCutscene || key < 0 || key >= 4 || !generatedMusic || endingSong) return;
-    
+     if (inReplay || loadRep) return;
+
     var playerChar:Character = backend.OpponentModeSystem.getPlayerCharacter();
     if(playerChar.stunned) return;
     
@@ -3551,7 +3764,6 @@ private function keysCheck():Void
       if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
     {
         rep.recordMiss(daNote.noteData, daNote.strumTime);
-        rep.recordJudgement("miss");
         //trace('Replay recorded miss at strumTime: ' + daNote.strumTime);
     }
 }
@@ -3569,7 +3781,6 @@ function noteMissPress(direction:Int = 1):Void
         if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
     {
         rep.recordMiss(direction, Conductor.songPosition);
-        rep.recordJudgement("miss");
     }
 }
 
@@ -3993,6 +4204,12 @@ function noteMissPress(direction:Int = 1):Void
 		NoteSplash.configs.clear();
 		instance = null;
 		loadRep = false;
+
+		 if (modInfoBox != null)
+    {
+        modInfoBox.destroy();
+        modInfoBox = null;
+    }
 		super.destroy();
 	}
 
@@ -4031,6 +4248,31 @@ function noteMissPress(direction:Int = 1):Void
 		characterBopper(curBeat);
 
 		super.beatHit();
+
+		 if (cameraBopActive && camZooming)
+    {
+        cameraBopCounter++;
+        
+        // 每 cameraZoomingRate 拍触发一次相机缩放
+        if (cameraBopCounter >= cameraZoomingRate)
+        {
+            cameraBopCounter = 0;
+            
+            // 确保缩放不会太大
+            if (FlxG.camera.zoom < 1.35 && camZoomingMult > 0)
+            {
+                // 应用缩放强度
+                FlxG.camera.zoom += 0.015 * camZoomingMult;
+                
+                // HUD 缩放（可选）
+                if (camHUD.zoom < 1.35)
+                {
+                    camHUD.zoom += 0.03 * camZoomingMult;
+                }
+            }
+        }
+    }
+    
 		lastBeatHit = curBeat;
 
 		setOnScripts('curBeat', curBeat);
@@ -4453,28 +4695,6 @@ function noteMissPress(direction:Int = 1):Void
 		return false;
 	}
 
-	function createReplayUI():Void
-{
-    if (inReplay && rep != null)
-    {
-        if (repTxt != null)
-        {
-            var info:String = 'REPLAY - ${rep.replay.playerName}\n';
-            info += '${rep.replay.songName} (${Difficulty.getString(rep.replay.songDiff)})\n';
-            info += 'Accuracy: ${Math.round(rep.replay.accuracy * 100) / 100}%';
-            
-            repTxt.text = info;
-            repTxt.visible = true;
-            
-            repTxt.y = healthBar.y + (ClientPrefs.data.downScroll ? -150 : 50);
-            repTxt.screenCenter(X);
-        }
-        
-        trace('Replay UI created');
-    }
-}
-
-
 /**
  * 获取当前玩家控制的轨道组
  */
@@ -4506,4 +4726,561 @@ public function getOpponentCharacter():Character
 {
     return backend.OpponentModeSystem.getOpponentCharacter();
 }
+
+// 独立的缓动函数，不依赖外部库
+function getTweenEase(easeName:String):Dynamic {
+    switch(easeName.toLowerCase().trim()) {
+        case 'backin': return FlxEase.backIn;
+        case 'backout': return FlxEase.backOut;
+        case 'backinout': return FlxEase.backInOut;
+        case 'bouncein': return FlxEase.bounceIn;
+        case 'bounceout': return FlxEase.bounceOut;
+        case 'bounceinout': return FlxEase.bounceInOut;
+        case 'circin': return FlxEase.circIn;
+        case 'circout': return FlxEase.circOut;
+        case 'circinout': return FlxEase.circInOut;
+        case 'cubein': return FlxEase.cubeIn;
+        case 'cubeout': return FlxEase.cubeOut;
+        case 'cubeinout': return FlxEase.cubeInOut;
+        case 'elasticin': return FlxEase.elasticIn;
+        case 'elasticout': return FlxEase.elasticOut;
+        case 'elasticinout': return FlxEase.elasticInOut;
+        case 'expoin': return FlxEase.expoIn;
+        case 'expoout': return FlxEase.expoOut;
+        case 'expoinout': return FlxEase.expoInOut;
+        case 'quadin': return FlxEase.quadIn;
+        case 'quadout': return FlxEase.quadOut;
+        case 'quadinout': return FlxEase.quadInOut;
+        case 'quartin': return FlxEase.quartIn;
+        case 'quartout': return FlxEase.quartOut;
+        case 'quartinout': return FlxEase.quartInOut;
+        case 'quintin': return FlxEase.quintIn;
+        case 'quintout': return FlxEase.quintOut;
+        case 'quintinout': return FlxEase.quintInOut;
+        case 'sinein': return FlxEase.sineIn;
+        case 'sineout': return FlxEase.sineOut;
+        case 'sineinout': return FlxEase.sineInOut;
+        case 'smoothstepin': return FlxEase.smoothStepIn;
+        case 'smoothstepout': return FlxEase.smoothStepOut;
+        case 'smoothstepinout': return FlxEase.smoothStepInOut;
+        case 'smootherstepin': return FlxEase.smootherStepIn;
+        case 'smootherstepout': return FlxEase.smootherStepOut;
+        case 'smootherstepinout': return FlxEase.smootherStepInOut;
+        default: return FlxEase.linear; // 默认线性缓动
+    }
+}
+
+function lerp(a:Float, b:Float, ratio:Float):Float {
+    return a + ratio * (b - a);
+}
+
+public function resetCameraBop()
+{
+    cameraBopCounter = 0;
+    cameraBopActive = false;
+    cameraZoomingRate = 4;
+    camZoomingMult = 1;
+    
+    // 同步到 Lua
+    try {
+        setOnLuas('cameraBopActive', false);
+        setOnLuas('cameraZoomRate', 4);
+        setOnLuas('cameraZoomMult', 1);
+    } catch(e:Dynamic) {}
+}
+
+	function createModInfoBox():Void
+{
+    if (SONG == null) return;
+    
+    // 获取对手颜色
+    var opponentColor:FlxColor;
+    
+    if (dad != null && dad.healthColorArray != null && dad.healthColorArray.length >= 3)
+    {
+        // 使用 dad 的血条颜色
+        opponentColor = FlxColor.fromRGB(
+            dad.healthColorArray[0],
+            dad.healthColorArray[1],
+            dad.healthColorArray[2]
+        );
+        trace('Using dad color: R=${dad.healthColorArray[0]}, G=${dad.healthColorArray[1]}, B=${dad.healthColorArray[2]}');
+    }
+    else
+    {
+        // 默认颜色
+        opponentColor = FlxColor.fromString('#7E1C4A');
+        trace('Using default color for info box');
+    }
+    
+    // 创建 ModInfoBox
+    modInfoBox = new ModInfoBox(SONG.song, opponentColor);
+    
+    // 只有需要显示时才添加到舞台
+    if (modInfoBox.shouldDisplay)
+    {
+        modInfoBox.cameras = [camOther];
+        add(modInfoBox);
+        trace('ModInfoBox created for song: ${SONG.song}');
+    }
+    else
+    {
+        modInfoBox = null; // 如果不显示，设为 null
+        trace('No ModInfoBox for song: ${SONG.song}');
+    }
+}
+// ================================
+// 回放系统核心函数
+// ================================
+
+/**
+ * 初始化回放数据 - 从回放文件中加载音符数据
+ */
+private function initReplayData():Void
+{
+    if (rep == null || rep.replay == null || rep.replay.songNotes == null)
+    {
+        trace('ERROR: Replay data is null or invalid!');
+        inReplay = false;
+        return;
+    }
+    
+    // 清空队列
+    replayNoteQueue = [];
+    repNoteIndex = 0;
+    lastReplayTime = 0;
+    
+    // 解析回放音符数据
+    for (i in 0...rep.replay.songNotes.length)
+    {
+        var noteData:Array<Dynamic> = rep.replay.songNotes[i];
+        if (noteData == null || noteData.length < 4) continue;
+        
+        // 数组格式: [strumTime, sustainLength, column, diff, isMiss, processed]
+        var replayNote:Array<Dynamic> = [
+            noteData[0],                     // 0: strumTime (音符出现时间)
+            noteData[1],                     // 1: sustainLength (长条长度)
+            Std.int(noteData[2] % 4),        // 2: column (按键列)
+            noteData[3],                     // 3: diff (击打时间差)
+            (noteData[3] >= 9999),           // 4: isMiss (是否失误)
+            false                            // 5: processed (是否已处理)
+        ];
+        
+        replayNoteQueue.push(replayNote);
+        
+        //trace('Replay Note ${i}: time=${replayNote[0]}, col=${replayNote[2]}, ' +
+             // 'sus=${replayNote[1]}, diff=${replayNote[3]}, ' +
+             // 'miss=${replayNote[4]}');
+    }
+    
+    // 按时间排序
+    replayNoteQueue.sort(function(a:Array<Dynamic>, b:Array<Dynamic>):Int
+    {
+        return Std.int(a[0] - b[0]); // 按strumTime排序
+    });
+    
+    //trace('Loaded ${replayNoteQueue.length} replay notes');
+}
+
+/**
+ * 创建回放UI界面
+ */
+private function createReplayUI():Void
+{
+    if (!inReplay) return;
+    
+    //trace('Creating replay UI...');
+    
+    try {
+        // 创建回放文字显示
+        repTxt = new FlxText(0, 0, FlxG.width, "REPLAY MODE", 32);
+        repTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, 
+                         FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+        repTxt.scrollFactor.set();
+        repTxt.borderSize = 2;
+        repTxt.alpha = 0.8;
+        
+        // 添加文字到组
+        uiGroup.add(repTxt);
+        repTxt.visible = true;
+        
+        // 根据滚动方向调整位置
+        if (ClientPrefs.data.downScroll) {
+            repTxt.y = healthBar != null ? healthBar.y - 100 : FlxG.height - 150;
+        } else {
+            repTxt.y = healthBar != null ? healthBar.y + 100 : 50;
+        }
+        
+        //trace('Replay UI created successfully at y=${repTxt.y}');
+    } catch (e:Dynamic) {
+        trace('ERROR creating replay UI: $e');
+        trace('Stack: ${e.stack}');
+    }
+}
+
+/**
+ * 主回放处理函数 - 每帧调用
+ */
+private function processReplayNotes(elapsed:Float):Void
+{
+    if (!inReplay || !generatedMusic) {
+        return;
+    }
+    
+    if (replayNoteQueue.length == 0 || repNoteIndex >= replayNoteQueue.length) {
+        return;
+    }
+    
+    var currentTime:Float = Conductor.songPosition;
+    var realCurrentTime:Float = currentTime + Conductor.offset; // 考虑offset
+    
+    // 每50个音符更新一次UI，避免过于频繁
+    if (repNoteIndex % 50 == 0 || repTxt == null) {
+        updateReplayUI(currentTime);
+    }
+    
+    // 调试信息：每2秒打印一次状态
+    #if debug
+    if (Math.floor(currentTime / 2000) > Math.floor(lastReplayTime / 2000)) {
+        trace('Replay status at ${currentTime}ms: ${repNoteIndex}/${replayNoteQueue.length} notes processed');
+    }
+    #end
+    
+    lastReplayTime = currentTime;
+    
+    // 处理所有到期的回放音符
+    var processedCount:Int = 0;
+    while (repNoteIndex < replayNoteQueue.length && processedCount < 100) // 每帧最多处理10个音符
+    {
+        var replayNote:Array<Dynamic> = replayNoteQueue[repNoteIndex];
+        
+        if (replayNote == null || replayNote.length < 6) {
+            repNoteIndex++;
+            continue;
+        }
+        
+        // 关键：使用实际应该击打的时间（原始strumTime + diff）
+        var noteStrTime:Float = replayNote[0]; // 音符的原始出现时间
+        var diff:Float = replayNote[3];        // 实际击打时间与音符时间的差值
+        var actualHitTime:Float = noteStrTime + diff; // 实际应该在什么时候击打
+        var isMiss:Bool = replayNote[4];
+        var processed:Bool = replayNote[5];
+        
+        // 如果已经处理过，跳过
+        if (processed) {
+            repNoteIndex++;
+            continue;
+        }
+        
+        // 关键修改：应该基于实际击打时间来触发
+        // 如果击打时间还没到，等待
+        if (actualHitTime > realCurrentTime + 10) { // 提前10ms准备
+            break;
+        }
+        
+        // 如果击打时间过期太多，跳过
+        if (realCurrentTime - actualHitTime > Conductor.safeZoneOffset) {
+            trace('Skipping too late note: noteTime=${noteStrTime}, hitTime=${actualHitTime}, current=${realCurrentTime}');
+            replayNoteQueue[repNoteIndex][5] = true;
+            repNoteIndex++;
+            continue;
+        }
+        
+        // 处理音符
+        try {
+            if (!isMiss) {
+                processReplayHit(replayNote, realCurrentTime);
+            } else {
+                processReplayMiss(replayNote, realCurrentTime);
+            }
+            
+            // 标记为已处理
+            replayNoteQueue[repNoteIndex][5] = true;
+            processedCount++;
+            
+        } catch (e:Dynamic) {
+            trace('ERROR processing replay note at ${noteStrTime}: $e');
+            trace('Stack: ${e.stack}');
+        }
+        
+        repNoteIndex++;
+    }
+    
+    // 如果没有更多音符，结束回放
+    if (repNoteIndex >= replayNoteQueue.length && inReplay)
+    {
+        trace('Replay finished! All notes processed.');
+        completeReplay();
+    }
+}
+
+/**
+ * 处理回放打击 (hit)
+ */
+private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):Void
+{
+    var noteStrTime:Float = replayNote[0];
+    var column:Int = replayNote[2];
+    var diff:Float = replayNote[3];
+    var actualHitTime:Float = noteStrTime + diff;
+    
+   // trace('Processing replay HIT: noteTime=$noteStrTime, col=$column, diff=$diff, actualHit=$actualHitTime, current=$currentTime');
+    
+    // 1. 播放按键动画
+    var strum:StrumNote = playerStrums.members[column];
+    if (strum != null)
+    {
+        strum.playAnim('confirm', true);
+        strum.resetAnim = 0;
+        
+        // 0.15秒后恢复静态
+        new FlxTimer().start(0.15, function(tmr:FlxTimer)
+        {
+            if (strum != null && strum.animation.curAnim.name == 'confirm')
+            {
+                strum.playAnim('static');
+                strum.resetAnim = 0;
+            }
+        });
+    }
+    
+    // 2. 查找并击中对应的游戏音符
+    // 关键修改：基于音符的原始出现时间来查找
+    var targetNote:Note = findNoteAtOriginalTime(noteStrTime, column);
+    if (targetNote != null)
+    {
+        //trace('Found target note at ${targetNote.strumTime}, hitting...');
+        
+        // 这里需要确保在正确的时间调用goodNoteHit
+        // 如果时间差太大，可能需要调整
+        var timeDiff:Float = currentTime - targetNote.strumTime;
+        
+        // 如果时间差在安全区内，正常击中
+        if (Math.abs(timeDiff) < Conductor.safeZoneOffset)
+        {
+            goodNoteHit(targetNote);
+        }
+        else
+        {
+            trace('WARNING: Time diff too large: $timeDiff, forcing hit');
+            // 强制击中，但可能会影响评分
+            goodNoteHit(targetNote);
+            // 也可以手动设置状态
+            targetNote.wasGoodHit = true;
+            targetNote.canBeHit = false;
+        }
+        
+        // 如果需要，处理长条音符
+        var sustainLength:Float = replayNote[1];
+        if (sustainLength > 0)
+        {
+            processSustainNotes(targetNote, replayNote);
+        }
+    }
+    else
+    {
+       // trace('WARNING: No target note found for replay hit at $noteStrTime');
+        
+        // 如果没有找到对应音符，至少播放动画
+        var animName:String = singAnimations[column];
+        if (boyfriend != null && boyfriend.hasAnimation(animName))
+        {
+            boyfriend.playAnim(animName, true);
+            boyfriend.holdTimer = 0;
+        }
+    }
+}
+
+/**
+ * 处理回放失误 (miss)
+ */
+private function processReplayMiss(replayNote:Array<Dynamic>, currentTime:Float):Void
+{
+    var noteStrTime:Float = replayNote[0];
+    var column:Int = replayNote[2];
+    
+    trace('Processing replay MISS: time=${noteStrTime}, col=${column}');
+    
+    // 播放miss效果
+    noteMissPress(column);
+    
+    // 播放miss动画
+    var animName:String = singAnimations[column] + 'miss';
+    if (boyfriend != null && boyfriend.hasAnimation(animName))
+    {
+        boyfriend.playAnim(animName, true);
+    }
+}
+
+/**
+ * 基于音符的原始出现时间查找音符（关键修复）
+ */
+private function findNoteAtOriginalTime(targetTime:Float, column:Int):Note
+{
+    var bestNote:Note = null;
+    var minTimeDiff:Float = 10; // 允许10ms的误差
+    
+    notes.forEachAlive(function(daNote:Note)
+    {
+        // 检查音符是否符合条件
+        if (!daNote.mustPress || 
+            daNote.wasGoodHit || 
+            daNote.tooLate || 
+            !daNote.canBeHit || 
+            daNote.noteData != column)
+            return;
+        
+        // 计算原始时间的差值
+        var timeDiff:Float = Math.abs(daNote.strumTime - targetTime);
+        
+        // 找到时间最接近的音符
+        if (timeDiff < minTimeDiff)
+        {
+            minTimeDiff = timeDiff;
+            bestNote = daNote;
+        }
+    });
+    
+    // 如果没找到精确匹配，放宽条件
+    if (bestNote == null)
+    {
+        var fallbackDiff:Float = 45; // 放宽到45ms
+        
+        notes.forEachAlive(function(daNote:Note)
+        {
+            if (!daNote.mustPress || 
+                daNote.wasGoodHit || 
+                daNote.tooLate || 
+                daNote.noteData != column)
+                return;
+            
+            var timeDiff:Float = Math.abs(daNote.strumTime - targetTime);
+            if (timeDiff < fallbackDiff)
+            {
+                fallbackDiff = timeDiff;
+                bestNote = daNote;
+            }
+        });
+    }
+    
+    if (bestNote != null) {
+        //trace('Found note: expected=${targetTime}, actual=${bestNote.strumTime}, diff=${bestNote.strumTime - targetTime}');
+    }
+    
+    return bestNote;
+}
+
+/**
+ * 备选方案：根据实际击打时间查找音符
+ */
+private function findNoteAtActualHitTime(hitTime:Float, column:Int):Note
+{
+    var bestNote:Note = null;
+    var minTimeDiff:Float = Conductor.safeZoneOffset * 0.5; // 50%的安全区
+    
+    notes.forEachAlive(function(daNote:Note)
+    {
+        if (!daNote.mustPress || 
+            daNote.wasGoodHit || 
+            daNote.tooLate || 
+            !daNote.canBeHit || 
+            daNote.noteData != column)
+            return;
+        
+        // 计算音符可被击打的时间窗口
+        var noteHitWindowStart:Float = daNote.strumTime - Conductor.safeZoneOffset;
+        var noteHitWindowEnd:Float = daNote.strumTime + Conductor.safeZoneOffset;
+        
+        // 如果击打时间在音符的可击打窗口内
+        if (hitTime >= noteHitWindowStart && hitTime <= noteHitWindowEnd)
+        {
+            // 选择时间最接近的音符
+            var timeDiff:Float = Math.abs(daNote.strumTime - hitTime);
+            if (timeDiff < minTimeDiff)
+            {
+                minTimeDiff = timeDiff;
+                bestNote = daNote;
+            }
+        }
+    });
+    
+    return bestNote;
+}
+
+/**
+ * 处理长条音符
+ */
+private function processSustainNotes(parentNote:Note, replayNote:Array<Dynamic>):Void
+{
+    if (parentNote == null || replayNote[1] <= 0)
+        return;
+    
+    // 处理长条音符
+    var sustainTime:Float = replayNote[1];
+    
+    if (sustainTime > 0)
+    {
+        // 这里可以添加长条音符的持续按键效果
+        //trace('Note has sustain: ${sustainTime}ms');
+    }
+}
+
+/**
+ * 更新回放UI显示
+ */
+private function updateReplayUI(currentTime:Float):Void
+{
+    if (repTxt == null) {
+        // 尝试重新创建UI
+        if (inReplay) {
+            createReplayUI();
+        }
+        return;
+    }
+    
+    try {
+        var totalNotes:Int = replayNoteQueue.length;
+        var progress:Float = totalNotes > 0 ? (repNoteIndex / totalNotes) * 100 : 100;
+        
+        // 添加时间信息
+        var timeStr:String = FlxStringUtil.formatTime(Math.floor(currentTime / 1000), false);
+        
+        repTxt.text = 'REPLAY MODE\n${Math.round(progress)}% (${repNoteIndex}/${totalNotes})\n${timeStr}';
+        repTxt.screenCenter(X);
+        repTxt.visible = true;
+    } catch (e:Dynamic) {
+        trace('ERROR updating replay UI: $e');
+    }
+}
+
+/**
+ * 完成回放
+ */
+private function completeReplay():Void
+{
+    trace('Completing replay...');
+    
+    if (repTxt != null)
+    {
+        repTxt.text = 'REPLAY COMPLETE!';
+        repTxt.color = FlxColor.GREEN;
+        
+        // 3秒后隐藏
+        new FlxTimer().start(3, function(tmr:FlxTimer)
+        {
+            if (repTxt != null) {
+                repTxt.visible = false;
+            }
+        });
+    }
+    
+    // 可以选择自动退出回放模式
+    inReplay = false;
+}
+
+// ================================
+// 调试和工具函数
+// ================================
+
+
 }

@@ -179,9 +179,9 @@ class HitGraph extends Sprite
         var minTime:Float = Math.POSITIVE_INFINITY;
         var maxTime:Float = Math.NEGATIVE_INFINITY;
         
+        // 先找到时间范围
         for (hit in history) {
-            var time:Float = Std.parseFloat(Std.string(hit[2]));
-            
+            var time:Float = hit[2]; // 直接使用，不需要转换
             if (time < minTime) minTime = time;
             if (time > maxTime) maxTime = time;
         }
@@ -202,35 +202,64 @@ class HitGraph extends Sprite
         
         for (i in 0...history.length)
         {
-            var diff:Float = Std.parseFloat(Std.string(history[i][0]));
-            var judge:String = Std.string(history[i][1]);
-            var time:Float = Std.parseFloat(Std.string(history[i][2]));
+            var diff:Dynamic = history[i][0];
+            var judge:Dynamic = history[i][1];
+            var time:Float = history[i][2];
             
-            var isKadeMiss:Bool = (Math.abs(diff + 10000) < 0.1);
-            var isMiss:Bool = isKadeMiss || (judge.toLowerCase() == "miss");
+            // 更精确的MISS判断
+            var isMiss:Bool = false;
+            
+            if (Std.isOfType(diff, Float)) {
+                var diffFloat:Float = diff;
+                // 检查是否为Kade Engine的MISS标记
+                if (Math.abs(diffFloat - KADE_MISS_VALUE) < 1) {
+                    isMiss = true;
+                }
+            }
+            
+            if (Std.isOfType(judge, String)) {
+                var judgeStr:String = cast(judge, String).toLowerCase();
+                if (judgeStr == "miss") {
+                    isMiss = true;
+                }
+            }
             
             if (isMiss) {
-                // 修改：绘制普通的红色圆点代替X
+                // 绘制MISS点
                 drawMissPointAsDot(time, minTime, timeRange, i);
                 missPoints++;
             } else {
-                validPoints++;
+                // 处理正常打击点
+                var diffFloat:Float = 0.0;
                 
-                if (Math.abs(diff) > 500.0) {
-                    diff = FlxMath.bound(diff, -210.0, 210.0);
+                if (Std.isOfType(diff, Float)) {
+                    diffFloat = diff;
+                } else if (Std.isOfType(diff, Int)) {
+                    diffFloat = diff;
                 }
                 
-                var color = getColorByDiff(diff);
+                // 过滤异常值 - 如果diff超出正常范围，直接跳过
+                if (Math.abs(diffFloat) > 500.0) {
+                    trace('Skipping abnormal diff: $diffFloat at time: $time');
+                    continue;
+                }
+                
+                // 确保diff在合理范围内
+                diffFloat = FlxMath.bound(diffFloat, -210.0, 210.0);
+                
+                var color = getColorByDiff(diffFloat);
                 gfx.beginFill(color, 0.8);
                 
                 var xPos:Float = ((time - minTime) / timeRange) * _width;
-                var yPos:Float = _height / 2 + (diff / 210.0) * (_height / 2);
+                var yPos:Float = _height / 2 + (diffFloat / 210.0) * (_height / 2);
                 
                 xPos = FlxMath.bound(xPos, 2.0, _width - 2.0);
                 yPos = FlxMath.bound(yPos, 2.0, _height - 2.0);
                 
                 gfx.drawCircle(xPos, yPos, 2.0);
                 gfx.endFill();
+                
+                validPoints++;
             }
         }
         
@@ -238,14 +267,13 @@ class HitGraph extends Sprite
         trace('HitGraph: ${history.length} points total (${validPoints} hits, ${missPoints} misses)');
     }
 
-    // 修改：绘制MISS点为普通红色圆点
     function drawMissPointAsDot(time:Float, minTime:Float, timeRange:Float, index:Int):Void
     {
         var gfx:Graphics = graphics;
         var color:FlxColor = FlxColor.fromRGB(128, 0, 0); // 深红色
         
         var xPos:Float = ((time - minTime) / timeRange) * _width;
-        // 修改：将MISS点放在图表上方，但仍在图表区域内
+        // 将MISS点放在图表上方
         var yPos:Float = 20.0;
         
         xPos = FlxMath.bound(xPos, 3.0, _width - 3.0);
@@ -255,7 +283,6 @@ class HitGraph extends Sprite
         gfx.beginFill(color, 0.8);
         gfx.drawCircle(xPos, yPos, 3.0); // 稍微大一点，更明显
         gfx.endFill();
-        
     }
 
     function getColorByDiff(diff:Float):FlxColor
@@ -263,30 +290,35 @@ class HitGraph extends Sprite
         var absDiff = Math.abs(diff);
         
         if (absDiff <= 22.5) {
-            return FlxColor.fromRGB(255, 215, 0);
+            return FlxColor.fromRGB(255, 215, 0); // Marvelous
         } else if (absDiff <= 45.0) {
-            return FlxColor.CYAN;
+            return FlxColor.CYAN; // Sick
         } else if (absDiff <= 90.0) {
-            return FlxColor.LIME;
+            return FlxColor.LIME; // Good
         } else if (absDiff <= 135.0) {
-            return FlxColor.fromRGB(255, 100, 100);
+            return FlxColor.fromRGB(255, 100, 100); // Bad
         } else if (absDiff <= 166.0) {
-            return FlxColor.RED;
+            return FlxColor.RED; // Shit
         } else if (absDiff <= 210.0) {
-            return FlxColor.ORANGE;
+            return FlxColor.ORANGE; // 超出Shit但仍在210ms内
         } else {
-            return FlxColor.PURPLE;
+            return FlxColor.PURPLE; // 严重超时
         }
     }
     
     public function addToHistory(diff:Float, judge:String, time:Float)
     {
-        if (judge == "miss")
+        // 修正：确保MISS被正确标记
+        if (judge.toLowerCase() == "miss")
         {
-            history.push([-210.0, "miss", time]);
+            // 使用Kade Engine约定标记MISS
+            history.push([KADE_MISS_VALUE, "miss", time]);
+            trace('Added MISS to history: time=$time, diff=$KADE_MISS_VALUE');
         }
         else if (Math.abs(diff) > 5000)
         {
+            // 跳过异常值
+            trace('Skipping abnormal diff in addToHistory: $diff');
             return;
         }
         else
@@ -328,6 +360,5 @@ class HitGraph extends Sprite
         _labels = [];
         
         drawAxes();
- 
     }
 }

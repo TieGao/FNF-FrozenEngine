@@ -210,7 +210,7 @@ class ResultsScreen extends MusicBeatSubstate
         FlxG.sound.list.add(pauseMusic);
         
         // 使用与pause界面相同的渐入逻辑
-        FlxTween.tween(pauseMusic, {volume: 1}, 0.8);
+        FlxTween.tween(pauseMusic, {volume: 0.5}, 4);
     }
 
     function getPauseSong():String
@@ -359,13 +359,6 @@ class ResultsScreen extends MusicBeatSubstate
 
     function closeResults()
     {
-        #if sys
-        if (PlayState.rep != null && PlayState.rep.replay != null && PlayState.rep.replay.songNotes.length > 0) {
-            try {
-                PlayState.rep.SaveReplay(PlayState.rep.replay.songNotes, PlayState.rep.replay.songJudgements, PlayState.rep.replay.ana);
-            } catch (e:Dynamic) {}
-        }
-        #end
 
         // 音乐渐出 - 使用与pause界面退出时相同的逻辑
         if (pauseMusic != null && pauseMusic.playing)

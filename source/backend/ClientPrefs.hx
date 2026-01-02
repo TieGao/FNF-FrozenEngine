@@ -90,6 +90,7 @@ import states.TitleState;
 	public var loadingScreen:Bool = true;
 	public var language:String = 'en-US';
 	public var saveReplays:Bool = true;
+	public var luadebugPrint:Bool = true;
 }
 
 class ClientPrefs {

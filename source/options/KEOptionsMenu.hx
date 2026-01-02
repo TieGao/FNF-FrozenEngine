@@ -233,7 +233,7 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Open KE Styled KeyBinds", "Customize key bindings in KE Styled Menu", "", "action"),
 			KEOption.create("Adjust Delay and Combo", "Customize ingame experience", "", "action"),   
 			KEOption.create("Reset KeyBinds", "Reset to default keys", "", "action"),
-			KEOption.create("Reset Key", "Reset keybind", "reset", "keybind")
+			//KEOption.create("Reset Key", "Reset keybind", "reset", "keybind") trashed
 		];
 	}
 
@@ -242,10 +242,11 @@ class KEOptionsMenu extends MusicBeatState
 	{
 		return [
 			KEOption.create("Enable Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
-			//KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
+			KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
 			KEOption.create("KE Styled Settings", "Use KE style options", "keOptions", "bool"),
 			KEOption.create("Check Updates", "Check for game updates", "checkForUpdates", "bool"),
 			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
+			KEOption.create("Enable LUA Debug Info", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
 			KEOption.create("Reset Settings", "Reset all settings to default [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
 			KEOption.create("Reset Scores", "Clear all high scores [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action")
 		];

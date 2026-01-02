@@ -46,15 +46,17 @@ typedef ReplayJSON =
     public var timestamp:Date;
     public var songName:String;
     public var songDiff:Int;
+    public var difficultyName:String; // 新增：难度名称
     public var songNotes:Array<Dynamic>; // [strumTime, sustainLength, noteData, diff]
     public var songJudgements:Array<String>;
     public var noteSpeed:Float;
     public var chartPath:String;
+    public var modDirectory:String; // 新增：模组目录
     public var isDownscroll:Bool;
     public var sf:Int;
     public var sm:Bool;
     public var ana:Analysis;
-    public var playerName:String;
+    // 已移除 playerName
     public var accuracy:Float;
     public var score:Int;
     public var misses:Int;
@@ -64,7 +66,7 @@ typedef ReplayJSON =
 
 class Replay
 {
-    public static var version:String = "1.3";
+    public static var version:String = "1.4"; // 版本更新到1.4
 
     public var path:String = "";
     public var replay:ReplayJSON;
@@ -84,17 +86,19 @@ class Replay
         replay = {
             songName: "No Song Found", 
             songDiff: 1,
+            difficultyName: "Normal", // 新增默认值
             noteSpeed: 1.5,
             isDownscroll: false,
             songNotes: [],
             replayGameVer: version,
             chartPath: "",
+            modDirectory: "", // 新增
             sm: false,
             timestamp: Date.now(),
             sf: 10,
             ana: new Analysis(),
             songJudgements: [],
-            playerName: "Player",
+            // 已移除 playerName
             accuracy: 0.0,
             score: 0,
             misses: 0,
@@ -113,97 +117,98 @@ class Replay
     }
 
     public function SaveReplay(notearray:Array<Dynamic>, judge:Array<String>, ana:Analysis)
+{
+    #if sys
+    // 获取当前模组目录
+    var currentMod:String = "";
+    
+    #if MODS_ALLOWED
+    if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
     {
-        #if sys
-        // 获取当前模组目录
-        var currentMod:String = "";
-        
-        #if MODS_ALLOWED
-        if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
-        {
-            currentMod = Mods.currentModDirectory;
-            trace('Saving replay with mod directory: $currentMod');
-        }
-        else
-        {
-            trace('Saving replay without mod (base game)');
-        }
-        #end
-        
-        var chartPath:String = currentMod;
-        
-        // 计算数据
-        var missCount:Int = 0;
-        for (j in judge) {
-            if (j == "miss") missCount++;
-        }
-        
-        var totalNotes:Int = notearray.length;
-        var totalHits:Int = totalNotes - missCount;
-        var accuracy:Float = totalNotes > 0 ? (totalHits / totalNotes) * 100 : 0;
-        
-        // 生成评分
-        var rating:String = "N/A";
-        var ratingFC:String = "N/A";
-        
-        if (PlayState.instance != null)
-        {
-            rating = PlayState.instance.ratingName;
-            ratingFC = PlayState.instance.ratingFC;
-        }
-        
-        // 获取玩家名称
-        var playerName:String = "Player";
-        #if (sys && windows)
-        try {
-            playerName = Sys.environment()["USERNAME"];
-        } catch(e:Dynamic) {}
-        #end
-        
-        var json = {
-            "songName": PlayState.SONG != null ? PlayState.SONG.song : "Unknown",
-            "songDiff": PlayState.storyDifficulty,
-            "chartPath": chartPath,
-            "sm": false,
-            "timestamp": Date.now(),
-            "replayGameVer": version,
-            "sf": 10,
-            "noteSpeed": PlayState.SONG != null ? PlayState.SONG.speed : 1.5,
-            "isDownscroll": ClientPrefs.data.downScroll,
-            "songNotes": notearray,
-            "songJudgements": judge,
-            "ana": ana,
-            "playerName": playerName,
-            "accuracy": accuracy,
-            "score": PlayState.instance != null ? PlayState.instance.songScore : 0,
-            "misses": missCount,
-            "rating": rating,
-            "ratingFC": ratingFC
-        };
-
-        var data:String = Json.stringify(json, null, "\t");
-        var time = Date.now().getTime();
-
-        var replayDir = "assets/replays/";
-        if (!FileSystem.exists(replayDir))
-            FileSystem.createDirectory(replayDir);
-
-        var songNameForFile:String = PlayState.SONG != null ? 
-            StringTools.replace(StringTools.replace(PlayState.SONG.song, " ", "_"), ":", "_") : "Unknown";
-        var diffName:String = Difficulty.getString().toLowerCase();
-        
-        var fileName:String = 'replay_${songNameForFile}_${diffName}_${time}.kadeReplay';
-        File.saveContent(replayDir + fileName, data);
-        
-        path = fileName;
-        trace('=== REPLAY SAVED ===');
-        trace('File: $fileName');
-        trace('Notes: ${notearray.length}');
-        trace('Accuracy: ${accuracy}%');
-        trace('Misses: ${missCount}');
-        trace('====================');
-        #end
+        currentMod = Mods.currentModDirectory;
+        trace('Saving replay with mod directory: $currentMod');
     }
+    else
+    {
+        trace('Saving replay without mod (base game)');
+    }
+    #end
+    
+    var chartPath:String = ""; // chartPath保持原样
+    var modDirectory:String = currentMod; // 单独存储模组目录
+    
+    // 计算数据
+    var missCount:Int = 0;
+    for (j in judge) {
+        if (j == "miss") missCount++;
+    }
+    
+    var totalNotes:Int = notearray.length;
+    var totalHits:Int = totalNotes - missCount;
+    var accuracy:Float = totalNotes > 0 ? (totalHits / totalNotes) * 100 : 0;
+    
+    // 获取难度名称 - 直接从当前游戏状态获取
+    var difficultyName:String = Difficulty.getString();
+    var songDiff:Int = PlayState.storyDifficulty;
+    
+    // 生成评分
+    var rating:String = "N/A";
+    var ratingFC:String = "N/A";
+    
+    if (PlayState.instance != null)
+    {
+        rating = PlayState.instance.ratingName;
+        ratingFC = PlayState.instance.ratingFC;
+    }
+    
+    var json = {
+        "songName": PlayState.SONG != null ? PlayState.SONG.song : "Unknown",
+        "songDiff": songDiff, // 使用整数难度
+        "difficultyName": difficultyName, // 使用字符串难度名
+        "chartPath": chartPath,
+        "modDirectory": modDirectory, // 新增
+        "sm": false,
+        "timestamp": Date.now(),
+        "replayGameVer": version,
+        "sf": 10,
+        "noteSpeed": PlayState.SONG != null ? PlayState.SONG.speed : 1.5,
+        "isDownscroll": ClientPrefs.data.downScroll,
+        "songNotes": notearray,
+        "songJudgements": judge,
+        "ana": ana,
+        "accuracy": accuracy,
+        "score": PlayState.instance != null ? PlayState.instance.songScore : 0,
+        "misses": missCount,
+        "rating": rating,
+        "ratingFC": ratingFC
+    };
+
+    var data:String = Json.stringify(json, null, "\t");
+    var time = Date.now().getTime();
+
+    var replayDir = "assets/replays/";
+    if (!FileSystem.exists(replayDir))
+        FileSystem.createDirectory(replayDir);
+
+    var songNameForFile:String = PlayState.SONG != null ? 
+        StringTools.replace(StringTools.replace(PlayState.SONG.song, " ", "_"), ":", "_") : "Unknown";
+    var diffName:String = Difficulty.getString().toLowerCase();
+    
+    var fileName:String = 'replay_${songNameForFile}_${diffName}_${time}.kadeReplay';
+    File.saveContent(replayDir + fileName, data);
+    
+    path = fileName;
+    trace('=== REPLAY SAVED ===');
+    trace('File: $fileName');
+    trace('Mod Directory: $modDirectory');
+    trace('Difficulty ID: $songDiff');
+    trace('Difficulty Name: $difficultyName');
+    trace('Notes: ${notearray.length}');
+    trace('Accuracy: ${accuracy}%');
+    trace('Misses: ${missCount}');
+    trace('====================');
+    #end
+}
 
     public function LoadFromJSON()
     {
@@ -230,8 +235,8 @@ class Replay
                 
                 trace('Successfully loaded replay:');
                 trace('  Song: ${repl.songName}');
-                trace('  Difficulty: ${repl.songDiff}');
-                trace('  Player: ${repl.playerName}');
+                trace('  Difficulty: ${repl.difficultyName}');
+                trace('  Mod Directory: ${repl.modDirectory}');
                 trace('  Accuracy: ${repl.accuracy}%');
                 trace('  Notes: ${repl.songNotes.length}');
             }
@@ -302,6 +307,7 @@ class Replay
         {
             replay.songName = PlayState.SONG.song;
             replay.songDiff = PlayState.storyDifficulty;
+            replay.difficultyName = Difficulty.getString(); // 新增
             replay.noteSpeed = PlayState.SONG.speed;
             replay.isDownscroll = ClientPrefs.data.downScroll;
             replay.accuracy = PlayState.instance.ratingPercent * 100;
@@ -309,6 +315,12 @@ class Replay
             replay.misses = PlayState.instance.songMisses;
             replay.rating = PlayState.instance.ratingName;
             replay.ratingFC = PlayState.instance.ratingFC;
+            
+            #if MODS_ALLOWED
+            replay.modDirectory = Mods.currentModDirectory; // 新增
+            #else
+            replay.modDirectory = "";
+            #end
         }
     }
     
@@ -317,6 +329,8 @@ class Replay
     public function startPlayback():Void
     {
         trace('Starting replay playback for: ' + replay.songName);
+        trace('Difficulty: ' + replay.difficultyName);
+        trace('Mod Directory: ' + replay.modDirectory);
         trace('Total notes in replay: ' + replay.songNotes.length);
         currentIndex = 0;
         judgementIndex = 0;
@@ -366,8 +380,10 @@ class Replay
         if (!isValid()) return "Invalid Replay";
         
         var info:String = 'Song: ${replay.songName}\n';
-        info += 'Difficulty: ${Difficulty.getString(replay.songDiff)}\n';
-        info += 'Player: ${replay.playerName}\n';
+        info += 'Difficulty: ${replay.difficultyName}\n';
+        if (replay.modDirectory != null && replay.modDirectory.length > 0) {
+            info += 'Mod: ${replay.modDirectory}\n';
+        }
         info += 'Accuracy: ${Math.round(replay.accuracy * 100) / 100}%\n';
         info += 'Score: ${replay.score}\n';
         info += 'Misses: ${replay.misses}\n';

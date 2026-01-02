@@ -560,4 +560,115 @@ class Paths
 		spr.loadAtlasEx(folderOrImg, spriteJson, animationJson);
 	}
 	#end
+
+	static public function getSongImage(songName:String, ?fileName:String = null):String
+{
+    var formattedSongName:String = formatToSongPath(songName);
+    var folderPath:String = 'data/$formattedSongName';
+    
+    #if MODS_ALLOWED
+    // 优先在模组中查找
+    var moddedPath:String = modFolders('$folderPath/${fileName != null ? fileName : ""}');
+    if (moddedPath != null)
+    {
+        // 如果指定了文件名，检查具体文件
+        if (fileName != null)
+        {
+            var pngPath:String = '$moddedPath.png';
+            if (FileSystem.exists(pngPath))
+                return pngPath;
+        }
+        else
+        {
+            // 没有指定文件名，搜索包含"art"的png文件
+            var dirPath:String = moddedPath.substr(0, moddedPath.lastIndexOf('/'));
+            if (FileSystem.exists(dirPath) && FileSystem.isDirectory(dirPath))
+            {
+                var files:Array<String> = FileSystem.readDirectory(dirPath);
+                for (file in files)
+                {
+                    var lowerFile:String = file.toLowerCase();
+                    if (StringTools.endsWith(lowerFile, '.png') && lowerFile.indexOf('art') != -1)
+                    {
+                        return '$dirPath/$file';
+                    }
+                }
+            }
+        }
+    }
+    #end
+    
+    // 在assets中查找
+    var assetsPath:String = 'assets/$folderPath';
+    
+    if (fileName != null)
+    {
+        // 指定了文件名，检查具体文件
+        var pngPath:String = '$assetsPath/${fileName}.png';
+        return (FileSystem.exists(pngPath)) ? pngPath : null;
+    }
+    else
+    {
+        // 没有指定文件名，搜索包含"art"的png文件
+        if (FileSystem.exists(assetsPath) && FileSystem.isDirectory(assetsPath))
+        {
+            var files:Array<String> = FileSystem.readDirectory(assetsPath);
+            for (file in files)
+            {
+                var lowerFile:String = file.toLowerCase();
+                if (StringTools.endsWith(lowerFile, '.png') && lowerFile.indexOf('art') != -1)
+                {
+                    return '$assetsPath/$file';
+                }
+            }
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * 检查歌曲是否有艺术图
+ * @param songName 歌曲名称
+ * @return 如果有艺术图返回true
+ */
+static public function hasSongImage(songName:String):Bool
+{
+    return getSongImage(songName) != null;
+}
+
+/**
+ * 获取歌曲的艺术图作为FlxGraphic
+ * @param songName 歌曲名称
+ * @param fileName 图片文件名（可选，不包含扩展名）
+ * @return FlxGraphic对象，如果不存在则返回null
+ */
+static public function getSongGraphic(songName:String, ?fileName:String = null):FlxGraphic
+{
+    var imagePath:String = getSongImage(songName, fileName);
+    if (imagePath == null) return null;
+    
+    var key:String = 'songImage_${formatToSongPath(songName)}_${fileName != null ? fileName : "auto"}';
+    
+    // 检查是否已经在缓存中
+    if (currentTrackedAssets.exists(key))
+    {
+        localTrackedAssets.push(key);
+        return currentTrackedAssets.get(key);
+    }
+    
+    // 从文件加载
+    if (FileSystem.exists(imagePath))
+    {
+        var bitmap:BitmapData = BitmapData.fromFile(imagePath);
+        if (bitmap != null)
+        {
+            var graphic:FlxGraphic = cacheBitmap(key, null, bitmap);
+            trace('Loaded song image: $imagePath');
+            return graphic;
+        }
+    }
+    
+    return null;
+}
 }

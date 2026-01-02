@@ -145,10 +145,10 @@ function loadSkin():Void
     possiblePaths.push('mods/holdcovers/holdCover.json');
     
     // 调试：打印搜索路径
-    trace('Searching for holdCover config in:');
+    //trace('Searching for holdCover config in:');
     for (i in 0...possiblePaths.length)
     {
-        trace('  [${i+1}] ${possiblePaths[i]}');
+        //trace('  [${i+1}] ${possiblePaths[i]}');
     }
     
     // 尝试加载配置
@@ -223,7 +223,7 @@ function loadSkin():Void
             else if (parsed.alpha != null) coverAlpha = parsed.alpha; // 向后兼容
             
             // 仅保留读取到的文件信息
-            trace('Loaded holdCover config from: $jsonPath');
+            //trace('Loaded holdCover config from: $jsonPath');
             return true;
         }
         catch (e:Dynamic)
