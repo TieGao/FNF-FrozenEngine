@@ -29,6 +29,7 @@ class KEOptionsMenu extends MusicBeatState
 	var notes:Array<String> = Mods.mergeAllTextsNamed('images/noteSkins/list.txt');
 	var splashes:Array<String> = Mods.mergeAllTextsNamed('images/noteSplashes/list.txt');
 	var holdCovers:Array<String> = Mods.mergeAllTextsNamed('images/holdCover/list.txt');
+	var ratings:Array<String> = Mods.mergeAllTextsNamed('images/ratings/list.txt');
 	
 	var changedOption:Bool = false;
 	public var descText:FlxText;
@@ -60,6 +61,7 @@ class KEOptionsMenu extends MusicBeatState
 		notes.insert(0, ClientPrefs.defaultData.noteSkin);
 		splashes.insert(0, ClientPrefs.defaultData.splashSkin);
 		holdCovers.insert(0, ClientPrefs.defaultData.holdCoverSkin);
+		ratings.insert(0, ClientPrefs.defaultData.customUI);
 	}
 
 	override function create()
@@ -68,10 +70,10 @@ class KEOptionsMenu extends MusicBeatState
 
 		// 创建完整的选项分类
 		options = [
-			new KEOptionCata(50, 40, "Gameplay", getGameplayOptions()),
-			new KEOptionCata(345, 40, "Appearance", getAppearanceOptions()),
+			new KEOptionCata(50, 40, "Basics", getControlsOptions()),
+			new KEOptionCata(345, 40, "Gameplay", getGameplayOptions()),
 			new KEOptionCata(640, 40, "Visuals", getVisualsOptions()),
-			new KEOptionCata(935, 40, "Controls", getControlsOptions()),
+			new KEOptionCata(935, 40, "Graphics", getAppearanceOptions()),
 			new KEOptionCata(50, 104, "Advanced", getAdvancedOptions())
 		];
 
@@ -175,8 +177,10 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Auto Pause", "Pause when window loses focus", "autoPause", "bool"),
 			KEOption.create("Disable Reset", "Disable the reset button", "noReset", "bool"),
 			KEOption.create("Guitar Hero Sustains", "Sustains count as one note", "guitarHeroSustains", "bool"),
+			KEOption.create("Fast Restart", "Fast Restart When Dead or Press 'R' ", "skipDeath", "bool"),
 			KEOption.create("Hitsound Volume", "Volume of hit sounds", "hitsoundVolume", "float", 0, 0, 1, 0.1),
 			KEOption.create("Rating Offset", "Adjust note hit timing", "ratingOffset", "int", 0, -30, 30, 1),
+			KEOption.create("Marvelous Window", "Timing window for SICK", "marvelousWindow", "float", 25, 15, 45, 0.1),
 			KEOption.create("Sick Window", "Timing window for SICK", "sickWindow", "float", 45, 15, 45, 0.1),
 			KEOption.create("Good Window", "Timing window for GOOD", "goodWindow", "float", 90, 15, 90, 0.1),
 			KEOption.create("Bad Window", "Timing window for BAD", "badWindow", "float", 135, 15, 135, 0.1),
@@ -193,7 +197,9 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Shaders", "Enable shader effects", "shaders", "bool"),
 			KEOption.create("GPU Caching", "Use GPU for texture caching", "cacheOnGPU", "bool"),
 			KEOption.create("FPS Counter", "Show FPS counter", "showFPS", "bool"),
-			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 240, 1)
+			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 240, 1),
+			KEOption.create("New Freeplay", "Enable New Freeplay", "newFreeplay", "bool"),
+			KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool")
 		];
 	}
 
@@ -206,13 +212,16 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Camera Zooms", "Zoom camera on beat", "camZooms", "bool"),
 			KEOption.create("Score Zoom", "Grow score text on hit", "scoreZoom", "bool"),
 			KEOption.create('Time Bar:',"What should the Time Bar display?","timeBarType","string",['Time Left', 'Time Elapsed', 'Song Name', 'Disabled']),
-			KEOption.create("Health Bar Alpha", "Health bar transparency", "healthBarAlpha", "float", 1, 0, 1, 0.1),
 			KEOption.create("Note Skins" , "Select your prefered Note skin", "noteSkin","string" , notes),
 			KEOption.create("Note Splashes", "Select your prefered Note Splash variation","splashSkin","string", splashes),
 			KEOption.create("Note HoldCover", "Select your prefered Note Hold Cover","holdCoverSkin","string", holdCovers),
-			KEOption.create("Note Alpha", "Note transparency", "noteAlpha", "float", 0.6, 0, 1, 0.1),
-			KEOption.create("Note Splash Alpha", "Note splash transparency", "splashAlpha", "float", 0.6, 0, 1, 0.1),
+			KEOption.create("Rating Style", "Select your prefered Ratings Image","customUI","string", ratings),
+			KEOption.create("Note Opacity", "Note transparency", "noteAlpha", "float", 0.9, 0, 1, 0.1),
+			KEOption.create("Note Splash Opacity", "Note splash transparency", "splashAlpha", "float", 0.8, 0, 1, 0.1),
+			KEOption.create("Note HoldCover Opacity", "Note splash transparency", "holdcoverAlpha", "float", 0.8, 0, 1, 0.1),
+			KEOption.create("Health Bar Alpha", "Health bar transparency", "healthBarAlpha", "float", 1, 0, 1, 0.1),
 			KEOption.create("Combo Stacking", "Stack combo numbers", "comboStacking", "bool"),
+			KEOption.create("MS Number", "Make you know how late/early ur when hit notes", "showMS", "bool"),
 			KEOption.create("Center Pause", "Center pause menu", "centerPause", "bool"),
 			KEOption.create("Custom Color", "Color timebar by opponent", "customColor", "bool"),
 			KEOption.create("Gradient TimeBar", "Gradient colored timebar", "gradientTimeBar", "bool"),
@@ -220,7 +229,6 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Song Text", "Show song info watermark", "songText", "bool"),
 			KEOption.create("Score Screen", "Show Kade-style results", "scoreScreen", "bool"),
 			KEOption.create("NoteHits Counter", "Show note hits counter", "Counter", "bool"),
-			KEOption.create("Discord RPC", "Enable Discord Rich Presence", "discordRPC", "bool")
 		];
 	}
 
@@ -230,10 +238,9 @@ class KEOptionsMenu extends MusicBeatState
 		return [
 			KEOption.create("Open Note Colors", "Customize note colors", "", "action"),
 			KEOption.create("Open Controls", "Customize key bindings", "", "action"),
-			KEOption.create("Open KE Styled KeyBinds", "Customize key bindings in KE Styled Menu", "", "action"),
+			KEOption.create("Open EZ KeyBinds", "Customize key bindings in KE Styled Menu", "", "action"),
 			KEOption.create("Adjust Delay and Combo", "Customize ingame experience", "", "action"),   
 			KEOption.create("Reset KeyBinds", "Reset to default keys", "", "action"),
-			//KEOption.create("Reset Key", "Reset keybind", "reset", "keybind") trashed
 		];
 	}
 
@@ -241,12 +248,12 @@ class KEOptionsMenu extends MusicBeatState
 	function getAdvancedOptions():Array<KEOption>
 	{
 		return [
-			KEOption.create("Enable Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
+			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
 			KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
-			KEOption.create("KE Styled Settings", "Use KE style options", "keOptions", "bool"),
+			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
 			KEOption.create("Check Updates", "Check for game updates", "checkForUpdates", "bool"),
 			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
-			KEOption.create("Enable LUA Debug Info", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
+			KEOption.create("Enable LUA Debug Printer", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
 			KEOption.create("Reset Settings", "Reset all settings to default [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
 			KEOption.create("Reset Scores", "Clear all high scores [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action")
 		];

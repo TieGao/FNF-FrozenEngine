@@ -15,6 +15,11 @@ class FPSCounter extends TextField
 		The current frame rate, expressed using frames-per-second
 	**/
 	public var currentFPS(default, null):Int;
+	
+	/**
+		The peak memory usage since the start of the program
+	**/
+	public var peakMemoryMegas(default, null):Float = 0;
 
 	/**
 		The current memory usage (WARNING: this is NOT your total program memory usage, rather it shows the garbage collector memory)
@@ -49,6 +54,13 @@ class FPSCounter extends TextField
 		final now:Float = haxe.Timer.stamp() * 1000;
 		times.push(now);
 		while (times[0] < now - 1000) times.shift();
+		
+		// 更新峰值内存
+		final currentMemory = memoryMegas;
+		if (currentMemory > peakMemoryMegas) {
+			peakMemoryMegas = currentMemory;
+		}
+		
 		// prevents the overlay from updating every frame, why would you need to anyways @crowplexus
 		if (deltaTimeout < 50) {
 			deltaTimeout += deltaTime;
@@ -63,6 +75,7 @@ class FPSCounter extends TextField
 	public dynamic function updateText():Void { // so people can override it in hscript
 		text = 'FPS: ${currentFPS}'
 		+ '\nMemory: ${flixel.util.FlxStringUtil.formatBytes(memoryMegas)}';
+		//+ '\nMEM Peak: ${flixel.util.FlxStringUtil.formatBytes(peakMemoryMegas)}';
 
 		textColor = 0xFFFFFFFF;
 		if (currentFPS < FlxG.drawFramerate * 0.5)

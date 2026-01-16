@@ -48,7 +48,7 @@ class NoteHoldCover extends FlxTypedSpriteGroup<FlxSprite>
     var coverEndOffset:FlxPoint;
     var coverScale:FlxPoint;
     var coverFps:Int;
-    var coverAlpha:Float;
+    var coverAlpha:Float = ClientPrefs.data.holdcoverAlpha;
     
     // 精灵和着色器
     var playerSprites:Array<FlxSprite> = [];
@@ -89,7 +89,6 @@ class NoteHoldCover extends FlxTypedSpriteGroup<FlxSprite>
         coverEndOffset = new FlxPoint(defaultEndOffset.x, defaultEndOffset.y);
         coverScale = new FlxPoint(defaultScaleVal.x, defaultScaleVal.y);
         coverFps = defaultFps;
-        coverAlpha = defaultAlphaVal;
     }
     
    /**
@@ -141,17 +140,15 @@ function loadSkin():Void
         possiblePaths.push('mods/holdcovers/holdCover-${formattedName}.json');
     }
     
-    // 默认mods配置（最低优先级）
+
     possiblePaths.push('mods/holdcovers/holdCover.json');
     
-    // 调试：打印搜索路径
-    //trace('Searching for holdCover config in:');
     for (i in 0...possiblePaths.length)
     {
-        //trace('  [${i+1}] ${possiblePaths[i]}');
+
     }
     
-    // 尝试加载配置
+
     for (jsonPath in possiblePaths)
     {
         if (Paths.fileExists(jsonPath, TEXT))
@@ -159,7 +156,7 @@ function loadSkin():Void
             if (loadConfigFromFile(jsonPath))
             {
                 trace('Loaded holdCover config from: $jsonPath');
-                // 如果是像素舞台且路径需要调整
+
                 if (isPixelStage && !coverImagePath.startsWith("pixelUI/"))
                 {
                     if (!coverImagePath.startsWith("pixelUI/") && !coverImagePath.contains("pixelUI/"))
@@ -172,7 +169,7 @@ function loadSkin():Void
         }
     }
     
-    // 如果所有配置都没找到，使用硬编码默认值
+
     if (isPixelStage)
     {
         coverImagePath = "pixelUI/holdCover/holdCover";
@@ -182,15 +179,12 @@ function loadSkin():Void
         coverEndOffset.set(60, 97);
         coverScale.set(6, 6);
         coverFps = 24;
-        coverAlpha = 1.0;
         
         trace('Using default pixel holdCover config');
     }
 }
     
-    /**
-     * 从文件加载配置
-     */
+
     function loadConfigFromFile(jsonPath:String):Bool
     {
         try
@@ -219,8 +213,6 @@ function loadSkin():Void
             }
             
             if (parsed.fps != null) coverFps = parsed.fps;
-            if (parsed.alphaVal != null) coverAlpha = parsed.alphaVal;
-            else if (parsed.alpha != null) coverAlpha = parsed.alpha; // 向后兼容
             
             // 仅保留读取到的文件信息
             //trace('Loaded holdCover config from: $jsonPath');
@@ -232,25 +224,22 @@ function loadSkin():Void
         }
     }
     
-    /**
-     * 创建精灵
-     */
+
     function setupSprites():Void
     {
-        // 为4个方向创建精灵
+
         for (i in 0...4)
         {
-            // 玩家精灵
+
             var playerSprite = createSprite(i, true);
             playerSprites.push(playerSprite);
             add(playerSprite);
             
-            // 对手精灵
+
             var opponentSprite = createSprite(i, false);
             opponentSprites.push(opponentSprite);
             add(opponentSprite);
             
-            // 着色器
             var playerShader = new RGBPalette();
             var opponentShader = new RGBPalette();
             
@@ -260,17 +249,12 @@ function loadSkin():Void
             playerSprite.shader = playerShader.shader;
             opponentSprite.shader = opponentShader.shader;
             
-            // 设置颜色
             setDefaultColors(i);
             
-            // 初始播放End动画并隐藏（像Lua一样）
-            playAnimWithOffset(playerSprite, 'End', false);
-            playAnimWithOffset(opponentSprite, 'End', false);
             playerSprite.visible = false;
             opponentSprite.visible = false;
         }
         
-        // 设置抗锯齿
         if (PlayState.isPixelStage)
         {
             for (sprite in playerSprites)
@@ -284,9 +268,7 @@ function loadSkin():Void
         }
     }
     
-   /**
- * 创建单个精灵
- */
+
 function createSprite(index:Int, isPlayer:Bool):FlxSprite
 {
     var sprite = new FlxSprite();
@@ -299,45 +281,39 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
         {
             sprite.frames = frames;
             
-            // 添加动画 - 使用正确的帧率
+
             sprite.animation.addByPrefix('Loop', coverHoldAnim, coverFps, true);  // 循环
             sprite.animation.addByPrefix('End', coverEndAnim, coverFps, false);   // 不循环
-            
-            // 设置缩放
+
             sprite.scale.set(coverScale.x, coverScale.y);
             sprite.updateHitbox();
             
-            // 像素舞台特殊处理：关闭抗锯齿
+
             if (PlayState.isPixelStage)
             {
                 sprite.antialiasing = false;
             }
             
-            // 动画完成回调
+
             sprite.animation.finishCallback = function(name:String) {
                 if (name == 'End')
                 {
-                    // End动画完成后隐藏
                     sprite.visible = false;
                 }
             };
             
-            // 初始播放End动画并隐藏
-            sprite.animation.play('End', true);
             sprite.visible = false;
         }
         else
         {
             trace('Failed to load holdCover frames: $coverImagePath');
-            // 创建占位符
-            sprite.makeGraphic(100, 100, isPlayer ? 0xFFFF0000 : 0xFF0000FF);
+
         }
     }
     catch (e:Dynamic)
     {
         trace('Failed to create holdCover sprite: $e');
-        // 创建占位符
-        sprite.makeGraphic(100, 100, isPlayer ? 0xFF00FF00 : 0xFFFFFF00);
+
     }
     
     return sprite;
@@ -364,16 +340,13 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
         }
     }
     
-    /**
-     * 播放动画并设置偏移
-     */
+
     function playAnimWithOffset(sprite:FlxSprite, animName:String, force:Bool = false):Void
     {
         if (sprite.animation.getByName(animName) != null)
         {
             sprite.animation.play(animName, force);
             
-            // 设置偏移 - 像Lua版本一样
             if (animName == 'Loop')
             {
                 sprite.offset.set(coverHoldOffset.x, coverHoldOffset.y);
@@ -384,25 +357,20 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
             }
         }
     }
-    
-    /**
-     * 从音符更新颜色 - 完全按照音符的颜色
-     */
+
     function updateColorsFromNote(noteData:Int, note:Note, isPlayer:Bool):Void
     {
         var shader = isPlayer ? playerShaders[noteData] : opponentShaders[noteData];
-        
-        // 总是使用音符的颜色（包括特殊音符类型的白色）
+
         if (note.rgbShader != null)
         {
-            // 直接使用音符的 rgbShader 颜色
+
             shader.r = note.rgbShader.r;
             shader.g = note.rgbShader.g;
             shader.b = note.rgbShader.b;
         }
         else
         {
-            // 如果音符没有 rgbShader，使用默认颜色
             setDefaultColors(noteData);
         }
     }
@@ -411,13 +379,9 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
     {
         super.update(elapsed);
         
-        // 更新位置
         updatePositions();
     }
     
-    /**
-     * 更新位置
-     */
     function updatePositions():Void
     {
         var playState = PlayState.instance;
@@ -425,22 +389,18 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
         
         for (i in 0...playerSprites.length)
         {
-            // 玩家位置
             if (playState.playerStrums.members[i] != null)
             {
                 var strum = playState.playerStrums.members[i];
                 var sprite = playerSprites[i];
                 
-                // 像Lua一样计算位置
                 sprite.x = strum.x + (strum.width / 2) - (sprite.width / 2);
                 sprite.y = strum.y + (strum.height / 2) - (sprite.height / 2);
                 sprite.alpha = strum.alpha * coverAlpha;
                 
-                // 同步可见性
                 if (!strum.visible) sprite.visible = false;
             }
-            
-            // 对手位置
+
             if (playState.opponentStrums.members[i] != null)
             {
                 var strum = playState.opponentStrums.members[i];
@@ -450,15 +410,11 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
                 sprite.y = strum.y + (strum.height / 2) - (sprite.height / 2);
                 sprite.alpha = strum.alpha * coverAlpha;
                 
-                // 同步可见性
                 if (!strum.visible) sprite.visible = false;
             }
         }
     }
     
-    /**
-     * 玩家音符命中 - 像Lua版本一样
-     */
     public function onPlayerNoteHit(noteData:Int, isSustain:Bool, note:Note):Void
     {
         if (noteData < 0 || noteData >= playerSprites.length) return;
@@ -468,7 +424,6 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
         
         if (isSustain)
         {
-            // 检查是否是长按音符的结束部分
             var isEnd:Bool = false;
             if (note.animation != null && note.animation.curAnim != null)
             {
@@ -479,7 +434,6 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
             
             if (!isEnd)
             {
-                // 开始长按 - 像Lua一样
                 sprite.visible = true;
                 playAnimWithOffset(sprite, 'Loop', false); // false = 不强制重置，保持自然
                 
@@ -492,7 +446,7 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
                 
                 // 设置1秒后隐藏
                 var timer = new FlxTimer();
-                timer.start(1.0, function(tmr:FlxTimer) {
+                timer.start(0.2, function(tmr:FlxTimer) {
                     sprite.visible = false;
                     playerTimers.remove(noteData);
                 });
@@ -500,9 +454,15 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
             }
             else
             {
-                // 长按结束 - 播放End动画
+                var oppMode = PlayState.instance.opponentMode;
+                if (!oppMode)
+                {
                 playAnimWithOffset(sprite, 'End', true);
-                
+                }
+                else
+                {
+                sprite.visible = false; 
+                }
                 // 取消计时器
                 if (playerTimers.exists(noteData))
                 {
@@ -549,7 +509,7 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
                 
                 // 设置1秒后隐藏
                 var timer = new FlxTimer();
-                timer.start(1.0, function(tmr:FlxTimer) {
+                timer.start(0.2, function(tmr:FlxTimer) {
                     sprite.visible = false;
                     opponentTimers.remove(noteData);
                 });
@@ -560,7 +520,15 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
                 // 长按结束
                 if (oppSplashEnabled)
                 {
+                 var oppMode = PlayState.instance.opponentMode;
+                    if (oppMode)
+                    {
                     playAnimWithOffset(sprite, 'End', true);
+                    }
+                    else
+                    {
+                    sprite.visible = false; 
+                    }
                 }
                 else
                 {

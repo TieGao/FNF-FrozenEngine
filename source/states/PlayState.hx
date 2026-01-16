@@ -289,7 +289,7 @@ class PlayState extends MusicBeatState
 
 	public var inCutscene:Bool = false;
 	public var skipCountdown:Bool = false;
-	var songLength:Float = 0;
+	public var songLength:Float = 0;
 
 	public var boyfriendCameraOffset:Array<Float> = null;
 	public var opponentCameraOffset:Array<Float> = null;
@@ -487,9 +487,9 @@ class PlayState extends MusicBeatState
 		if(isPixelStage) introSoundsSuffix = '-pixel';
 
 		#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
+		luaDebugGroup = new FlxTypedGroup<psychlua.DebugLuaText>();
 		if (ClientPrefs.data.luadebugPrint)
 		{
-		luaDebugGroup = new FlxTypedGroup<psychlua.DebugLuaText>();
 		luaDebugGroup.cameras = [camOther];
 		add(luaDebugGroup);
 		}
@@ -1454,10 +1454,10 @@ class PlayState extends MusicBeatState
 
 	public dynamic function fullComboFunction()
 	{
-		var sicks:Int = ratingsData[0].hits;
-		var goods:Int = ratingsData[1].hits;
-		var bads:Int = ratingsData[2].hits;
-		var shits:Int = ratingsData[3].hits;
+		var sicks:Int = ratingsData[1].hits + ratingsData[0].hits;
+		var goods:Int = ratingsData[2].hits;
+		var bads:Int = ratingsData[3].hits;
+		var shits:Int = ratingsData[4].hits;
 
 		if (tnhText != null) tnhText.text = "Total Notes Hit: " + songHits;
 		if (highestcomboText != null) highestcomboText.text = "Highest Combo: " + highestCombo;
@@ -1512,7 +1512,6 @@ class PlayState extends MusicBeatState
             textObj.scrollFactor.set(0, 0);
             textObj.borderSize = 2.00;
             textObj.visible = !ClientPrefs.data.hideHud;
-            add(textObj);
             uiGroup.add(textObj);
             Reflect.setField(this, textInfo.obj, textObj);
         }
@@ -2128,6 +2127,11 @@ class PlayState extends MusicBeatState
     }
     // ========== 原有代码继续 ==========
     
+	if(ClientPrefs.data.skipDeath&& health <=0)  
+	{	
+		openPauseMenu();
+		PauseSubState.restartSong();
+	}
     if(!inCutscene && !paused && !freezeCamera) {
         FlxG.camera.followLerp = 0.04 * cameraSpeed * playbackRate;
         var idleAnim:Bool = (boyfriend.getAnimationName().startsWith('idle') || boyfriend.getAnimationName().startsWith('danceLeft') || boyfriend.getAnimationName().startsWith('danceRight'));
@@ -2467,8 +2471,9 @@ class PlayState extends MusicBeatState
 	public var isDead:Bool = false; //Don't mess with this on Lua!!!
 	public var gameOverTimer:FlxTimer;
 	function doDeathCheck(?skipHealthCheck:Bool = false) {
-		if (((skipHealthCheck && instakillOnMiss) || health <= 0) && !practiceMode && !isDead && gameOverTimer == null)
+		if (((skipHealthCheck && instakillOnMiss) || health <= 0) && !practiceMode && !isDead && gameOverTimer == null && !ClientPrefs.data.skipDeath)
 		{
+
 			var ret:Dynamic = callOnScripts('onGameOver', null, true);
 			if(ret != LuaUtils.Function_Stop)
 			{
@@ -3313,7 +3318,14 @@ class PlayState extends MusicBeatState
         canResync = false;
         // 播放菜单音乐后再切换状态
         FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.7);
-        MusicBeatState.switchState(new FreeplayState());
+        if(ClientPrefs.data.newFreeplay)
+		{
+			MusicBeatState.switchState(new NewFreeplayState());
+		}
+		else
+		{
+			MusicBeatState.switchState(new FreeplayState());
+		}
         changedDifficulty = false;
     }
     transitioning = true;
@@ -3346,162 +3358,338 @@ class PlayState extends MusicBeatState
 	public var noteGroup:FlxTypedGroup<FlxBasic>;
 
 	private function cachePopUpScore()
+{
+	var uiFolder:String = "";
+	var customUIPath:String = "";
+	
+	// 获取自定义UI路径（如果存在）
+	if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI != "")
 	{
-		var uiFolder:String = "";
-		if (stageUI != "normal")
-			uiFolder = uiPrefix + "UI/";
-
-		for (rating in ratingsData)
-			Paths.image(uiFolder + rating.image + uiPostfix);
-		for (i in 0...10)
-			Paths.image(uiFolder + 'num' + i + uiPostfix);
+		customUIPath = ClientPrefs.data.customUI + "/";
 	}
-
-	private function popUpScore(note:Note = null):Void
+	
+	if (stageUI != "normal")
 	{
-		if (combo >= highestCombo)
+		// 优先使用自定义UI路径，否则使用默认路径
+		if (customUIPath != "")
 		{
-			highestCombo = combo;
-		}
-		var noteDiff:Float = Math.abs(note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset);
-		vocals.volume = 1;
-
-		if (!ClientPrefs.data.comboStacking && comboGroup.members.length > 0)
-		{
-			for (spr in comboGroup)
-			{
-				if(spr == null) continue;
-
-				comboGroup.remove(spr);
-				spr.destroy();
-			}
-		}
-
-		var placement:Float = FlxG.width * 0.35;
-		var rating:FlxSprite = new FlxSprite();
-		var score:Int = 350;
-
-		//tryna do MS based judgment due to popular demand
-		var daRating:Rating = Conductor.judgeNote(ratingsData, noteDiff / playbackRate);
-
-		totalNotesHit += daRating.ratingMod;
-		note.ratingMod = daRating.ratingMod;
-		if(!note.ratingDisabled) daRating.hits++;
-		note.rating = daRating.name;
-		score = daRating.score;
-
-		if(daRating.noteSplash && !note.noteSplashData.disabled)
-			spawnNoteSplashOnNote(note);
-
-		if(!practiceMode && !cpuControlled) {
-			songScore += score;
-			if(!note.ratingDisabled)
-			{
-				songHits++;
-				totalPlayed++;
-				RecalculateRating(false);
-			}
-		}
-
-		var uiFolder:String = "";
-		var antialias:Bool = ClientPrefs.data.antialiasing;
-		if (stageUI != "normal")
-		{
-			uiFolder = uiPrefix + "UI/";
-			antialias = !isPixelStage;
-		}
-
-		rating.loadGraphic(Paths.image(uiFolder + daRating.image + uiPostfix));
-		rating.screenCenter();
-		rating.x = placement - 40;
-		rating.y -= 60;
-		rating.acceleration.y = 550 * playbackRate * playbackRate;
-		rating.velocity.y -= FlxG.random.int(140, 175) * playbackRate;
-		rating.velocity.x -= FlxG.random.int(0, 10) * playbackRate;
-		rating.visible = (!ClientPrefs.data.hideHud && showRating);
-		rating.x += ClientPrefs.data.comboOffset[0];
-		rating.y -= ClientPrefs.data.comboOffset[1];
-		rating.antialiasing = antialias;
-
-		var comboSpr:FlxSprite = new FlxSprite().loadGraphic(Paths.image(uiFolder + 'combo' + uiPostfix));
-		comboSpr.screenCenter();
-		comboSpr.x = placement;
-		comboSpr.acceleration.y = FlxG.random.int(200, 300) * playbackRate * playbackRate;
-		comboSpr.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
-		comboSpr.visible = (!ClientPrefs.data.hideHud && showCombo);
-		comboSpr.x += ClientPrefs.data.comboOffset[0];
-		comboSpr.y -= ClientPrefs.data.comboOffset[1];
-		comboSpr.antialiasing = antialias;
-		comboSpr.y += 60;
-		comboSpr.velocity.x += FlxG.random.int(1, 10) * playbackRate;
-		comboGroup.add(rating);
-
-		if (!PlayState.isPixelStage)
-		{
-			rating.setGraphicSize(Std.int(rating.width * 0.7));
-			comboSpr.setGraphicSize(Std.int(comboSpr.width * 0.7));
+			uiFolder = 'ratings/' + customUIPath + uiPrefix + "UI/";
 		}
 		else
 		{
-			rating.setGraphicSize(Std.int(rating.width * daPixelZoom * 0.85));
-			comboSpr.setGraphicSize(Std.int(comboSpr.width * daPixelZoom * 0.85));
+			uiFolder =  uiPrefix + "UI/";
 		}
+	}
+	else if (customUIPath != "")
+	{
+		// 即使stageUI是normal，如果有自定义UI也使用
+		uiFolder = 'ratings/' + customUIPath;
+	}
 
-		comboSpr.updateHitbox();
-		rating.updateHitbox();
+	// 缓存评级图片
+	for (rating in ratingsData)
+	{
+		Paths.image(uiFolder + rating.image + uiPostfix);
+	}
+	
+	// 缓存数字图片
+	for (i in 0...10)
+	{
+		Paths.image(uiFolder + 'num' + i + uiPostfix);
+	}
+	
+	// 缓存combo图片
+	if (Paths.fileExists('images/' + uiFolder + 'combo' + uiPostfix + '.png', IMAGE))
+	{
+		Paths.image(uiFolder + 'combo' + uiPostfix);
+	}
+}
 
-		var daLoop:Int = 0;
-		var xThing:Float = 0;
-		if (showCombo)
-			comboGroup.add(comboSpr);
+private function popUpScore(note:Note = null):Void
+{
+	if (combo >= highestCombo)
+	{
+		highestCombo = combo;
+	}
+	// 计算带符号的时间差
+	var rawNoteDiff:Float = note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+	var noteDiff:Float = Math.abs(rawNoteDiff);
+	vocals.volume = 1;
 
-		var separatedScore:String = Std.string(combo).lpad('0', 3);
-		for (i in 0...separatedScore.length)
+	// 毫秒显示：总是立即销毁之前的（类似comboStacking关闭的逻辑）
+	for (spr in comboGroup)
+	{
+		if(spr == null) continue;
+		
+		// 检查是否是毫秒显示（FlxText类型）
+		if (Std.isOfType(spr, FlxText))
 		{
-			var numScore:FlxSprite = new FlxSprite().loadGraphic(Paths.image(uiFolder + 'num' + Std.parseInt(separatedScore.charAt(i)) + uiPostfix));
-			numScore.screenCenter();
-			numScore.x = placement + (43 * daLoop) - 90 + ClientPrefs.data.comboOffset[2];
-			numScore.y += 80 - ClientPrefs.data.comboOffset[3];
-
-			if (!PlayState.isPixelStage) numScore.setGraphicSize(Std.int(numScore.width * 0.5));
-			else numScore.setGraphicSize(Std.int(numScore.width * daPixelZoom));
-			numScore.updateHitbox();
-
-			numScore.acceleration.y = FlxG.random.int(200, 300) * playbackRate * playbackRate;
-			numScore.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
-			numScore.velocity.x = FlxG.random.float(-5, 5) * playbackRate;
-			numScore.visible = !ClientPrefs.data.hideHud;
-			numScore.antialiasing = antialias;
-
-			//if (combo >= 10 || combo == 0)
-			if(showComboNum)
-				comboGroup.add(numScore);
-
-			FlxTween.tween(numScore, {alpha: 0}, 0.2 / playbackRate, {
-				onComplete: function(tween:FlxTween)
-				{
-					numScore.destroy();
-				},
-				startDelay: Conductor.crochet * 0.002 / playbackRate
-			});
-
-			daLoop++;
-			if(numScore.x > xThing) xThing = numScore.x;
+			var text:FlxText = cast(spr, FlxText);
+			// 如果是毫秒显示，立即销毁
+			comboGroup.remove(text);
+			text.destroy();
+			break; // 通常只有一个毫秒显示
 		}
-		comboSpr.x = xThing + 50;
-		FlxTween.tween(rating, {alpha: 0}, 0.2 / playbackRate, {
-			startDelay: Conductor.crochet * 0.001 / playbackRate
-		});
+	}
 
-		FlxTween.tween(comboSpr, {alpha: 0}, 0.2 / playbackRate, {
+	// Psych Engine原有的comboStacking逻辑（只影响rating和combo数字）
+	if (!ClientPrefs.data.comboStacking && comboGroup.members.length > 0)
+	{
+		for (spr in comboGroup)
+		{
+			if(spr == null) continue;
+
+			comboGroup.remove(spr);
+			spr.destroy();
+		}
+	}
+
+	var placement:Float = FlxG.width * 0.35;
+	var rating:FlxSprite = new FlxSprite();
+	var score:Int = 350;
+
+	// 基于毫秒的判定
+	var daRating:Rating = Conductor.judgeNote(ratingsData, noteDiff / playbackRate);
+
+	totalNotesHit += daRating.ratingMod;
+	note.ratingMod = daRating.ratingMod;
+	if(!note.ratingDisabled) daRating.hits++;
+	note.rating = daRating.name;
+	score = daRating.score;
+
+	// 添加毫秒显示
+	var msTiming:Float = Math.round(rawNoteDiff * 100) / 100; // 保留3位小数
+	var currentTimingShown:FlxText = null;
+	
+	if(daRating.noteSplash && !note.noteSplashData.disabled)
+		spawnNoteSplashOnNote(note);
+
+	if(!practiceMode && !cpuControlled) {
+		songScore += score;
+		if(!note.ratingDisabled)
+		{
+			songHits++;
+			totalPlayed++;
+			RecalculateRating(false);
+		}
+	}
+
+	var uiFolder:String = "";
+	var customUIPath:String = "";
+	var antialias:Bool = ClientPrefs.data.antialiasing;
+	
+	// 获取自定义UI路径
+	if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI != "")
+	{
+		customUIPath = ClientPrefs.data.customUI + "/";
+	}
+	
+	if (stageUI != "normal")
+	{
+		// 优先使用自定义UI路径，否则使用默认路径
+		if (customUIPath != "")
+		{
+			uiFolder = 'ratings/' + customUIPath + uiPrefix + "UI/";
+		}
+		else
+		{
+			uiFolder = uiPrefix + "UI/";
+		}
+		antialias = !isPixelStage;
+	}
+	else if (customUIPath != "")
+	{
+		uiFolder = 'ratings/' + customUIPath;
+	}
+
+	var ratingImagePath:String = uiFolder + daRating.image + uiPostfix;
+	if (!Paths.fileExists('images/' + ratingImagePath + '.png', IMAGE) && uiFolder != "")
+	{
+		var fallbackFolder:String = "";
+		if (stageUI != "normal")
+			fallbackFolder = uiPrefix + "UI/";
+		ratingImagePath = fallbackFolder + daRating.image + uiPostfix;
+	}
+
+	rating.loadGraphic(Paths.image(ratingImagePath));
+	rating.screenCenter();
+	rating.x = placement - 40;
+	rating.y -= 60;
+	rating.acceleration.y = 550 * playbackRate * playbackRate;
+	rating.velocity.y -= FlxG.random.int(140, 175) * playbackRate;
+	rating.velocity.x -= FlxG.random.int(0, 10) * playbackRate;
+	rating.visible = (!ClientPrefs.data.hideHud && showRating);
+	rating.x += ClientPrefs.data.comboOffset[0];
+	rating.y -= ClientPrefs.data.comboOffset[1];
+	rating.antialiasing = antialias;
+	
+	if (!ClientPrefs.data.hideHud && ClientPrefs.data.showMS)
+	{
+		var msText:String = (msTiming >= 0 ? "+" : "") + msTiming + "ms";
+		
+		currentTimingShown = new FlxText(0, 0, 0, msText, 16);
+		currentTimingShown.setFormat(Paths.font('pixel-latin.ttf'), 16, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		
+		if (ClientPrefs.data.customColor)
+		{
+			switch(daRating.name)
+			{
+				case 'sick': 
+					currentTimingShown.color = FlxColor.CYAN;      // 0x00FFFF
+				case 'good': 
+					currentTimingShown.color = FlxColor.LIME;      // 0x00FF00
+				case 'bad': 
+					currentTimingShown.color = FlxColor.RED;    // 0xFF0000
+				case 'shit': 
+					currentTimingShown.color = FlxColor.RED;       // 0x970000
+			}
+		}
+		currentTimingShown.size = 16;
+		var msX:Float =	placement + ClientPrefs.data.comboOffset[0] + 175; // rating.x + 100
+		var msY:Float = 310 - ClientPrefs.data.comboOffset[1] ;   // rating.y + 50
+		currentTimingShown.x += msX;
+		currentTimingShown.y += msY;
+	}
+
+	// 加载combo图片，检查是否存在
+	var comboSpr:FlxSprite = new FlxSprite();
+	var comboImagePath:String = uiFolder + 'combo' + uiPostfix;
+	if (Paths.fileExists('images/' + comboImagePath + '.png', IMAGE))
+	{
+		comboSpr.loadGraphic(Paths.image(comboImagePath));
+	}
+	else
+	{
+		// 回退到默认路径
+		var fallbackFolder:String = "";
+		if (stageUI != "normal")
+			fallbackFolder = uiPrefix + "UI/";
+		comboSpr.loadGraphic(Paths.image(fallbackFolder + 'combo' + uiPostfix));
+	}
+	
+	comboSpr.screenCenter();
+	comboSpr.x = placement;
+	comboSpr.acceleration.y = FlxG.random.int(200, 300) * playbackRate * playbackRate;
+	comboSpr.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
+	comboSpr.visible = (!ClientPrefs.data.hideHud && showCombo);
+	comboSpr.x += ClientPrefs.data.comboOffset[0];
+	comboSpr.y -= ClientPrefs.data.comboOffset[1];
+	comboSpr.antialiasing = antialias;
+	comboSpr.y += 60;
+	comboSpr.velocity.x += FlxG.random.int(1, 10) * playbackRate;
+	comboGroup.add(rating);
+	if (currentTimingShown != null)
+		comboGroup.add(currentTimingShown);
+
+	if (!PlayState.isPixelStage)
+	{
+		rating.setGraphicSize(Std.int(rating.width * 0.7));
+		comboSpr.setGraphicSize(Std.int(comboSpr.width * 0.7));
+	}
+	else
+	{
+		rating.setGraphicSize(Std.int(rating.width * daPixelZoom * 0.85));
+		comboSpr.setGraphicSize(Std.int(comboSpr.width * daPixelZoom * 0.85));
+	}
+
+	comboSpr.updateHitbox();
+	rating.updateHitbox();
+
+	var daLoop:Int = 0;
+	var xThing:Float = 0;
+	if (showCombo)
+		comboGroup.add(comboSpr);
+
+	var separatedScore:String = Std.string(combo).lpad('0', 3);
+	
+	// 数字根据评级变色
+	for (i in 0...separatedScore.length)
+	{
+		var numImagePath:String = uiFolder + 'num' + Std.parseInt(separatedScore.charAt(i)) + uiPostfix;
+		
+		// 检查数字图片是否存在，不存在则回退
+		if (!Paths.fileExists('images/' + numImagePath + '.png', IMAGE) && uiFolder != "")
+		{
+			var fallbackFolder:String = "";
+			if (stageUI != "normal")
+				fallbackFolder = uiPrefix + "UI/";
+			numImagePath = fallbackFolder + 'num' + Std.parseInt(separatedScore.charAt(i)) + uiPostfix;
+		}
+		
+		var numScore:FlxSprite = new FlxSprite().loadGraphic(Paths.image(numImagePath));
+		numScore.screenCenter();
+		numScore.x = placement + (43 * daLoop) - 90 + ClientPrefs.data.comboOffset[2];
+		numScore.y += 80 - ClientPrefs.data.comboOffset[3];
+
+		if (!PlayState.isPixelStage) 
+		{
+			numScore.setGraphicSize(Std.int(numScore.width * 0.5));
+		}
+		else 
+		{
+			numScore.setGraphicSize(Std.int(numScore.width * daPixelZoom));
+		}
+		
+		// 根据评级给数字着色
+		switch(daRating.name)
+		{
+			case 'sick':
+				numScore.color = 0x00FFFF; // 青色/CYAN
+			case 'good':
+				numScore.color = 0x00FF00; // 绿色/GREEN
+			case 'bad':
+				numScore.color = 0xFF0000; // 橙色/ORANGE
+			case 'shit':
+				numScore.color = 0x690000; // 红色/RED
+		}
+		
+		numScore.updateHitbox();
+
+		numScore.acceleration.y = FlxG.random.int(200, 300) * playbackRate * playbackRate;
+		numScore.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
+		numScore.velocity.x = FlxG.random.float(-5, 5) * playbackRate;
+		numScore.visible = !ClientPrefs.data.hideHud;
+		numScore.antialiasing = antialias;
+
+		if(showComboNum)
+			comboGroup.add(numScore);
+
+		// 保持原来的消失时间
+		FlxTween.tween(numScore, {alpha: 0}, 0.2 / playbackRate, {
 			onComplete: function(tween:FlxTween)
 			{
-				comboSpr.destroy();
-				rating.destroy();
+				numScore.destroy();
 			},
 			startDelay: Conductor.crochet * 0.002 / playbackRate
 		});
+
+		daLoop++;
+		if(numScore.x > xThing) xThing = numScore.x;
 	}
+	
+	comboSpr.x = xThing + 50;
+	FlxTween.tween(rating, {alpha: 0}, 0.2 / playbackRate, {
+		startDelay: Conductor.crochet * 0.001 / playbackRate
+	});
+
+	FlxTween.tween(comboSpr, {alpha: 0}, 0.2 / playbackRate, {
+		onComplete: function(tween:FlxTween)
+		{
+			comboSpr.destroy();
+			rating.destroy();
+		},
+		startDelay: Conductor.crochet * 0.002 / playbackRate
+	});
+
+	if (currentTimingShown != null)
+	{
+		FlxTween.tween(currentTimingShown, {alpha: 0}, 0.2 / playbackRate, {
+			onComplete: function(tween:FlxTween)
+			{},
+			startDelay: Conductor.crochet * 0.001 / playbackRate // 与rating同时开始
+		});
+	}
+}
 
 	public var strumsBlocked:Array<Bool> = [];
 	private function onKeyPress(event:KeyboardEvent):Void

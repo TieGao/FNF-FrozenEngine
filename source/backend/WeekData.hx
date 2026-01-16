@@ -18,6 +18,8 @@ typedef WeekFile =
 	var hideStoryMode:Bool;
 	var hideFreeplay:Bool;
 	var difficulties:String;
+	// 新增：section字段，用于分类周目
+	var ?section:Null<Int>;
 }
 
 class WeekData {
@@ -37,6 +39,8 @@ class WeekData {
 	public var hideStoryMode:Bool;
 	public var hideFreeplay:Bool;
 	public var difficulties:String;
+	// 新增：section字段
+	public var section:Int = 0;
 
 	public var fileName:String;
 
@@ -56,17 +60,25 @@ class WeekData {
 			hiddenUntilUnlocked: false,
 			hideStoryMode: false,
 			hideFreeplay: false,
-			difficulties: ''
+			difficulties: '',
+			section: 0 // 新增：默认section为0
 		};
 		return weekFile;
 	}
 
 	// HELP: Is there any way to convert a WeekFile to WeekData without having to put all variables there manually? I'm kind of a noob in haxe lmao
 	public function new(weekFile:WeekFile, fileName:String) {
-		// here ya go - MiguelItsOut
+		// 先设置所有字段
 		for (field in Reflect.fields(weekFile))
 			if(Reflect.fields(this).contains(field)) // Reflect.hasField() won't fucking work :/
 				Reflect.setProperty(this, field, Reflect.getProperty(weekFile, field));
+
+		// 处理可选的section字段
+		if (weekFile.section != null) {
+			this.section = weekFile.section;
+		} else {
+			this.section = 0; // 默认值
+		}
 
 		this.fileName = fileName;
 	}
@@ -195,5 +207,34 @@ class WeekData {
 		if(data != null && data.folder != null && data.folder.length > 0) {
 			Mods.currentModDirectory = data.folder;
 		}
+	}
+	
+	// 新增：获取所有唯一的section值
+	public static function getAllSections():Array<Int> {
+		var sections:Array<Int> = [];
+		for (week in weeksLoaded) {
+			if (!sections.contains(week.section)) {
+				sections.push(week.section);
+			}
+		}
+		sections.sort((a, b) -> a - b); // 升序排序
+		return sections;
+	}
+	
+	// 新增：根据section获取周目列表
+	public static function getWeeksBySection(section:Int):Array<WeekData> {
+		var result:Array<WeekData> = [];
+		for (week in weeksLoaded) {
+			if (week.section == section) {
+				result.push(week);
+			}
+		}
+		return result;
+	}
+	
+	// 新增：获取指定周目的section
+	public static function getWeekSection(weekName:String):Int {
+		var week = weeksLoaded.get(weekName);
+		return (week != null ) ? week.section : 0;
 	}
 }

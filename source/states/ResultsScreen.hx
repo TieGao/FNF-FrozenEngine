@@ -76,10 +76,10 @@ class ResultsScreen extends MusicBeatSubstate
         
         if (ratingsData != null && ratingsData.length >= 4)
         {
-            sicks = ratingsData[0].hits;
-            goods = ratingsData[1].hits;
-            bads = ratingsData[2].hits;
-            shits = ratingsData[3].hits;
+            sicks = ratingsData[0].hits + ratingsData[1].hits;
+            goods = ratingsData[2].hits;
+            bads = ratingsData[3].hits;
+            shits = ratingsData[4].hits;
         }
         
         var misses = playState.songMisses;

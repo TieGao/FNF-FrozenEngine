@@ -18,14 +18,19 @@ import states.TitleState;
 	public var noteSkin:String = 'Default';
 	public var splashSkin:String = 'Psych';
 	public var holdCoverSkin:String = 'Default';
-	public var noteAlpha:Float = 0.6;
-	public var splashAlpha:Float = 0.6;
+	public var customUI:String = 'Default';
+	public var noteAlpha:Float = 0.9;
+	public var splashAlpha:Float = 0.8;
+	public var holdcoverAlpha:Float = 0.8;
 	public var lowQuality:Bool = false;
 	public var shaders:Bool = true;
 	public var cacheOnGPU:Bool = #if !switch false #else true #end; // GPU Caching made by Raltyro
 	public var framerate:Int = 60;
 	public var camZooms:Bool = true;
 	public var hideHud:Bool = false;
+	public var showMS:Bool = true;
+	public var newFreeplay:Bool = true;
+	public var skipDeath:Bool = true;
 	public var noteOffset:Int = 0;
 	public var arrowRGB:Array<Array<FlxColor>> = [
 		[0xFFC24B99, 0xFFFFFFFF, 0xFF3C1F56],
@@ -54,6 +59,7 @@ import states.TitleState;
 	public var healthText:Bool = true;
 	public var songText:Bool = true;
 	public var ImpStory:Bool = false;
+	public var freeplayspace:Bool = true;
 	public var scoreScreen:Bool = true;
 	public var keOptions:Bool = true;
 	public var gradientTimeBar:Bool = true;
@@ -81,6 +87,7 @@ import states.TitleState;
 
 	public var comboOffset:Array<Int> = [0, 0, 0, 0];
 	public var ratingOffset:Int = 0;
+	public var marvelousWindow:Float = 25.0;
 	public var sickWindow:Float = 45.0;
 	public var goodWindow:Float = 90.0;
 	public var badWindow:Float = 135.0;

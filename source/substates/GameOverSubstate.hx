@@ -1,6 +1,7 @@
 package substates;
 
 import backend.WeekData;
+import backend.StageData;
 
 import objects.Character;
 import flixel.FlxObject;
@@ -9,6 +10,7 @@ import flixel.math.FlxPoint;
 
 import states.StoryMenuState;
 import states.FreeplayState;
+import states.NewFreeplayState;
 
 class GameOverSubstate extends MusicBeatSubstate
 {
@@ -154,7 +156,7 @@ class GameOverSubstate extends MusicBeatSubstate
 		{
 			if (controls.ACCEPT)
 			{
-				endBullshit();
+			endBullshit();
 			}
 			else if (controls.BACK)
 			{
@@ -168,9 +170,11 @@ class GameOverSubstate extends MusicBeatSubstate
 				Mods.loadTopMod();
 				if (PlayState.isStoryMode)
 					MusicBeatState.switchState(new StoryMenuState());
+				else if (ClientPrefs.data.newFreeplay)
+					MusicBeatState.switchState(new NewFreeplayState());
 				else
 					MusicBeatState.switchState(new FreeplayState());
-	
+
 				FlxG.sound.playMusic(Paths.music('freakyMenu'));
 				PlayState.instance.callOnScripts('onGameOverConfirm', [false]);
 			}

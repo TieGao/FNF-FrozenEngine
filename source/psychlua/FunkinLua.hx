@@ -26,6 +26,7 @@ import objects.Character;
 import states.MainMenuState;
 import states.StoryMenuState;
 import states.FreeplayState;
+import states.NewFreeplayState;
 
 import substates.PauseSubState;
 import substates.GameOverSubstate;
@@ -752,10 +753,17 @@ class FunkinLua {
 			}
 
 			if(PlayState.isStoryMode)
+			{
 				MusicBeatState.switchState(new StoryMenuState());
+			}
+			else if(ClientPrefs.data.newFreeplay)
+			{
+				MusicBeatState.switchState(new NewFreeplayState());
+			}
 			else
+			{
 				MusicBeatState.switchState(new FreeplayState());
-
+			}
 			#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
 
 			FlxG.sound.playMusic(Paths.music('freakyMenu'));

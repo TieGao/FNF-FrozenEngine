@@ -21,6 +21,7 @@ import haxe.io.Bytes;
 import states.editors.content.MetaNote;
 import states.editors.content.VSlice;
 import states.editors.content.Prompt;
+import states.editors.content.OsuConverter;
 import states.editors.content.*;
 
 import backend.Song;
@@ -3967,6 +3968,88 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 		
+		btnY += 20;
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Psych to OSU...', function()
+		{
+			if(!fileDialog.completed) return;
+			upperBox.isMinimized = true;
+			upperBox.bg.visible = false;
+
+			updateChartData();
+			
+			fileDialog.openDirectory('Save OSU File', function()
+			{
+				try
+				{
+					var path:String = fileDialog.path.replace('\\', '/');
+					if(!path.endsWith('/')) path += '/';
+					
+					var osuFileName:String = Paths.formatToSongPath(PlayState.SONG.song) + '.osu';
+					var savePath:String = path + osuFileName;
+					
+					overwriteCheck(savePath, osuFileName, '', function()
+					{
+						if(OsuConverter.convertPsychToOsu(PlayState.SONG, savePath))
+						{
+							showOutput('OSU file saved successfully: $savePath');
+						}
+						else
+						{
+							showOutput('OSU conversion failed!', true);
+						}
+					});
+				}
+				catch(e:Exception)
+				{
+					showOutput('Error: ${e.message}', true);
+					trace(e.stack);
+				}
+			});
+		}, btnWid);
+		btn.text.alignment = LEFT;
+		tab_group.add(btn);
+
+		btnY += 20;
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  OSU to Psych...', function()
+		{
+			if(!fileDialog.completed) return;
+			upperBox.isMinimized = true;
+			upperBox.bg.visible = false;
+
+			fileDialog.open('*.osu', 'Open OSU Mania Chart', function()
+			{
+				try
+				{
+					var filePath:String = fileDialog.path.replace('\\', '/');
+					var loadedChart:SwagSong = OsuConverter.convertOsuToPsych(filePath);
+					if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
+					{
+						showOutput('Error: Unable to read OSU file or file format is incorrect', true);
+						return;
+					}
+
+					var func:Void->Void = function()
+					{
+						loadChart(loadedChart);
+						Song.chartPath = null; // Newly converted chart needs manual saving
+						reloadNotesDropdowns();
+						prepareReload();
+						showOutput('OSU chart converted successfully! Please remember to save as Psych format.');
+					}
+					
+					if(!ignoreProgressCheckBox.checked) openSubState(new Prompt('Warning: Any unsaved progress will be lost\n\nContinue conversion?', func));
+					else func();
+				}
+				catch(e:Exception)
+				{
+					showOutput('Error: ${e.message}', true);
+					trace(e.stack);
+				}
+			});
+		}, btnWid);
+		btn.text.alignment = LEFT;
+		tab_group.add(btn);
+
 		btnY += 20;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Update (Legacy)...', function()
 		{

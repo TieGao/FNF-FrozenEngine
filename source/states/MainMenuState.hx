@@ -6,6 +6,7 @@ import lime.app.Application;
 import states.editors.MasterEditorMenu;
 import options.OptionsState;
 import options.KEOptionsMenu;
+import backend.Highscore;
 
 enum MainMenuColumn {
 	LEFT;
@@ -15,7 +16,7 @@ enum MainMenuColumn {
 
 class MainMenuState extends MusicBeatState
 {
-	public static var frozenEngineVersion:String = '0.2.0';
+	public static var frozenEngineVersion:String = '0.3.0 Preview-1';
 	public static var psychEngineVersion:String = '1.0.4'; // This is also used for Discord RPC
 	public static var curSelected:Int = 0;
 	public static var curColumn:MainMenuColumn = CENTER;
@@ -43,6 +44,8 @@ class MainMenuState extends MusicBeatState
 	override function create()
 	{
 		super.create();
+
+		Highscore.load();
 
 		#if MODS_ALLOWED
 		Mods.pushGlobalMods();
@@ -302,7 +305,14 @@ class MainMenuState extends MusicBeatState
 						case 'story_mode':
 							MusicBeatState.switchState(new StoryMenuState());
 						case 'freeplay':
-							MusicBeatState.switchState(new FreeplayState());
+							if (ClientPrefs.data.newFreeplay)
+							{
+							MusicBeatState.switchState(new NewFreeplayState());
+							}
+							else
+							{
+							MusicBeatState.switchState(new FreeplayState());	
+							}
 
 						#if MODS_ALLOWED
 						case 'mods':

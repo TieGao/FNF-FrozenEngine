@@ -28,7 +28,19 @@ class Rating
 
 	public static function loadDefault():Array<Rating>
 	{
-		var ratingsData:Array<Rating> = [new Rating('sick')]; //highest rating goes first
+		var ratingsData:Array<Rating> = [];
+		
+		var rating:Rating = new Rating('marvelous');
+		rating.ratingMod = 1;
+		rating.score = 350; // 比 sick 更高
+		rating.noteSplash = true;
+		ratingsData.push(rating);
+		
+		var rating:Rating = new Rating('sick');
+		rating.ratingMod = 1;
+		rating.score = 350;
+		rating.noteSplash = true;
+		ratingsData.push(rating);
 
 		var rating:Rating = new Rating('good');
 		rating.ratingMod = 0.67;
@@ -47,6 +59,7 @@ class Rating
 		rating.score = 50;
 		rating.noteSplash = false;
 		ratingsData.push(rating);
+		
 		return ratingsData;
 	}
 }
