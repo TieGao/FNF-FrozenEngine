@@ -3,9 +3,10 @@ package states;
 import backend.WeekData;
 import backend.Highscore;
 import backend.Song;
+import backend.SongArtConfig;
 
 import objects.HealthIcon;
-import objects.NewMusicPlayer; // 新增导入
+import objects.NewMusicPlayer;
 
 import options.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
@@ -17,6 +18,7 @@ import flixel.FlxSprite;
 import flixel.text.FlxText;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
+import flixel.graphics.FlxGraphic;
 import flixel.FlxG;
 
 import openfl.utils.Assets;
@@ -25,7 +27,6 @@ import haxe.Json;
 
 import flixel.addons.display.FlxBackdrop;
 
-// NewFreeplayState 类 - 简化版本，移除不必要的平行四边形颜色更新
 class NewFreeplayState extends MusicBeatState
 {
     var songs:Array<NewSongMetaData> = [];
@@ -34,18 +35,22 @@ class NewFreeplayState extends MusicBeatState
     private static var curSelected:Int = 0;
     private var lerpSelected:Float = 0;
     
-    // 太空星空背景元素
     var space:FlxSprite;
     var starsBG:FlxBackdrop;
     var starsFG:FlxBackdrop;
     
-    // 原版背景（用作底层）
     var menuBg:FlxSprite;
     var intendedColor:Int;
     
-    // 右下角发光效果
     var cornerGlow:FlxSprite;
+    var songArt:FlxSprite;
+    var songArtTweening:Bool = false;
+    var currentArtPath:String = ""; // 当前显示的艺术图路径
     
+    var characterSprite:FlxSprite;
+    var characterTweening:Bool = false;
+    var currentCharacterArtPath:String = "";
+
     var scoreBG:FlxSprite;
     var scoreText:FlxText;
     var diffText:FlxText;
@@ -62,8 +67,7 @@ class NewFreeplayState extends MusicBeatState
     var bottomBG:FlxSprite;
     
     var topBar:FlxSprite;
-    //var bottomBar:FlxSprite;
-
+    
     var instPlaying:Int = -1;
     public static var vocals:FlxSound = null;
     public static var opponentVocals:FlxSound = null;
@@ -72,10 +76,8 @@ class NewFreeplayState extends MusicBeatState
     
     var mouseOverCard:Int = -1;
     
-    // 新增：音乐播放器
     var musicPlayer:NewMusicPlayer;
     
-    // 更新计时器
     var updateTimer:Float = 0;
     var updateInterval:Float = 0.016;
 
@@ -120,6 +122,11 @@ class NewFreeplayState extends MusicBeatState
         
         Mods.loadTopMod();
 
+        SongArtConfig.loadAllConfigs();
+        // 预加载所有歌曲艺术图
+        preloadConfiguredArts();
+
+        
         // 4. 原版菜单背景（带颜色渐变）
         menuBg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
         menuBg.antialiasing = ClientPrefs.data.antialiasing;
@@ -152,6 +159,8 @@ class NewFreeplayState extends MusicBeatState
         starsFG.scrollFactor.set();
         starsFG.alpha = 0;
         add(starsFG);
+
+
         
         // 5. 右下角发光效果
         cornerGlow = new FlxSprite().loadGraphic(Paths.image('freeplay/backGlow'));
@@ -163,6 +172,14 @@ class NewFreeplayState extends MusicBeatState
         cornerGlow.x = FlxG.width - cornerGlow.width + 100;
         cornerGlow.y = FlxG.height - cornerGlow.height + 120;
         add(cornerGlow); 
+
+        characterSprite = new FlxSprite(FlxG.width + 300, FlxG.height * 0.4);
+        characterSprite.antialiasing = ClientPrefs.data.antialiasing;
+        characterSprite.scrollFactor.set();
+        characterSprite.visible = false;
+        add(characterSprite);
+
+
         if (ClientPrefs.data.freeplayspace)
         {
             space.alpha = 1;
@@ -199,10 +216,6 @@ class NewFreeplayState extends MusicBeatState
         diffText.font = scoreText.font;
         add(diffText);
 
-        //bottomBar = new FlxSprite(0,  FlxG.height - 75).loadGraphic(Paths.image('freeplay/bottomBar'));
-        //bottomBar.alpha = 0.8;
-        //add(bottomBar);
-
         topBar = new FlxSprite(0, 0 ).loadGraphic(Paths.image('freeplay/topBar'));
         topBar.alpha = 0.8;
         add(topBar);
@@ -238,6 +251,19 @@ class NewFreeplayState extends MusicBeatState
         
         changeDiff();
         
+        // 创建艺术图精灵
+        songArt = new FlxSprite(-150, FlxG.height/2);
+        songArt.visible = false;
+        songArt.antialiasing = true;
+        songArt.scrollFactor.set();
+        add(songArt);
+
+        // 在初始选择时直接显示（无出入动画）
+        showSongArtForIndex(curSelected, false);
+
+        // 在初始选择时显示人物
+        showCharacterArtForIndex(curSelected, false);
+
         // 更新右下角发光颜色
         updateCornerGlow();
         
@@ -250,6 +276,28 @@ class NewFreeplayState extends MusicBeatState
         FlxG.mouse.visible = true;
         
         super.create();
+    }
+
+    // 预加载所有歌曲艺术图
+    function preloadSongArts()
+    {
+        for (song in songs)
+        {
+            try
+            {
+                var oldDir = Mods.currentModDirectory;
+                Mods.currentModDirectory = song.folder;
+                
+                // 尝试加载艺术图
+                Paths.getSongGraphic(song.songName);
+                
+                Mods.currentModDirectory = oldDir;
+            }
+            catch(e:Dynamic)
+            {
+                // 有些歌曲可能没有艺术图，忽略错误
+            }
+        }
     }
 
     override function closeSubState()
@@ -320,238 +368,237 @@ class NewFreeplayState extends MusicBeatState
     }
     
     function togglePlaySong()
-{
-    // 如果正在播放，停止播放
-    if (musicPlayer.playingMusic)
     {
-        musicPlayer.stopMusic();
-        return;
-    }
-    
-    // 开始播放当前选中的歌曲
-    var songName:String = songs[curSelected].songName;
-    var songLowercase:String = Paths.formatToSongPath(songName);
-    var poop:String = Highscore.formatSong(songLowercase, curDifficulty);
-    
-    try
-    {
-        destroyFreeplayVocals();
-        
-        var oldModDirectory = Mods.currentModDirectory;
-        Mods.currentModDirectory = songs[curSelected].folder;
-        
-        // 检查文件是否存在
-        var chartPath:String = Paths.modsJson(songLowercase + '/' + poop);
-        if (!sys.FileSystem.exists(chartPath))
-        {
-            chartPath = Paths.json(songLowercase + '/' + poop);
-            if (!sys.FileSystem.exists(chartPath))
-            {
-                Mods.currentModDirectory = oldModDirectory;
-                throw new haxe.Exception('Chart file not found: $poop');
-            }
-        }
-        
-        PlayState.SONG = Song.loadFromJson(poop, songLowercase);
-        PlayState.isStoryMode = false;
-        PlayState.storyDifficulty = curDifficulty;
-        
-        #if DISCORD_ALLOWED
-        DiscordClient.changePresence("Freeplay - Listening to " + songName, null);
-        #end
-        
-        if (FlxG.sound.music != null)
-            FlxG.sound.music.stop();
-        
-        FlxG.sound.playMusic(Paths.inst(PlayState.SONG.song), 0.7, false);
-        
-        // 设置播放完成回调
-        FlxG.sound.music.onComplete = function()
-        {
-            trace("Music completed, stopping player...");
-            destroyFreeplayVocals();
-            FlxG.sound.music.time = 0;
-            if (musicPlayer.playingMusic)
-                musicPlayer.stopMusic();
-        };
-        
-        // 加载人声
-        vocals = new FlxSound();
-        if (PlayState.SONG.needsVoices)
-            vocals.loadEmbedded(Paths.voices(PlayState.SONG.song));
-        else
-            vocals.loadEmbedded(Paths.voices(PlayState.SONG.song, "empty"));
-        
-        FlxG.sound.list.add(vocals);
-        
-        opponentVocals = new FlxSound();
-        opponentVocals.loadEmbedded(Paths.voices(PlayState.SONG.song, "empty"));
-        FlxG.sound.list.add(opponentVocals);
-        
-        // 重要：必须先设置为true再调用switchPlayMusic
-        musicPlayer.playingMusic = true;
-        musicPlayer.switchPlayMusic();
-        
-        Mods.currentModDirectory = oldModDirectory;
-    }
-    catch(e:haxe.Exception)
-    {
-        trace('ERROR: ${e.message}');
-        FlxG.sound.play(Paths.sound('cancelMenu'));
-        
-        var errorMessage = e.message;
-        var errorText = new FlxText(0, FlxG.height/2 - 50, FlxG.width, 'Error: $errorMessage', 24);
-        errorText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER);
-        errorText.borderColor = FlxColor.BLACK;
-        errorText.borderSize = 2;
-        add(errorText);
-        
-        FlxG.sound.music.stop();
-        
-        new FlxTimer().start(2, function(tmr:FlxTimer)
-        {
-            remove(errorText);
-            
-            if (FlxG.sound.music == null || !FlxG.sound.music.playing)
-                FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.7);
-        });
-    }
-}
-
-
-   override function update(elapsed:Float)
-{
-    if(WeekData.weeksList.length < 1)
-        return;
-
-    // 星空背景滚动
-    starsBG.x -= 0.05;
-    starsFG.x -= 0.15;
-    
-    if (starsBG.x < -starsBG.width) starsBG.x = 0;
-    if (starsFG.x < -starsFG.width) starsFG.x = 0;
-
-    // 背景音乐 - 仅在未播放音乐时恢复音量
-    if (FlxG.sound.music.volume < 0.7 && !musicPlayer.playingMusic)
-        FlxG.sound.music.volume += 0.5 * elapsed;
-
-    // 平滑过渡分数
-    lerpScore = Math.floor(FlxMath.lerp(intendedScore, lerpScore, Math.exp(-elapsed * 24)));
-    lerpRating = FlxMath.lerp(intendedRating, lerpRating, Math.exp(-elapsed * 12));
-
-    if (Math.abs(lerpScore - intendedScore) <= 10)
-        lerpScore = intendedScore;
-    if (Math.abs(lerpRating - intendedRating) <= 0.01)
-        lerpRating = intendedRating;
-
-    // 平滑选择过渡
-    lerpSelected = FlxMath.lerp(curSelected, lerpSelected, Math.exp(-elapsed * 9.6));
-    
-    // 控制更新频率
-    updateTimer += elapsed;
-    if (updateTimer >= updateInterval)
-    {
-        updateCardsPosition();
-        updateTexts();
-        updateTimer = 0;
-    }
-
-    // 鼠标交互 - 仅在未播放音乐时可用
-    if (!musicPlayer.playingMusic)
-    {
-        updateMouseInteraction();
-    }
-
-    var shiftMult:Int = 1;
-    if(FlxG.keys.pressed.SHIFT) shiftMult = 3;
-
-    // 鼠标滚轮 - 仅在未播放音乐时可用
-    if (FlxG.mouse.wheel != 0 && songs.length > 1 && !musicPlayer.playingMusic)
-    {
-        var wheelShiftMult:Int = FlxG.keys.pressed.SHIFT ? 3 : 1;
-        FlxG.sound.play(Paths.sound('scrollMenu'), 0.2);
-        changeSelection(-wheelShiftMult * FlxG.mouse.wheel, false);
-    }
-
-    // 键盘导航 - 仅在未播放音乐时可用
-    if(songs.length > 1 && !musicPlayer.playingMusic)
-    {
-        if (controls.UI_UP_P)
-        {
-            changeSelection(-shiftMult);
-            holdTime = 0;
-        }
-        if (controls.UI_DOWN_P)
-        {
-            changeSelection(shiftMult);
-            holdTime = 0;
-        }
-
-        if(controls.UI_DOWN || controls.UI_UP)
-        {
-            var checkLastHold:Int = Math.floor((holdTime - 0.5) * 10);
-            holdTime += elapsed;
-            var checkNewHold:Int = Math.floor((holdTime - 0.5) * 10);
-
-            if(holdTime > 0.5 && checkNewHold - checkLastHold > 0)
-                changeSelection((checkNewHold - checkLastHold) * (controls.UI_UP ? -shiftMult : shiftMult));
-        }
-    }
-
-    // 难度切换 - 仅在未播放音乐时可用
-    if (controls.UI_LEFT_P && !musicPlayer.playingMusic)
-    {
-        changeDiff(-1);
-        _updateSongLastDifficulty();
-    }
-    else if (controls.UI_RIGHT_P && !musicPlayer.playingMusic)
-    {
-        changeDiff(1);
-        _updateSongLastDifficulty();
-    }
-
-    // 返回
-    if (controls.BACK || FlxG.mouse.pressedRight)
-    {
+        // 如果正在播放，停止播放
         if (musicPlayer.playingMusic)
         {
-            // 如果正在播放音乐，停止播放
             musicPlayer.stopMusic();
-            FlxG.sound.play(Paths.sound('cancelMenu'));
+            return;
         }
-        else
+        
+        // 开始播放当前选中的歌曲
+        var songName:String = songs[curSelected].songName;
+        var songLowercase:String = Paths.formatToSongPath(songName);
+        var poop:String = Highscore.formatSong(songLowercase, curDifficulty);
+        
+        try
         {
-            persistentUpdate = false;
-            FlxG.sound.play(Paths.sound('cancelMenu'));
-            MusicBeatState.switchState(new MainMenuState());
-            FlxG.mouse.visible = false;
+            destroyFreeplayVocals();
+            
+            var oldModDirectory = Mods.currentModDirectory;
+            Mods.currentModDirectory = songs[curSelected].folder;
+            
+            // 检查文件是否存在
+            var chartPath:String = Paths.modsJson(songLowercase + '/' + poop);
+            if (!sys.FileSystem.exists(chartPath))
+            {
+                chartPath = Paths.json(songLowercase + '/' + poop);
+                if (!sys.FileSystem.exists(chartPath))
+                {
+                    Mods.currentModDirectory = oldModDirectory;
+                    throw new haxe.Exception('Chart file not found: $poop');
+                }
+            }
+            
+            PlayState.SONG = Song.loadFromJson(poop, songLowercase);
+            PlayState.isStoryMode = false;
+            PlayState.storyDifficulty = curDifficulty;
+            
+            #if DISCORD_ALLOWED
+            DiscordClient.changePresence("Freeplay - Listening to " + songName, null);
+            #end
+            
+            if (FlxG.sound.music != null)
+                FlxG.sound.music.stop();
+            
+            FlxG.sound.playMusic(Paths.inst(PlayState.SONG.song), 0.7, false);
+            
+            // 设置播放完成回调
+            FlxG.sound.music.onComplete = function()
+            {
+                trace("Music completed, stopping player...");
+                destroyFreeplayVocals();
+                FlxG.sound.music.time = 0;
+                if (musicPlayer.playingMusic)
+                    musicPlayer.stopMusic();
+            };
+            
+            // 加载人声
+            vocals = new FlxSound();
+            if (PlayState.SONG.needsVoices)
+                vocals.loadEmbedded(Paths.voices(PlayState.SONG.song));
+            else
+                vocals.loadEmbedded(Paths.voices(PlayState.SONG.song, "empty"));
+            
+            FlxG.sound.list.add(vocals);
+            
+            opponentVocals = new FlxSound();
+            opponentVocals.loadEmbedded(Paths.voices(PlayState.SONG.song, "empty"));
+            FlxG.sound.list.add(opponentVocals);
+            
+            // 重要：必须先设置为true再调用switchPlayMusic
+            musicPlayer.playingMusic = true;
+            musicPlayer.switchPlayMusic();
+            
+            Mods.currentModDirectory = oldModDirectory;
         }
-    }
-    else if(FlxG.keys.justPressed.CONTROL || FlxG.mouse.pressedMiddle)
-    {
-        persistentUpdate = false;
-        openSubState(new GameplayChangersSubstate());
-    }
-    // 选择歌曲（开始游戏）- 仅在未播放音乐时可用
-    else if (FlxG.keys.justPressed.ENTER && !musicPlayer.playingMusic)
-    {
-        selectSong();
-    }
-    // 播放/暂停歌曲（空格键）- 仅在未播放音乐时可用
-    else if (FlxG.keys.justPressed.SPACE)
-    {
-        togglePlaySong();
-    }
-    // 重置分数 - 仅在未播放音乐时可用
-    else if(controls.RESET && !musicPlayer.playingMusic)
-    {
-        persistentUpdate = false;
-        openSubState(new ResetScoreSubState(songs[curSelected].songName, curDifficulty, songs[curSelected].songCharacter));
-        FlxG.sound.play(Paths.sound('scrollMenu'));
+        catch(e:haxe.Exception)
+        {
+            trace('ERROR: ${e.message}');
+            FlxG.sound.play(Paths.sound('cancelMenu'));
+            
+            var errorMessage = e.message;
+            var errorText = new FlxText(0, FlxG.height/2 - 50, FlxG.width, 'Error: $errorMessage', 24);
+            errorText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER);
+            errorText.borderColor = FlxColor.BLACK;
+            errorText.borderSize = 2;
+            add(errorText);
+            
+            FlxG.sound.music.stop();
+            
+            new FlxTimer().start(2, function(tmr:FlxTimer)
+            {
+                remove(errorText);
+                
+                if (FlxG.sound.music == null || !FlxG.sound.music.playing)
+                    FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.7);
+            });
+        }
     }
 
-    super.update(elapsed);
-}
+    override function update(elapsed:Float)
+    {
+        if(WeekData.weeksList.length < 1)
+            return;
+
+        // 星空背景滚动
+        starsBG.x -= 0.05;
+        starsFG.x -= 0.15;
+        
+        if (starsBG.x < -starsBG.width) starsBG.x = 0;
+        if (starsFG.x < -starsFG.width) starsFG.x = 0;
+
+        // 背景音乐 - 仅在未播放音乐时恢复音量
+        if (FlxG.sound.music.volume < 0.7 && !musicPlayer.playingMusic)
+            FlxG.sound.music.volume += 0.5 * elapsed;
+
+        // 平滑过渡分数
+        lerpScore = Math.floor(FlxMath.lerp(intendedScore, lerpScore, Math.exp(-elapsed * 24)));
+        lerpRating = FlxMath.lerp(intendedRating, lerpRating, Math.exp(-elapsed * 12));
+
+        if (Math.abs(lerpScore - intendedScore) <= 10)
+            lerpScore = intendedScore;
+        if (Math.abs(lerpRating - intendedRating) <= 0.01)
+            lerpRating = intendedRating;
+
+        // 平滑选择过渡
+        lerpSelected = FlxMath.lerp(curSelected, lerpSelected, Math.exp(-elapsed * 9.6));
+        
+        // 控制更新频率
+        updateTimer += elapsed;
+        if (updateTimer >= updateInterval)
+        {
+            updateCardsPosition();
+            updateTexts();
+            updateTimer = 0;
+        }
+
+        // 鼠标交互 - 仅在未播放音乐时可用
+        if (!musicPlayer.playingMusic)
+        {
+            updateMouseInteraction();
+        }
+
+        var shiftMult:Int = 1;
+        if(FlxG.keys.pressed.SHIFT) shiftMult = 3;
+
+        // 鼠标滚轮 - 仅在未播放音乐时可用
+        if (FlxG.mouse.wheel != 0 && songs.length > 1 && !musicPlayer.playingMusic)
+        {
+            var wheelShiftMult:Int = FlxG.keys.pressed.SHIFT ? 3 : 1;
+            FlxG.sound.play(Paths.sound('scrollMenu'), 0.2);
+            changeSelection(-wheelShiftMult * FlxG.mouse.wheel, false);
+        }
+
+        // 键盘导航 - 仅在未播放音乐时可用
+        if(songs.length > 1 && !musicPlayer.playingMusic)
+        {
+            if (controls.UI_UP_P)
+            {
+                changeSelection(-shiftMult);
+                holdTime = 0;
+            }
+            if (controls.UI_DOWN_P)
+            {
+                changeSelection(shiftMult);
+                holdTime = 0;
+            }
+
+            if(controls.UI_DOWN || controls.UI_UP)
+            {
+                var checkLastHold:Int = Math.floor((holdTime - 0.5) * 10);
+                holdTime += elapsed;
+                var checkNewHold:Int = Math.floor((holdTime - 0.5) * 10);
+
+                if(holdTime > 0.5 && checkNewHold - checkLastHold > 0)
+                    changeSelection((checkNewHold - checkLastHold) * (controls.UI_UP ? -shiftMult : shiftMult));
+            }
+        }
+
+        // 难度切换 - 仅在未播放音乐时可用
+        if (controls.UI_LEFT_P && !musicPlayer.playingMusic)
+        {
+            changeDiff(-1);
+            _updateSongLastDifficulty();
+        }
+        else if (controls.UI_RIGHT_P && !musicPlayer.playingMusic)
+        {
+            changeDiff(1);
+            _updateSongLastDifficulty();
+        }
+
+        // 返回
+        if (controls.BACK || FlxG.mouse.pressedRight)
+        {
+            if (musicPlayer.playingMusic)
+            {
+                // 如果正在播放音乐，停止播放
+                musicPlayer.stopMusic();
+                FlxG.sound.play(Paths.sound('cancelMenu'));
+            }
+            else
+            {
+                persistentUpdate = false;
+                FlxG.sound.play(Paths.sound('cancelMenu'));
+                MusicBeatState.switchState(new MainMenuState());
+                FlxG.mouse.visible = false;
+            }
+        }
+        else if(FlxG.keys.justPressed.CONTROL || FlxG.mouse.pressedMiddle)
+        {
+            persistentUpdate = false;
+            openSubState(new GameplayChangersSubstate());
+        }
+        // 选择歌曲（开始游戏）- 仅在未播放音乐时可用
+        else if (FlxG.keys.justPressed.ENTER && !musicPlayer.playingMusic)
+        {
+            selectSong();
+        }
+        // 播放/暂停歌曲（空格键）- 仅在未播放音乐时可用
+        else if (FlxG.keys.justPressed.SPACE)
+        {
+            togglePlaySong();
+        }
+        // 重置分数 - 仅在未播放音乐时可用
+        else if(controls.RESET && !musicPlayer.playingMusic)
+        {
+            persistentUpdate = false;
+            openSubState(new ResetScoreSubState(songs[curSelected].songName, curDifficulty, songs[curSelected].songCharacter));
+            FlxG.sound.play(Paths.sound('scrollMenu'));
+        }
+
+        super.update(elapsed);
+    }
     
     function updateMouseInteraction()
     {
@@ -687,7 +734,250 @@ class NewFreeplayState extends MusicBeatState
             if (!stopMusicPlay)
                 FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.7);
         }
+
+        // 显示艺术图（处理相同艺术图的情况）
+        showSongArtForIndex(curSelected, true);
+        showCharacterArtForIndex(curSelected, true);
     }
+
+// 预加载配置的艺术图
+function preloadConfiguredArts()
+{
+    #if MODS_ALLOWED
+    var oldModDir = Mods.currentModDirectory;
+    
+    // 为每首歌曲预加载其艺术图
+    for (song in songs)
+    {
+        var artName:String = SongArtConfig.getArtForSong(song.songName);
+        if (artName != null)
+        {
+            // 尝试在当前模组中加载
+            Mods.currentModDirectory = song.folder;
+            try {
+                Paths.image('songArt/$artName', null, true);
+               // trace('Preloaded art "$artName" for song "${song.songName}"');
+            } catch (e:Dynamic) {
+                trace('Failed to preload art "$artName" for song "${song.songName}": $e');
+            }
+        }
+    }
+    
+    Mods.currentModDirectory = oldModDir;
+    #end
+}
+
+  // 简化的showSongArtForIndex函数
+    public function showSongArtForIndex(index:Int, animated:Bool) {
+        if (index < 0 || index >= songs.length) return;
+        
+        var songData = songs[index];
+        
+        // 直接从配置获取艺术图名称
+        var artName:String = SongArtConfig.getArtForSong(songData.songName);
+        
+        if (artName == null) {
+            // 没有配置的艺术图，直接隐藏
+            if (songArt != null) {
+                songArt.visible = false;
+            }
+            currentArtPath = "";
+            return;
+        }
+        
+        // 加载艺术图
+        var oldModDir = Mods.currentModDirectory;
+        Mods.currentModDirectory = songData.folder;
+        
+        var graphic:FlxGraphic = null;
+        try {
+            graphic = Paths.image('songArt/$artName', null, true);
+        } catch (e:Dynamic) {
+            // 忽略错误
+        }
+        
+        Mods.currentModDirectory = oldModDir;
+        
+        if (graphic == null) {
+            if (songArt != null) songArt.visible = false;
+            currentArtPath = "";
+            return;
+        }
+        
+        // 检查是否是相同的艺术图
+        var newArtPath = artName + "_" + songData.folder;
+        var isSameArt = (currentArtPath == newArtPath);
+        
+        // 如果是相同的艺术图，不执行动画
+        if (isSameArt && songArt != null && songArt.visible) {
+            return;
+        }
+
+        if (songArt == null) {
+            songArt = new FlxSprite(-150, FlxG.height/2);
+            songArt.antialiasing = ClientPrefs.data.antialiasing;
+            songArt.scrollFactor.set();
+            add(songArt);
+        }
+
+        // 如果有动画正在进行，取消它
+        if (songArtTweening) {
+            FlxTween.cancelTweensOf(songArt);
+            songArtTweening = false;
+        }
+
+        songArt.loadGraphic(graphic);
+        var targetHeight:Float = 140;
+        var s:Float = targetHeight / songArt.height;
+        songArt.scale.set(s, s);
+        songArt.updateHitbox();
+
+        // 计算目标位置
+        var targetX:Float = FlxG.width / 2 - songArt.width / 2;
+        var targetY:Float = FlxG.height - 300;
+        if (bottomText != null) targetY = bottomText.y - songArt.height - 8;
+
+        // 更新当前艺术图路径
+        currentArtPath = newArtPath;
+
+        if (!animated || isSameArt) {
+            // 直接设置到目标位置（无动画）
+            songArt.x = targetX;
+            songArt.y = targetY;
+            songArt.alpha = 1;
+            songArt.visible = true;
+            return;
+        }
+
+        // 设置初始位置
+        songArt.x = targetX - 50;
+        songArt.y = targetY;
+        songArt.alpha = 0;
+        songArt.visible = true;
+        
+        songArtTweening = true;
+        
+        // 淡入动画
+        FlxTween.tween(songArt, { 
+            x: targetX,
+            alpha: 1 
+        }, 0.25, { 
+            ease: FlxEase.circOut, 
+            onComplete: function(t) {
+                songArtTweening = false;
+            }
+        });
+    }
+
+    public function showCharacterArtForIndex(index:Int, animated:Bool) {
+    if (index < 0 || index >= songs.length) return;
+    
+    var songData = songs[index];
+    
+    // 从配置获取人物艺术图和缩放比例
+    var artName:String = SongArtConfig.getCharacterArtForSong(songData.songName);
+    
+    if (artName == null) {
+        if (characterSprite != null) {
+            characterSprite.visible = false;
+        }
+        currentCharacterArtPath = "";
+        return;
+    }
+    
+    // 获取缩放比例
+    var scale:Float = SongArtConfig.getCharacterScaleForSong(songData.songName);
+    
+    var oldModDir = Mods.currentModDirectory;
+    Mods.currentModDirectory = songData.folder;
+    
+    var graphic:FlxGraphic = null;
+    try {
+        graphic = Paths.image('characterArt/$artName', null, true);
+    } catch (e:Dynamic) {
+        // 忽略错误
+    }
+    
+    Mods.currentModDirectory = oldModDir;
+    
+    if (graphic == null) {
+        if (characterSprite != null) characterSprite.visible = false;
+        currentCharacterArtPath = "";
+        return;
+    }
+    
+    var newArtPath = artName + "_" + songData.folder;
+    var isSameArt = (currentCharacterArtPath == newArtPath);
+    
+    if (isSameArt && characterSprite != null && characterSprite.visible) {
+        return;
+    }
+
+    if (characterSprite == null) {
+        characterSprite = new FlxSprite(FlxG.width + 300, FlxG.height * 0.4);
+        characterSprite.antialiasing = ClientPrefs.data.antialiasing;
+        characterSprite.scrollFactor.set();
+        // 确保角色在正确的图层层级
+        var menuBgIndex = members.indexOf(menuBg);
+        if (menuBgIndex != -1) {
+            remove(characterSprite);
+            insert(menuBgIndex + 1, characterSprite); // 放在菜单背景之后
+        }
+    }
+
+    // 如果有动画正在进行，取消它们
+    if (characterTweening) {
+        FlxTween.cancelTweensOf(characterSprite);
+        characterTweening = false;
+    }
+
+    // 加载新图像前保存当前位置和透明度
+    var startX:Float = characterSprite.x;
+    var startAlpha:Float = characterSprite.alpha;
+    
+    characterSprite.loadGraphic(graphic);
+    
+    // 应用配置的缩放比例
+    var targetHeight:Float = 300 * scale;
+    var s:Float = targetHeight / characterSprite.height;
+    characterSprite.scale.set(s, s);
+    characterSprite.updateHitbox();
+
+    currentCharacterArtPath = newArtPath;
+
+    // 计算目标位置（屏幕右侧）
+    var targetX:Float = FlxG.width - characterSprite.width - 50;
+    var targetY:Float = (FlxG.height - characterSprite.height) / 2;
+    
+    // 设置Y位置（不需要动画）
+    characterSprite.y = targetY;
+
+    if (!animated || isSameArt) {
+        characterSprite.x = targetX;
+        characterSprite.alpha = 1;
+        characterSprite.visible = true;
+        return;
+    }
+
+    // 设置初始位置（从右侧屏幕外开始）和透明度
+    characterSprite.x = FlxG.width + 50;
+    characterSprite.alpha = 0;
+    characterSprite.visible = true;
+    
+    characterTweening = true;
+    
+    // 使用更丝滑的动画效果 - 参考 portraitTween
+    // 同时进行位置和透明度动画，使用 expoOut 缓动
+    FlxTween.tween(characterSprite, { 
+        x: targetX,
+        alpha: 1 
+    }, 0.3, { 
+        ease: FlxEase.expoOut, // 德福
+        onComplete: function(t) {
+            characterTweening = false;
+        }
+    });
+}
 
     inline private function _updateSongLastDifficulty()
         songs[curSelected].lastDifficulty = Difficulty.getString(curDifficulty, false);
@@ -699,6 +989,19 @@ class NewFreeplayState extends MusicBeatState
         FlxG.autoPause = ClientPrefs.data.autoPause;
         if (!FlxG.sound.music.playing && !stopMusicPlay)
             FlxG.sound.playMusic(Paths.music('freakyMenu'));
+
+        // 销毁艺术图资源
+        if (songArt != null) {
+            FlxTween.cancelTweensOf(songArt);
+            songArt.destroy();
+            songArt = null;
+        }
+
+        if (characterSprite != null) {
+            FlxTween.cancelTweensOf(characterSprite);
+            characterSprite.destroy();
+            characterSprite = null;
+        }
     }
 }
 
@@ -735,7 +1038,6 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
     public var textSprite:FlxText;
     public var icon:HealthIcon;
     
-    // 新增：平行四边形和评分贴图
     public var rhombusBg:FlxSprite;
     public var ratingSprite:FlxSprite;
     
@@ -778,23 +1080,19 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         
         Mods.currentModDirectory = oldModDir;
         
-        // 新增：平行四边形 - 一直使用歌曲颜色
         rhombusBg = new FlxSprite(x + 400, y);
+
         try {
-            // 加载预制平行四边形图形
             rhombusBg.loadGraphic(Paths.image('freeplay/rhombus'));
         } catch (e:Dynamic) {
-            // 如果没有预制图形，创建一个简单的平行四边形
             rhombusBg.makeGraphic(60, 75, 0xFF333333);
         }
         
-        // 平行四边形一直使用歌曲颜色，不变色
         rhombusBg.color = coloring;
         rhombusBg.alpha = 0.6;
         rhombusBg.scrollFactor.set();
         add(rhombusBg);
         
-        // 新增：评分贴图
         ratingSprite = new FlxSprite(x + 490, y + 20);
         ratingSprite.antialiasing = true;
         ratingSprite.scrollFactor.set();
@@ -802,13 +1100,11 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         updateRatingSprite();
     }
     
-    // 更新评分贴图
     public function updateRatingSprite()
     {
         var songLowercase:String = songName.toLowerCase();
         songLowercase = songLowercase.replace(" ", "-");
         
-        // 获取歌曲的最高评分
         var bestRating:Float = 0;
         for (diff in 0...Difficulty.list.length)
         {
@@ -819,11 +1115,9 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
             }
         }
         
-        // 转换为百分比
         var percent:Float = bestRating * 100;
         
-        // 根据百分比选择对应的贴图
-        var ratingImage:String = "air"; // 默认
+        var ratingImage:String = "air";
         
         if (percent >= 99) {
             ratingImage = "P";
@@ -843,12 +1137,10 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         
         try
         {
-            // 加载评分贴图
             ratingSprite.loadGraphic(Paths.image('freeplay/ratings/$ratingImage'));
             ratingSprite.scale.set(0.7, 0.7);
             ratingSprite.updateHitbox();
             
-            // 调整位置
             ratingSprite.x = rhombusBg.x + rhombusBg.width - 205;
             ratingSprite.y = rhombusBg.y + (rhombusBg.height - ratingSprite.height) / 2;
         }
@@ -857,7 +1149,6 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
             trace('Failed to load rating image: $ratingImage');
             ratingSprite.makeGraphic(40, 40, FlxColor.TRANSPARENT);
             
-            // 创建文本显示评分
             var ratingText = new FlxText(ratingSprite.x, ratingSprite.y, 40, ratingImage, 20);
             ratingText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER);
             ratingText.borderSize = 2;
@@ -880,14 +1171,12 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
             return;
         }
         
-        // 显示卡片所有元素
         bgSprite.visible = bgSprite.active = true;
         textSprite.visible = textSprite.active = true;
         icon.visible = icon.active = true;
         rhombusBg.visible = rhombusBg.active = true;
         ratingSprite.visible = ratingSprite.active = true;
         
-        // 计算位置
         var middleY = FlxG.height * 0.5;
         var spacing = 80;
         
@@ -897,7 +1186,6 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         var targetX = 200 + offsetX;
         var targetYPos = middleY + offsetY - 30;
         
-        // 直接设置位置
         bgSprite.x = targetX - 50;
         bgSprite.y = targetYPos;
         
@@ -907,11 +1195,9 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         icon.x = targetX - 80;
         icon.y = targetYPos - 45;
         
-        // 更新平行四边形位置
         rhombusBg.x = targetX  + 400;
         rhombusBg.y = targetYPos;
         
-        // 更新评分贴图位置
         if (ratingSprite.graphic != null)
         {
             ratingSprite.x = rhombusBg.x + rhombusBg.width - 100;
@@ -927,7 +1213,6 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
             bgSprite.color = 0xFF4A4A4A; 
         }
         
-        // 平行四边形永远保持歌曲颜色，不变色
         rhombusBg.color = coloring;
         
         bgSprite.alpha = alpha;

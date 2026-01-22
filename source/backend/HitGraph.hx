@@ -10,40 +10,19 @@ import openfl.text.TextFieldAutoSize;
 import flixel.math.FlxMath;
 import flixel.util.FlxColor;
 import flixel.FlxG;
-import states.PlayState;
 
 class HitGraph extends Sprite
 {
     static inline var AXIS_COLOR:FlxColor = 0xffffff;
     static inline var AXIS_ALPHA:Float = 0.5;
-    static inline var KADE_MISS_VALUE:Float = -10000;
 
     public var history:Array<Dynamic> = [];
     public var bitmap:Bitmap;
-    
+
+    var _axis:Sprite;
     var _width:Int;
     var _height:Int;
     var _labels:Array<TextField>;
-    var _graphics:Graphics;
-    
-    // Judgment windows (ms) - Kade Engine defaults
-    var _marvelousWindow:Float = 22.5;
-    var _sickWindow:Float = 45.0;
-    var _goodWindow:Float = 90.0;
-    var _badWindow:Float = 135.0;
-    var _shitWindow:Float = 166.0;
-    
-    // Color definitions
-    var _marvelousColor:FlxColor = 0xFFD700;    // Gold
-    var _sickColor:FlxColor = 0x00FFFF;        // Cyan
-    var _goodColor:FlxColor = 0x00FF00;        // Green
-    var _badColor:FlxColor = 0xFF6464;         // Light Red
-    var _shitColor:FlxColor = 0xFF0000;        // Red
-    var _missColor:FlxColor = 0x800000;        // Dark Red
-
-    // To prevent duplicate points for sustain notes
-    var _processedNotes:Map<String, Bool> = new Map<String, Bool>();
-    var _processedCount:Int = 0;
 
     public function new(X:Int, Y:Int, Width:Int, Height:Int)
     {
@@ -53,78 +32,43 @@ class HitGraph extends Sprite
         _width = Width;
         _height = Height;
         _labels = [];
-        
-        _graphics = this.graphics;
-        
-        // Create bitmap
-        var bm = new BitmapData(_width, _height, true, 0x00000000);
-        bitmap = new Bitmap(bm);
-        addChild(bitmap);
-        
-        // Create labels
-        createLabels();
-        
-        // Initial drawing
-        drawAxes();
-        drawGrid();
-    }
 
-    function drawAxes():Void
-    {
-        _graphics.lineStyle(1.0, AXIS_COLOR, AXIS_ALPHA);
-        
-        // Y axis
-        _graphics.moveTo(0.0, 0.0);
-        _graphics.lineTo(0.0, _height);
-        
-        // X axis bottom
-        _graphics.moveTo(0.0, _height);
-        _graphics.lineTo(_width, _height);
-        
-        // Center line (0ms)
-        _graphics.lineStyle(1.0, FlxColor.WHITE, 0.3);
-        var centerY:Float = _height / 2;
-        _graphics.moveTo(0.0, centerY);
-        _graphics.lineTo(_width, centerY);
-    }
+        _axis = new Sprite();
+        addChild(_axis);
 
-    function createLabels():Void
-    {
-        // Early/Late labels
-        var early = createTextField(5, _height - 20, FlxColor.WHITE, 11);
-        var late = createTextField(5, 5, FlxColor.WHITE, 11);
+        // 创建早期/晚期标签 - 互换位置
+        var early = createTextField(10, _height - 20, FlxColor.WHITE, 12);
+        var late = createTextField(10, 10, FlxColor.WHITE, 12);
         early.text = "Early (-166ms)";
         late.text = "Late (+166ms)";
         addChild(early);
         addChild(late);
+
+        drawAxes();
         
-        // Judgment line labels
-        var sickLabel = createTextField(_width - 45, getYFromDiff(-_sickWindow) - 6, _sickColor, 10);
-        sickLabel.text = "Sick";
-        addChild(sickLabel);
-        _labels.push(sickLabel);
-        
-        var goodLabel = createTextField(_width - 50, getYFromDiff(-_goodWindow) - 6, _goodColor, 10);
-        goodLabel.text = "Good";
-        addChild(goodLabel);
-        _labels.push(goodLabel);
-        
-        var badLabel = createTextField(_width - 45, getYFromDiff(-_badWindow) - 6, _badColor, 10);
-        badLabel.text = "Bad";
-        addChild(badLabel);
-        _labels.push(badLabel);
-        
-        var shitLabel = createTextField(_width - 45, getYFromDiff(-_shitWindow) - 6, _shitColor, 10);
-        shitLabel.text = "Shit";
-        addChild(shitLabel);
-        _labels.push(shitLabel);
+        // 初始化bitmap
+        var bm = new BitmapData(_width, _height, true, 0x00000000);
+        bitmap = new Bitmap(bm);
+        addChild(bitmap);
     }
 
-    function getYFromDiff(diff:Float):Float
+    function drawAxes():Void
     {
-        // diff: -166 to +166, top to bottom
-        var normalizedY:Float = (diff + _shitWindow) / (_shitWindow * 2.0);
-        return _height - (normalizedY * _height);
+        var gfx = _axis.graphics;
+        gfx.clear();
+        gfx.lineStyle(1, AXIS_COLOR, AXIS_ALPHA);
+
+        // y-Axis
+        gfx.moveTo(0, 0);
+        gfx.lineTo(0, _height);
+
+        // x-Axis  
+        gfx.moveTo(0, _height);
+        gfx.lineTo(_width, _height);
+
+        // 中心线
+        gfx.moveTo(0, _height / 2);
+        gfx.lineTo(_width, _height / 2);
     }
 
     public static function createTextField(X:Float = 0, Y:Float = 0, Color:FlxColor = FlxColor.WHITE, Size:Int = 12):TextField
@@ -142,291 +86,279 @@ class HitGraph extends Sprite
         return tf;
     }
 
-    function drawJudgementLine(diff:Float, color:FlxColor):Void
+    function drawJudgementLine(ms:Float, color:FlxColor, labelText:String = ""):Void
     {
-        var yPos:Float = getYFromDiff(diff);
+        var gfx:Graphics = graphics;
+        gfx.lineStyle(1, color, 0.4);
+
+        var range:Float = 210; // -210ms to +210ms
+        var value = (ms + 210) / (range * 2); // 转换到0-1范围
+
+        var pointY = _height - (value * _height);
+        gfx.moveTo(0, pointY);
+        gfx.lineTo(_width, pointY);
         
-        // Draw solid line
-        _graphics.lineStyle(1.0, color, 0.4);
-        _graphics.moveTo(0.0, yPos);
-        _graphics.lineTo(_width, yPos);
+        // 添加标签（只在右侧显示一个标签，避免重叠）
+        if (labelText != "" && ms > 0) { // 只为正数时间添加标签
+            var label = createTextField(_width - 60, pointY - 6, color, 10);
+            label.text = labelText;
+            addChild(label);
+            _labels.push(label);
+        }
     }
 
     function drawGrid():Void
     {
-        // Draw positive and negative judgment lines
-        drawJudgementLine(_marvelousWindow, _marvelousColor);
-        drawJudgementLine(-_marvelousWindow, _marvelousColor);
+        var gfx:Graphics = graphics;
+        gfx.clear();
+
+        // 清除旧标签
+        for (label in _labels) {
+            if (contains(label)) {
+                removeChild(label);
+            }
+        }
+        _labels = [];
+
+        // 绘制判定区域线 - 按照要求修改：移除MISS线，将SHIT线设置为166ms
+        // MARVELOUS 范围: ±22.5ms (金色)
+        drawJudgementLine(22.5, FlxColor.fromRGB(255, 215, 0), "Marvelous");   // 金色
+        drawJudgementLine(-22.5, FlxColor.fromRGB(255, 215, 0));  // 只显示一个标签
         
-        drawJudgementLine(_sickWindow, _sickColor);
-        drawJudgementLine(-_sickWindow, _sickColor);
+        // SICK 范围: ±45ms (蓝色)
+        drawJudgementLine(45, FlxColor.CYAN, "Sick");     // 蓝色
+        drawJudgementLine(-45, FlxColor.CYAN);    // 只显示一个标签
         
-        drawJudgementLine(_goodWindow, _goodColor);
-        drawJudgementLine(-_goodWindow, _goodColor);
+        // GOOD 范围: ±90ms (绿色)
+        drawJudgementLine(90, FlxColor.LIME, "Good");     // 绿色
+        drawJudgementLine(-90, FlxColor.LIME);    // 只显示一个标签
         
-        drawJudgementLine(_badWindow, _badColor);
-        drawJudgementLine(-_badWindow, _badColor);
+        // BAD 范围: ±135ms (浅红色)
+        drawJudgementLine(135, FlxColor.fromRGB(255, 100, 100), "Bad");  // 浅红色
+        drawJudgementLine(-135, FlxColor.fromRGB(255, 100, 100)); // 只显示一个标签
         
-        drawJudgementLine(_shitWindow, _shitColor);
-        drawJudgementLine(-_shitWindow, _shitColor);
+        // SHIT 范围: ±166ms (深红色) - 修改为166ms
+        drawJudgementLine(166, FlxColor.RED, "Shit");     // 深红色
+        drawJudgementLine(-166, FlxColor.RED);    // 只显示一个标签
+        
+        // 绘制MISS线 (±210ms) 使用虚线样式，颜色为暗红色
+        drawMissLine(210, FlxColor.fromRGB(128, 0, 0), "Miss");
+        drawMissLine(-210, FlxColor.fromRGB(128, 0, 0));
+    }
+
+    // 绘制MISS线 - 使用虚线样式
+    function drawMissLine(ms:Float, color:FlxColor, labelText:String = ""):Void
+    {
+        var gfx:Graphics = graphics;
+        var dashLength:Float = 5;
+        var gapLength:Float = 5;
+        
+        var range:Float = 210; // -210ms to +210ms
+        var value = (ms + 210) / (range * 2); // 转换到0-1范围
+
+        var pointY = _height - (value * _height);
+        
+        // 绘制虚线
+        var currentX:Float = 0;
+        var drawingDash:Bool = true;
+        
+        gfx.lineStyle(1, color, 0.6); // 使用半透明
+        
+        while (currentX < _width) {
+            if (drawingDash) {
+                gfx.moveTo(currentX, pointY);
+                var dashEnd = currentX + dashLength;
+                if (dashEnd > _width) dashEnd = _width;
+                gfx.lineTo(dashEnd, pointY);
+                currentX = dashEnd;
+            } else {
+                currentX += gapLength;
+            }
+            drawingDash = !drawingDash;
+        }
+        
+        // 添加标签（只在右侧显示一个标签，避免重叠）
+        if (labelText != "" && ms > 0) { // 只为正数时间添加标签
+            var label = createTextField(_width - 60, pointY - 6, color, 10);
+            label.text = labelText;
+            addChild(label);
+            _labels.push(label);
+        }
     }
 
     function drawHitData():Void
     {
-        if (history.length == 0) {
-            return;
+        var gfx:Graphics = graphics;
+        
+        if (history.length == 0) return;
+        
+        // 计算歌曲的实际时间范围
+        var minTime:Float = Math.POSITIVE_INFINITY;
+        var maxTime:Float = Math.NEGATIVE_INFINITY;
+        
+        for (hit in history) {
+            var time = hit[2];
+            if (time < minTime) minTime = time;
+            if (time > maxTime) maxTime = time;
         }
         
-        // Get song length from PlayState
-        var songLength:Float = 180000; // Default 3 minutes
-        if (PlayState.instance != null) {
-            songLength = PlayState.instance.songLength;
+        // 如果所有时间都相同，设置一个默认范围
+        if (minTime == maxTime) {
+            minTime = 0;
+            maxTime = FlxG.sound.music != null ? FlxG.sound.music.length : 120000;
         }
         
-        // Show full song from start to end
-        var startTime:Float = 0;
-        var endTime:Float = songLength;
-        var timeRange:Float = endTime - startTime;
+        // 添加一些边距，让点不会紧贴边界
+        var timeRange = maxTime - minTime;
+        var margin = timeRange * 0.05; // 5% 边距
+        minTime -= margin;
+        maxTime += margin;
+        timeRange = maxTime - minTime;
         
-        if (timeRange <= 0) {
-            timeRange = 180000; // Default 3 minutes
-            endTime = startTime + timeRange;
-        }
+        trace('Time range: $minTime - $maxTime (${timeRange}ms)');
         
-        var hitCount:Int = 0;
-        var missCount:Int = 0;
-        
-        // Draw each point
+        // 绘制命中点
         for (i in 0...history.length)
         {
-            var hit = history[i];
-            if (hit == null || hit.length < 3) {
-                continue;
-            }
-            
-            var diff:Dynamic = hit[0];
-            var judge:Dynamic = hit[1];
-            var time:Float = hit[2];
-            
-            // Skip points with null judge (invalid data)
-            if (judge == null) {
-                continue;
-            }
-            
-            // Skip if not in time range (shouldn't happen, but just in case)
-            if (time < startTime || time > endTime) {
-                continue;
-            }
-            
-            // Calculate X position based on time range
-            var xPos:Float = ((time - startTime) / timeRange) * _width;
-            xPos = FlxMath.bound(xPos, 3.0, _width - 3.0);
-            
-            // Check if MISS
-            var isMiss:Bool = false;
-            var diffFloat:Float = 0.0;
-            
-            if (Std.isOfType(diff, Float))
-            {
-                diffFloat = diff;
-                // Kade Engine MISS marker
-                if (Math.abs(diffFloat - KADE_MISS_VALUE) < 1)
-                {
-                    isMiss = true;
-                }
-            }
-            else if (Std.isOfType(diff, Int))
-            {
-                diffFloat = diff;
-                if (Math.abs(diffFloat - KADE_MISS_VALUE) < 1)
-                {
-                    isMiss = true;
-                }
-            }
-            
-            if (!isMiss && Std.isOfType(judge, String))
-            {
-                var judgeStr:String = cast(judge, String).toLowerCase();
-                if (judgeStr == "miss")
-                {
-                    isMiss = true;
-                }
-            }
-            
-            if (isMiss)
-            {
-                // MISS point - dark red circle at top
-                var yPos:Float = 20.0;
-                _graphics.beginFill(_missColor, 0.9);
-                _graphics.drawCircle(xPos, yPos, 4.0);
-                _graphics.endFill();
-                missCount++;
-            }
-            else
-            {
-                // Normal hit point - skip if diff is invalid
-                if (Std.isOfType(diff, Float))
-                    diffFloat = diff;
-                else if (Std.isOfType(diff, Int))
-                    diffFloat = diff;
-                else {
-                    continue;
-                }
+            var diff = history[i][0];
+            var judge = history[i][1];
+            var time = history[i][2];
+
+            // 如果是MISS，使用特殊的绘制方式
+            if (judge.toLowerCase() == "miss") {
+                drawMissPoint(diff, judge, time, minTime, timeRange);
+            } else {
+                // 根据时间偏移自动确定颜色，而不是依赖judge字段
+                var color = getColorByDiff(diff);
+                gfx.beginFill(color, 0.8);
                 
-                // Filter extreme values
-                if (Math.abs(diffFloat) > 5000) {
-                    continue;
-                }
+                // 转换时间到X坐标 - 使用实际的时间范围
+                var xPos = ((time - minTime) / timeRange) * _width;
                 
-                // Bound to reasonable range
-                diffFloat = FlxMath.bound(diffFloat, -_shitWindow, _shitWindow);
+                // 转换时间偏移到Y坐标 - 使用范围 -210ms 到 +210ms
+                var yPos = _height / 2 + (diff / 210) * (_height / 2);
                 
-                // Calculate Y position
-                var yPos:Float = getYFromDiff(diffFloat);
-                yPos = FlxMath.bound(yPos, 3.0, _height - 3.0);
+                // 确保在图表范围内
+                xPos = FlxMath.bound(xPos, 0, _width);
+                yPos = FlxMath.bound(yPos, 0, _height);
                 
-                // Get color based on diff
-                var color:FlxColor = getColorByDiff(diffFloat);
-                
-                // Draw circle
-                _graphics.beginFill(color, 0.8);
-                _graphics.drawCircle(xPos, yPos, 3.0);
-                _graphics.endFill();
-                hitCount++;
+                // 绘制点
+                gfx.drawCircle(xPos, yPos, 2);
+                gfx.endFill();
             }
         }
+        
+        trace('Displayed ${history.length} points across ${timeRange}ms time range');
     }
 
+    // 绘制MISS点 - 使用特殊样式
+    // 绘制MISS点 - 所有MISS显示在220ms线上
+function drawMissPoint(diff:Float, judge:String, time:Float, minTime:Float, timeRange:Float):Void
+{
+    var gfx:Graphics = graphics;
+    
+    // MISS点使用红色"X"形状
+    var color:FlxColor = FlxColor.fromRGB(128, 0, 0); // 暗红色
+    
+    // 转换时间到X坐标
+    var xPos = ((time - minTime) / timeRange) * _width;
+    
+    // 所有MISS显示在166ms线上
+    var range:Float = 210; // -210ms to +210ms
+    var value = 220 / range; //
+    var yPos = _height - (value * _height); // 转换到图表坐标
+    
+    // 确保在图表范围内
+    xPos = FlxMath.bound(xPos, 0, _width);
+    yPos = FlxMath.bound(yPos, 10, _height - 10);
+    
+    // 绘制一个红色的"X"
+    var size:Float = 2; // X的大小
+    gfx.lineStyle(2.5, color, 0.9); // 线条粗一点，更明显
+    
+    // 绘制X的第一条线
+    gfx.moveTo(xPos - size, yPos - size);
+    gfx.lineTo(xPos + size, yPos + size);
+    
+    // 绘制X的第二条线
+    gfx.moveTo(xPos + size, yPos - size);
+    gfx.lineTo(xPos - size, yPos + size);
+    
+    // 在点周围添加一个半透明的红色圆圈作为背景
+    gfx.lineStyle(1, color, 0.4);
+    gfx.beginFill(color, 0.15);
+    gfx.drawCircle(xPos, yPos, size * 2.5);
+    gfx.endFill();
+}
+
+    // 根据时间偏移自动确定颜色 - 修改颜色判定逻辑
     function getColorByDiff(diff:Float):FlxColor
     {
         var absDiff = Math.abs(diff);
         
-        if (absDiff <= _marvelousWindow) {
-            return _marvelousColor;
-        } else if (absDiff <= _sickWindow) {
-            return _sickColor;
-        } else if (absDiff <= _goodWindow) {
-            return _goodColor;
-        } else if (absDiff <= _badWindow) {
-            return _badColor;
-        } else if (absDiff <= _shitWindow) {
-            return _shitColor;
+        if (absDiff <= 22.5) {
+            return FlxColor.fromRGB(255, 215, 0); // Marvelous - 金色 (±22.5ms)
+        } else if (absDiff <= 45) {
+            return FlxColor.CYAN;                 // Sick - 蓝色 (±45ms)
+        } else if (absDiff <= 90) {
+            return FlxColor.LIME;                 // Good - 绿色 (±90ms)
+        } else if (absDiff <= 135) {
+            return FlxColor.fromRGB(255, 100, 100); // Bad - 浅红色 (±135ms)
+        } else if (absDiff <= 166) {
+            return FlxColor.RED;                  // Shit - 深红色 (±166ms) - 修改为166ms
         } else {
-            return _missColor;
+            // 超过166ms但不超过210ms的点使用灰色
+            return FlxColor.fromRGB(255, 0, 0);                 // 超出范围但未达到MISS - 灰色
+        }
+    }
+
+    // 保留原有的getJudgeColor函数用于其他用途
+    function getJudgeColor(judge:String):FlxColor
+    {
+        return switch(judge.toLowerCase())
+        {
+            case "marvelous": FlxColor.fromRGB(255, 215, 0); // 金色
+            case "sick": FlxColor.CYAN;                      // 蓝色
+            case "good": FlxColor.LIME;                      // 绿色
+            case "bad": FlxColor.fromRGB(255, 100, 100);     // 浅红色
+            case "shit": FlxColor.RED;                       // 深红色
+            case "miss": FlxColor.fromRGB(128, 0, 0);        // 暗红色（MISS）
+            default: FlxColor.WHITE;
         }
     }
     
-    public function addToHistory(diff:Float, judge:String, time:Float, noteData:Int = -1):Void
+    public function addToHistory(diff:Float, judge:String, time:Float)
     {
-        // Skip if judge is null (invalid data)
-        if (judge == null) {
-            return;
-        }
-        
-        // Create unique key for this note to avoid duplicates from sustain notes
-        var roundedTime:Int = Std.int(time / 10) * 10; // Round to nearest 10ms
-        var noteKey:String = roundedTime + "_" + noteData;
-        
-        // Only add if we haven't processed this note yet
-        if (!_processedNotes.exists(noteKey))
-        {
-            _processedNotes.set(noteKey, true);
-            _processedCount++;
-            
-            // Limit the size of processed notes map
-            if (_processedCount > 200) {
-                // Simple cleanup: remove some old keys
-                var keys:Array<String> = [];
-                for (key in _processedNotes.keys()) {
-                    keys.push(key);
-                }
-                
-                // Sort keys to remove oldest ones
-                keys.sort(function(a:String, b:String):Int {
-                    return Reflect.compare(a, b);
-                });
-                
-                // Remove first 50 keys (oldest)
-                var removeCount:Int = Std.int(Math.min(50, keys.length));
-                for (i in 0...removeCount) {
-                    _processedNotes.remove(keys[i]);
-                }
-                _processedCount -= removeCount;
-            }
-            
-            // Add to history based on Replay.hx logic
-            if (judge.toLowerCase() == "miss")
-            {
-                // Use Kade Engine MISS marker
-                history.push([KADE_MISS_VALUE, "miss", time]);
-            }
-            else if (Math.abs(diff) > 5000) // Filter abnormal values
-            {
-                return;
-            }
-            else
-            {
-                history.push([diff, judge, time]);
-            }
-            
-            // Limit history size
-            if (history.length > 1000) {
-                history.shift();
-            }
-        }
+        history.push([diff, judge, time]);
     }
 
     public function update():Void
     {
-        // Clear graphics
-        _graphics.clear();
-        
-        // Clear bitmap
+        // 清除bitmap
         bitmap.bitmapData.fillRect(bitmap.bitmapData.rect, 0x00000000);
         
-        // Redraw everything
-        drawAxes();
+        trace('HitGraph update: ${history.length} data points');
+        
+        if (history.length == 0) {
+            trace('No history data to display');
+            return;
+        }
+        
+        // 清除图形
+        graphics.clear();
+        
+        // 绘制网格和命中数据
         drawGrid();
         drawHitData();
         
-        // Draw graphics to bitmap
+        // 重新绘制到bitmap
         bitmap.bitmapData.draw(this);
-    }
-    
-    public function clearHistory():Void
-    {
-        history = [];
-        _processedNotes = new Map<String, Bool>();
-        _processedCount = 0;
-        _graphics.clear();
-        bitmap.bitmapData.fillRect(bitmap.bitmapData.rect, 0x00000000);
         
-        // Clear labels
-        for (label in _labels)
-        {
-            if (contains(label))
-                removeChild(label);
+        trace('HitGraph updated successfully');
+        
+        // 强制重绘
+        if (stage != null) {
+            stage.invalidate();
         }
-        _labels = [];
-        
-        // Redraw axes and grid
-        drawAxes();
-        drawGrid();
-        createLabels();
-    }
-    
-    public function destroy():Void
-    {
-        if (bitmap != null && bitmap.bitmapData != null)
-        {
-            bitmap.bitmapData.dispose();
-            removeChild(bitmap);
-            bitmap = null;
-        }
-        
-        history = null;
-        _labels = null;
-        _graphics = null;
-        _processedNotes = null;
     }
 }

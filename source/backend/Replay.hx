@@ -137,15 +137,18 @@ class Replay
     var chartPath:String = ""; // chartPath保持原样
     var modDirectory:String = currentMod; // 单独存储模组目录
     
-    // 计算数据
+    // 计算数据（旧方法基于记录重新计算，但优先使用 PlayState 的准确度）
     var missCount:Int = 0;
     for (j in judge) {
         if (j == "miss") missCount++;
     }
-    
+
     var totalNotes:Int = notearray.length;
     var totalHits:Int = totalNotes - missCount;
-    var accuracy:Float = totalNotes > 0 ? (totalHits / totalNotes) * 100 : 0;
+    var computedAccuracy:Float = totalNotes > 0 ? (totalHits / totalNotes) * 100 : 0;
+
+    // 优先使用 PlayState 的准确度（保存时直接从 PlayState 读取），回退到 computedAccuracy
+    var accuracy:Float = (PlayState.instance != null) ? (PlayState.instance.ratingPercent * 100) : computedAccuracy;
     
     // 获取难度名称 - 直接从当前游戏状态获取
     var difficultyName:String = Difficulty.getString();

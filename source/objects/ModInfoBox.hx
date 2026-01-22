@@ -9,32 +9,45 @@ import flixel.tweens.FlxEase;
 import flixel.util.FlxTimer;
 import flixel.graphics.FlxGraphic;
 
+import backend.SongArtConfig;
+import backend.Mods;
+import backend.Paths;
+
 class ModInfoBox extends FlxSpriteGroup
 {
-    private var bgTag:FlxSprite;
-    private var bgBox:FlxSprite;
+    private var bgTag:FlxSprite;      // 主彩色条（变短）
+    private var bgTail:FlxSprite;     // 拖尾彩色条（更长）
+    private var bgBox:FlxSprite;      // 黑色背景框
     private var nowPlayingText:FlxText;
     private var songNameText:FlxText;
     private var authorText:FlxText;
-    private var artSprite:FlxSprite; // 新增：艺术图精灵
+    private var artSprite:FlxSprite;
     
     private var displaySongName:String;
     private var songAuthor:String;
     private var opponentColor:FlxColor;
     
-    private var introTextSize:Int = 20;
-    private var introSubTextSize:Int = 20;
-    private var introTagWidth:Int = 15;
-    private var boxBaseWidth:Int = 370;
+    private var introTextSize:Int = 18;
+    private var introSubTextSize:Int = 18;
+    private var introTagWidth:Int = 18;    
+    private var tailTagWidth:Int = 560;      
+    private var boxBaseWidth:Int = 400;    
     
     public var shouldDisplay(default, null):Bool = false;
+    private var modDirectory:String;
     
-    public function new(originalSongName:String, opponentColor:FlxColor)
+    public function new(originalSongName:String, opponentColor:FlxColor, ?modDirectory:String = null)
     {
         super();
         
         this.opponentColor = opponentColor;
         this.displaySongName = originalSongName;
+        this.modDirectory = modDirectory;
+        
+        // 确保SongArtConfig已加载
+        if (SongArtConfig.songArts.length == 0) {
+            SongArtConfig.loadAllConfigs();
+        }
         
         // 检查 info.txt 文件
         var formattedSongName:String = Paths.formatToSongPath(originalSongName);
@@ -78,13 +91,13 @@ class ModInfoBox extends FlxSpriteGroup
                                 songAuthor = parseAuthorLine(trimmedLine);
                                 
                             default:
-                                // 忽略其他行，包括艺术图信息
+                                // 忽略其他行
                         }
                         lineCount++;
                     }
                 }
                 
-                if (lineCount >= 2) // 至少需要歌曲名和作者
+                if (lineCount >= 2) 
                 {
                     trace('Parsed info.txt successfully:');
                     trace('  Song: $displaySongName');
@@ -111,17 +124,17 @@ class ModInfoBox extends FlxSpriteGroup
     
     private function parseAuthorLine(line:String):String
     {
-        // 处理多种作者格式
+
         if (line.startsWith('Composer:'))
             return StringTools.trim(line.substr(9));
-        else if (line.startsWith('Composer：')) // 中文冒号
+        else if (line.startsWith('Composer：')) // 
             return StringTools.trim(line.substr(9));
         else if (line.startsWith('Author:'))
             return StringTools.trim(line.substr(7));
         else if (line.startsWith('Artist:'))
             return StringTools.trim(line.substr(7));
         else
-            return line; // 直接是作者名
+            return line; 
     }
     
     private function createElements():Void
@@ -129,49 +142,76 @@ class ModInfoBox extends FlxSpriteGroup
         if (!shouldDisplay) return;
         
         var boxWidth:Int = boxBaseWidth;
-        var startX:Float = -boxWidth - introTagWidth;
+        var totalWidth:Int = boxWidth + introTagWidth + tailTagWidth;
+        var startX:Float = -totalWidth;
         
-        // 创建彩色标签
+        // 创建拖尾彩色条（更长，在右侧）
+        bgTail = new FlxSprite(startX + introTagWidth +200, 35);
+        bgTail.makeGraphic(tailTagWidth, 100, opponentColor);
+        bgTail.scrollFactor.set();
+        bgTail.alpha = 0.8; // 稍暗一些
+        add(bgTail);
+        
+        // 创建主彩色条（较短，在最左侧）
         bgTag = new FlxSprite(startX, 35);
-        bgTag.makeGraphic(boxWidth + introTagWidth, 100, opponentColor);
+        bgTag.makeGraphic(introTagWidth, 100, opponentColor);
         bgTag.scrollFactor.set();
         add(bgTag);
         
         // 创建黑色背景框
-        bgBox = new FlxSprite(startX, 35);
+        bgBox = new FlxSprite(startX + introTagWidth, 35);
         bgBox.makeGraphic(boxWidth, 100, FlxColor.BLACK);
         bgBox.scrollFactor.set();
         add(bgBox);
         
-        // 使用新的 Paths 函数尝试加载艺术图
-        var graphic:FlxGraphic = Paths.getSongGraphic(displaySongName);
+        // 使用新的SongArtConfig获取艺术图名称
+        var artName:String = SongArtConfig.getArtForSong(displaySongName);
         
-        if (graphic != null)
+        if (artName != null)
         {
             try
             {
-                // 创建艺术图精灵
-                artSprite = new FlxSprite(startX + boxWidth - 80, 50); // 右侧位置
-                artSprite.loadGraphic(graphic);
-                artSprite.scrollFactor.set();
+                // 保存当前模组目录
+                var oldModDir = Mods.currentModDirectory;
                 
-                // 调整大小以适应框的高度
-                var scale:Float = 60 / artSprite.height; // 高度限制为60像素
-                artSprite.scale.set(scale, scale);
-                artSprite.updateHitbox();
-                
-                // 确保图片在框内
-                if (artSprite.x + artSprite.width > startX + boxWidth - 5)
-                {
-                    artSprite.x = startX + boxWidth - artSprite.width - 5;
+                // 如果提供了模组目录，使用它
+                if (modDirectory != null) {
+                    Mods.currentModDirectory = modDirectory;
                 }
                 
-                add(artSprite);
-                trace('Successfully loaded art for: $displaySongName');
+                // 尝试加载艺术图
+                var graphic:FlxGraphic = Paths.image('songArt/$artName', null, true);
+                
+                // 恢复模组目录
+                Mods.currentModDirectory = oldModDir;
+                
+                if (graphic != null)
+                {
+                    // 创建艺术图精灵
+                    artSprite = new FlxSprite(startX + introTagWidth + boxWidth - 80, 50);
+                    artSprite.loadGraphic(graphic);
+                    artSprite.scrollFactor.set();
+                    
+                    // 调整大小以适应框的高度
+                    var scale:Float = 80 / artSprite.height;
+                    artSprite.scale.set(scale, scale);
+                    artSprite.updateHitbox();
+                    
+                    // 确保图片在框内
+                    if (artSprite.x + artSprite.width > startX + introTagWidth + boxWidth - 5)
+                    {
+                        artSprite.x = startX + introTagWidth + boxWidth - artSprite.width - 5;
+                    }
+                    
+                    add(artSprite);
+                }
+                else
+                {
+                    artSprite = null;
+                }
             }
             catch (e:Dynamic)
             {
-                trace('Error creating art sprite: $e');
                 artSprite = null;
             }
         }
@@ -181,10 +221,10 @@ class ModInfoBox extends FlxSpriteGroup
         }
         
         // 如果有艺术图，调整文本宽度
-        var textWidth:Int = artSprite != null ? boxWidth - 100 : boxWidth - 20;
+        var textWidth:Int = artSprite != null ? boxWidth - 40 : boxWidth - 10;
         
         // 文本位置计算
-        var textStartX:Float = startX + 10;
+        var textStartX:Float = startX + introTagWidth + 10;
         
         // 创建"Now Playing:"文本
         nowPlayingText = new FlxText(textStartX, 40, textWidth, "Now Playing:");
@@ -194,8 +234,8 @@ class ModInfoBox extends FlxSpriteGroup
         
         // 创建歌曲名文本
         var songNameX:Float = textStartX + 160;
-        var songNameWidth:Float = artSprite != null ? 100 : 200; // 如果有艺术图，减小宽度
-        songNameText = new FlxText(songNameX, 40, songNameWidth, displaySongName);
+        var songNameWidth:Float = artSprite != null ? 200 : 200;
+        songNameText = new FlxText(songNameX  , 40, songNameWidth, displaySongName);
         songNameText.setFormat(Paths.font("vcr.ttf"), introSubTextSize, FlxColor.WHITE, LEFT);
         songNameText.scrollFactor.set();
         add(songNameText);
@@ -231,28 +271,34 @@ class ModInfoBox extends FlxSpriteGroup
     
     public function slideIn():Void
     {
-        if (!shouldDisplay || bgTag == null || bgBox == null) return;
+        if (!shouldDisplay || bgTag == null || bgBox == null || bgTail == null) return;
         
         var targetX:Float = 0;
         
-        FlxTween.tween(bgTag, {x: targetX}, 1, {ease: FlxEase.circInOut});
-        FlxTween.tween(bgBox, {x: targetX}, 1, {ease: FlxEase.circInOut});
+        // 主彩色条和黑色框同时滑入
+        FlxTween.tween(bgTag, {x: targetX}, 1, {ease: FlxEase.circInOut,startDelay: 0.25});
+        FlxTween.tween(bgBox, {x: targetX + introTagWidth}, 1, {ease: FlxEase.circInOut,startDelay: 0.25});
+        
+        // 拖尾条稍后滑入，制造延迟效果
+        FlxTween.tween(bgTail, {x: targetX + introTagWidth -100 }, 1.2, {
+            ease: FlxEase.circInOut,
+            startDelay: 0.1
+        });
         
         // 计算文本的目标位置
-        var textTargetX:Float = 10;
-        var songNameTargetX:Float = 170;
-        var artTargetX:Float = artSprite != null ? (boxBaseWidth - 80) : 0;
+        var textTargetX:Float = introTagWidth + 10;
+        var songNameTargetX:Float = introTagWidth + 170;
         
-        FlxTween.tween(nowPlayingText, {x: textTargetX}, 1, {ease: FlxEase.circInOut});
-        FlxTween.tween(songNameText, {x: songNameTargetX}, 1, {ease: FlxEase.circInOut});
-        FlxTween.tween(authorText, {x: textTargetX}, 1, {ease: FlxEase.circInOut});
+        FlxTween.tween(nowPlayingText, {x: textTargetX}, 1, {ease: FlxEase.circInOut,startDelay: 0.25});
+        FlxTween.tween(songNameText, {x: songNameTargetX - 20}, 1, {ease: FlxEase.circInOut,startDelay: 0.25});
+        FlxTween.tween(authorText, {x: textTargetX}, 1, {ease: FlxEase.circInOut,startDelay: 0.25});
         
         // 如果有艺术图，也让它滑入
         if (artSprite != null)
         {
             // 计算最终的艺术图位置
-            var finalArtX:Float = boxBaseWidth - artSprite.width - 10;
-            FlxTween.tween(artSprite, {x: finalArtX}, 1, {ease: FlxEase.circInOut});
+            var finalArtX:Float = introTagWidth + boxBaseWidth - artSprite.width - 10;
+            FlxTween.tween(artSprite, {x: finalArtX}, 1, {ease: FlxEase.circInOut,startDelay: 0.25});
         }
         
         new FlxTimer().start(3, function(tmr:FlxTimer)
@@ -263,26 +309,58 @@ class ModInfoBox extends FlxSpriteGroup
     
     private function slideOut():Void
     {
-        var boxWidth:Int = boxBaseWidth;
-        var slideOutX:Float = -boxWidth - 150;
+        var totalWidth:Int = boxBaseWidth + introTagWidth + tailTagWidth;
+        var slideOutX:Float = -totalWidth - 50;
         
-        FlxTween.tween(bgTag, {x: slideOutX}, 1.5, {ease: FlxEase.circInOut});
-        FlxTween.tween(bgBox, {x: slideOutX}, 1.5, {ease: FlxEase.circInOut});
+        // 拖尾条先滑出，制造拖尾效果
+        FlxTween.tween(bgTail, {x: slideOutX + introTagWidth + boxBaseWidth}, 1.2, {
+            ease: FlxEase.circInOut,
+            startDelay: 0.4
+        });
         
-        FlxTween.tween(nowPlayingText, {x: slideOutX - 300}, 1.5, {ease: FlxEase.circInOut});
-        FlxTween.tween(songNameText, {x: slideOutX - 300}, 1.5, {ease: FlxEase.circInOut});
-        FlxTween.tween(authorText, {x: slideOutX - 300}, 1.5, {ease: FlxEase.circInOut});
+        // 主彩色条和黑色框稍后滑出
+        FlxTween.tween(bgTag, {x: slideOutX}, 1, {
+            ease: FlxEase.circInOut,
+            startDelay: 0.2
+        });
+        
+        FlxTween.tween(bgBox, {x: slideOutX + introTagWidth}, 1, {
+            ease: FlxEase.circInOut,
+            startDelay: 0.2
+        });
+        
+        // 文本和艺术图也稍后滑出
+        var textSlideOutX:Float = slideOutX + introTagWidth - 50;
+        
+        FlxTween.tween(nowPlayingText, {x: textSlideOutX}, 1, {
+            ease: FlxEase.circInOut,
+            startDelay: 0.2
+        });
+        
+        FlxTween.tween(songNameText, {x: textSlideOutX + 160}, 1, {
+            ease: FlxEase.circInOut,
+            startDelay: 0.2
+        });
+        
+        FlxTween.tween(authorText, {x: textSlideOutX}, 1, {
+            ease: FlxEase.circInOut,
+            startDelay: 0.2
+        });
         
         // 如果有艺术图，也让它滑出
         if (artSprite != null)
         {
-            FlxTween.tween(artSprite, {x: slideOutX - 300}, 1.5, {ease: FlxEase.circInOut});
+            FlxTween.tween(artSprite, {x: textSlideOutX - 100}, 1, {
+                ease: FlxEase.circInOut,
+                startDelay: 0.2
+            });
         }
     }
     
     override public function destroy():Void
     {
         if (bgTag != null) bgTag.destroy();
+        if (bgTail != null) bgTail.destroy();
         if (bgBox != null) bgBox.destroy();
         if (nowPlayingText != null) nowPlayingText.destroy();
         if (songNameText != null) songNameText.destroy();
@@ -290,6 +368,7 @@ class ModInfoBox extends FlxSpriteGroup
         if (artSprite != null) artSprite.destroy();
         
         bgTag = null;
+        bgTail = null;
         bgBox = null;
         nowPlayingText = null;
         songNameText = null;

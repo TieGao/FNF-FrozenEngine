@@ -6,6 +6,8 @@ class Language
 	#if TRANSLATIONS_ALLOWED
 	private static var phrases:Map<String, String> = [];
 	#end
+	// Reload callbacks called after phrases are reloaded
+	private static var _reloadCallbacks:Array<Void->Void> = [];
 
 	public static function reloadPhrases()
 	{
@@ -52,6 +54,22 @@ class Language
 		#else
 		AlphaCharacter.loadAlphabetData();
 		#end
+
+		// Notify listeners that translations were reloaded
+		for (cb in _reloadCallbacks) {
+			try {
+				cb();
+			} catch(e:Dynamic) {}
+		}
+	}
+
+	public static function addReloadCallback(cb:Void->Void):Void {
+		_reloadCallbacks.push(cb);
+	}
+
+	public static function removeReloadCallback(cb:Void->Void):Void {
+		var idx = _reloadCallbacks.indexOf(cb);
+		if (idx >= 0) _reloadCallbacks.splice(idx, 1);
 	}
 
 	inline public static function getPhrase(key:String, ?defaultPhrase:String, values:Array<Dynamic> = null):String

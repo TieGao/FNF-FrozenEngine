@@ -137,7 +137,7 @@ class OsuConverter
             bpm: bpm,
             needsVoices: true,
             speed: speed,
-            offset: meta.offset / 1000,
+            offset: meta.offset,
             
             player1: "boyfriend",
             player2: "dad",
@@ -190,54 +190,48 @@ static function convertBasicNotesToPsych(
 {
     try {
         trace('convertBasicNotesToPsych called with ${notes.length} notes');
-        
+
         if (notes == null || notes.length == 0) {
             trace('No notes to convert');
             return [];
         }
-        
-        // 参考 CamelliaChart 的处理方式
-        // 首先，我们需要将 notes 转换为类似 Song.loadFromPath 中的格式
-        
-        // 创建小节数组
-        var sections:Array<SwagSection> = [];
-        
-        // 我们需要按时间对音符进行分组
-        // 参考实例中的处理逻辑，先创建所有的 note data，然后按 section 分组
-        
+
+        // 使用毫秒为单位（与项目中现有 Psych chart 一致）
         var allNoteData:Array<{time:Float, lane:Int, length:Float, type:String}> = [];
-        
-        // 转换每个音符
-        for (note in notes) {
-            // 时间从毫秒转换为秒
-            var timeSec = note.time / 1000;
-            var lane = note.lane % keyCount;
-            var lengthSec = note.length / 1000;
-            var type = convertBasicNoteTypeToPsych(note.type);
-            
-            allNoteData.push({
-                time: timeSec,
-                lane: lane,
-                length: lengthSec,
-                type: type
-            });
+
+        // 检测 MoonChart 的时间单位（如果数值很小则可能是秒），将其标准化为毫秒
+        var timeIsMs:Bool = false;
+        for (n in notes) {
+            if (n != null && n.time > 10000) { timeIsMs = true; break; }
         }
-        
-        // 按时间排序
+
+        for (note in notes) {
+            var t:Float = note.time;
+            var l:Float = note.length;
+            if (!timeIsMs) {
+                // 如果 MoonChart 返回的是秒，则转换为毫秒
+                t = note.time * 1000.0;
+                l = note.length * 1000.0;
+            }
+            var lane = Std.int(note.lane) % keyCount;
+            var type = convertBasicNoteTypeToPsych(note.type);
+            allNoteData.push({ time: t, lane: lane, length: l, type: type });
+        }
+
+        // 按时间（毫秒）排序
         allNoteData.sort((a, b) -> Reflect.compare(a.time, b.time));
-        
-        // 计算总时长（秒）
-        var maxTime = allNoteData.length > 0 ? allNoteData[allNoteData.length - 1].time : 0;
-        
-        // 创建小节（每4拍一个小节，每拍 = 60/bpm 秒）
-        var secondsPerBeat = 60 / baseBPM;
-        var secondsPerSection = secondsPerBeat * 4;
-        var totalSections = Math.ceil(maxTime / secondsPerSection);
-        
-        trace('Total sections needed: $totalSections, maxTime: ${maxTime}s, secondsPerSection: ${secondsPerSection}s');
-        
-        // 预先创建所有小节
-        for (i in 0...totalSections + 1) { // +1 为了安全
+
+        var maxTimeMs:Float = allNoteData.length > 0 ? allNoteData[allNoteData.length - 1].time : 0;
+
+        // 小节长度（毫秒）
+        var secondsPerBeat = 60.0 / baseBPM;
+        var msPerSection = secondsPerBeat * 4.0 * 1000.0;
+        var totalSections = Math.ceil(maxTimeMs / msPerSection);
+        trace('Total sections needed: $totalSections, maxTimeMs: ${maxTimeMs}ms, msPerSection: ${msPerSection}ms');
+
+        // 预建小节
+        var sections:Array<SwagSection> = [];
+        for (i in 0...Std.int(totalSections) + 1) {
             var mustHit = (i % 2 == 0);
             sections.push({
                 sectionNotes: [],
@@ -249,107 +243,86 @@ static function convertBasicNotesToPsych(
                 changeBPM: false
             });
         }
-        
-        // 将音符分配到对应的小节
+
+        // 先按小节收集原始 lane 分布（用于 8K 决定左右）
+        var laneCounts:Array<{left:Int,right:Int}> = [];
+        for (i in 0...sections.length) laneCounts.push({ left: 0, right: 0 });
+
         for (noteData in allNoteData) {
-            var time = noteData.time;
-            
-            // 计算属于哪个小节（基于时间）
-            var sectionIndex = Math.floor(time / secondsPerSection);
-            
-            if (sectionIndex >= sections.length) {
-                // 扩展数组
-                while (sectionIndex >= sections.length) {
-                    var newIndex = sections.length;
-                    var mustHit = (newIndex % 2 == 0);
-                    
-                    sections.push({
-                        sectionNotes: [],
-                        sectionBeats: 4,
-                        mustHitSection: mustHit,
-                        altAnim: false,
-                        gfSection: false,
-                        bpm: baseBPM,
-                        changeBPM: false
-                    });
-                }
+            var sectionIndex = Math.floor(noteData.time / msPerSection);
+            if (sectionIndex < 0) sectionIndex = 0;
+            while (sectionIndex >= sections.length) {
+                var newIdx = sections.length;
+                var m = (newIdx % 2 == 0);
+                sections.push({ sectionNotes: [], sectionBeats: 4, mustHitSection: m, altAnim: false, gfSection: false, bpm: baseBPM, changeBPM: false });
+                laneCounts.push({ left:0, right:0 });
             }
-            
-            var section = sections[sectionIndex];
-            
-            // 计算小节内的时间（从0开始）
-            var timeInSection = time - (sectionIndex * secondsPerSection);
-            
-            // 轨道映射（参考实例中的逻辑）
-            var psychLane:Int;
-            
-            if (keyCount == 4) {
-                // 4K：所有轨道给玩家（4-7）
-                psychLane = noteData.lane + 4;
-            } else if (keyCount == 8) {
-                // 8K：根据 mustHitSection 分配
-                if (section.mustHitSection) {
-                    // Player 2 小节：对手
-                    psychLane = noteData.lane < 4 ? noteData.lane : noteData.lane - 4;
-                } else {
-                    // Player 1 小节：玩家
-                    psychLane = noteData.lane < 4 ? noteData.lane + 4 : noteData.lane;
-                }
+            if (keyCount == 8) {
+                if (noteData.lane < (keyCount / 2)) laneCounts[sectionIndex].left++;
+                else laneCounts[sectionIndex].right++;
+            } else if (keyCount == 4) {
+                laneCounts[sectionIndex].right++;
             } else {
-                // 其他键数
-                var compressedLane = Math.floor(noteData.lane * 4 / keyCount);
-                psychLane = section.mustHitSection ? compressedLane : compressedLane + 4;
+                if (noteData.lane < (keyCount / 2)) laneCounts[sectionIndex].left++;
+                else laneCounts[sectionIndex].right++;
             }
-            
-            // 确保在 0-7 范围内
+        }
+
+        // 根据 laneCounts 决定 mustHitSection（8K 用左右多数决定；4K 默认玩家）
+        for (i in 0...sections.length) {
+            if (keyCount == 8) sections[i].mustHitSection = laneCounts[i].right >= laneCounts[i].left;
+            else if (keyCount == 4) sections[i].mustHitSection = true;
+            else sections[i].mustHitSection = laneCounts[i].right >= laneCounts[i].left;
+        }
+
+        // 最后将音符推入对应小节，使用秒为单位（与 Psych 格式一致）
+        for (noteData in allNoteData) {
+            var sectionIndex = Math.floor(noteData.time / msPerSection);
+            if (sectionIndex < 0) sectionIndex = 0;
+            while (sectionIndex >= sections.length) {
+                var newIdx2 = sections.length;
+                var m2 = (newIdx2 % 2 == 0);
+                sections.push({ sectionNotes: [], sectionBeats: 4, mustHitSection: m2, altAnim: false, gfSection: false, bpm: baseBPM, changeBPM: false });
+            }
+
+            var section = sections[sectionIndex];
+            var timeInSection = noteData.time - (sectionIndex * msPerSection);
+
+            // Lane 映射：压缩到 0..3，然后根据 4K/8K 规则分配侧
+            var compressedLane = Math.floor(noteData.lane * 4 / keyCount);
+            var psychLane:Int;
+            if (keyCount == 4) psychLane = compressedLane; // 全部玩家侧
+            else if (keyCount == 8) {
+                if (noteData.lane < (keyCount / 2)) psychLane = compressedLane + 4; // 前半 -> 对手
+                else psychLane = compressedLane; // 后半 -> 玩家
+            } else psychLane = section.mustHitSection ? compressedLane : compressedLane + 4;
+
             psychLane = psychLane % 8;
-            
-            // 创建音符数据数组
+
             var noteArray:Array<Dynamic> = [timeInSection, psychLane, noteData.length];
-            if (noteData.type != "Normal") {
-                noteArray.push(noteData.type);
-            }
-            
+            if (noteData.type != "Normal") noteArray.push(noteData.type);
+
             section.sectionNotes.push(noteArray);
         }
-        
-        // 移除空小节并排序
+
+        // 移除空小节并排序（保持时间为毫秒）
         var finalSections:Array<SwagSection> = [];
         for (i in 0...sections.length) {
-            var section = sections[i];
-            if (section.sectionNotes.length > 0) {
-                // 按时间排序小节内的音符
-                section.sectionNotes.sort(function(a:Array<Dynamic>, b:Array<Dynamic>):Int {
-                    return Reflect.compare(a[0], b[0]);
-                });
-                finalSections.push(section);
-                
-                // 调试信息
+            var s = sections[i];
+            if (s.sectionNotes != null && s.sectionNotes.length > 0) {
+                s.sectionNotes.sort(function(a:Array<Dynamic>, b:Array<Dynamic>):Int { return Reflect.compare(a[0], b[0]); });
+                finalSections.push(s);
                 if (i < 3) {
-                    trace('Section $i: ${section.sectionNotes.length} notes, mustHit=${section.mustHitSection}');
-                    if (section.sectionNotes.length > 0) {
-                        var firstNote = section.sectionNotes[0];
-                        trace('  First note: time=${firstNote[0]}, lane=${firstNote[1]}, length=${firstNote[2]}');
-                    }
+                    trace('Section $i: ${s.sectionNotes.length} notes, mustHit=${s.mustHitSection}');
+                    var fn = s.sectionNotes[0];
+                    trace('  First note: time=${fn[0]}ms, lane=${fn[1]}, length=${fn[2]}ms');
                 }
             }
         }
-        
-        // 如果没有音符，创建一个空小节
-        if (finalSections.length == 0) {
-            finalSections.push({
-                sectionNotes: [],
-                sectionBeats: 4,
-                mustHitSection: true,
-                altAnim: false,
-                gfSection: false,
-                bpm: baseBPM,
-                changeBPM: false
-            });
-        }
-        
+
+        if (finalSections.length == 0) finalSections.push({ sectionNotes: [], sectionBeats: 4, mustHitSection: true, altAnim: false, gfSection: false, bpm: baseBPM, changeBPM: false });
+
         trace('Final sections: ${finalSections.length}');
-        
         return finalSections;
         
     } catch (e:Dynamic) {
@@ -532,9 +505,8 @@ static function convertBasicNoteTypeToPsych(type:String):String
     times.sort((a, b) -> a - b);
     
     for (timeMs in times) {
-        // 转换为秒（Psych使用秒）
-        var timeSec = timeMs / 1000;
-        psychEvents.push([timeSec, eventsByTime.get(timeMs)]);
+        // 保持为毫秒（与项目其他 chart 格式一致）
+        psychEvents.push([timeMs, eventsByTime.get(timeMs)]);
     }
     
     return psychEvents;
@@ -680,7 +652,7 @@ static function convertBasicNoteTypeToPsych(type:String):String
     
     static function convertPsychToBasicChart(psychSong:SwagSong):BasicChart
     {
-        // 创建 BPM 变化数组
+        // 创建 BPM 变化数组（时间单位：毫秒）
         var bpmChanges:Array<BasicBPMChange> = [{
             time: 0,
             bpm: psychSong.bpm,
@@ -699,7 +671,7 @@ static function convertBasicNoteTypeToPsych(type:String):String
                             var bpm = Std.parseFloat(subEventArray[1]);
                             if (!Math.isNaN(bpm)) {
                                 bpmChanges.push({
-                                    time: event[0] * 1000,
+                                    time: event[0],
                                     bpm: bpm,
                                     beatsPerMeasure: 4,
                                     stepsPerBeat: 4
@@ -720,11 +692,12 @@ static function convertBasicNoteTypeToPsych(type:String):String
             var sectionLength = (60 / section.bpm) * section.sectionBeats * 1000;
             
             for (noteData in section.sectionNotes) {
-                var noteTime = currentTime + (noteData[0] * 1000);
+                // section note times are in milliseconds
+                var noteTime = currentTime + noteData[0];
                 var lane = convertPsychLaneToBasic(noteData[1], section.mustHitSection);
-                var length = noteData[2] * 1000;
+                var length = noteData[2];
                 var type = (noteData.length > 3) ? convertPsychNoteTypeToBasic(noteData[3]) : "";
-                
+
                 basicNotes.push({
                     time: noteTime,
                     lane: lane,
@@ -744,7 +717,7 @@ static function convertBasicNoteTypeToPsych(type:String):String
         var basicEvents:Array<BasicEvent> = [];
         if (psychSong.events != null) {
             for (event in psychSong.events) {
-                var time = event[0] * 1000;
+                var time = event[0];
                 var eventPack:PsychEventPack = event[1];
                 
                 if (eventPack != null) {
@@ -795,7 +768,7 @@ static function convertBasicNoteTypeToPsych(type:String):String
                 title: psychSong.song,
                 bpmChanges: bpmChanges,
                 scrollSpeeds: scrollSpeeds,
-                offset: psychSong.offset * 1000,
+                offset: psychSong.offset,
                 extraData: extraData
             }
         };

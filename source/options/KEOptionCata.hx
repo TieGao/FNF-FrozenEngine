@@ -1,5 +1,7 @@
 package options;
 
+import backend.Language;
+
 class KEOptionCata extends FlxSprite
 {
 	public var title:String;
@@ -19,7 +21,8 @@ class KEOptionCata extends FlxSprite
 
 		options = _options;
 		optionObjects = new FlxTypedGroup<FlxText>();
-		titleObject = new FlxText((middleType ? 1180 / 2 : x), y + (middleType ? 0 : 16), 0, title);
+		var localizedTitle = Language.getPhrase(title, title);
+		titleObject = new FlxText((middleType ? 1180 / 2 : x), y + (middleType ? 0 : 16), 0, localizedTitle);
 		titleObject.setFormat(Paths.font("vcr.ttf"), 35, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 		titleObject.borderSize = 3;
 

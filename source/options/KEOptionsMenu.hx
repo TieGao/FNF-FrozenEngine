@@ -40,6 +40,9 @@ class KEOptionsMenu extends MusicBeatState
 	
 	var isClosing:Bool = false;
 	var closeTimer:FlxTimer;
+
+	// language reload callback holder
+	var langReloadCb:Void->Void;
 	
 	// 长按滚动变量 - 只用于上下滚动
 	var holdUpTime:Float = 0;
@@ -157,14 +160,61 @@ class KEOptionsMenu extends MusicBeatState
 		instance = this;
 		// 开始循环
 		startColorCycle();
+
+		// 注册语言重载回调以刷新 UI 文本
+		var self = this;
+		langReloadCb = function() {
+			self.onLanguageReload();
+		};
+		backend.Language.addReloadCallback(langReloadCb);
 	}
 	
 
 	override function destroy()
 {
 	super.destroy();
-	instance = null;
+		// 注销语言回调
+		try {
+			if (langReloadCb != null) backend.Language.removeReloadCallback(langReloadCb);
+		} catch(e:Dynamic) {}
+		instance = null;
 }
+
+	// Called when language phrases are reloaded to refresh UI texts
+	function onLanguageReload():Void
+	{
+		// Refresh category titles
+		for (i in 0...options.length) {
+			var cat = options[i];
+			if (cat.titleObject != null) cat.titleObject.text = backend.Language.getPhrase(cat.title, cat.title);
+			// Refresh option lines in the category
+			for (j in 0...cat.optionObjects.members.length) {
+				var txt = cat.optionObjects.members[j];
+				if (txt != null && j < cat.options.length) txt.text = cat.options[j].getValue();
+			}
+		}
+
+		// Re-apply font formatting so Paths.font() remapping takes effect
+		for (i in 0...options.length) {
+			var cat = options[i];
+			if (cat.titleObject != null) cat.titleObject.setFormat(Paths.font("vcr.ttf"), 35, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+			for (j in 0...cat.optionObjects.members.length) {
+				var txt = cat.optionObjects.members[j];
+				if (txt != null) txt.setFormat(Paths.font("vcr.ttf"), 35, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+			}
+		}
+
+		// Refresh shownStuff / desc
+		if (selectedCat != null && selectedCat.optionObjects != null) {
+			for (i in selectedCat.optionObjects) {
+				if (i != null) i.text = selectedCat.options[selectedCat.optionObjects.members.indexOf(i)].getValue();
+			}
+		}
+		if (selectedOption != null) {
+			descText.text = selectedOption.getDescription();
+			descText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+		}
+	}
 
 	// Gameplay 选项
 	function getGameplayOptions():Array<KEOption>
@@ -226,9 +276,10 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Custom Color", "Color timebar by opponent", "customColor", "bool"),
 			KEOption.create("Gradient TimeBar", "Gradient colored timebar", "gradientTimeBar", "bool"),
 			KEOption.create("Health Text", "Show health as number", "healthText", "bool"),
-			KEOption.create("Song Text", "Show song info watermark", "songText", "bool"),
+			KEOption.create("Song Text", "Show song info watermark", "songText", "borol"),
 			KEOption.create("Score Screen", "Show Kade-style results", "scoreScreen", "bool"),
 			KEOption.create("NoteHits Counter", "Show note hits counter", "Counter", "bool"),
+			KEOption.create("Hit Error Bar", "Show hit error bar", "hitErrorBarVisible", "bool"),
 		];
 	}
 
@@ -248,12 +299,13 @@ class KEOptionsMenu extends MusicBeatState
 	function getAdvancedOptions():Array<KEOption>
 	{
 		return [
-			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
-			KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
-			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
 			KEOption.create("Check Updates", "Check for game updates", "checkForUpdates", "bool"),
 			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
 			KEOption.create("Enable LUA Debug Printer", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
+			KEOption.create("Language", "Change the game's language", "language", "string", ['en-US', 'pt-BR', 'zh-CN']),
+			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
+			KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
+			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
 			KEOption.create("Reset Settings", "Reset all settings to default [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
 			KEOption.create("Reset Scores", "Clear all high scores [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action")
 		];

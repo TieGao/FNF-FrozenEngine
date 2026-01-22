@@ -561,66 +561,29 @@ class Paths
 	}
 	#end
 
-	static public function getSongImage(songName:String, ?fileName:String = null):String
+	static public function getSongGraphic(songName:String):FlxGraphic
 {
-    var formattedSongName:String = formatToSongPath(songName);
-    var folderPath:String = 'data/$formattedSongName';
+    var imagePath:String = getSongImage(songName);
+    if (imagePath == null) return null;
     
-    #if MODS_ALLOWED
-    // 优先在模组中查找
-    var moddedPath:String = modFolders('$folderPath/${fileName != null ? fileName : ""}');
-    if (moddedPath != null)
+    var key:String = 'songImage_${formatToSongPath(songName)}';
+    
+    // 检查是否已经在缓存中
+    if (currentTrackedAssets.exists(key))
     {
-        // 如果指定了文件名，检查具体文件
-        if (fileName != null)
-        {
-            var pngPath:String = '$moddedPath.png';
-            if (FileSystem.exists(pngPath))
-                return pngPath;
-        }
-        else
-        {
-            // 没有指定文件名，搜索包含"art"的png文件
-            var dirPath:String = moddedPath.substr(0, moddedPath.lastIndexOf('/'));
-            if (FileSystem.exists(dirPath) && FileSystem.isDirectory(dirPath))
-            {
-                var files:Array<String> = FileSystem.readDirectory(dirPath);
-                for (file in files)
-                {
-                    var lowerFile:String = file.toLowerCase();
-                    if (StringTools.endsWith(lowerFile, '.png') && lowerFile.indexOf('art') != -1)
-                    {
-                        return '$dirPath/$file';
-                    }
-                }
-            }
-        }
+        localTrackedAssets.push(key);
+        return currentTrackedAssets.get(key);
     }
-    #end
     
-    // 在assets中查找
-    var assetsPath:String = 'assets/$folderPath';
-    
-    if (fileName != null)
+    // 从文件加载
+    if (FileSystem.exists(imagePath))
     {
-        // 指定了文件名，检查具体文件
-        var pngPath:String = '$assetsPath/${fileName}.png';
-        return (FileSystem.exists(pngPath)) ? pngPath : null;
-    }
-    else
-    {
-        // 没有指定文件名，搜索包含"art"的png文件
-        if (FileSystem.exists(assetsPath) && FileSystem.isDirectory(assetsPath))
+        var bitmap:BitmapData = BitmapData.fromFile(imagePath);
+        if (bitmap != null)
         {
-            var files:Array<String> = FileSystem.readDirectory(assetsPath);
-            for (file in files)
-            {
-                var lowerFile:String = file.toLowerCase();
-                if (StringTools.endsWith(lowerFile, '.png') && lowerFile.indexOf('art') != -1)
-                {
-                    return '$assetsPath/$file';
-                }
-            }
+            var graphic:FlxGraphic = cacheBitmap(key, null, bitmap);
+            trace('Loaded song image: $imagePath');
+            return graphic;
         }
     }
     
@@ -643,29 +606,42 @@ static public function hasSongImage(songName:String):Bool
  * @param fileName 图片文件名（可选，不包含扩展名）
  * @return FlxGraphic对象，如果不存在则返回null
  */
-static public function getSongGraphic(songName:String, ?fileName:String = null):FlxGraphic
+static public function getSongImage(songName:String, ?fileName:String = null):String
 {
-    var imagePath:String = getSongImage(songName, fileName);
-    if (imagePath == null) return null;
+    var formattedSongName:String = formatToSongPath(songName);
+    var folderPath:String = 'data/$formattedSongName';
     
-    var key:String = 'songImage_${formatToSongPath(songName)}_${fileName != null ? fileName : "auto"}';
-    
-    // 检查是否已经在缓存中
-    if (currentTrackedAssets.exists(key))
+    #if MODS_ALLOWED
+    // 在模组中查找
+    var modFolder:String = modFolders(folderPath);
+    if (FileSystem.exists(modFolder) && FileSystem.isDirectory(modFolder))
     {
-        localTrackedAssets.push(key);
-        return currentTrackedAssets.get(key);
-    }
-    
-    // 从文件加载
-    if (FileSystem.exists(imagePath))
-    {
-        var bitmap:BitmapData = BitmapData.fromFile(imagePath);
-        if (bitmap != null)
+        // 查找包含"art"的PNG文件（不区分大小写）
+        var files:Array<String> = FileSystem.readDirectory(modFolder);
+        for (file in files)
         {
-            var graphic:FlxGraphic = cacheBitmap(key, null, bitmap);
-            trace('Loaded song image: $imagePath');
-            return graphic;
+            var lowerFile:String = file.toLowerCase();
+            if (StringTools.endsWith(lowerFile, '.png') && lowerFile.indexOf('art') != -1)
+            {
+                return '$modFolder/$file';
+            }
+        }
+    }
+    #end
+    
+    // 在assets中查找
+    var assetsFolder:String = 'assets/$folderPath';
+    if (FileSystem.exists(assetsFolder) && FileSystem.isDirectory(assetsFolder))
+    {
+        // 查找包含"art"的PNG文件（不区分大小写）
+        var files:Array<String> = FileSystem.readDirectory(assetsFolder);
+        for (file in files)
+        {
+            var lowerFile:String = file.toLowerCase();
+            if (StringTools.endsWith(lowerFile, '.png') && lowerFile.indexOf('art') != -1)
+            {
+                return '$assetsFolder/$file';
+            }
         }
     }
     

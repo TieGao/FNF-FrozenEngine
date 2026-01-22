@@ -69,6 +69,7 @@ class ResultsScreen extends MusicBeatSubstate
         }
 
         var ratingsData = playState.ratingsData;
+        var marvelous:Int = 0;
         var sicks:Int = 0;
         var goods:Int = 0;
         var bads:Int = 0;
@@ -76,7 +77,8 @@ class ResultsScreen extends MusicBeatSubstate
         
         if (ratingsData != null && ratingsData.length >= 4)
         {
-            sicks = ratingsData[0].hits + ratingsData[1].hits;
+            marvelous = ratingsData[0].hits;
+            sicks = ratingsData[1].hits;
             goods = ratingsData[2].hits;
             bads = ratingsData[3].hits;
             shits = ratingsData[4].hits;
@@ -118,6 +120,7 @@ class ResultsScreen extends MusicBeatSubstate
 
         comboText = new FlxText(20, FlxG.height + 100, 400,
             'Judgements:\n' +
+            'Marvelouses - ${marvelous}\n' +
             'Sicks - ${sicks}\n' +
             'Goods - ${goods}\n' +
             'Bads - ${bads}\n' +
@@ -210,7 +213,7 @@ class ResultsScreen extends MusicBeatSubstate
         FlxG.sound.list.add(pauseMusic);
         
         // 使用与pause界面相同的渐入逻辑
-        FlxTween.tween(pauseMusic, {volume: 0.5}, 4);
+        FlxTween.tween(pauseMusic, {volume: 1}, 0.8);
     }
 
     function getPauseSong():String
@@ -359,6 +362,13 @@ class ResultsScreen extends MusicBeatSubstate
 
     function closeResults()
     {
+        #if sys
+        if (PlayState.rep != null && PlayState.rep.replay != null && PlayState.rep.replay.songNotes.length > 0) {
+            try {
+                PlayState.rep.SaveReplay(PlayState.rep.replay.songNotes, PlayState.rep.replay.songJudgements, PlayState.rep.replay.ana);
+            } catch (e:Dynamic) {}
+        }
+        #end
 
         // 音乐渐出 - 使用与pause界面退出时相同的逻辑
         if (pauseMusic != null && pauseMusic.playing)

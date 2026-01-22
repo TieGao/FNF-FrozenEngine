@@ -1,5 +1,7 @@
 package options;
 
+import backend.Language;
+
 import flixel.FlxG;
 import flixel.math.FlxMath;
 
@@ -66,6 +68,37 @@ class KEOption
 		return display;
 	}
 
+	// 清洗用于翻译查找的键：移除符号，合并空格并小写化
+	inline static private function cleanForLookup(s:String):String
+	{
+		if (s == null) return "";
+		#if TRANSLATIONS_ALLOWED
+		var strip = ~/[^a-zA-Z0-9\s]/g;
+		var out = strip.replace(s, '');
+		var spaces = ~/\s+/g;
+		out = spaces.replace(out, ' ');
+		return out.toLowerCase().trim();
+	#else
+		return s.toLowerCase().trim();
+	#end
+	}
+
+	// 尝试原始键，再尝试清洗键，返回第一个匹配的翻译
+	static private function resolveTranslation(key:String, defaultVal:String):String {
+		var t:String = Language.getPhrase(key, defaultVal);
+		if (t != defaultVal) {
+			return t;
+		}
+		var cleaned:String = cleanForLookup(key);
+		if (cleaned != key) {
+			var t2:String = Language.getPhrase(cleaned, defaultVal);
+			if (t2 != defaultVal) {
+				return t2;
+			}
+		}
+		return defaultVal;
+	}
+
 	public final function getAccept():Bool
 	{
 		return acceptValues;
@@ -73,9 +106,16 @@ class KEOption
 
 	public final function getDescription():String
 	{
-		if(description != "") return description;
-		if(psychOption != null) return psychOption.description;
-		return "No description available.";
+		if(description != "") return resolveTranslation(description, description);
+		// Try to fetch a translation keyed by the option name + " desc" (try original then cleaned)
+		var nameDescKey:String = name + " desc";
+		var maybeDesc:String = resolveTranslation(nameDescKey, nameDescKey);
+		if(maybeDesc != nameDescKey) return maybeDesc;
+
+		if(psychOption != null) return resolveTranslation(psychOption.description, psychOption.description);
+
+		// Fallback to a generic localized string
+		return resolveTranslation("no description available", "No description available.");
 	}
 
 	public function getValue():String
@@ -120,7 +160,7 @@ class KEOption
 				case "Open Controls":
 					KEOptionsMenu.instance.openSubState(new options.ControlsSubState());
 					return false;
-				case "Open KE Styled KeyBinds":
+				case "Open EZ KeyBinds":
 					KEOptionsMenu.instance.openSubState(new options.KEKeyBindMenu());
 					return false;   
 				case "Replay Manager":
@@ -300,27 +340,30 @@ class KEOption
 
 	private function updateDisplay():String
 	{
+		var displayName = resolveTranslation(name, name);
 		switch(type) {
 			case "bool":
-				return name + ": < " + (value ? "on" : "off") + " >";
+				return displayName + ": < " + (value ? Language.getPhrase("on", "on") : Language.getPhrase("off", "off")) + " >";
 			case "int", "float":
-				return name + ": < " + value + " >";
+				return displayName + ": < " + value + " >";
 			case "string":
-				// 如果有选项列表，显示当前选项
+				// 如果有选项列表，显示当前选项（需要本地化选项文本）
 				if (options.length > 0) {
-					return name + ": < " + options[curOption] + " >";
+					var optName = options[curOption];
+					optName = resolveTranslation(optName, optName);
+					return displayName + ": < " + optName + " >";
 				}
-				return name + ": < " + value + " >";
+				return displayName + ": < " + resolveTranslation(Std.string(value), Std.string(value)) + " >";
 			case "action":
 				// 对于有警告的操作，添加警告标识
 				if (hasWarning) {
-					return "> " + name + " [!] <";
+					return "> " + displayName + " [!] <";
 				}
-				return "> " + name + " <";
+				return "> " + displayName + " <";
 			case "keybind":
-				return name + ": < Set Key >";
+				return displayName + ": < " + Language.getPhrase("Set Key", "Set Key") + " >";
 			default:
-				return name + ": < " + value + " >";
+				return displayName + ": < " + value + " >";
 		}
 	}
 
@@ -415,6 +458,10 @@ class KEOption
 					Main.fpsVar.visible = ClientPrefs.data.showFPS;
 			case "autoPause":
 				FlxG.autoPause = ClientPrefs.data.autoPause;
+			case "language":
+				// 当语言选项更改时，保存并触发语言重载以便立即生效
+				ClientPrefs.saveSettings();
+				backend.Language.reloadPhrases();
 			// 移除了对noteSkin和splashSkin的即时预览代码
 		}
 	}

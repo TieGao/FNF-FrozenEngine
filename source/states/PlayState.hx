@@ -251,6 +251,7 @@ class PlayState extends MusicBeatState
 	var tnhText:FlxText;
 	var highestcomboText:FlxText;
     var comboText:FlxText;
+	var marvelousText:FlxText;
     var sickText:FlxText;
     var goodText:FlxText;
     var badText:FlxText;
@@ -328,6 +329,7 @@ class PlayState extends MusicBeatState
 	public static var nextReloadAll:Bool = false;
 
 	private var modInfoBox:ModInfoBox;
+	var hitErrorBar:HitErrorBar;
 
 	override public function create()
 {
@@ -693,6 +695,19 @@ class PlayState extends MusicBeatState
 		songText.borderSize = 1;
 		songText.visible = !ClientPrefs.data.hideHud && ClientPrefs.data.songText;
 		uiGroup.add(songText);	
+
+		if (ClientPrefs.data.hitErrorBarVisible)
+		{
+			hitErrorBar = new HitErrorBar();
+			hitErrorBar.cameras = [camHUD];
+			hitErrorBar.screenCenter();
+			hitErrorBar.x -= 250;
+			hitErrorBar.y = FlxG.height * 0.1; // 顶部10%位置
+			if (ClientPrefs.data.downScroll) {
+       		 hitErrorBar.y = FlxG.height - 100;
+    		}
+			add(hitErrorBar);
+		}
 
 		createModInfoBox();
 
@@ -1454,7 +1469,8 @@ class PlayState extends MusicBeatState
 
 	public dynamic function fullComboFunction()
 	{
-		var sicks:Int = ratingsData[1].hits + ratingsData[0].hits;
+		var marvelous:Int = ratingsData[0].hits;
+		var sicks:Int = ratingsData[1].hits;
 		var goods:Int = ratingsData[2].hits;
 		var bads:Int = ratingsData[3].hits;
 		var shits:Int = ratingsData[4].hits;
@@ -1462,6 +1478,7 @@ class PlayState extends MusicBeatState
 		if (tnhText != null) tnhText.text = "Total Notes Hit: " + songHits;
 		if (highestcomboText != null) highestcomboText.text = "Highest Combo: " + highestCombo;
         if (comboText != null) comboText.text = "Combo: " + combo;
+		if (marvelousText != null) marvelousText.text = "Marvelous: " + marvelous;
         if (sickText != null) sickText.text = "Sicks: " + sicks;
         if (goodText != null) goodText.text = "Goods: " + goods;
         if (badText != null) badText.text = "Bads: " + bads;
@@ -1474,6 +1491,7 @@ class PlayState extends MusicBeatState
 			if (bads > 0 || shits > 0) ratingFC = 'FC';
 			else if (goods > 0) ratingFC = 'GFC';
 			else if (sicks > 0) ratingFC = 'SFC';
+			else if (marvelous > 0) ratingFC = 'MFC';
 		}
 		else {
 			if (songMisses < 10) ratingFC = 'SDCB';
@@ -1491,7 +1509,7 @@ class PlayState extends MusicBeatState
         var verticalSpacing:Float = 24;
         
         var startX:Float = 10;
-        var startY:Float = 300;
+        var startY:Float = 250;
         
 	FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]);
 
@@ -1499,11 +1517,12 @@ class PlayState extends MusicBeatState
             { obj: "tnhText", text: "Total Notes Hit: 0", color: FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]), y: startY },
 			{ obj: "highestcomboText", text: "Highest Combo: 0", color: FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]), y: startY + verticalSpacing },
             { obj: "comboText", text: "Combo: 0", color: FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]), y: startY + verticalSpacing *2 },
-            { obj: "sickText", text: "Sicks: 0", color: FlxColor.fromRGB(0, 191, 255), y: startY + verticalSpacing * 3 },
-            { obj: "goodText", text: "Goods: 0", color: FlxColor.fromRGB(0, 205, 0), y: startY + verticalSpacing * 4 },
-            { obj: "badText", text: "Bads: 0", color: FlxColor.fromRGB(238, 0, 0), y: startY + verticalSpacing * 5 },
-            { obj: "shitText", text: "Shits: 0", color: FlxColor.fromRGB(205, 0, 0), y: startY + verticalSpacing * 6 },
-            { obj: "missText", text: "Misses: 0", color: FlxColor.fromRGB(139, 0, 0), y: startY + verticalSpacing * 7 }
+			{ obj: "marvelousText", text: "Marvelous: 0", color: FlxColor.fromRGB(255, 215, 0), y: startY + verticalSpacing * 3 },
+            { obj: "sickText", text: "Sicks: 0", color: FlxColor.fromRGB(0, 191, 255), y: startY + verticalSpacing * 4 },
+            { obj: "goodText", text: "Goods: 0", color: FlxColor.fromRGB(0, 205, 0), y: startY + verticalSpacing * 5 },
+            { obj: "badText", text: "Bads: 0", color: FlxColor.fromRGB(238, 0, 0), y: startY + verticalSpacing * 6 },
+            { obj: "shitText", text: "Shits: 0", color: FlxColor.fromRGB(205, 0, 0), y: startY + verticalSpacing * 7 },
+            { obj: "missText", text: "Misses: 0", color: FlxColor.fromRGB(139, 0, 0), y: startY + verticalSpacing * 8 }
         ];
         
         for (textInfo in texts) {
@@ -3189,12 +3208,12 @@ class PlayState extends MusicBeatState
         // ========== 保存回放数据 ==========
         if (!loadRep && rep != null && !practiceMode && !cpuControlled && !inReplay && ClientPrefs.data.saveReplays)
         {
-            try
-            {
-                rep.finishRecording();
-                rep.SaveReplay(rep.replay.songNotes, rep.replay.songJudgements, rep.replay.ana);
-                trace('Replay saved successfully with ' + rep.replay.songNotes.length + ' notes');
-            }
+			try
+			{
+				rep.finishRecording();
+				rep.SaveReplay(rep.replay.songNotes, rep.replay.songJudgements, rep.replay.ana);
+				trace('Replay saved successfully with ' + rep.replay.songNotes.length + ' notes');
+			}
             catch (e:Dynamic)
             {
                 trace('Error saving replay: ' + e);
@@ -4155,6 +4174,15 @@ function noteMissPress(direction:Int = 1):Void
     if(cpuControlled && note.ignoreNote) return;
     
     note.wasGoodHit = true;
+
+	if (ClientPrefs.data.hitErrorBarVisible) {
+	var hitTime = Conductor.songPosition - note.strumTime;
+    
+    // 更新误差条
+    if (hitErrorBar != null) {
+        hitErrorBar.registerHit(hitTime);
+    }
+	}	
 
     var isSus:Bool = note.isSustainNote;
     var leData:Int = Math.round(Math.abs(note.noteData));
