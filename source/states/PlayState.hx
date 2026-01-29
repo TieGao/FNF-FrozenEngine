@@ -2177,9 +2177,8 @@ class PlayState extends MusicBeatState
     else FlxG.camera.followLerp = 0;
     callOnScripts('onUpdate', [elapsed]);
 
-    super.update(elapsed);
-
-        if (controls.NOTE_LEFT_P) {
+	if (keyboardDisplay != null && !paused && ClientPrefs.data.kb) {
+	if (controls.NOTE_LEFT_P) {
         keyboardDisplay.keyPressed(0);
         //trace("Left key pressed"); // 调试
     }
@@ -2214,6 +2213,9 @@ class PlayState extends MusicBeatState
         keyboardDisplay.keyReleased(3);
        // trace("Right key released"); // 调试
     }
+	}
+
+    super.update(elapsed);
 
     setOnScripts('curDecStep', curDecStep);
     setOnScripts('curDecBeat', curDecBeat);
