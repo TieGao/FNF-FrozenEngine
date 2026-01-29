@@ -38,6 +38,7 @@ import shaders.ErrorHandledShader;
 import objects.VideoSprite;
 import objects.Note.EventNote;
 import objects.GradientTimeBar;
+import objects.KeyBoardDisplay;
 import objects.*;
 import states.stages.*;
 import states.stages.objects.*;
@@ -330,6 +331,7 @@ class PlayState extends MusicBeatState
 
 	private var modInfoBox:ModInfoBox;
 	var hitErrorBar:HitErrorBar;
+	var keyboardDisplay:KeyboardDisplay;
 
 	override public function create()
 {
@@ -696,17 +698,26 @@ class PlayState extends MusicBeatState
 		songText.visible = !ClientPrefs.data.hideHud && ClientPrefs.data.songText;
 		uiGroup.add(songText);	
 
+		if (ClientPrefs.data.kb)
+		{
+		keyboardDisplay = new KeyboardDisplay();
+		keyboardDisplay.cameras = [camOther];
+		add(keyboardDisplay);
+
+		// 2. 设置位置（居中显示）
+		keyboardDisplay.setDisplayPosition(FlxG.width/2 - (keyboardDisplay.keys * (KeyboardDisplay.keySize + 4))/2 + ClientPrefs.data.kbOffsetX, FlxG.height - 150 + ClientPrefs.data.kbOffsetY);
+		}
+
 		if (ClientPrefs.data.hitErrorBarVisible)
 		{
 			hitErrorBar = new HitErrorBar();
-			hitErrorBar.cameras = [camHUD];
 			hitErrorBar.screenCenter();
-			hitErrorBar.x -= 250;
-			hitErrorBar.y = FlxG.height * 0.1; // 顶部10%位置
+			hitErrorBar.x -= 250 + ClientPrefs.data.hitErrorBarOffsetX;
+			hitErrorBar.y = FlxG.height * 0.07 + ClientPrefs.data.hitErrorBarOffsetY; // 顶部10%位置
 			if (ClientPrefs.data.downScroll) {
-       		 hitErrorBar.y = FlxG.height - 100;
+       		 hitErrorBar.y = FlxG.height - 100 + ClientPrefs.data.hitErrorBarOffsetY;
     		}
-			add(hitErrorBar);
+			uiGroup.add(hitErrorBar);
 		}
 
 		createModInfoBox();
@@ -2167,7 +2178,42 @@ class PlayState extends MusicBeatState
     callOnScripts('onUpdate', [elapsed]);
 
     super.update(elapsed);
+
+        if (controls.NOTE_LEFT_P) {
+        keyboardDisplay.keyPressed(0);
+        //trace("Left key pressed"); // 调试
+    }
+    if (controls.NOTE_LEFT_R) {
+        keyboardDisplay.keyReleased(0);
+        //trace("Left key released"); // 调试
+    }
     
+    if (controls.NOTE_DOWN_P) {
+        keyboardDisplay.keyPressed(1);
+        //trace("Down key pressed"); // 调试
+    }
+    if (controls.NOTE_DOWN_R) {
+        keyboardDisplay.keyReleased(1);
+        //trace("Down key released"); // 调试
+    }
+    
+    if (controls.NOTE_UP_P) {
+        keyboardDisplay.keyPressed(2);
+       // trace("Up key pressed"); // 调试
+    }
+    if (controls.NOTE_UP_R) {
+        keyboardDisplay.keyReleased(2);
+        //trace("Up key released"); // 调试
+    }
+    
+    if (controls.NOTE_RIGHT_P) {
+        keyboardDisplay.keyPressed(3);
+       // trace("Right key pressed"); // 调试
+    }
+    if (controls.NOTE_RIGHT_R) {
+        keyboardDisplay.keyReleased(3);
+       // trace("Right key released"); // 调试
+    }
 
     setOnScripts('curDecStep', curDecStep);
     setOnScripts('curDecBeat', curDecBeat);
@@ -3894,21 +3940,32 @@ private function keysCheck():Void
                 keyPressed(i);
 
     if (startedCountdown && !inCutscene && !boyfriend.stunned && generatedMusic)
-    {
-        if (notes.length > 0) {
-            for (n in notes) {
-                if (n == null || strumsBlocked[n.noteData] || !n.canBeHit || n.tooLate || n.wasGoodHit || n.blockHit || n.ignoreNote) 
-                    continue;
+{
+    if (notes.length > 0) {
+        for (n in notes) {
+            if (n == null || strumsBlocked[n.noteData] || !n.canBeHit || n.tooLate || n.wasGoodHit || n.blockHit || n.ignoreNote) 
+                continue;
+            
+            // 只处理当前玩家应该控制的音符
+            if (n.mustPress && n.isSustainNote) {
+                var canHit:Bool = true;
                 
-                // 只处理当前玩家应该控制的音符
-                if (n.mustPress && n.isSustainNote) {
+                // guitarHeroSustains 特殊逻辑
+                if (guitarHeroSustains) {
+                    // 在吉他英雄模式下，只允许在父音符被击中后才能击中延音音符
+                    canHit = (n.parent != null && n.parent.wasGoodHit);
+                }
+                
+                if (canHit) {
                     var released:Bool = !holdArray[n.noteData];
-
-                    if (!released && n.parent != null && n.parent.wasGoodHit)
+                    if (!released) {
                         goodNoteHit(n);
+                    }
                 }
             }
         }
+    }
+
 
         if (!holdArray.contains(true) || endingSong)
             playerDance();
@@ -4169,179 +4226,186 @@ function noteMissPress(direction:Int = 1):Void
 }
 
 	public function goodNoteHit(note:Note):Void
-{
-    if(note.wasGoodHit) return;
-    if(cpuControlled && note.ignoreNote) return;
-    
-    note.wasGoodHit = true;
+	{
+		if(note.wasGoodHit) return;
+		if(cpuControlled && note.ignoreNote) return;
+		
+		note.wasGoodHit = true;
 
-	if (ClientPrefs.data.hitErrorBarVisible) {
-	var hitTime = Conductor.songPosition - note.strumTime;
-    
-    // 更新误差条
-    if (hitErrorBar != null) {
-        hitErrorBar.registerHit(hitTime);
-    }
-	}	
+		if (ClientPrefs.data.hitErrorBarVisible) {
+		var hitTime = Conductor.songPosition - note.strumTime;
+		
+		// 更新误差条
+		if (hitErrorBar != null && (!note.isSustainNote )) {
+			hitErrorBar.registerHit(hitTime);
+		}
+		}	
 
-    var isSus:Bool = note.isSustainNote;
-    var leData:Int = Math.round(Math.abs(note.noteData));
-    var leType:String = note.noteType;
+		var isSus:Bool = note.isSustainNote;
+		var leData:Int = Math.round(Math.abs(note.noteData));
+		var leType:String = note.noteType;
 
-    var result:Dynamic = callOnScripts('goodNoteHitPre', [notes.members.indexOf(note), leData, leType, isSus]);
-    if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) result = callOnHScript('goodNoteHitPre', [note]);
+		var result:Dynamic = callOnScripts('goodNoteHitPre', [notes.members.indexOf(note), leData, leType, isSus]);
+		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) result = callOnHScript('goodNoteHitPre', [note]);
 
-    if(result == LuaUtils.Function_Stop) return;
+		if(result == LuaUtils.Function_Stop) return;
 
-    note.wasGoodHit = true;
+		note.wasGoodHit = true;
 
-    if (note.hitsoundVolume > 0 && !note.hitsoundDisabled)
-        FlxG.sound.play(Paths.sound(note.hitsound), note.hitsoundVolume);
+		if (note.hitsoundVolume > 0 && !note.hitsoundDisabled)
+			FlxG.sound.play(Paths.sound(note.hitsound), note.hitsoundVolume);
 
-    if(!note.hitCausesMiss) //Common notes
-    {
-        if(!note.noAnimation)
-        {
-            // 根据对手模式选择正确的唱歌角色
-            var char:Character = null;
-            var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, note.noteData)))] + note.animSuffix;
-            
-            if(note.gfNote)
-            {
-                char = gf;
-            }
-            else
-            {
-                // 关键：根据对手模式选择唱歌的角色
-                if (backend.OpponentModeSystem.isEnabled()) {
-                    // 对手模式下，玩家控制dad，所以由dad唱歌
-                    char = dad;
-                } else {
-                    // 正常模式下，玩家控制boyfriend，所以由boyfriend唱歌
-                    char = boyfriend;
-                }
-            }
+		if(!note.hitCausesMiss) //Common notes
+		{
+			if(!note.noAnimation)
+			{
+				// 根据对手模式选择正确的唱歌角色
+				var char:Character = null;
+				var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, note.noteData)))] + note.animSuffix;
+				
+				if(note.gfNote)
+				{
+					char = gf;
+				}
+				else
+				{
+					// 关键：根据对手模式选择唱歌的角色
+					if (backend.OpponentModeSystem.isEnabled()) {
+						// 对手模式下，玩家控制dad，所以由dad唱歌
+						char = dad;
+					} else {
+						// 正常模式下，玩家控制boyfriend，所以由boyfriend唱歌
+						char = boyfriend;
+					}
+				}
 
-            if(char != null)
-            {
-                var canPlay:Bool = true;
-                if(note.isSustainNote)
-                {
-                    var holdAnim:String = animToPlay + '-hold';
-                    if(char.animation.exists(holdAnim)) animToPlay = holdAnim;
-                    if(char.getAnimationName() == holdAnim || char.getAnimationName() == holdAnim + '-loop') canPlay = false;
-                }
+				if(char != null)
+				{
+					var canPlay:Bool = true;
+					if(note.isSustainNote)
+					{
+						var holdAnim:String = animToPlay + '-hold';
+						if(char.animation.exists(holdAnim)) animToPlay = holdAnim;
+						if(char.getAnimationName() == holdAnim || char.getAnimationName() == holdAnim + '-loop') canPlay = false;
+					}
 
-                if(canPlay) char.playAnim(animToPlay, true);
-                char.holdTimer = 0;
+					if(canPlay) char.playAnim(animToPlay, true);
+					char.holdTimer = 0;
 
-                if(note.noteType == 'Hey!')
-                {
-                    var animCheck:String = note.gfNote ? 'cheer' : 'hey';
-                    if(char.hasAnimation(animCheck))
-                    {
-                        char.playAnim(animCheck, true);
-                        char.specialAnim = true;
-                        char.heyTimer = 0.6;
-                    }
-                }
-            }
-        }
+					if(note.noteType == 'Hey!')
+					{
+						var animCheck:String = note.gfNote ? 'cheer' : 'hey';
+						if(char.hasAnimation(animCheck))
+						{
+							char.playAnim(animCheck, true);
+							char.specialAnim = true;
+							char.heyTimer = 0.6;
+						}
+					}
+				}
+			}
 
-        if(!cpuControlled)
-        {
-            // 关键修改：在玩家当前控制的轨道上显示确认动画
-            var strumToAnimate:FlxTypedGroup<StrumNote> = null;
-            
-            if (backend.OpponentModeSystem.isEnabled()) {
-                // 对手模式下：玩家控制对手轨道（左侧），所以在对手轨道显示确认动画
-                strumToAnimate = opponentStrums;
-            } else {
-                // 正常模式下：玩家控制玩家轨道（右侧），所以在玩家轨道显示确认动画
-                strumToAnimate = playerStrums;
-            }
-            
-            var spr = strumToAnimate.members[note.noteData];
-             if(spr != null) spr.playAnim('confirm', true);
-        }
-        
-        // 播放正确的声音
-        var playerVocals:flixel.system.FlxSound = backend.OpponentModeSystem.getPlayerVocals();
-        if(playerVocals != null) playerVocals.volume = 1;
+			if(!cpuControlled)
+			{
+				// 关键修改：在玩家当前控制的轨道上显示确认动画
+				var strumToAnimate:FlxTypedGroup<StrumNote> = null;
+				
+				if (backend.OpponentModeSystem.isEnabled()) {
+					// 对手模式下：玩家控制对手轨道（左侧），所以在对手轨道显示确认动画
+					strumToAnimate = opponentStrums;
+				} else {
+					// 正常模式下：玩家控制玩家轨道（右侧），所以在玩家轨道显示确认动画
+					strumToAnimate = playerStrums;
+				}
+				
+				var spr = strumToAnimate.members[note.noteData];
+				if(spr != null) spr.playAnim('confirm', true);
+			}
+			
+			// 播放正确的声音
+			var playerVocals:flixel.system.FlxSound = backend.OpponentModeSystem.getPlayerVocals();
+			if(playerVocals != null) playerVocals.volume = 1;
 
-        if (!note.isSustainNote)
-        {
-            combo++;
-            if(combo > 9999) combo = 9999;
-            popUpScore(note);
-        }
-        var gainHealth:Bool = true;
-        if (guitarHeroSustains && note.isSustainNote) gainHealth = false;
-        if (gainHealth) health += note.hitHealth * healthGain;
-    }
-    else // Hurt notes
-    {
-        if(!note.noMissAnimation)
-        {
-            switch(note.noteType)
-            {
-                case 'Hurt Note':
-                    // 受伤动画由玩家控制的角色播放
-                    var playerChar:Character = null;
-                    if (backend.OpponentModeSystem.isEnabled()) {
-                        playerChar = dad; // 对手模式下玩家控制dad
-                    } else {
-                        playerChar = boyfriend; // 正常模式下玩家控制boyfriend
-                    }
-                    
-                    if(playerChar != null && playerChar.hasAnimation('hurt'))
-                    {
-                        playerChar.playAnim('hurt', true);
-                        playerChar.specialAnim = true;
-                    }
-            }
-        }
+			if (!note.isSustainNote)
+			{
+				combo++;
+				if(combo > 9999) combo = 9999;
+				popUpScore(note);
+			}
+			var gainHealth:Bool = true;
+			if (guitarHeroSustains && note.isSustainNote) gainHealth = false;
+			if (gainHealth) health += note.hitHealth * healthGain;
+		}
+		else // Hurt notes
+		{
+			if(!note.noMissAnimation)
+			{
+				switch(note.noteType)
+				{
+					case 'Hurt Note':
+						// 受伤动画由玩家控制的角色播放
+						var playerChar:Character = null;
+						if (backend.OpponentModeSystem.isEnabled()) {
+							playerChar = dad; // 对手模式下玩家控制dad
+						} else {
+							playerChar = boyfriend; // 正常模式下玩家控制boyfriend
+						}
+						
+						if(playerChar != null && playerChar.hasAnimation('hurt'))
+						{
+							playerChar.playAnim('hurt', true);
+							playerChar.specialAnim = true;
+						}
+				}
+			}
 
-        noteMiss(note);
-        if(!note.noteSplashData.disabled && !note.isSustainNote) spawnNoteSplashOnNote(note);
-    }
+			noteMiss(note);
+			if(!note.noteSplashData.disabled && !note.isSustainNote) spawnNoteSplashOnNote(note);
+		}
 
-    if (note.isSustainNote && noteHoldCover != null)
-    {
-        if (opponentMode)
-        {
-            noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
-        }
-        else
-        {
-            noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
-        }
-    }
+		if (note.isSustainNote && noteHoldCover != null)
+		{
+			if (opponentMode)
+			{
+				noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+			}
+			else
+			{
+				noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+			}
+		}
 
-    stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
-    var result:Dynamic = callOnLuas('goodNoteHit', [notes.members.indexOf(note), leData, leType, isSus]);
-    if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('goodNoteHit', [note]);
-    if(!note.isSustainNote) invalidateNote(note);
+		stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
+		var result:Dynamic = callOnLuas('goodNoteHit', [notes.members.indexOf(note), leData, leType, isSus]);
+		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('goodNoteHit', [note]);
+		if(!note.isSustainNote) invalidateNote(note);
 
-       if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
-    {
-        var diff = note.strumTime - Conductor.songPosition;
-        
-        // 记录音符数据 [strumTime, sustainLength, noteData, diff]
-        rep.recordNote(note.strumTime, note.noteData, note.sustainLength, diff);
-        
-        // 只记录判定类型，不判断是否为miss
-        var absDiff = Math.abs(diff);
-        var judge = "sick";
-        if (absDiff <= 45) judge = "sick";
-        else if (absDiff <= 90) judge = "good";
-        else if (absDiff <= 135) judge = "bad";
-        else judge = "shit"; // 超过135ms但不超过安全区，仍然是shit
-        
-        rep.recordJudgement(judge);
-    }
+		if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
+		{
+			var diff = note.strumTime - Conductor.songPosition;
+			
+			// 记录音符数据 [strumTime, sustainLength, noteData, diff]
+			rep.recordNote(note.strumTime, note.noteData, note.sustainLength, diff);
+			
+			if (!note.isSustainNote)
+			{
+				var absDiff = Math.abs(diff);
+				var judge = "marvelous";
+				var marvelousWindow:Float = ClientPrefs.data.marvelousWindow;
+				var sickWindow:Float = ClientPrefs.data.sickWindow;
+				var goodWindow:Float = ClientPrefs.data.goodWindow;
+				var badWindow:Float = ClientPrefs.data.badWindow;
+				if (absDiff <= marvelousWindow) judge = "marvelous";
+				else if (absDiff <= sickWindow) judge = "sick";
+				else if (absDiff <= goodWindow) judge = "good";
+				else if (absDiff <= badWindow) judge = "bad";
+				else judge = "shit"; // 超过135ms但不超过安全区，仍然是shit
+				
+				rep.recordJudgement(judge);
+			}
+		}
 
-}
+	}
 
 	public function invalidateNote(note:Note):Void {
 		note.kill();
@@ -4422,10 +4486,17 @@ function noteMissPress(direction:Int = 1):Void
 		loadRep = false;
 
 		 if (modInfoBox != null)
-    {
-        modInfoBox.destroy();
-        modInfoBox = null;
-    }
+		{
+			modInfoBox.destroy();
+			modInfoBox = null;
+		}
+		if (keyboardDisplay!= null)
+		{
+			keyboardDisplay.destroy();
+			keyboardDisplay = null;
+		}		
+	
+
 		super.destroy();
 	}
 

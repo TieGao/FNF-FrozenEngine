@@ -64,6 +64,16 @@ import states.TitleState;
 	public var keOptions:Bool = true;
 	public var gradientTimeBar:Bool = true;
 	public var hitErrorBarVisible:Bool = false;
+	public var hitBarLines:Int = 5;
+	public var hitBarLineTime:Float = 2.0;
+	public var kb:Bool = false;
+	public var kbalpha:Float = 1.0;
+	public var kbsize:Float = 1.0;
+	public var kbOffsetX:Float = 0.0;
+	public var kbOffsetY:Float = 0.0;
+	public var hitErrorBarOffsetX:Int = 0;
+	public var hitErrorBarOffsetY:Int = 0;
+	public var noteSustainsOffset:Float = 0.0;
 	public var gameplaySettings:Map<String, Dynamic> = [
 		'scrollspeed' => 1.0,
 		'scrolltype' => 'multiplicative', 

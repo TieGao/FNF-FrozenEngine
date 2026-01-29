@@ -293,7 +293,7 @@ class LoadReplayState extends MusicBeatState
         add(pageText);
         
         controlsText = new FlxText(0, FlxG.height - 40, FlxG.width, 
-            "ENTER/Click: Load | BACK/RightClick: Exit | F: Delete | ←→: Page | Scroll: Navigate", 16);
+            "ENTER/Click: Load | BACK/RightClick: Exit | V/MiddleClick : View Result | F: Delete | ←→: Page | Scroll: Navigate", 16);
         controlsText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         controlsText.borderSize = 2;
         add(controlsText);
@@ -550,7 +550,6 @@ class LoadReplayState extends MusicBeatState
         
         lastMouseY = currentMouseY;
     }
-    
     function handleMouseClicks()
     {
         if (FlxG.mouse.justPressed) {
@@ -558,11 +557,27 @@ class LoadReplayState extends MusicBeatState
                 if (hoveredCardIndex != curSelected) {
                     changeSelectionTo(hoveredCardIndex);
                 }
-                loadReplay(replays[curSelected]);
+                
+                // 判断是左键还是右键
+                if (FlxG.mouse.pressedRight) {
+                    // 右键：查看结果
+                    viewReplayResults(replays[curSelected]);
+                } else {
+                    // 左键：加载并播放
+                    loadReplay(replays[curSelected]);
+                }
             }
         }
         
-        if (FlxG.mouse.justPressedRight) {
+        // 修改这里：在中键点击时也查看结果（可选）
+        if (FlxG.mouse.justPressedMiddle) {
+            if (hoveredCardIndex >= 0 && hoveredCardIndex < replays.length) {
+                viewReplayResults(replays[curSelected]);
+            }
+        }
+        
+        if (FlxG.mouse.justPressedRight && hoveredCardIndex < 0) {
+            // 在空白处右键：返回主菜单
             FlxG.sound.play(Paths.sound('cancelMenu'));
             MusicBeatState.switchState(new MainMenuState());
         }
@@ -607,6 +622,15 @@ class LoadReplayState extends MusicBeatState
                 }
             }
             
+            // 新增：V 键查看回放结果
+            if (FlxG.keys.justPressed.V)
+            {
+                if (curSelected >= 0 && curSelected < replays.length)
+                {
+                    viewReplayResults(replays[curSelected]);
+                }
+            }
+            
             if (FlxG.keys.justPressed.F)
             {
                 if (curSelected >= 0 && curSelected < replays.length)
@@ -617,6 +641,7 @@ class LoadReplayState extends MusicBeatState
             }
         }
     }
+    
     
     function changeSelectionTo(index:Int)
     {
@@ -697,7 +722,7 @@ class LoadReplayState extends MusicBeatState
         }
     }
     
-    function loadReplay(filename:String):Void
+    public function loadReplay(filename:String):Void
     {
         trace('Loading replay: $filename');
         
@@ -818,6 +843,38 @@ class LoadReplayState extends MusicBeatState
             showError("Invalid replay file!");
         }
     }
+
+        // ========== 新添加的函数 ==========
+    
+   function viewReplayResults(filename:String):Void
+{
+    trace('Viewing replay results: $filename');
+    
+    try
+    {
+        // 首先检查文件是否存在
+        var filePath = "assets/replays/" + filename;
+        if (!FileSystem.exists(filePath)) {
+            trace('Replay file not found: $filePath');
+            FlxG.sound.play(Paths.sound('cancelMenu'));
+            showError("Replay file not found!");
+            return;
+        }
+        
+        // 创建并打开ResultsScreen
+        // 传递文件名表示是回放预览模式
+        var resultsScreen = new ResultsScreen(filename);
+        openSubState(resultsScreen);
+        
+        FlxG.sound.play(Paths.sound('confirmMenu'));
+    }
+    catch(e:Dynamic)
+    {
+        trace('Error viewing replay: $e');
+        FlxG.sound.play(Paths.sound('cancelMenu'));
+        showError("Error loading replay: " + e);
+    }
+}
     
     function showError(message:String):Void
     {

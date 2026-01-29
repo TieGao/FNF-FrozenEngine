@@ -122,7 +122,7 @@ class Note extends FlxSprite
 	public var copyAlpha:Bool = true;
 
 	public var hitHealth:Float = 0.02;
-	public var missHealth:Float = 0.1;
+	public var missHealth:Float = 0.075;
 	public var rating:String = 'unknown';
 	public var ratingMod:Float = 0; //9 = unknown, 0.25 = shit, 0.5 = bad, 0.75 = good, 1 = sick
 	public var ratingDisabled:Bool = false;
@@ -318,7 +318,7 @@ class Note extends FlxSprite
 				scale.y *= PlayState.daPixelZoom;
 				updateHitbox();
 			}
-			earlyHitMult = 0;
+			earlyHitMult = ClientPrefs.data.noteSustainsOffset;
 		}
 		else if(!isSustainNote)
 		{
@@ -469,37 +469,37 @@ class Note extends FlxSprite
 		animation.addByPrefix(name, prefix, framerate, doLoop);
 	}
 
-	// 在Note.hx的update函数中，简化逻辑：
-override function update(elapsed:Float)
-{
-    super.update(elapsed);
+		
+	override function update(elapsed:Float)
+	{
+		super.update(elapsed);
 
-    // 直接使用mustPress判断（在生成时已经设置正确）
-    if (mustPress)
-    {
-        canBeHit = (strumTime > Conductor.songPosition - (Conductor.safeZoneOffset * lateHitMult) &&
-                    strumTime < Conductor.songPosition + (Conductor.safeZoneOffset * earlyHitMult));
 
-        if (strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !wasGoodHit)
-            tooLate = true;
-    }
-    else
-    {
-        canBeHit = false;
+		if (mustPress)
+		{
+			canBeHit = (strumTime > Conductor.songPosition - (Conductor.safeZoneOffset * lateHitMult) &&
+						strumTime < Conductor.songPosition + (Conductor.safeZoneOffset * earlyHitMult));
 
-        if (!wasGoodHit && strumTime <= Conductor.songPosition)
-        {
-            if(!isSustainNote || (prevNote.wasGoodHit && !ignoreNote))
-                wasGoodHit = true;
-        }
-    }
+			if (strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !wasGoodHit)
+				tooLate = true;
+		}
+		else
+		{
+			canBeHit = false;
 
-    if (tooLate && !inEditor)
-    {
-        if (alpha > 0.3)
-            alpha = 0.3;
-    }
-}
+			if (!wasGoodHit && strumTime <= Conductor.songPosition)
+			{
+				if(!isSustainNote || (prevNote.wasGoodHit && !ignoreNote))
+					wasGoodHit = true;
+			}
+		}
+
+		if (tooLate && !inEditor)
+		{
+			if (alpha > 0.3)
+				alpha = 0.3;
+		}
+	}
 
 	override public function destroy()
 	{

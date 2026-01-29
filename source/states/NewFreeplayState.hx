@@ -416,7 +416,7 @@ class NewFreeplayState extends MusicBeatState
             // 设置播放完成回调
             FlxG.sound.music.onComplete = function()
             {
-                trace("Music completed, stopping player...");
+                //trace("Music completed, stopping player...");
                 destroyFreeplayVocals();
                 FlxG.sound.music.time = 0;
                 if (musicPlayer.playingMusic)

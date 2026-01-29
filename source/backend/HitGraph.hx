@@ -36,7 +36,7 @@ class HitGraph extends Sprite
         _axis = new Sprite();
         addChild(_axis);
 
-        // 创建早期/晚期标签 - 互换位置
+        // 创建早期/晚期标签
         var early = createTextField(10, _height - 20, FlxColor.WHITE, 12);
         var late = createTextField(10, 10, FlxColor.WHITE, 12);
         early.text = "Early (-166ms)";
@@ -120,28 +120,28 @@ class HitGraph extends Sprite
         }
         _labels = [];
 
-        // 绘制判定区域线 - 按照要求修改：移除MISS线，将SHIT线设置为166ms
+        // 绘制判定区域线
         // MARVELOUS 范围: ±22.5ms (金色)
-        drawJudgementLine(22.5, FlxColor.fromRGB(255, 215, 0), "Marvelous");   // 金色
-        drawJudgementLine(-22.5, FlxColor.fromRGB(255, 215, 0));  // 只显示一个标签
+        drawJudgementLine(22.5, FlxColor.fromRGB(255, 215, 0), "Marvelous");
+        drawJudgementLine(-22.5, FlxColor.fromRGB(255, 215, 0));
         
         // SICK 范围: ±45ms (蓝色)
-        drawJudgementLine(45, FlxColor.CYAN, "Sick");     // 蓝色
-        drawJudgementLine(-45, FlxColor.CYAN);    // 只显示一个标签
+        drawJudgementLine(45, FlxColor.CYAN, "Sick");
+        drawJudgementLine(-45, FlxColor.CYAN);
         
         // GOOD 范围: ±90ms (绿色)
-        drawJudgementLine(90, FlxColor.LIME, "Good");     // 绿色
-        drawJudgementLine(-90, FlxColor.LIME);    // 只显示一个标签
+        drawJudgementLine(90, FlxColor.LIME, "Good");
+        drawJudgementLine(-90, FlxColor.LIME);
         
         // BAD 范围: ±135ms (浅红色)
-        drawJudgementLine(135, FlxColor.fromRGB(255, 100, 100), "Bad");  // 浅红色
-        drawJudgementLine(-135, FlxColor.fromRGB(255, 100, 100)); // 只显示一个标签
+        drawJudgementLine(135, FlxColor.fromRGB(255, 100, 100), "Bad");
+        drawJudgementLine(-135, FlxColor.fromRGB(255, 100, 100));
         
-        // SHIT 范围: ±166ms (深红色) - 修改为166ms
-        drawJudgementLine(166, FlxColor.RED, "Shit");     // 深红色
-        drawJudgementLine(-166, FlxColor.RED);    // 只显示一个标签
+        // SHIT 范围: ±166ms (深红色)
+        drawJudgementLine(166, FlxColor.RED, "Shit");
+        drawJudgementLine(-166, FlxColor.RED);
         
-        // 绘制MISS线 (±210ms) 使用虚线样式，颜色为暗红色
+        // MISS线 (±210ms) 使用虚线样式，颜色为暗红色
         drawMissLine(210, FlxColor.fromRGB(128, 0, 0), "Miss");
         drawMissLine(-210, FlxColor.fromRGB(128, 0, 0));
     }
@@ -178,7 +178,7 @@ class HitGraph extends Sprite
         }
         
         // 添加标签（只在右侧显示一个标签，避免重叠）
-        if (labelText != "" && ms > 0) { // 只为正数时间添加标签
+        if (labelText != "" && ms > 0) {
             var label = createTextField(_width - 60, pointY - 6, color, 10);
             label.text = labelText;
             addChild(label);
@@ -224,72 +224,30 @@ class HitGraph extends Sprite
             var judge = history[i][1];
             var time = history[i][2];
 
-            // 如果是MISS，使用特殊的绘制方式
-            if (judge.toLowerCase() == "miss") {
-                drawMissPoint(diff, judge, time, minTime, timeRange);
-            } else {
-                // 根据时间偏移自动确定颜色，而不是依赖judge字段
-                var color = getColorByDiff(diff);
-                gfx.beginFill(color, 0.8);
-                
-                // 转换时间到X坐标 - 使用实际的时间范围
-                var xPos = ((time - minTime) / timeRange) * _width;
-                
-                // 转换时间偏移到Y坐标 - 使用范围 -210ms 到 +210ms
-                var yPos = _height / 2 + (diff / 210) * (_height / 2);
-                
-                // 确保在图表范围内
-                xPos = FlxMath.bound(xPos, 0, _width);
-                yPos = FlxMath.bound(yPos, 0, _height);
-                
-                // 绘制点
-                gfx.drawCircle(xPos, yPos, 2);
-                gfx.endFill();
-            }
+            // 根据时间偏移自动确定颜色
+            var color = getColorByDiff(diff);
+            gfx.beginFill(color, 0.8);
+            
+            // 转换时间到X坐标 - 使用实际的时间范围
+            var xPos = ((time - minTime) / timeRange) * _width;
+            
+            // 转换时间偏移到Y坐标 - 使用范围 -210ms 到 +210ms
+            // 修正Y坐标计算：-210ms对应_height, +210ms对应0
+            var normalizedDiff = Math.max(-210, Math.min(210, diff)); // 限制在±210ms内
+            var normalized = (normalizedDiff + 210) / 420; // 转换到0-1范围
+            var yPos = _height - (normalized * _height);
+            
+            // 确保在图表范围内
+            xPos = FlxMath.bound(xPos, 0, _width);
+            yPos = FlxMath.bound(yPos, 0, _height);
+            
+            // 绘制点 - 所有点大小相同（包括MISS）
+            gfx.drawCircle(xPos, yPos, 2);
+            gfx.endFill();
         }
         
         trace('Displayed ${history.length} points across ${timeRange}ms time range');
     }
-
-    // 绘制MISS点 - 使用特殊样式
-    // 绘制MISS点 - 所有MISS显示在220ms线上
-function drawMissPoint(diff:Float, judge:String, time:Float, minTime:Float, timeRange:Float):Void
-{
-    var gfx:Graphics = graphics;
-    
-    // MISS点使用红色"X"形状
-    var color:FlxColor = FlxColor.fromRGB(128, 0, 0); // 暗红色
-    
-    // 转换时间到X坐标
-    var xPos = ((time - minTime) / timeRange) * _width;
-    
-    // 所有MISS显示在166ms线上
-    var range:Float = 210; // -210ms to +210ms
-    var value = 220 / range; //
-    var yPos = _height - (value * _height); // 转换到图表坐标
-    
-    // 确保在图表范围内
-    xPos = FlxMath.bound(xPos, 0, _width);
-    yPos = FlxMath.bound(yPos, 10, _height - 10);
-    
-    // 绘制一个红色的"X"
-    var size:Float = 2; // X的大小
-    gfx.lineStyle(2.5, color, 0.9); // 线条粗一点，更明显
-    
-    // 绘制X的第一条线
-    gfx.moveTo(xPos - size, yPos - size);
-    gfx.lineTo(xPos + size, yPos + size);
-    
-    // 绘制X的第二条线
-    gfx.moveTo(xPos + size, yPos - size);
-    gfx.lineTo(xPos - size, yPos + size);
-    
-    // 在点周围添加一个半透明的红色圆圈作为背景
-    gfx.lineStyle(1, color, 0.4);
-    gfx.beginFill(color, 0.15);
-    gfx.drawCircle(xPos, yPos, size * 2.5);
-    gfx.endFill();
-}
 
     // 根据时间偏移自动确定颜色 - 修改颜色判定逻辑
     function getColorByDiff(diff:Float):FlxColor
@@ -305,10 +263,10 @@ function drawMissPoint(diff:Float, judge:String, time:Float, minTime:Float, time
         } else if (absDiff <= 135) {
             return FlxColor.fromRGB(255, 100, 100); // Bad - 浅红色 (±135ms)
         } else if (absDiff <= 166) {
-            return FlxColor.RED;                  // Shit - 深红色 (±166ms) - 修改为166ms
+            return FlxColor.RED;                  // Shit - 深红色 (±166ms)
         } else {
-            // 超过166ms但不超过210ms的点使用灰色
-            return FlxColor.fromRGB(255, 0, 0);                 // 超出范围但未达到MISS - 灰色
+            // MISS - 暗红色
+            return FlxColor.fromRGB(128, 0, 0);
         }
     }
 

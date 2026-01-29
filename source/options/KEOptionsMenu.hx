@@ -216,9 +216,24 @@ class KEOptionsMenu extends MusicBeatState
 		}
 	}
 
-	// Gameplay 选项
+	// 在 KEOptionsMenu 类的 getGameplayOptions 函数中，添加二级菜单示例：
 	function getGameplayOptions():Array<KEOption>
 	{
+		// 创建一个窗口设置二级菜单
+		var windowSettings = KEOption.createSubMenu(
+			"Window Settings",
+			"Configure window and timing settings",
+			[
+				KEOption.create("Marvelous Window", "Timing window for SICK", "marvelousWindow", "float", 25, 15, 45, 0.1),
+				KEOption.create("Sick Window", "Timing window for SICK", "sickWindow", "float", 45, 15, 45, 0.1),
+				KEOption.create("Good Window", "Timing window for GOOD", "goodWindow", "float", 90, 15, 90, 0.1),
+				KEOption.create("Bad Window", "Timing window for BAD", "badWindow", "float", 135, 15, 135, 0.1),
+				KEOption.create("Safe Frames", "Frames for early/late hits", "safeFrames", "float", 10, 2, 10, 0.1)
+			],
+			"",
+			"Window Settings"
+		);
+		
 		return [
 			KEOption.create("Downscroll", "Notes scroll downwards instead of upwards", "downScroll", "bool"),
 			KEOption.create("Middlescroll", "Put your lane in the center", "middleScroll", "bool"),
@@ -230,11 +245,79 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Fast Restart", "Fast Restart When Dead or Press 'R' ", "skipDeath", "bool"),
 			KEOption.create("Hitsound Volume", "Volume of hit sounds", "hitsoundVolume", "float", 0, 0, 1, 0.1),
 			KEOption.create("Rating Offset", "Adjust note hit timing", "ratingOffset", "int", 0, -30, 30, 1),
-			KEOption.create("Marvelous Window", "Timing window for SICK", "marvelousWindow", "float", 25, 15, 45, 0.1),
-			KEOption.create("Sick Window", "Timing window for SICK", "sickWindow", "float", 45, 15, 45, 0.1),
-			KEOption.create("Good Window", "Timing window for GOOD", "goodWindow", "float", 90, 15, 90, 0.1),
-			KEOption.create("Bad Window", "Timing window for BAD", "badWindow", "float", 135, 15, 135, 0.1),
-			KEOption.create("Safe Frames", "Frames for early/late hits", "safeFrames", "float", 10, 2, 10, 0.1)
+			windowSettings, // 使用二级菜单
+			KEOption.create("Note Sustains Offset", "Adjust the timing offset for note sustains", "noteSustainsOffset", "float", 0, 0, 1, 0.05)
+		];
+	}
+
+	// 在 getVisualsOptions 函数中，添加皮肤设置二级菜单：
+	function getVisualsOptions():Array<KEOption>
+	{
+		// 创建皮肤设置二级菜单
+		var skinSettings = KEOption.createSubMenu(
+			"Skin Settings",
+			"Configure note skins, splashes and ratings",
+			[
+				KEOption.create("Note Skins" , "Select your preferred Note skin", "noteSkin","string" , notes),
+				KEOption.create("Note Splashes", "Select your preferred Note Splash variation","splashSkin","string", splashes),
+				KEOption.create("Note HoldCover", "Select your preferred Note Hold Cover","holdCoverSkin","string", holdCovers),
+				KEOption.create("Rating Style", "Select your preferred Ratings Image","customUI","string", ratings),
+				KEOption.create("Note Opacity", "Note transparency", "noteAlpha", "float", 0.9, 0, 1, 0.1),
+				KEOption.create("Note Splash Opacity", "Note splash transparency", "splashAlpha", "float", 0.8, 0, 1, 0.1),
+				KEOption.create("Note HoldCover Opacity", "Note splash transparency", "holdcoverAlpha", "float", 0.8, 0, 1, 0.1)
+			],
+			"",
+			"Skin Settings"
+		);
+		
+		// 创建命中误差条设置二级菜单
+		var hitErrorSettings = KEOption.createSubMenu(
+			"Hit Error Bar",
+			"Configure hit error bar display",
+			[
+				KEOption.create("Hit Error Bar", "Show hit error bar", "hitErrorBarVisible", "bool"),
+				KEOption.create("Hit Bar Lines", "Number of lines on hit error bar", "hitBarLines", "int", 5, 0, 20, 1),
+				KEOption.create("Hit Bar Line Time", "Time (in seconds) each line represents", "hitBarLineTime", "float", 2.0, 0.1, 5.0, 0.1),
+				KEOption.create("Hit Error Bar Offset X", "Horizontal position of hit error bar", "hitErrorBarOffsetX", "int", 0, -500, 500, 10),
+				KEOption.create("Hit Error Bar Offset Y", "Vertical position of hit error bar", "hitErrorBarOffsetY", "int", 0, -300, 300, 10)
+			],
+			"",
+			"Hit Error Bar Settings"
+		);
+
+		var keyboardDisplayOptions = KEOption.createSubMenu(
+			"Keyboard Display",
+			"Configure keyboard display settings",
+			[
+				KEOption.create("Show Keyboard", "Display keyboard on screen", "kb", "bool"),
+				//KEOption.create("Keyboard Opacity", "Transparency of the keyboard display", "kbalpha", "float", 1.0, 0.0, 1.0, 0.1),
+				//KEOption.create("Keyboard Scale", "Scale of the keyboard display", "kbScale", "float", 1.0, 0.5, 2.0, 0.1),
+				KEOption.create("Keyboard Offset X", "Horizontal position of the keyboard display", "kbOffsetX", "int", 0, -500, 500, 10),
+				KEOption.create("Keyboard Offset Y", "Vertical position of the keyboard display", "kbOffsetY", "int", 0, -300, 300, 10)
+			],
+			"",
+			"Keyboard Display Settings"
+		);
+		
+		return [
+			skinSettings,  // 皮肤设置二级菜单
+			KEOption.create("Hide HUD", "Hide most HUD elements", "hideHud", "bool"),
+			KEOption.create("Flashing Lights", "Enable screen flashes", "flashing", "bool"),
+			KEOption.create("Camera Zooms", "Zoom camera on beat", "camZooms", "bool"),
+			KEOption.create("Center Pause", "Center pause menu", "centerPause", "bool"),
+			KEOption.create("Custom Color", "Color most things by opponent", "customColor", "bool"),
+			KEOption.create("Gradient TimeBar", "Gradient colored timebar", "gradientTimeBar", "bool"),
+			KEOption.create("Score Zoom", "Grow score text on hit", "scoreZoom", "bool"),
+			KEOption.create('Time Bar:',"What should the Time Bar display?","timeBarType","string",['Time Left', 'Time Elapsed', 'Song Name', 'Disabled']),
+			KEOption.create("Health Bar Alpha", "Health bar transparency", "healthBarAlpha", "float", 1, 0, 1, 0.1),
+			KEOption.create("Combo Stacking", "Stack combo numbers", "comboStacking", "bool"),
+			KEOption.create("MS Number", "Make you know how late/early ur when hit notes", "showMS", "bool"),
+			KEOption.create("Health Text", "Show health as number", "healthText", "bool"),
+			KEOption.create("Song Text", "Show song info watermark", "songText", "bool"),
+			KEOption.create("Score Screen", "Show Kade-style results", "scoreScreen", "bool"),
+			KEOption.create("NoteHits Counter", "Show note hits counter", "Counter", "bool"),
+			hitErrorSettings, // 命中误差条二级菜单
+			keyboardDisplayOptions,
 		];
 	}
 
@@ -248,38 +331,8 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("GPU Caching", "Use GPU for texture caching", "cacheOnGPU", "bool"),
 			KEOption.create("FPS Counter", "Show FPS counter", "showFPS", "bool"),
 			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 240, 1),
-			KEOption.create("New Freeplay", "Enable New Freeplay", "newFreeplay", "bool"),
-			KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool")
-		];
-	}
-
-	// Visuals 选项
-	function getVisualsOptions():Array<KEOption>
-	{
-		return [
-			KEOption.create("Hide HUD", "Hide most HUD elements", "hideHud", "bool"),
-			KEOption.create("Flashing Lights", "Enable screen flashes", "flashing", "bool"),
-			KEOption.create("Camera Zooms", "Zoom camera on beat", "camZooms", "bool"),
-			KEOption.create("Score Zoom", "Grow score text on hit", "scoreZoom", "bool"),
-			KEOption.create('Time Bar:',"What should the Time Bar display?","timeBarType","string",['Time Left', 'Time Elapsed', 'Song Name', 'Disabled']),
-			KEOption.create("Note Skins" , "Select your prefered Note skin", "noteSkin","string" , notes),
-			KEOption.create("Note Splashes", "Select your prefered Note Splash variation","splashSkin","string", splashes),
-			KEOption.create("Note HoldCover", "Select your prefered Note Hold Cover","holdCoverSkin","string", holdCovers),
-			KEOption.create("Rating Style", "Select your prefered Ratings Image","customUI","string", ratings),
-			KEOption.create("Note Opacity", "Note transparency", "noteAlpha", "float", 0.9, 0, 1, 0.1),
-			KEOption.create("Note Splash Opacity", "Note splash transparency", "splashAlpha", "float", 0.8, 0, 1, 0.1),
-			KEOption.create("Note HoldCover Opacity", "Note splash transparency", "holdcoverAlpha", "float", 0.8, 0, 1, 0.1),
-			KEOption.create("Health Bar Alpha", "Health bar transparency", "healthBarAlpha", "float", 1, 0, 1, 0.1),
-			KEOption.create("Combo Stacking", "Stack combo numbers", "comboStacking", "bool"),
-			KEOption.create("MS Number", "Make you know how late/early ur when hit notes", "showMS", "bool"),
-			KEOption.create("Center Pause", "Center pause menu", "centerPause", "bool"),
-			KEOption.create("Custom Color", "Color timebar by opponent", "customColor", "bool"),
-			KEOption.create("Gradient TimeBar", "Gradient colored timebar", "gradientTimeBar", "bool"),
-			KEOption.create("Health Text", "Show health as number", "healthText", "bool"),
-			KEOption.create("Song Text", "Show song info watermark", "songText", "borol"),
-			KEOption.create("Score Screen", "Show Kade-style results", "scoreScreen", "bool"),
-			KEOption.create("NoteHits Counter", "Show note hits counter", "Counter", "bool"),
-			KEOption.create("Hit Error Bar", "Show hit error bar", "hitErrorBarVisible", "bool"),
+			//KEOption.create("New Freeplay", "Enable New Freeplay", "newFreeplay", "bool"),
+			//KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool")
 		];
 	}
 

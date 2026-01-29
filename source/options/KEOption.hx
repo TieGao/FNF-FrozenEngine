@@ -62,6 +62,16 @@ class KEOption
 	// 防二次点击保护
 	public var clickProtected:Bool = false;
 	public var clickProtectionTime:Float = 0.2; // 点击保护时间
+	
+	// 新增：二级菜单相关属性
+	public var hasSubMenu:Bool = false;
+	public var subMenuOptions:Array<KEOption> = [];
+	public var subMenuTitle:String = "";
+	public var subMenuDescription:String = "";
+	public var subMenuIcon:String = "";
+	public var subMenuParent:Null<KEOption> = null;
+	public var isInSubMenu:Bool = false;
+	public var subMenuDepth:Int = 0;
 
 	public final function getDisplay():String
 	{
@@ -78,9 +88,9 @@ class KEOption
 		var spaces = ~/\s+/g;
 		out = spaces.replace(out, ' ');
 		return out.toLowerCase().trim();
-	#else
+		#else
 		return s.toLowerCase().trim();
-	#end
+		#end
 	}
 
 	// 尝试原始键，再尝试清洗键，返回第一个匹配的翻译
@@ -107,6 +117,12 @@ class KEOption
 	public final function getDescription():String
 	{
 		if(description != "") return resolveTranslation(description, description);
+		
+		// 如果是二级菜单项，返回子菜单描述
+		if (hasSubMenu && subMenuDescription != "") {
+			return resolveTranslation(subMenuDescription, subMenuDescription);
+		}
+		
 		// Try to fetch a translation keyed by the option name + " desc" (try original then cleaned)
 		var nameDescKey:String = name + " desc";
 		var maybeDesc:String = resolveTranslation(nameDescKey, nameDescKey);
@@ -146,6 +162,12 @@ class KEOption
 	{
 		if (!canPress()) return false;
 		
+		// 如果是二级菜单项，打开子菜单
+		if (hasSubMenu) {
+			openSubMenu();
+			return false;
+		}
+		
 		if(type == "bool") {
 			value = !value;
 			saveValue();
@@ -177,13 +199,12 @@ class KEOption
 					return true;
 				case "Reset Scores":
 					#if desktop
-					
+					// 重置分数逻辑
 					#end
 					return true;
 				case "Adjust Delay and Combo":
 					MusicBeatState.switchState(new options.NoteOffsetState());
 					return false;
-
 			}
 			return true;
 		}
@@ -192,6 +213,16 @@ class KEOption
 			return true;
 		}
 		return false;
+	}
+
+	// 打开二级菜单
+	public function openSubMenu():Void
+	{
+		if (!hasSubMenu || subMenuOptions.length == 0) return;
+		
+		// 创建一个子菜单状态
+		var subMenu = new KESubMenu(this);
+		KEOptionsMenu.instance.openSubState(subMenu);
 	}
 
 	// 执行警告确认后的操作
@@ -213,7 +244,7 @@ class KEOption
 				
 			case "Reset Scores":
 				#if desktop
-				
+				// 重置分数逻辑
 				#end
 		}
 	}
@@ -341,6 +372,15 @@ class KEOption
 	private function updateDisplay():String
 	{
 		var displayName = resolveTranslation(name, name);
+		
+		// 如果是二级菜单项，添加箭头标识
+		if (hasSubMenu) {
+			if (hasWarning) {
+				return "> " + displayName + " → [!]";
+			}
+			return "> " + displayName + " →";
+		}
+		
 		switch(type) {
 			case "bool":
 				return displayName + ": < " + (value ? Language.getPhrase("on", "on") : Language.getPhrase("off", "off")) + " >";
@@ -576,7 +616,6 @@ class KEOption
 		
 		option.acceptValues = (type == "int" || type == "float" || type == "string" && option.options.length > 0);
 		return option;
-
 	}
 
 	// 创建带选项列表的字符串选项的便捷方法
@@ -644,6 +683,28 @@ class KEOption
 				
 			default:
 				option = create(name, "Reset option", "", "action");
+		}
+		
+		return option;
+	}
+	
+	// 新增：创建二级菜单项
+	public static function createSubMenu(name:String, description:String, subMenuOptions:Array<KEOption>, icon:String = "", title:String = ""):KEOption
+	{
+		var option = new KEOption();
+		option.name = name;
+		option.description = description;
+		option.type = "action";
+		option.hasSubMenu = true;
+		option.subMenuOptions = subMenuOptions;
+		option.subMenuIcon = icon;
+		option.subMenuTitle = title != "" ? title : name;
+		option.subMenuDescription = description;
+		
+		// 设置子菜单项的父级引用
+		for (subOption in subMenuOptions) {
+			subOption.subMenuParent = option;
+			subOption.subMenuDepth = 1;
 		}
 		
 		return option;
