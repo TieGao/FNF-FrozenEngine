@@ -19,6 +19,7 @@ import states.TitleState;
 	public var splashSkin:String = 'Psych';
 	public var holdCoverSkin:String = 'Default';
 	public var customUI:String = 'Default';
+	public var forceNumberColor:Bool = false;
 	public var noteAlpha:Float = 0.9;
 	public var splashAlpha:Float = 0.8;
 	public var holdcoverAlpha:Float = 0.8;

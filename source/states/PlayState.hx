@@ -675,7 +675,7 @@ class PlayState extends MusicBeatState
 		botplayTxt.visible = cpuControlled;
 		uiGroup.add(botplayTxt);
 
-		repTxt = new FlxText(400, healthBar.y + (ClientPrefs.data.downScroll ? -150 : 50), FlxG.width - 800, "REPLAY MODE", 32);
+		repTxt = new FlxText(400, healthBar.y + (ClientPrefs.data.downScroll ? 100 : -150), FlxG.width - 800, "REPLAY MODE", 32);
 		repTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		repTxt.scrollFactor.set();
 		repTxt.borderSize = 1.25;
@@ -3483,23 +3483,20 @@ private function popUpScore(note:Note = null):Void
 	var noteDiff:Float = Math.abs(rawNoteDiff);
 	vocals.volume = 1;
 
-	// 毫秒显示：总是立即销毁之前的（类似comboStacking关闭的逻辑）
 	for (spr in comboGroup)
 	{
 		if(spr == null) continue;
 		
-		// 检查是否是毫秒显示（FlxText类型）
 		if (Std.isOfType(spr, FlxText))
 		{
 			var text:FlxText = cast(spr, FlxText);
 			// 如果是毫秒显示，立即销毁
 			comboGroup.remove(text);
 			text.destroy();
-			break; // 通常只有一个毫秒显示
+			break;
 		}
 	}
 
-	// Psych Engine原有的comboStacking逻辑（只影响rating和combo数字）
 	if (!ClientPrefs.data.comboStacking && comboGroup.members.length > 0)
 	{
 		for (spr in comboGroup)
@@ -3569,13 +3566,67 @@ private function popUpScore(note:Note = null):Void
 		uiFolder = 'ratings/' + customUIPath;
 	}
 
-	var ratingImagePath:String = uiFolder + daRating.image + uiPostfix;
+	// ==================== FOREVER套系特殊逻辑开始 ====================
+	var ratingImageToUse:String = daRating.image;
+	var shouldUseGoldenNumbers:Bool = false;
+	
+	// 检查是否为Forever套系
+	var isForeverUI:Bool = (customUIPath.toLowerCase().contains("forever") || 
+	                       (ClientPrefs.data.customUI != null && 
+	                        ClientPrefs.data.customUI.toLowerCase().contains("forever")));
+	
+	if (isForeverUI)
+	{
+		// 检查ratingFC是否为MFC或SFC
+		var isMFCOrSFC:Bool = (ratingFC == "MFC" || ratingFC == "SFC");
+		
+		// 如果ratingFC为MFC或SFC，始终使用Marvelous
+		// 否则只在22.5ms内使用Marvelous
+		if (isMFCOrSFC || noteDiff <= 22.5)
+		{
+			ratingImageToUse = "marvelous";
+			shouldUseGoldenNumbers = true;
+		}
+		else
+		{
+			// 对于good/bad/shit评级，添加Early/Late后缀
+			if (daRating.name == "good" || daRating.name == "bad" || daRating.name == "shit")
+			{
+				if (rawNoteDiff > 0)
+				{
+					ratingImageToUse = daRating.image + "-e"; // Early后缀
+				}
+				else
+				{
+					ratingImageToUse = daRating.image + "-l"; // Late后缀
+				}
+			}
+		}
+	}
+	// ==================== FOREVER套系特殊逻辑结束 ====================
+
+	var ratingImagePath:String = uiFolder + ratingImageToUse + uiPostfix;
 	if (!Paths.fileExists('images/' + ratingImagePath + '.png', IMAGE) && uiFolder != "")
 	{
-		var fallbackFolder:String = "";
-		if (stageUI != "normal")
-			fallbackFolder = uiPrefix + "UI/";
-		ratingImagePath = fallbackFolder + daRating.image + uiPostfix;
+		// 如果带后缀的图片不存在，尝试使用原始评级图片
+		if (ratingImageToUse.contains("-e") || ratingImageToUse.contains("-l"))
+		{
+			ratingImagePath = uiFolder + daRating.image + uiPostfix;
+			if (!Paths.fileExists('images/' + ratingImagePath + '.png', IMAGE))
+			{
+				var fallbackFolder:String = "";
+				if (stageUI != "normal")
+					fallbackFolder = uiPrefix + "UI/";
+				ratingImagePath = fallbackFolder + daRating.image + uiPostfix;
+			}
+		}
+		else
+		{
+			var fallbackFolder:String = "";
+			if (stageUI != "normal")
+				fallbackFolder = uiPrefix + "UI/";
+			ratingImagePath = fallbackFolder + daRating.image + uiPostfix;
+		}
 	}
 
 	rating.loadGraphic(Paths.image(ratingImagePath));
@@ -3672,7 +3723,26 @@ private function popUpScore(note:Note = null):Void
 	// 数字根据评级变色
 	for (i in 0...separatedScore.length)
 	{
-		var numImagePath:String = uiFolder + 'num' + Std.parseInt(separatedScore.charAt(i)) + uiPostfix;
+		var numImagePath:String;
+		
+		// ==================== FOREVER套系数字逻辑开始 ====================
+		if (isForeverUI && shouldUseGoldenNumbers)
+		{
+			// 使用金色数字前缀
+			numImagePath = uiFolder + 'goldennum' + Std.parseInt(separatedScore.charAt(i)) + uiPostfix;
+			
+			// 如果金色数字不存在，回退到普通数字
+			if (!Paths.fileExists('images/' + numImagePath + '.png', IMAGE))
+			{
+				numImagePath = uiFolder + 'num' + Std.parseInt(separatedScore.charAt(i)) + uiPostfix;
+			}
+		}
+		else
+		{
+			// 非Forever套系或非Marvelous情况，使用默认数字
+			numImagePath = uiFolder + 'num' + Std.parseInt(separatedScore.charAt(i)) + uiPostfix;
+		}
+		// ==================== FOREVER套系数字逻辑结束 ====================
 		
 		// 检查数字图片是否存在，不存在则回退
 		if (!Paths.fileExists('images/' + numImagePath + '.png', IMAGE) && uiFolder != "")
@@ -3698,16 +3768,19 @@ private function popUpScore(note:Note = null):Void
 		}
 		
 		// 根据评级给数字着色
-		switch(daRating.name)
+		if (ClientPrefs.data.customColor && ClientPrefs.data.customUI == "Frozen" || ClientPrefs.data.forceNumberColor)
 		{
+			switch(daRating.name)
+			{
 			case 'sick':
-				numScore.color = 0x00FFFF; // 青色/CYAN
+					numScore.color = 0x00FFFF; // 青色/CYAN
 			case 'good':
 				numScore.color = 0x00FF00; // 绿色/GREEN
 			case 'bad':
 				numScore.color = 0xFF0000; // 橙色/ORANGE
 			case 'shit':
 				numScore.color = 0x690000; // 红色/RED
+		}
 		}
 		
 		numScore.updateHitbox();
@@ -5221,9 +5294,7 @@ private function processReplayNotes(elapsed:Float):Void
     var realCurrentTime:Float = currentTime + Conductor.offset; // 考虑offset
     
     // 每50个音符更新一次UI，避免过于频繁
-    if (repNoteIndex % 50 == 0 || repTxt == null) {
-        updateReplayUI(currentTime);
-    }
+    updateReplayUI(currentTime);
     
     // 调试信息：每2秒打印一次状态
     #if debug
@@ -5365,7 +5436,7 @@ private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):
     }
     else
     {
-        // trace('WARNING: No target note found for replay hit at $noteStrTime');
+        trace('WARNING: No target note found for replay hit at $noteStrTime');
         
         // 如果没有找到对应音符，至少播放动画
         var animName:String = singAnimations[column];
