@@ -468,12 +468,32 @@ class PsychUIInputText extends FlxSpriteGroup
 	}
 
 	public function updateCaret()
-	{
-		if(textObj == null || !textObj.exists) return;
+{
+    if(textObj == null || !textObj.exists) return;
 
-		var textField = textObj.textField;
-		textField.setSelection(caretIndex, caretIndex);
-		_caretTime = 0;
+    var textField = textObj.textField;
+    
+    // OpenFL 9.5.0 修复了默认索引，需要确保索引有效
+    if(caretIndex < 0) caretIndex = 0;
+    if(caretIndex > text.length) caretIndex = text.length;
+    
+    // 修复 setSelection() 行为变化
+    try {
+        // 确保不会传入无效值
+        var start = Std.int(Math.max(0, Math.min(text.length, caretIndex)));
+        var end = start; // 单光标，没有选择
+        
+        if(selectIndex != -1 && selectIndex != caretIndex) {
+            start = Std.int(Math.min(caretIndex, selectIndex));
+            end = Std.int(Math.max(caretIndex, selectIndex));
+        }
+        
+        textField.setSelection(start, end);
+    } catch(e:Dynamic) {
+        trace("setSelection failed:", e);
+    }
+    
+    _caretTime = 0;
 		if(caret != null && caret.exists)
 		{
 			caret.y = textObj.y + 2;
@@ -605,33 +625,74 @@ class PsychUIInputText extends FlxSpriteGroup
 
 	var _boundaries:Array<Float> = [];
 	function set_text(v:String)
-	{
-		for (i in 0..._boundaries.length) _boundaries.pop();
-		v = filter(v);
+{
+    for (i in 0..._boundaries.length) _boundaries.pop();
+    v = filter(v);
 
-		textObj.text = '';
-		if(v != null && v.length > 0)
-		{
-			if(v.length > 1)
-			{
-				for (i in 0...v.length)
-				{
-					var toPrint:String = v.substr(i, 1);
-					if(toPrint == '\n') toPrint = ' ';
-					textObj.textField.appendText(!passwordMask ? toPrint : '*');
-					_boundaries.push(textObj.textField.textWidth);
-				}
-			}
-			else
-			{
-				textObj.text = !passwordMask ? v : '*';
-				_boundaries.push(textObj.textField.textWidth);
-			}
-		}
-		text = v;
-		updateCaret();
-		return v;
-	}
+    textObj.text = '';
+    if(v != null && v.length > 0)
+    {
+        // 使用 OpenFL 9.5.0 的新特性
+        if(passwordMask) {
+            // 设置密码掩码字符（OpenFL 9.5.0 新增）
+            textObj.textField.displayAsPassword = true;
+            textObj.textField.passwordChar = "*"; // 可选，默认就是"*"
+            textObj.text = v; // 直接设置文本，OpenFL会自动处理掩码
+            // 计算掩码后的边界
+            var displayText = StringTools.lpad("", "*", v.length);
+            calculateBoundaries(displayText);
+        }
+        else {
+            textObj.textField.displayAsPassword = false;
+            // 原有逻辑，但需要优化
+            if(v.length > 1)
+            {
+                // 批量处理，而不是逐个字符
+                var displayText = v.replace("\n", " ");
+                textObj.text = displayText;
+                calculateBoundaries(displayText);
+            }
+            else
+            {
+                textObj.text = v;
+                _boundaries.push(textObj.textField.textWidth);
+            }
+        }
+    }
+    else {
+        textObj.text = "";
+        textObj.textField.displayAsPassword = false;
+    }
+    
+    text = v;
+    updateCaret();
+    return v;
+}
+
+// 新增的边界计算函数
+function calculateBoundaries(text:String)
+{
+    if(text.length == 0) return;
+    
+    // 对于长文本，使用更高效的计算方式
+    if(text.length > 100) {
+        // 使用近似计算
+        var avgWidth = textObj.textField.textWidth / text.length;
+        for(i in 0...text.length) {
+            _boundaries[i] = (i + 1) * avgWidth;
+        }
+    } else {
+        // 对于短文本，使用精确计算
+        var tempText = "";
+        for(i in 0...text.length) {
+            tempText += text.charAt(i);
+            textObj.textField.text = tempText;
+            _boundaries[i] = textObj.textField.textWidth;
+        }
+        // 恢复原文本
+        textObj.textField.text = text;
+    }
+}
 
 	public static function getAccentCharCode(accent:AccentCode)
 	{

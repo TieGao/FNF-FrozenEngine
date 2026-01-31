@@ -575,9 +575,9 @@ class PlayState extends MusicBeatState
 		comboGroup = new FlxSpriteGroup();
 		videoGroup = new FlxSpriteGroup();
 		noteGroup = new FlxTypedGroup<FlxBasic>();
+		add(videoGroup);
 		add(comboGroup);
 		add(uiGroup);
-		add(videoGroup);
 		add(noteGroup);
 
 		Conductor.songPosition = -Conductor.crochet * 5 + Conductor.offset;
@@ -675,7 +675,7 @@ class PlayState extends MusicBeatState
 		botplayTxt.visible = cpuControlled;
 		uiGroup.add(botplayTxt);
 
-		repTxt = new FlxText(400, healthBar.y + (ClientPrefs.data.downScroll ? -150 : 50), FlxG.width - 800, "Replay", 32);
+		repTxt = new FlxText(400, healthBar.y + (ClientPrefs.data.downScroll ? -150 : 50), FlxG.width - 800, "REPLAY MODE", 32);
 		repTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		repTxt.scrollFactor.set();
 		repTxt.borderSize = 1.25;
@@ -3865,7 +3865,7 @@ private function popUpScore(note:Note = null):Void
         {
             // 记录实际的时间差
             var diff = foundNote.strumTime - Conductor.songPosition;
-            rep.recordNote(foundNote.strumTime, key, foundNote.sustainLength, diff);
+            //rep.recordNote(foundNote.strumTime, key, foundNote.sustainLength, diff);
         }
     }
 }
@@ -4234,15 +4234,6 @@ function noteMissPress(direction:Int = 1):Void
 		
 		note.wasGoodHit = true;
 
-		if (ClientPrefs.data.hitErrorBarVisible) {
-		var hitTime = Conductor.songPosition - note.strumTime;
-		
-		// 更新误差条
-		if (hitErrorBar != null && (!note.isSustainNote )) {
-			hitErrorBar.registerHit(hitTime);
-		}
-		}	
-
 		var isSus:Bool = note.isSustainNote;
 		var leData:Int = Math.round(Math.abs(note.noteData));
 		var leType:String = note.noteType;
@@ -4306,25 +4297,19 @@ function noteMissPress(direction:Int = 1):Void
 					}
 				}
 			}
-
-			if(!cpuControlled)
-			{
-				// 关键修改：在玩家当前控制的轨道上显示确认动画
-				var strumToAnimate:FlxTypedGroup<StrumNote> = null;
+			var strumToAnimate:FlxTypedGroup<StrumNote> = null;
 				
-				if (backend.OpponentModeSystem.isEnabled()) {
-					// 对手模式下：玩家控制对手轨道（左侧），所以在对手轨道显示确认动画
-					strumToAnimate = opponentStrums;
-				} else {
-					// 正常模式下：玩家控制玩家轨道（右侧），所以在玩家轨道显示确认动画
-					strumToAnimate = playerStrums;
-				}
-				
-				var spr = strumToAnimate.members[note.noteData];
-				if(spr != null) spr.playAnim('confirm', true);
+		if (!cpuControlled)
+		{
+			if (backend.OpponentModeSystem.isEnabled()) {
+				strumToAnimate = opponentStrums;
+			} else {
+				strumToAnimate = playerStrums;
 			}
-			
-			// 播放正确的声音
+		}
+			var spr = strumToAnimate.members[note.noteData];
+			if(spr != null) spr.playAnim('confirm', true);
+
 			var playerVocals:flixel.system.FlxSound = backend.OpponentModeSystem.getPlayerVocals();
 			if(playerVocals != null) playerVocals.volume = 1;
 
@@ -4382,14 +4367,28 @@ function noteMissPress(direction:Int = 1):Void
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('goodNoteHit', [note]);
 		if(!note.isSustainNote) invalidateNote(note);
 
+		var diff = note.strumTime - Conductor.songPosition;
+
+		if (ClientPrefs.data.hitErrorBarVisible) {
+		if (hitErrorBar != null && (!isSus )) {
+			var hitTime:Float = -diff;
+			hitErrorBar.registerHit(hitTime);
+		}
+		}	
+
 		if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
 		{
-			var diff = note.strumTime - Conductor.songPosition;
+			// 如果是长箭头，不记录 diff（或记录为0，后续在 HitGraph 中过滤）
+			var diffToRecord = diff;
+			if (isSus)
+			{
+				diffToRecord = 0; // 或者 -9999，表示长箭头
+				var judge = "";
+				rep.judgementRecording.push(judge);
+				rep.noteRecording.push([note.strumTime, note.sustainLength, note.noteData, diffToRecord]);
+			}
 			
-			// 记录音符数据 [strumTime, sustainLength, noteData, diff]
-			rep.recordNote(note.strumTime, note.noteData, note.sustainLength, diff);
-			
-			if (!note.isSustainNote)
+			if (!isSus)
 			{
 				var absDiff = Math.abs(diff);
 				var judge = "marvelous";
@@ -4401,9 +4400,10 @@ function noteMissPress(direction:Int = 1):Void
 				else if (absDiff <= sickWindow) judge = "sick";
 				else if (absDiff <= goodWindow) judge = "good";
 				else if (absDiff <= badWindow) judge = "bad";
-				else judge = "shit"; // 超过135ms但不超过安全区，仍然是shit
+				else judge = "shit";
 				
-				rep.recordJudgement(judge);
+				rep.judgementRecording.push(judge);			
+				rep.noteRecording.push([note.strumTime, note.sustainLength, note.noteData, diff]);
 			}
 		}
 
@@ -4541,13 +4541,10 @@ function noteMissPress(direction:Int = 1):Void
 		 if (cameraBopActive && camZooming)
     {
         cameraBopCounter++;
-        
-        // 每 cameraZoomingRate 拍触发一次相机缩放
         if (cameraBopCounter >= cameraZoomingRate)
         {
             cameraBopCounter = 0;
             
-            // 确保缩放不会太大
             if (FlxG.camera.zoom < 1.35 && camZoomingMult > 0)
             {
                 // 应用缩放强度
@@ -5368,7 +5365,7 @@ private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):
     }
     else
     {
-       // trace('WARNING: No target note found for replay hit at $noteStrTime');
+        // trace('WARNING: No target note found for replay hit at $noteStrTime');
         
         // 如果没有找到对应音符，至少播放动画
         var animName:String = singAnimations[column];

@@ -17,6 +17,16 @@ import objects.Bar;
 import states.editors.content.Prompt;
 import states.editors.content.PsychJsonPrinter;
 
+// flixel 5.7.0+ fix
+#if (FLX_DEBUG || flixel < version("5.7.0"))
+typedef PointerGraphic = flixel.system.debug.interaction.tools.Pointer.GraphicCursorCross;
+#else
+@:bitmap("assets/images/debugger/cursorCross.png")
+class PointerGraphic extends openfl.display.BitmapData
+{
+}
+#end
+
 class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler.PsychUIEvent
 {
 	var character:Character;
@@ -109,7 +119,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 
 		addCharacter();
 
-		cameraFollowPointer = new FlxSprite().loadGraphic(FlxGraphic.fromClass(GraphicCursorCross));
+		cameraFollowPointer = new FlxSprite().loadGraphic(FlxGraphic.fromClass(PointerGraphic));
 		cameraFollowPointer.setGraphicSize(40, 40);
 		cameraFollowPointer.updateHitbox();
 
@@ -1077,9 +1087,7 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 		/////////////
 		// bg data //
 		/////////////
-		#if !BASE_GAME_FILES
-		camEditor.bgColor = 0xFF666666;
-		#else
+
 		var bg:BGSprite = new BGSprite('stageback', -600, -200, 0.9, 0.9);
 		add(bg);
 
@@ -1087,7 +1095,6 @@ class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler
 		stageFront.setGraphicSize(Std.int(stageFront.width * 1.1));
 		stageFront.updateHitbox();
 		add(stageFront);
-		#end
 
 		dadPosition.set(100, 100);
 		bfPosition.set(770, 100);

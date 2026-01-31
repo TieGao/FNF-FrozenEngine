@@ -46,13 +46,13 @@ import backend.Highscore;
 @:cppFileCode('#define GAMEMODE_AUTO')
 #end
 
-// // // // // // // // //
 class Main extends Sprite
 {
 	public static final game = {
 		width: 1280, // WINDOW width
 		height: 720, // WINDOW height
 		initialState: TitleState, // initial game state
+		zoom: -1.0, // game state bounds (从 1.0.1 保留)
 		framerate: 60, // default framerate
 		skipSplash: true, // if the default flixel splash screen should be skipped
 		startFullscreen: false // if the game should start at fullscreen mode
@@ -71,6 +71,7 @@ class Main extends Sprite
 	{
 		super();
 
+		// 从 1.0.4 保留的 Windows 缩放修复
 		#if (cpp && windows)
 		backend.Native.fixScaling();
 		#end
@@ -81,6 +82,44 @@ class Main extends Sprite
 		#elseif ios
 		Sys.setCwd(lime.system.System.applicationStorageDirectory);
 		#end
+
+		// 使用 1.0.1 的延迟初始化模式
+		if (stage != null)
+		{
+			init();
+		}
+		else
+		{
+			addEventListener(Event.ADDED_TO_STAGE, init);
+		}
+	}
+
+	private function init(?E:Event):Void
+	{
+		if (hasEventListener(Event.ADDED_TO_STAGE))
+		{
+			removeEventListener(Event.ADDED_TO_STAGE, init);
+		}
+
+		setupGame();
+	}
+
+	private function setupGame():Void
+	{
+		// 从 1.0.1 保留的自动缩放计算
+		var stageWidth:Int = Lib.current.stage.stageWidth;
+		var stageHeight:Int = Lib.current.stage.stageHeight;
+
+		if (game.zoom == -1.0)
+		{
+			var ratioX:Float = stageWidth / game.width;
+			var ratioY:Float = stageHeight / game.height;
+			game.zoom = Math.min(ratioX, ratioY);
+			game.width = Math.ceil(stageWidth / game.zoom);
+			game.height = Math.ceil(stageHeight / game.zoom);
+		}
+
+		// 从 1.0.4 保留的初始化代码（但移到 setupGame 中）
 		#if VIDEOS_ALLOWED
 		hxvlc.util.Handle.init(#if (hxvlc >= "1.8.0")  ['--no-lua'] #end);
 		#end
@@ -93,6 +132,7 @@ class Main extends Sprite
 		FlxG.save.bind('funkin', CoolUtil.getSavePath());
 		Highscore.load();
 
+		// 从 1.0.4 保留的 HScript 错误处理
 		#if HSCRIPT_ALLOWED
 		Iris.warn = function(x, ?pos:haxe.PosInfos) {
 			Iris.logLevel(WARN, x, pos);
@@ -154,7 +194,9 @@ class Main extends Sprite
 		Controls.instance = new Controls();
 		ClientPrefs.loadDefaultKeys();
 		#if ACHIEVEMENTS_ALLOWED Achievements.load(); #end
-		addChild(new FlxGame(game.width, game.height, game.initialState, game.framerate, game.framerate, game.skipSplash, game.startFullscreen));
+		
+		// 从 1.0.1 保留的 FlxGame 构造函数参数（包含 zoom）
+		addChild(new FlxGame(game.width, game.height, game.initialState, #if (flixel < "5.0.0") game.zoom, #end game.framerate, game.framerate, game.skipSplash, game.startFullscreen));
 
 		#if !mobile
 		fpsVar = new FPSCounter(10, 3, 0xFFFFFF);
@@ -166,7 +208,7 @@ class Main extends Sprite
 		}
 		#end
 
-		#if (linux || mac) // fix the app icon not showing up on the Linux Panel / Mac Dock
+		#if (linux || mac) // 从 1.0.4 保留的图标修复
 		var icon = Image.fromFile("icon.png");
 		Lib.current.stage.window.setIcon(icon);
 		#end
@@ -188,7 +230,7 @@ class Main extends Sprite
 		DiscordClient.prepare();
 		#end
 
-		// shader coords fix
+		// shader coords fix (两个版本都有)
 		FlxG.signals.gameResized.add(function (w, h) {
 		     if (FlxG.cameras != null) {
 			   for (cam in FlxG.cameras.list) {
@@ -236,8 +278,7 @@ class Main extends Sprite
 		}
 
 		errMsg += "\nUncaught Error: " + e.error;
-		// remove if you're modding and want the crash log message to contain the link
-		// please remember to actually modify the link for the github page to report the issues to.
+		// 从 1.0.4 保留的崩溃报告信息
 		#if officialBuild
 		errMsg += "\nPlease report this error to the GitHub page: https://github.com/ShadowMario/FNF-PsychEngine";
 		#end

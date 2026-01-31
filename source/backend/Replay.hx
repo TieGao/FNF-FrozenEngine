@@ -66,7 +66,7 @@ typedef ReplayJSON =
 
 class Replay
 {
-    public static var version:String = "1.4"; // 版本更新到1.4
+    public static var version:String = "1.5"; // 版本更新到1.4
 
     public var path:String = "";
     public var replay:ReplayJSON;
@@ -268,9 +268,6 @@ class Replay
     // 参考Kade Engine的记录方式
     public function recordNote(strumTime:Float, noteData:Int, sustainLength:Float, diff:Float):Void
     {
-        // Kade Engine的方式：直接记录原始diff值
-        // 如果diff太大，可能是miss，但我们不应该在这里修正
-        // 让图表处理显示逻辑
         noteRecording.push([strumTime, sustainLength, noteData, diff]);
     }
     
@@ -344,7 +341,7 @@ class Replay
         while (currentIndex < replay.songNotes.length)
         {
             var note:Array<Dynamic> = replay.songNotes[currentIndex];
-            if (note[0] <= strumTime + 50) // 50ms容差
+            if (note[0] <= strumTime + 10) // 50ms容差
             {
                 currentIndex++;
                 return note;

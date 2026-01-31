@@ -36,11 +36,11 @@ class HitGraph extends Sprite
         _axis = new Sprite();
         addChild(_axis);
 
-        // 创建早期/晚期标签
+        // 创建早期/晚期标签 - 调整位置（早期在下，晚期在上）
         var early = createTextField(10, _height - 20, FlxColor.WHITE, 12);
         var late = createTextField(10, 10, FlxColor.WHITE, 12);
-        early.text = "Early (-166ms)";
-        late.text = "Late (+166ms)";
+        early.text = "Early (+166ms)"; // 改为在上方显示Late
+        late.text = "Late (-166ms)"; // 改为在下方显示Early
         addChild(early);
         addChild(late);
 
@@ -92,15 +92,19 @@ class HitGraph extends Sprite
         gfx.lineStyle(1, color, 0.4);
 
         var range:Float = 210; // -210ms to +210ms
+        // 修改：正值在下方，负值在上方
+        // ms: +166 (Late) -> 应该显示在下方，ms: -166 (Early) -> 应该显示在上方
         var value = (ms + 210) / (range * 2); // 转换到0-1范围
 
-        var pointY = _height - (value * _height);
+        // 修改：倒转Y坐标计算，使正值为下方，负值为上方
+        var pointY = (value * _height);
         gfx.moveTo(0, pointY);
         gfx.lineTo(_width, pointY);
         
-        // 添加标签（只在右侧显示一个标签，避免重叠）
-        if (labelText != "" && ms > 0) { // 只为正数时间添加标签
-            var label = createTextField(_width - 60, pointY - 6, color, 10);
+        // 修改：调整标签位置，正数时间在下，负数时间在上
+        if (labelText != "") {
+            var labelY = ms > 0 ? pointY - 6 : pointY - 20; // 正数标签在上方，负数标签在下方
+            var label = createTextField(_width - 60, labelY, color, 10);
             label.text = labelText;
             addChild(label);
             _labels.push(label);
@@ -122,28 +126,28 @@ class HitGraph extends Sprite
 
         // 绘制判定区域线
         // MARVELOUS 范围: ±22.5ms (金色)
-        drawJudgementLine(22.5, FlxColor.fromRGB(255, 215, 0), "Marvelous");
-        drawJudgementLine(-22.5, FlxColor.fromRGB(255, 215, 0));
+        drawJudgementLine(22.5, FlxColor.fromRGB(255, 215, 0));
+        drawJudgementLine(-22.5, FlxColor.fromRGB(255, 215, 0),"Marvelous");
         
         // SICK 范围: ±45ms (蓝色)
-        drawJudgementLine(45, FlxColor.CYAN, "Sick");
-        drawJudgementLine(-45, FlxColor.CYAN);
+        drawJudgementLine(45, FlxColor.CYAN);
+        drawJudgementLine(-45, FlxColor.CYAN, "Sick");
         
         // GOOD 范围: ±90ms (绿色)
-        drawJudgementLine(90, FlxColor.LIME, "Good");
-        drawJudgementLine(-90, FlxColor.LIME);
+        drawJudgementLine(90, FlxColor.LIME);
+        drawJudgementLine(-90, FlxColor.LIME, "Good");
         
         // BAD 范围: ±135ms (浅红色)
-        drawJudgementLine(135, FlxColor.fromRGB(255, 100, 100), "Bad");
-        drawJudgementLine(-135, FlxColor.fromRGB(255, 100, 100));
+        drawJudgementLine(135, FlxColor.fromRGB(255, 100, 100));
+        drawJudgementLine(-135, FlxColor.fromRGB(255, 100, 100), "Bad");
         
         // SHIT 范围: ±166ms (深红色)
-        drawJudgementLine(166, FlxColor.RED, "Shit");
-        drawJudgementLine(-166, FlxColor.RED);
+        drawJudgementLine(166, FlxColor.RED);
+        drawJudgementLine(-166, FlxColor.RED, "Shit");
         
         // MISS线 (±210ms) 使用虚线样式，颜色为暗红色
-        drawMissLine(210, FlxColor.fromRGB(128, 0, 0), "Miss");
-        drawMissLine(-210, FlxColor.fromRGB(128, 0, 0));
+        drawMissLine(210, FlxColor.fromRGB(100, 0, 0));
+        drawMissLine(-210, FlxColor.fromRGB(100, 0, 0), "Miss");
     }
 
     // 绘制MISS线 - 使用虚线样式
@@ -156,7 +160,8 @@ class HitGraph extends Sprite
         var range:Float = 210; // -210ms to +210ms
         var value = (ms + 210) / (range * 2); // 转换到0-1范围
 
-        var pointY = _height - (value * _height);
+        // 修改：倒转Y坐标计算
+        var pointY = (value * _height);
         
         // 绘制虚线
         var currentX:Float = 0;
@@ -177,9 +182,10 @@ class HitGraph extends Sprite
             drawingDash = !drawingDash;
         }
         
-        // 添加标签（只在右侧显示一个标签，避免重叠）
-        if (labelText != "" && ms > 0) {
-            var label = createTextField(_width - 60, pointY - 6, color, 10);
+        // 修改：调整标签位置
+        if (labelText != "") {
+            var labelY = ms > 0 ? pointY - 6 : pointY - 20;
+            var label = createTextField(_width - 60, labelY, color, 10);
             label.text = labelText;
             addChild(label);
             _labels.push(label);
@@ -231,11 +237,13 @@ class HitGraph extends Sprite
             // 转换时间到X坐标 - 使用实际的时间范围
             var xPos = ((time - minTime) / timeRange) * _width;
             
-            // 转换时间偏移到Y坐标 - 使用范围 -210ms 到 +210ms
-            // 修正Y坐标计算：-210ms对应_height, +210ms对应0
+            // 修改：转换时间偏移到Y坐标 - 使用范围 -210ms 到 +210ms
+            // 修改：+210ms（Late）对应_height（下方），-210ms（Early）对应0（上方）
             var normalizedDiff = Math.max(-210, Math.min(210, diff)); // 限制在±210ms内
             var normalized = (normalizedDiff + 210) / 420; // 转换到0-1范围
-            var yPos = _height - (normalized * _height);
+            
+            // 修改：倒转Y坐标计算，使正值为下方，负值为上方
+            var yPos = normalized * _height;
             
             // 确保在图表范围内
             xPos = FlxMath.bound(xPos, 0, _width);
@@ -287,6 +295,22 @@ class HitGraph extends Sprite
     
     public function addToHistory(diff:Float, judge:String, time:Float)
     {
+        // 过滤掉长箭头（diff 为 0 或特殊值）
+        if (diff == 0 && judge == "") {
+            return; // 不添加到历史数据中
+        }
+        if (judge == "marvelous" && Math.abs(diff) > ClientPrefs.data.marvelousWindow) {
+            return; // 忽略不合理的Marvelous判定
+        }
+        else if (judge == "sick" && Math.abs(diff) > ClientPrefs.data.sickWindow) {
+            return; // 忽略不合理的Sick判定
+        }
+        else if (judge == "good" && Math.abs(diff) > ClientPrefs.data.goodWindow) {
+            return; // 忽略不合理的Good判定
+        }
+        else if (judge == "bad" && Math.abs(diff) > ClientPrefs.data.badWindow) {
+            return; // 忽略不合理的Bad判定
+        }
         history.push([diff, judge, time]);
     }
 
