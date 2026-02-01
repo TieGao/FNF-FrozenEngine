@@ -143,7 +143,6 @@ off: "关"
 
 // Font mappings - map engine font requests to the specified fonts
 fonts/vcr.ttf: "fonts/HarmonyOS_Sans_SC_Medium.ttf"
-fonts/pixel-latin.ttf: "fonts/fusion-pixel-12px-proportional-latin.otf"
 
 # Generic fallback when an option has no specific description
 no_description_available: "暂无描述"

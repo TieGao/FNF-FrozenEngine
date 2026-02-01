@@ -316,6 +316,7 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Song Text", "Show song info watermark", "songText", "bool"),
 			KEOption.create("Score Screen", "Show Kade-style results", "scoreScreen", "bool"),
 			KEOption.create("NoteHits Counter", "Show note hits counter", "Counter", "bool"),
+			KEOption.create("Charm Bar Pause", "Modern Pause Sub State", "charmPause", "bool"),
 			hitErrorSettings, // 命中误差条二级菜单
 			keyboardDisplayOptions,
 		];

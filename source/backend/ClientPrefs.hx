@@ -75,6 +75,7 @@ import states.TitleState;
 	public var hitErrorBarOffsetX:Int = 0;
 	public var hitErrorBarOffsetY:Int = 0;
 	public var noteSustainsOffset:Float = 0.0;
+	public var charmPause:Bool = false;
 	public var gameplaySettings:Map<String, Dynamic> = [
 		'scrollspeed' => 1.0,
 		'scrolltype' => 'multiplicative', 

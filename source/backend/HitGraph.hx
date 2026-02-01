@@ -299,18 +299,7 @@ class HitGraph extends Sprite
         if (diff == 0 && judge == "") {
             return; // 不添加到历史数据中
         }
-        if (judge == "marvelous" && Math.abs(diff) > ClientPrefs.data.marvelousWindow) {
-            return; // 忽略不合理的Marvelous判定
-        }
-        else if (judge == "sick" && Math.abs(diff) > ClientPrefs.data.sickWindow) {
-            return; // 忽略不合理的Sick判定
-        }
-        else if (judge == "good" && Math.abs(diff) > ClientPrefs.data.goodWindow) {
-            return; // 忽略不合理的Good判定
-        }
-        else if (judge == "bad" && Math.abs(diff) > ClientPrefs.data.badWindow) {
-            return; // 忽略不合理的Bad判定
-        }
+        
         history.push([diff, judge, time]);
     }
 

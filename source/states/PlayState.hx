@@ -27,6 +27,7 @@ import states.editors.ChartingState;
 import states.editors.CharacterEditorState;
 
 import substates.PauseSubState;
+import substates.NewPauseSubState;
 import substates.GameOverSubstate;
 
 #if !flash
@@ -2333,9 +2334,11 @@ class PlayState extends MusicBeatState
                 if(startedCountdown)
                 {
                     var fakeCrochet:Float = (60 / SONG.bpm) * 1000;
-                    notes.forEachAlive(function(daNote:Note)
-                    {
-                        // 根据音符的mustPress选择正确的轨道
+						var i:Int = 0;
+						while(i < notes.length)
+						{
+							var daNote:Note = notes.members[i];
+							if(daNote == null) continue;
                         var strumGroup:FlxTypedGroup<StrumNote> = daNote.mustPress ? 
                             backend.OpponentModeSystem.getPlayerStrums() : 
                             backend.OpponentModeSystem.getOpponentStrums();
@@ -2361,13 +2364,8 @@ class PlayState extends MusicBeatState
                         // 判断是否应该miss
                         if (Conductor.songPosition - daNote.strumTime > noteKillOffset)
                         {
-                            // 玩家控制的音符如果miss了
                             if (daNote.mustPress && !cpuControlled && !daNote.ignoreNote && !endingSong && (daNote.tooLate || !daNote.wasGoodHit))
-                            {
-                                noteMiss(daNote);
-                            }
-                            
-                            // 对手控制的音符自动miss
+								 noteMiss(daNote);
                             else if (!daNote.mustPress && !daNote.ignoreNote && !endingSong && (daNote.tooLate || !daNote.wasGoodHit))
                             {
                                 if (!daNote.noMissAnimation)
@@ -2385,7 +2383,8 @@ class PlayState extends MusicBeatState
                             daNote.active = daNote.visible = false;
                             invalidateNote(daNote);
                         }
-                    });
+						if(daNote.exists) i++;
+                    }
                 }
                 else
                 {
@@ -2396,8 +2395,8 @@ class PlayState extends MusicBeatState
                     });
                 }
             }
-            checkEventNote();
         }
+		checkEventNote();
     }
 
     #if debug
@@ -2487,8 +2486,14 @@ class PlayState extends MusicBeatState
 					note.resetAnim = 0;
 				}
 		}
+		if (ClientPrefs.data.charmPause)
+		{
+		openSubState(new NewPauseSubState());
+		}
+		else
+		{
 		openSubState(new PauseSubState());
-
+		}
 		#if DISCORD_ALLOWED
 		if(autoUpdateRPC) DiscordClient.changePresence(detailsPausedText, SONG.song + " (" + storyDifficultyText + ")", iconP2.getCharacter());
 		#end
@@ -3528,7 +3533,7 @@ private function popUpScore(note:Note = null):Void
 	if(daRating.noteSplash && !note.noteSplashData.disabled)
 		spawnNoteSplashOnNote(note);
 
-	if(!practiceMode && !cpuControlled) {
+	if(!cpuControlled) {
 		songScore += score;
 		if(!note.ratingDisabled)
 		{
@@ -3582,7 +3587,7 @@ private function popUpScore(note:Note = null):Void
 		
 		// 如果ratingFC为MFC或SFC，始终使用Marvelous
 		// 否则只在22.5ms内使用Marvelous
-		if (isMFCOrSFC || noteDiff <= 22.5)
+		if (isMFCOrSFC || noteDiff <= ClientPrefs.data.marvelousWindow)
 		{
 			ratingImageToUse = "marvelous";
 			shouldUseGoldenNumbers = true;
