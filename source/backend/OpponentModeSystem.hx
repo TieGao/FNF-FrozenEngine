@@ -57,7 +57,7 @@ public static function getPlayerCharacter():Character {
     /**
      * 获取玩家声音
      */
-    public static function getPlayerVocals():flixel.system.FlxSound
+    public static function getPlayerVocals():FlxSound
     {
         if (PlayState.instance == null) return null;
         return isEnabled() ? PlayState.instance.opponentVocals : PlayState.instance.vocals;
@@ -66,7 +66,7 @@ public static function getPlayerCharacter():Character {
     /**
      * 获取对手声音
      */
-    public static function getOpponentVocals():flixel.system.FlxSound
+    public static function getOpponentVocals():FlxSound
     {
         if (PlayState.instance == null) return null;
         return isEnabled() ? PlayState.instance.vocals : PlayState.instance.opponentVocals;

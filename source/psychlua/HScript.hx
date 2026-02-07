@@ -457,7 +457,8 @@ class HScript extends Iris
 			Iris.error('$e', pos);
 		}
 		return null;
-	}
+    }
+    
 
 	override public function destroy()
 	{
@@ -546,22 +547,158 @@ class CustomInterp extends crowplexus.hscript.Interp
 		super();
 	}
 
-	override function fcall(o:Dynamic, funcToRun:String, args:Array<Dynamic>):Dynamic {
-		for (_using in usings) {
-			var v = _using.call(o, funcToRun, args);
-			if (v != null)
-				return v;
-		}
+    override function fcall(o:Dynamic, funcToRun:String, args:Array<Dynamic>):Dynamic {
+        // 特别处理 setFilters 调用
+        if (funcToRun == "setFilters") {
+            return handleSetFilters(o, args);
+        }
+        
+        for (_using in usings) {
+            var v = _using.call(o, funcToRun, args);
+            if (v != null)
+                return v;
+        }
 
-		var f = get(o, funcToRun);
+        var f = get(o, funcToRun);
 
-		if (f == null) {
-			Iris.error('Tried to call null function $funcToRun', posInfos());
-			return null;
-		}
+        if (f == null) {
+            Iris.error('Tried to call null function $funcToRun', posInfos());
+            return null;
+        }
 
-		return Reflect.callMethod(o, f, args);
-	}
+        return Reflect.callMethod(o, f, args);
+    }
+    
+private function handleSetFilters(obj:Dynamic, args:Array<Dynamic>):Dynamic {
+    trace('[DEBUG] handleSetFilters called: obj=$obj, args=$args, args.length=${args.length}');
+    
+    // 处理没有参数的情况（清空所有滤镜）
+    if (args.length == 0) {
+        trace('[DEBUG] No arguments provided, clearing filters');
+        return clearFiltersOnObject(obj);
+    }
+    
+    var filtersArg:Dynamic = args[0];
+    
+    // 处理 null 参数（清空滤镜）
+    if (filtersArg == null) {
+        trace('[DEBUG] Null argument provided, clearing filters');
+        return clearFiltersOnObject(obj);
+    }
+    
+    // 处理空数组（清空滤镜）
+    if (Std.isOfType(filtersArg, Array)) {
+        var arr:Array<Dynamic> = cast filtersArg;
+        if (arr.length == 0) {
+            trace('[DEBUG] Empty array provided, clearing filters');
+            return clearFiltersOnObject(obj);
+        }
+    }
+    
+    // 确保参数是数组
+    if (!Std.isOfType(filtersArg, Array)) {
+        // 尝试包装单个参数为数组
+        if (Std.isOfType(filtersArg, openfl.filters.ShaderFilter) || 
+            Std.isOfType(filtersArg, openfl.filters.BitmapFilter)) {
+            filtersArg = [filtersArg];
+        } else {
+            Iris.error('setFilters requires an array of filters, got ${Type.typeof(filtersArg)}', posInfos());
+            return null;
+        }
+    }
+    
+    var filters:Array<Dynamic> = cast filtersArg;
+    return setFiltersOnObject(obj, filters);
+}
+
+private function clearFiltersOnObject(obj:Dynamic):Dynamic {
+    trace('[DEBUG] Clearing filters on object');
+    
+    try {
+        if (Std.isOfType(obj, flixel.FlxCamera)) {
+            var cam:flixel.FlxCamera = cast obj;
+            cam.filters = [];
+            trace('[DEBUG] Filters cleared on FlxCamera');
+        } else if (obj == FlxG.game) {
+            FlxG.game.filters = [];
+            trace('[DEBUG] Filters cleared on FlxG.game');
+        } else if (Std.isOfType(obj, String) && cast(obj, String) == "game") {
+            FlxG.game.filters = [];
+            trace('[DEBUG] Filters cleared on game via string');
+        } else if (Std.isOfType(obj, flixel.FlxSprite)) {
+            var sprite:flixel.FlxSprite = cast obj;
+            sprite.shader = null;
+            trace('[DEBUG] Filters cleared on FlxSprite');
+        } else {
+            // 尝试通过反射清空
+            if (Reflect.hasField(obj, "filters")) {
+                Reflect.setProperty(obj, "filters", []);
+                trace('[DEBUG] Filters cleared via reflection');
+            } else {
+                // 这不是错误，有些对象可能不支持滤镜
+                trace('[WARN] Object does not support filters or cannot clear them');
+            }
+        }
+    } catch(e:Dynamic) {
+        trace('[ERROR] Failed to clear filters: $e');
+        Iris.error('Failed to clear filters: $e', posInfos());
+        return null;
+    }
+    
+    return null;
+}
+
+private function setFiltersOnObject(obj:Dynamic, filters:Array<Dynamic>):Dynamic {
+    var bitmapFilters:Array<openfl.filters.BitmapFilter> = [];
+    
+    // 转换过滤器
+    for (filter in filters) {
+        if (filter == null) continue;
+        
+        if (Std.isOfType(filter, openfl.filters.ShaderFilter) || 
+            Std.isOfType(filter, openfl.filters.BitmapFilter)) {
+            bitmapFilters.push(filter);
+            trace('[DEBUG] Added filter: ${Type.getClassName(Type.getClass(filter))}');
+        } else {
+            trace('[WARN] Skipping incompatible filter: ${Type.getClassName(Type.getClass(filter))}');
+        }
+    }
+    
+    trace('[DEBUG] Setting ${bitmapFilters.length} filters on object');
+    
+    // 设置过滤器
+    try {
+        if (Std.isOfType(obj, flixel.FlxCamera)) {
+            var cam:flixel.FlxCamera = cast obj;
+            cam.filters = bitmapFilters;
+            trace('[DEBUG] Filters set on FlxCamera');
+        } else if (obj == FlxG.game) {
+            FlxG.game.filters = bitmapFilters;
+            trace('[DEBUG] Filters set on FlxG.game');
+        } else if (Std.isOfType(obj, String) && cast(obj, String) == "game") {
+            FlxG.game.filters = bitmapFilters;
+            trace('[DEBUG] Filters set on game via string');
+        } else if (Std.isOfType(obj, flixel.FlxSprite)) {
+            var sprite:flixel.FlxSprite = cast obj;
+            //sprite.shader = bitmapFilters;
+            trace('[DEBUG] Filters set on FlxSprite');
+        } else {
+            // 尝试通过反射设置
+            if (Reflect.hasField(obj, "filters")) {
+                Reflect.setProperty(obj, "filters", bitmapFilters);
+                trace('[DEBUG] Filters set via reflection');
+            } else {
+                Iris.error('Object does not support filters: ${Type.getClassName(Type.getClass(obj))}', posInfos());
+                return null;
+            }
+        }
+    } catch(e:Dynamic) {
+        Iris.error('Failed to set filters: $e', posInfos());
+        return null;
+    }
+    
+    return null;
+}
 
 	override function resolve(id: String): Dynamic {
 		if (locals.exists(id)) {

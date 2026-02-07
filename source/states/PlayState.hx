@@ -584,7 +584,7 @@ class PlayState extends MusicBeatState
 		Conductor.songPosition = -Conductor.crochet * 5 + Conductor.offset;
 		var showTime:Bool = (ClientPrefs.data.timeBarType != 'Disabled');
 		timeTxt = new FlxText(STRUM_X + (FlxG.width / 2) - 248, 19, 400, "", 32);
-		timeTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		timeTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		timeTxt.scrollFactor.set();
 		timeTxt.alpha = 0;
 		timeTxt.borderSize = 2;
@@ -663,37 +663,37 @@ class PlayState extends MusicBeatState
 		uiGroup.add(iconP2);
 
 		scoreTxt = new FlxText(0, healthBar.y + 40, FlxG.width, "", 20);
-		scoreTxt.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		scoreTxt.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		scoreTxt.scrollFactor.set();
 		scoreTxt.borderSize = 1.25;
 		scoreTxt.visible = !ClientPrefs.data.hideHud;
 		uiGroup.add(scoreTxt);
 
 		botplayTxt = new FlxText(400, healthBar.y - 90, FlxG.width - 800, Language.getPhrase("Botplay").toUpperCase(), 32);
-		botplayTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		botplayTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		botplayTxt.scrollFactor.set();
 		botplayTxt.borderSize = 1.25;
 		botplayTxt.visible = cpuControlled;
 		uiGroup.add(botplayTxt);
 
 		repTxt = new FlxText(400, healthBar.y + (ClientPrefs.data.downScroll ? 100 : -150), FlxG.width - 800, "REPLAY MODE", 32);
-		repTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		repTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
 		repTxt.scrollFactor.set();
 		repTxt.borderSize = 1.25;
 		repTxt.visible = inReplay;
 		uiGroup.add(repTxt);
 
 		healthText = new FlxText(0, 0, 300, "Health: " + Math.floor(health * 50), 30);
-        healthText.setFormat(Paths.font("vcr.ttf"), 30, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+        healthText.setFormat(Paths.font("vcr.ttf"), 30, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         healthText.scrollFactor.set();
-		botplayTxt.borderSize = 1;
+		healthText.borderSize = 1.25;
 		healthText.visible = !ClientPrefs.data.hideHud && ClientPrefs.data.healthText;
         uiGroup.add(healthText);
 
 		var version:String = MainMenuState.frozenEngineVersion;
     
 		songText = new FlxText(2, 701, 0, SONG.song + ' - ' + Difficulty.getString() + ' | FE - ' + version, 15);
-		songText.setFormat(Paths.font("vcr.ttf"), 15, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		songText.setFormat(Paths.font("vcr.ttf"), 15, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 		songText.scrollFactor.set();
 		songText.borderSize = 1;
 		songText.visible = !ClientPrefs.data.hideHud && ClientPrefs.data.songText;
@@ -1486,8 +1486,9 @@ class PlayState extends MusicBeatState
 		var goods:Int = ratingsData[2].hits;
 		var bads:Int = ratingsData[3].hits;
 		var shits:Int = ratingsData[4].hits;
+		var totalHits:Int = marvelous + sicks + goods + bads + shits;
 
-		if (tnhText != null) tnhText.text = "Total Notes Hit: " + songHits;
+		if (tnhText != null) tnhText.text = "Total Notes Hit: " + totalHits;
 		if (highestcomboText != null) highestcomboText.text = "Highest Combo: " + highestCombo;
         if (comboText != null) comboText.text = "Combo: " + combo;
 		if (marvelousText != null) marvelousText.text = "Marvelous: " + marvelous;
@@ -1539,7 +1540,7 @@ class PlayState extends MusicBeatState
         
         for (textInfo in texts) {
             var textObj:FlxText = new FlxText(startX, textInfo.y, textWidth, textInfo.text, textSize);
-            textObj.setFormat(font, textSize, textInfo.color, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+            textObj.setFormat(font, textSize, textInfo.color, LEFT, OUTLINE, FlxColor.BLACK);
             textObj.scrollFactor.set(0, 0);
             textObj.borderSize = 2.00;
             textObj.visible = !ClientPrefs.data.hideHud;
@@ -1606,7 +1607,29 @@ class PlayState extends MusicBeatState
 	public function doScoreBop():Void {
 		if(!ClientPrefs.data.scoreZoom)
 			return;
+	if(ClientPrefs.data.customColor){
+    var opponentColor:FlxColor = FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]);
+	var bfColor:FlxColor = FlxColor.fromRGB(boyfriend.healthColorArray[0], boyfriend.healthColorArray[1], boyfriend.healthColorArray[2]);
 
+	if (tnhText != null) {
+        tnhText.text = "Total Notes Hit: " + songHits;
+        tnhText.color = opponentColor; 
+    }
+	if (highestcomboText != null) {
+        highestcomboText.text = "Highest Combo: " + highestCombo;
+        highestcomboText.color = opponentColor; 
+	}
+    if (comboText != null) {
+        comboText.text = "Combo: " + combo;
+        comboText.color = opponentColor; 
+    }
+	if (healthText != null) {
+        healthText.color = bfColor; 
+    }
+	if (songText != null) {
+    	songText.color = opponentColor; 
+    }
+	}
 		if(scoreTxtTween != null)
 			scoreTxtTween.cancel();
 
@@ -2346,18 +2369,13 @@ class PlayState extends MusicBeatState
                         var strum:StrumNote = strumGroup.members[daNote.noteData];
                         daNote.followStrumNote(strum, fakeCrochet, songSpeed / playbackRate);
 
-                        // 玩家控制的音符
                         if(daNote.mustPress)
                         {
                             if(cpuControlled && !daNote.blockHit && daNote.canBeHit && (daNote.isSustainNote || daNote.strumTime <= Conductor.songPosition))
                                 goodNoteHit(daNote);
                         }
-                        // 对手控制的音符
-                        else
-                        {
-                            if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote)
+                        else if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote)
                                 opponentNoteHit(daNote);
-                        }
 
                         if(daNote.isSustainNote && strum.sustainReduce) daNote.clipToStrumNote(strum);
 
@@ -2486,7 +2504,7 @@ class PlayState extends MusicBeatState
 					note.resetAnim = 0;
 				}
 		}
-		if (ClientPrefs.data.charmPause)
+		if (ClientPrefs.data.charmPause && !chartingMode)
 		{
 		openSubState(new NewPauseSubState());
 		}
@@ -2568,7 +2586,7 @@ class PlayState extends MusicBeatState
 				persistentDraw = false;
 				FlxTimer.globalManager.clear();
 				FlxTween.globalManager.clear();
-				FlxG.camera.setFilters([]);
+				FlxG.camera.filters =[];
 
 				if(GameOverSubstate.deathDelay > 0)
 				{
@@ -3651,7 +3669,7 @@ private function popUpScore(note:Note = null):Void
 		var msText:String = (msTiming >= 0 ? "+" : "") + msTiming + "ms";
 		
 		currentTimingShown = new FlxText(0, 0, 0, msText, 16);
-		currentTimingShown.setFormat(Paths.font('pixel-latin.ttf'), 16, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		currentTimingShown.setFormat(Paths.font('pixel-latin.ttf'), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		
 		if (ClientPrefs.data.customColor)
 		{
@@ -3880,11 +3898,9 @@ private function popUpScore(note:Note = null):Void
         var shouldControl:Bool = n.mustPress; 
         
         // 检查是否可以击打
-        var canHit:Bool = n.canBeHit && !strumsBlocked[n.noteData] && shouldControl;
-        
-        return canHit && n.noteData == key;
+        var canHit:Bool = n != null && !strumsBlocked[n.noteData] && n.canBeHit && n.mustPress && !n.tooLate && !n.wasGoodHit && !n.blockHit;     
+        return canHit && !n.isSustainNote && n.noteData == key;
     });
-    
     plrInputNotes.sort(sortHitNotes);
 
     if (plrInputNotes.length != 0) {
@@ -4307,6 +4323,8 @@ function noteMissPress(direction:Int = 1):Void
 
 	public function goodNoteHit(note:Note):Void
 	{
+		fullComboFunction();
+
 		if(note.wasGoodHit) return;
 		if(cpuControlled && note.ignoreNote) return;
 		
@@ -4377,29 +4395,30 @@ function noteMissPress(direction:Int = 1):Void
 			}
 			var strumToAnimate:FlxTypedGroup<StrumNote> = null;
 				
-		if (!cpuControlled)
-		{
-			if (backend.OpponentModeSystem.isEnabled()) {
-				strumToAnimate = opponentStrums;
-			} else {
-				strumToAnimate = playerStrums;
-			}
-		}
-			var spr = strumToAnimate.members[note.noteData];
-			if(spr != null) spr.playAnim('confirm', true);
-
-			var playerVocals:flixel.system.FlxSound = backend.OpponentModeSystem.getPlayerVocals();
-			if(playerVocals != null) playerVocals.volume = 1;
-
-			if (!note.isSustainNote)
+			if (!cpuControlled)
 			{
-				combo++;
-				if(combo > 9999) combo = 9999;
-				popUpScore(note);
+				if (backend.OpponentModeSystem.isEnabled()) {
+					strumToAnimate = opponentStrums;
+				} else {
+					strumToAnimate = playerStrums;
+				}
+			
+				var spr = strumToAnimate.members[note.noteData];
+				if(spr != null) spr.playAnim('confirm', true);
 			}
-			var gainHealth:Bool = true;
-			if (guitarHeroSustains && note.isSustainNote) gainHealth = false;
-			if (gainHealth) health += note.hitHealth * healthGain;
+			else strumPlayAnim(false, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
+				var playerVocals:FlxSound = backend.OpponentModeSystem.getPlayerVocals();
+				if(playerVocals != null) playerVocals.volume = 1;
+
+				if (!note.isSustainNote)
+				{
+					combo++;
+					if(combo > 9999) combo = 9999;
+					popUpScore(note);
+				}
+				var gainHealth:Bool = true;
+				if (guitarHeroSustains && note.isSustainNote) gainHealth = false;
+				if (gainHealth) health += note.hitHealth * healthGain;
 		}
 		else // Hurt notes
 		{
@@ -4553,7 +4572,7 @@ function noteMissPress(direction:Int = 1):Void
 		FlxG.stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
 		FlxG.stage.removeEventListener(KeyboardEvent.KEY_UP, onKeyRelease);
 
-		FlxG.camera.setFilters([]);
+		FlxG.camera.filters =[];
 
 		#if FLX_PITCH FlxG.sound.music.pitch = 1; #end
 		FlxG.animationTimeScale = 1;
@@ -4927,7 +4946,6 @@ function noteMissPress(direction:Int = 1):Void
 							break;
 						}
 			}
-			fullComboFunction();
 		}
 		setOnScripts('rating', ratingPercent);
 		setOnScripts('ratingName', ratingName);
@@ -5259,7 +5277,7 @@ private function createReplayUI():Void
         // 创建回放文字显示
         repTxt = new FlxText(0, 0, FlxG.width, "REPLAY MODE", 32);
         repTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, 
-                         FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+                         OUTLINE, FlxColor.BLACK);
         repTxt.scrollFactor.set();
         repTxt.borderSize = 2;
         repTxt.alpha = 0.8;
@@ -5441,7 +5459,7 @@ private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):
     }
     else
     {
-        trace('WARNING: No target note found for replay hit at $noteStrTime');
+       // trace('WARNING: No target note found for replay hit at $noteStrTime');
         
         // 如果没有找到对应音符，至少播放动画
         var animName:String = singAnimations[column];

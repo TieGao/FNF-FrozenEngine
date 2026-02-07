@@ -558,7 +558,7 @@ class NewFreeplayState extends MusicBeatState
         }
 
         // 返回
-        if (controls.BACK || FlxG.mouse.pressedRight)
+        if (controls.BACK || FlxG.mouse.justPressedRight)
         {
             if (musicPlayer.playingMusic)
             {
@@ -574,7 +574,7 @@ class NewFreeplayState extends MusicBeatState
                 FlxG.mouse.visible = false;
             }
         }
-        else if(FlxG.keys.justPressed.CONTROL || FlxG.mouse.pressedMiddle)
+        else if(FlxG.keys.justPressed.CONTROL || FlxG.mouse.justPressedMiddle)
         {
             persistentUpdate = false;
             openSubState(new GameplayChangersSubstate());

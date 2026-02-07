@@ -111,7 +111,7 @@ class NoteSplashEditorState extends MusicBeatState
         add(errorText);
 
         curText = new FlxText();
-        curText.setFormat(null, 24, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+        curText.setFormat(null, 24, OUTLINE, FlxColor.BLACK);
         curText.text = 'Copied Offsets: [0, 0]\nCurrent Animation: NONE';
         curText.y = FlxG.height - curText.height;
         curText.x += 5;

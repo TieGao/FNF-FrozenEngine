@@ -207,22 +207,22 @@ class SchoolErect extends BaseStage
 		}
 	}
 	
-	function setupShaderFrameCallback(char:Character, shader:DropShadowShader)
+function setupShaderFrameCallback(char:Character, shader:DropShadowShader)
+{
+	char.animation.callback = function(name:String, frameNumber:Int, frameIndex:Int)
 	{
-		char.animation.callback = function(name:String, frameNumber:Int, frameIndex:Int)
+		if(char.frame != null && char.frame.uv != null)
 		{
-			if(char.frame != null && char.frame.uv != null)
-			{
-				shader.uFrameBounds.value = [
-					char.frame.uv.x,
-					char.frame.uv.y,
-					char.frame.uv.width,
-					char.frame.uv.height
-				];
-				shader.angOffset.value = [char.frame.angle * Math.PI / 180];
-			}
-		};
-	}
+			shader.uFrameBounds.value = [
+				char.frame.uv.left,
+				char.frame.uv.top,
+				char.frame.uv.right,
+				char.frame.uv.bottom
+			];
+			shader.angOffset.value = [char.frame.angle * Math.PI / 180];
+		}
+	};
+}
 
 	override function beatHit()
 	{

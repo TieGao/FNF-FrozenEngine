@@ -44,36 +44,86 @@ class KESubMenu extends MusicBeatSubstate
 	var optionClickCooldown:Float = 0;
 	var optionClickProtected:Bool = false;
 	
+	// 布局参数 - 继承自主菜单
+	var screenWidth:Int;
+	var screenHeight:Int;
+	var marginTop:Int;
+	var marginBottom:Int;
+	var categoryHeight:Int;
+	var optionLeftMargin:Int;
+	var optionWidth:Int;
+	var bgAlpha:Float;
+	var optionAlpha:Float;
+	var descAlpha:Float;
+	
 	public function new(parentOption:KEOption)
 	{
 		super();
 		this.parentOption = parentOption;
 		this.options = parentOption.subMenuOptions.copy();
 		
+		// 从主菜单继承布局参数
+		inheritLayoutFromMainMenu();
+		
 		// 添加返回按钮到选项列表的开头
 		backButton = KEOption.create("Back", "Return to previous menu", "", "action");
 		this.options.unshift(backButton);
+	}
+	
+	// 从主菜单继承布局参数
+	function inheritLayoutFromMainMenu():Void
+	{
+		// 如果主菜单实例存在，从其继承参数
+		if (KEOptionsMenu.instance != null) {
+			// 使用主菜单的静态常量
+			screenWidth = KEOptionsMenu.SCREEN_WIDTH;
+			screenHeight = KEOptionsMenu.SCREEN_HEIGHT;
+			marginTop = KEOptionsMenu.MARGIN_TOP;
+			marginBottom = KEOptionsMenu.MARGIN_BOTTOM;
+			categoryHeight = KEOptionsMenu.CATEGORY_HEIGHT;
+			optionLeftMargin = KEOptionsMenu.OPTION_LEFT_MARGIN;
+			optionWidth = KEOptionsMenu.OPTION_WIDTH;
+			bgAlpha = KEOptionsMenu.TAB_ALPHA; // 使用TAB_ALPHA作为背景透明度
+			optionAlpha = KEOptionsMenu.OPTION_ALPHA;
+			descAlpha = KEOptionsMenu.DESC_ALPHA;
+		} else {
+			// 如果主菜单不存在，使用默认值（与主菜单保持一致）
+			screenWidth = 1280;
+			screenHeight = 720;
+			marginTop = 80;
+			marginBottom = 80;
+			categoryHeight = 40;
+			optionLeftMargin = 100;
+			optionWidth = 500;
+			bgAlpha = 0.7;
+			optionAlpha = 0.6;
+			descAlpha = 0.8;
+		}
 	}
 	
 	override function create()
 	{
 		super.create();
 		
-		// 创建半透明背景
-		bg = new FlxSprite(50, 40).makeGraphic(1180, 640, FlxColor.BLACK);
-		bg.alpha = 0.7;
+		// 计算内容区域
+		var contentStartY:Int = marginTop;
+		var contentHeight:Int = screenHeight - marginTop - marginBottom;
+		
+		// 创建半透明背景 - 全屏
+		bg = new FlxSprite(0, 0).makeGraphic(screenWidth, screenHeight, FlxColor.BLACK);
+		bg.alpha = bgAlpha;
 		bg.scrollFactor.set();
 		add(bg);
 		
-		// 标题
-		titleText = new FlxText(60, 50, 1160, parentOption.subMenuTitle);
+		// 标题 - 居中显示
+		titleText = new FlxText(0, marginTop + 20, screenWidth, parentOption.subMenuTitle);
 		titleText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		titleText.borderSize = 2;
 		add(titleText);
 		
-		// 描述区域背景
-		descBack = new FlxSprite(50, 642).makeGraphic(1180, 38, FlxColor.BLACK);
-		descBack.alpha = 0.7;
+		// 描述区域背景 - 在屏幕底部
+		descBack = new FlxSprite(0, screenHeight - marginBottom).makeGraphic(screenWidth, 40, FlxColor.BLACK);
+		descBack.alpha = descAlpha;
 		descBack.scrollFactor.set();
 		add(descBack);
 		
@@ -81,10 +131,11 @@ class KESubMenu extends MusicBeatSubstate
 		optionTexts = new FlxTypedGroup<FlxText>();
 		add(optionTexts);
 		
-		// 创建选项文本
+		// 创建选项文本 - 居中显示
+		var optionStartY:Int = marginTop + 80;
 		for (i in 0...options.length)
 		{
-			var optionText = new FlxText(60, 120 + (46 * i), 1160, options[i].getValue());
+			var optionText = new FlxText(0, optionStartY + (46 * i), screenWidth, options[i].getValue());
 			optionText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 			optionText.borderSize = 2;
 			optionText.ID = i;
@@ -92,9 +143,10 @@ class KESubMenu extends MusicBeatSubstate
 		}
 		
 		// 描述文本
-		descText = new FlxText(62, 648);
-		descText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+		descText = new FlxText(10, screenHeight - marginBottom + 5, screenWidth - 20);
+		descText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK); // 居中
 		descText.borderSize = 2;
+		descText.alpha = 1.0;
 		add(descText);
 		
 		// 初始化选择
@@ -113,14 +165,14 @@ class KESubMenu extends MusicBeatSubstate
 		}
 		
 		// 简单渐变动画
-		FlxTween.tween(bg, {alpha: 0.7}, tweenDuration, {ease: FlxEase.sineOut});
+		FlxTween.tween(bg, {alpha: bgAlpha}, tweenDuration, {ease: FlxEase.sineOut});
 		FlxTween.tween(titleText, {alpha: 1}, tweenDuration, {ease: FlxEase.sineOut});
-		FlxTween.tween(descBack, {alpha: 0.7}, tweenDuration, {ease: FlxEase.sineOut});
+		FlxTween.tween(descBack, {alpha: descAlpha}, tweenDuration, {ease: FlxEase.sineOut});
 		FlxTween.tween(descText, {alpha: 1}, tweenDuration, {ease: FlxEase.sineOut});
 		
 		// 所有选项同时渐变显示
 		for (i in 0...optionTexts.length) {
-			FlxTween.tween(optionTexts.members[i], {alpha: 0.6}, tweenDuration, {ease: FlxEase.sineOut});
+			FlxTween.tween(optionTexts.members[i], {alpha: optionAlpha}, tweenDuration, {ease: FlxEase.sineOut});
 		}
 		
 		// 播放音效
@@ -168,7 +220,7 @@ class KESubMenu extends MusicBeatSubstate
 			}
 		}
 		
-		// 更新悬停效果 - 参考 KEOptionsMenu 的逻辑
+		// 更新悬停效果 - 文字居中时也需要调整
 		for (i in 0...optionTexts.length)
 		{
 			var optionText = optionTexts.members[i];
@@ -184,13 +236,13 @@ class KESubMenu extends MusicBeatSubstate
 				{
 					// 鼠标悬停项 - 保持透明度，只改变颜色
 					optionText.color = FlxColor.YELLOW;
-					optionText.alpha = 0.6;
+					optionText.alpha = optionAlpha;
 				}
 				else
 				{
 					// 其他项
 					optionText.color = FlxColor.WHITE;
-					optionText.alpha = 0.6;
+					optionText.alpha = optionAlpha;
 				}
 			}
 		}
@@ -280,10 +332,13 @@ class KESubMenu extends MusicBeatSubstate
 						return;
 					}
 					
-					// 检测是否点击了左右调整区域
+					// 检测是否点击了左右调整区域 - 对于居中的文字需要特殊处理
 					if (selectedOption.getAccept()) {
-						var leftArea = new FlxRect(optionText.x - 40, optionText.y, 40, optionText.height);
-						var rightArea = new FlxRect(optionText.x + optionText.fieldWidth, optionText.y, 40, optionText.height);
+						// 计算文字的左右区域
+						var textCenterX = screenWidth / 2;
+						var textWidth = optionText.fieldWidth;
+						var leftArea = new FlxRect(textCenterX - textWidth/2 - 40, optionText.y, 40, optionText.height);
+						var rightArea = new FlxRect(textCenterX + textWidth/2, optionText.y, 40, optionText.height);
 						
 						if (leftArea.containsPoint(mousePos)) {
 							selectedOption.left();
@@ -424,9 +479,9 @@ class KESubMenu extends MusicBeatSubstate
 					optionText.text = currentValue;
 				}
 				
-				// 设置位置
+				// 设置位置 - 保持居中
 				var displayIndex = i - scrollOffset;
-				optionText.y = 120 + (46 * displayIndex);
+				optionText.y = marginTop + 80 + (46 * displayIndex);
 				
 				// 判断是否在可见区域内
 				var isVisible = (displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS);

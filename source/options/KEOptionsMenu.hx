@@ -9,6 +9,13 @@ import states.MainMenuState;
 import backend.MusicBeatState;
 import backend.StageData;
 
+import objects.BiosDateDisplay;
+
+import shaders.ParticleBeamShader;
+#if !flash
+import openfl.filters.ShaderFilter;
+#end
+
 class KEOptionsMenu extends MusicBeatState
 {
 	public static var instance:KEOptionsMenu;
@@ -25,6 +32,8 @@ class KEOptionsMenu extends MusicBeatState
 	public static var visibleRange:Array<Int> = [164, 640];
 	public static var onPlayState:Bool = false;
 	public static var onMainMenuState:Bool = false;
+
+	public var dateDisplay:BiosDateDisplay;
 
 	var notes:Array<String> = Mods.mergeAllTextsNamed('images/noteSkins/list.txt');
 	var splashes:Array<String> = Mods.mergeAllTextsNamed('images/noteSplashes/list.txt');
@@ -54,7 +63,23 @@ class KEOptionsMenu extends MusicBeatState
 	var optionClickProtected:Bool = false;
 	
 	// 可见选项数量
-	static var VISIBLE_OPTIONS:Int = 10;
+	static var VISIBLE_OPTIONS:Int = 11;
+
+	// 新增：布局变量
+	public static var SCREEN_WIDTH:Int = 1280;
+	public static var SCREEN_HEIGHT:Int = 720;
+	public static var MARGIN_TOP:Int = 60; // 上边距
+	public static var MARGIN_BOTTOM:Int = 100; // 下边距
+	public static var CATEGORY_COUNT:Int = 5;
+	public static var CATEGORY_WIDTH:Int = Std.int(SCREEN_WIDTH / CATEGORY_COUNT); // 256像素每个
+	public static var CATEGORY_HEIGHT:Int = 50;
+	public static var OPTION_LEFT_MARGIN:Int = 20; // 选项左侧距离
+	public static var OPTION_WIDTH:Int = 550; // 选项区域宽度
+	public static var TAB_ALPHA:Float = 0.8; // 选项卡透明度
+	public static var OPTION_ALPHA:Float = 0.6; // 选项透明度
+	public static var DESC_ALPHA:Float = 0.8; // 描述文本透明度
+
+	var beamShader:ParticleBeamShader = new ParticleBeamShader();
 
 	public function new(pauseMenu:Bool = false)
 	{
@@ -71,97 +96,148 @@ class KEOptionsMenu extends MusicBeatState
 	{
 		super.create();
 
-		// 创建完整的选项分类
+		// 创建横向铺满的选项卡
 		options = [
-			new KEOptionCata(50, 40, "Basics", getControlsOptions()),
-			new KEOptionCata(345, 40, "Gameplay", getGameplayOptions()),
-			new KEOptionCata(640, 40, "Visuals", getVisualsOptions()),
-			new KEOptionCata(935, 40, "Graphics", getAppearanceOptions()),
-			new KEOptionCata(50, 104, "Advanced", getAdvancedOptions())
+			new KEOptionCata(0, MARGIN_TOP, "Basics", getControlsOptions()),
+			new KEOptionCata(CATEGORY_WIDTH, MARGIN_TOP, "Gameplay", getGameplayOptions()),
+			new KEOptionCata(CATEGORY_WIDTH * 2, MARGIN_TOP, "Visuals", getVisualsOptions()),
+			new KEOptionCata(CATEGORY_WIDTH * 3, MARGIN_TOP, "Graphics", getAppearanceOptions()),
+			new KEOptionCata(CATEGORY_WIDTH * 4, MARGIN_TOP, "Advanced", getAdvancedOptions())
 		];
 
 		shownStuff = new FlxTypedGroup<FlxText>();
 
-		// 创建彩色背景
-		background = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
-		background.screenCenter();
-		background.alpha = 0;
+		
+		background = new FlxSprite(0, 0).makeGraphic(SCREEN_WIDTH, SCREEN_HEIGHT, FlxColor.BLACK);
+		background.alpha = 0; // 半透明背景
 		background.scrollFactor.set();
 		add(background);
 
-		bg = new FlxSprite(50, 40).makeGraphic(1180, 640, FlxColor.BLACK);
-		bg.alpha = 0.5;
+		// 创建选项区域的彩色循环底图
+		var optionBg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
+		optionBg.alpha = 1; // 选项区域背景透明度
+		optionBg.scrollFactor.set();
+		add(optionBg);
+
+		// 主内容区域背景 - 从选项卡下方开始，覆盖整个内容区域
+		var contentStartY:Int = MARGIN_TOP + CATEGORY_HEIGHT;
+		var contentHeight:Int = SCREEN_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM - CATEGORY_HEIGHT;
+		
+		bg = new FlxSprite(0, contentStartY).makeGraphic(SCREEN_WIDTH, contentHeight, FlxColor.BLACK);
+		bg.alpha = 0.6; // 选项卡主体透明度
 		bg.scrollFactor.set();
 		add(bg);
 
-		descBack = new FlxSprite(50, 642).makeGraphic(1180, 38, FlxColor.BLACK);
-		descBack.alpha = 0.5;
+		// 描述区域背景 - 在屏幕底部
+		descBack = new FlxSprite(0, SCREEN_HEIGHT - MARGIN_BOTTOM).makeGraphic(SCREEN_WIDTH, 32, FlxColor.BLACK);
+		descBack.alpha = DESC_ALPHA; // 描述文本区域透明度
 		descBack.scrollFactor.set();
 		add(descBack);
 
 		add(shownStuff);
 
+		// 设置选项卡
 		for (i in 0...options.length)
 		{
 			var cat = options[i];
-			cat.alpha = 0.3;
-			cat.titleObject.alpha = 0.7;
+			
+			// 设置选项卡背景
+			cat.makeGraphic(CATEGORY_WIDTH, CATEGORY_HEIGHT, FlxColor.BLACK);
+			cat.x = i * CATEGORY_WIDTH;
+			cat.y = MARGIN_TOP;
+			cat.alpha = TAB_ALPHA; // 选项卡透明度
+			
+			// 调整标题位置
+			cat.titleObject.x = cat.x + (CATEGORY_WIDTH / 2) - (cat.titleObject.fieldWidth / 2);
+			cat.titleObject.y = cat.y + (CATEGORY_HEIGHT / 2) - (cat.titleObject.height / 2);
+			cat.titleObject.alpha = 1.0; // 标题文字完全不透明
+			
 			add(cat);
 			add(cat.titleObject);
 		}
 
-		descText = new FlxText(62, 648);
+		// 描述文本
+		descText = new FlxText(10, SCREEN_HEIGHT - MARGIN_BOTTOM + 5, SCREEN_WIDTH - 20);
 		descText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 		descText.borderSize = 2;
-		descText.alpha = 1;
+		descText.alpha = 1.0; // 描述文字完全不透明
 		add(descText);
+
+		dateDisplay = new BiosDateDisplay(10, 30, 20, FlxColor.WHITE, true); // 时间在前
+		dateDisplay.setShowSeconds(true); // 显示秒数
+		dateDisplay.setMilitaryTime(false); // 12小时制带AM/PM
+		dateDisplay.scrollFactor.set();
+		add(dateDisplay);
 
 		// 初始化第一个分类
 		selectedCat = options[0];
 		doSwitchToCat(selectedCat, false);
 
-		// 开始渐入动画
-		
-
+		// 颜色渐变效果 - 在选项区域背景上
 		var colorArray:Array<FlxColor> = [
-			FlxColor.fromRGB(148, 0, 211),
-			FlxColor.fromRGB(75, 0, 130),
-			FlxColor.fromRGB(0, 0, 255),
-			FlxColor.fromRGB(0, 255, 0),
-			FlxColor.fromRGB(255, 255, 0),
-			FlxColor.fromRGB(255, 127, 0),
-			FlxColor.fromRGB(255, 0, 0)
+			FlxColor.fromRGB(148, 0, 211), // 紫色
+			FlxColor.fromRGB(75, 0, 130),  // 靛蓝色
+			FlxColor.fromRGB(0, 0, 255),   // 蓝色
+			FlxColor.fromRGB(0, 255, 0),   // 绿色
+			FlxColor.fromRGB(255, 255, 0), // 黄色
+			FlxColor.fromRGB(255, 127, 0), // 橙色
+			FlxColor.fromRGB(255, 0, 0)    // 红色
 		];
 
-		// 按顺序渐变而不是随机
 		var currentColorIndex:Int = 0;
 		var nextColorIndex:Int = 1;
 		var colorTransitionTime:Float = 2.5;
 
-		// 设置初始颜色
-		background.color = colorArray[currentColorIndex];
+		// 设置选项区域背景的初始颜色
 
 		// 开始颜色渐变循环
 		function startColorCycle():Void
 		{
-			FlxTween.color(background, colorTransitionTime, background.color, colorArray[nextColorIndex], {
+			FlxTween.color(optionBg, colorTransitionTime, optionBg.color, colorArray[nextColorIndex], {
 				onComplete: function(twn:FlxTween)
 				{
-					// 更新颜色索引
 					currentColorIndex = nextColorIndex;
 					nextColorIndex = (nextColorIndex + 1) % colorArray.length;
-					
-					// 继续下一个渐变
 					startColorCycle();
 				}
 			});
 		}
 
-		instance = this;
-		// 开始循环
-		startColorCycle();
+		// 同时为主背景也添加渐变效果（可选）
+		var bgColorArray:Array<FlxColor> = [
+			FlxColor.fromRGB(30, 30, 46),
+			FlxColor.fromRGB(46, 30, 46),
+			FlxColor.fromRGB(30, 46, 46),
+			FlxColor.fromRGB(46, 46, 30)
+		];
 
-		// 注册语言重载回调以刷新 UI 文本
+		var bgCurrentColorIndex:Int = 0;
+		var bgNextColorIndex:Int = 1;
+		var bgColorTransitionTime:Float = 3.0;
+
+		background.color = bgColorArray[bgCurrentColorIndex];
+
+		function startBgColorCycle():Void
+		{
+			FlxTween.color(background, bgColorTransitionTime, background.color, bgColorArray[bgNextColorIndex], {
+				onComplete: function(twn:FlxTween)
+				{
+					bgCurrentColorIndex = bgNextColorIndex;
+					bgNextColorIndex = (bgNextColorIndex + 1) % bgColorArray.length;
+					startBgColorCycle();
+				}
+			});
+		}
+
+		instance = this;
+		
+		// 开始两个颜色循环
+		startColorCycle();      // 选项区域彩色循环
+		startBgColorCycle();    // 主背景颜色循环
+
+		optionBg.shader = beamShader;
+
+		// 注册语言重载回调
 		var self = this;
 		langReloadCb = function() {
 			self.onLanguageReload();
@@ -169,42 +245,31 @@ class KEOptionsMenu extends MusicBeatState
 		backend.Language.addReloadCallback(langReloadCb);
 	}
 	
-
-	override function destroy()
-{
-	super.destroy();
-		// 注销语言回调
-		try {
-			if (langReloadCb != null) backend.Language.removeReloadCallback(langReloadCb);
-		} catch(e:Dynamic) {}
-		instance = null;
-}
-
-	// Called when language phrases are reloaded to refresh UI texts
+	// 语言重载回调函数
 	function onLanguageReload():Void
 	{
-		// Refresh category titles
+		// 刷新分类标题
 		for (i in 0...options.length) {
 			var cat = options[i];
 			if (cat.titleObject != null) cat.titleObject.text = backend.Language.getPhrase(cat.title, cat.title);
-			// Refresh option lines in the category
+			// 刷新选项文本
 			for (j in 0...cat.optionObjects.members.length) {
 				var txt = cat.optionObjects.members[j];
 				if (txt != null && j < cat.options.length) txt.text = cat.options[j].getValue();
 			}
 		}
 
-		// Re-apply font formatting so Paths.font() remapping takes effect
+		// 重新应用字体格式
 		for (i in 0...options.length) {
 			var cat = options[i];
-			if (cat.titleObject != null) cat.titleObject.setFormat(Paths.font("vcr.ttf"), 35, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+			if (cat.titleObject != null) cat.titleObject.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 			for (j in 0...cat.optionObjects.members.length) {
 				var txt = cat.optionObjects.members[j];
-				if (txt != null) txt.setFormat(Paths.font("vcr.ttf"), 35, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+				if (txt != null) txt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK); // 改为左对齐
 			}
 		}
 
-		// Refresh shownStuff / desc
+		// 刷新当前显示
 		if (selectedCat != null && selectedCat.optionObjects != null) {
 			for (i in selectedCat.optionObjects) {
 				if (i != null) i.text = selectedCat.options[selectedCat.optionObjects.members.indexOf(i)].getValue();
@@ -215,154 +280,16 @@ class KEOptionsMenu extends MusicBeatState
 			descText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 		}
 	}
-
-	// 在 KEOptionsMenu 类的 getGameplayOptions 函数中，添加二级菜单示例：
-	function getGameplayOptions():Array<KEOption>
+	
+	
+	override function destroy()
 	{
-		// 创建一个窗口设置二级菜单
-		var windowSettings = KEOption.createSubMenu(
-			"Window Settings",
-			"Configure window and timing settings",
-			[
-				KEOption.create("Marvelous Window", "Timing window for SICK", "marvelousWindow", "float", 25, 15, 45, 0.1),
-				KEOption.create("Sick Window", "Timing window for SICK", "sickWindow", "float", 45, 15, 45, 0.1),
-				KEOption.create("Good Window", "Timing window for GOOD", "goodWindow", "float", 90, 15, 90, 0.1),
-				KEOption.create("Bad Window", "Timing window for BAD", "badWindow", "float", 135, 15, 135, 0.1),
-				KEOption.create("Safe Frames", "Frames for early/late hits", "safeFrames", "float", 10, 2, 10, 0.1)
-			],
-			"",
-			"Window Settings"
-		);
-		
-		return [
-			KEOption.create("Downscroll", "Notes scroll downwards instead of upwards", "downScroll", "bool"),
-			KEOption.create("Middlescroll", "Put your lane in the center", "middleScroll", "bool"),
-			KEOption.create("Opponent Notes", "Show opponent's strumline", "opponentStrums", "bool"),
-			KEOption.create("Ghost Tapping", "Allow pressing keys without missing", "ghostTapping", "bool"),
-			KEOption.create("Auto Pause", "Pause when window loses focus", "autoPause", "bool"),
-			KEOption.create("Disable Reset", "Disable the reset button", "noReset", "bool"),
-			KEOption.create("Guitar Hero Sustains", "Sustains count as one note", "guitarHeroSustains", "bool"),
-			KEOption.create("Fast Restart", "Fast Restart When Dead or Press 'R' ", "skipDeath", "bool"),
-			KEOption.create("Hitsound Volume", "Volume of hit sounds", "hitsoundVolume", "float", 0, 0, 1, 0.1),
-			KEOption.create("Rating Offset", "Adjust note hit timing", "ratingOffset", "int", 0, -30, 30, 1),
-			windowSettings, // 使用二级菜单
-			KEOption.create("Note Sustains Offset", "Adjust the timing offset for note sustains", "noteSustainsOffset", "float", 0, 0, 1, 0.05)
-		];
-	}
-
-	// 在 getVisualsOptions 函数中，添加皮肤设置二级菜单：
-	function getVisualsOptions():Array<KEOption>
-	{
-		// 创建皮肤设置二级菜单
-		var skinSettings = KEOption.createSubMenu(
-			"Skin Settings",
-			"Configure note skins, splashes and ratings",
-			[
-				KEOption.create("Note Skins" , "Select your preferred Note skin", "noteSkin","string" , notes),
-				KEOption.create("Note Splashes", "Select your preferred Note Splash variation","splashSkin","string", splashes),
-				KEOption.create("Note HoldCover", "Select your preferred Note Hold Cover","holdCoverSkin","string", holdCovers),
-				KEOption.create("Rating Style", "Select your preferred Ratings Image","customUI","string", ratings),
-				KEOption.create("Note Opacity", "Note transparency", "noteAlpha", "float", 0.9, 0, 1, 0.1),
-				KEOption.create("Note Splash Opacity", "Note splash transparency", "splashAlpha", "float", 0.8, 0, 1, 0.1),
-				KEOption.create("Note HoldCover Opacity", "Note splash transparency", "holdcoverAlpha", "float", 0.8, 0, 1, 0.1)
-			],
-			"",
-			"Skin Settings"
-		);
-		
-		// 创建命中误差条设置二级菜单
-		var hitErrorSettings = KEOption.createSubMenu(
-			"Hit Error Bar",
-			"Configure hit error bar display",
-			[
-				KEOption.create("Hit Error Bar", "Show hit error bar", "hitErrorBarVisible", "bool"),
-				KEOption.create("Hit Bar Lines", "Number of lines on hit error bar", "hitBarLines", "int", 5, 0, 20, 1),
-				KEOption.create("Hit Bar Line Time", "Time (in seconds) each line represents", "hitBarLineTime", "float", 2.0, 0.1, 5.0, 0.1),
-				KEOption.create("Hit Error Bar Offset X", "Horizontal position of hit error bar", "hitErrorBarOffsetX", "int", 0, -500, 500, 10),
-				KEOption.create("Hit Error Bar Offset Y", "Vertical position of hit error bar", "hitErrorBarOffsetY", "int", 0, -300, 300, 10)
-			],
-			"",
-			"Hit Error Bar Settings"
-		);
-
-		var keyboardDisplayOptions = KEOption.createSubMenu(
-			"Keyboard Display",
-			"Configure keyboard display settings",
-			[
-				KEOption.create("Show Keyboard", "Display keyboard on screen", "kb", "bool"),
-				//KEOption.create("Keyboard Opacity", "Transparency of the keyboard display", "kbalpha", "float", 1.0, 0.0, 1.0, 0.1),
-				//KEOption.create("Keyboard Scale", "Scale of the keyboard display", "kbScale", "float", 1.0, 0.5, 2.0, 0.1),
-				KEOption.create("Keyboard Offset X", "Horizontal position of the keyboard display", "kbOffsetX", "int", 0, -500, 500, 10),
-				KEOption.create("Keyboard Offset Y", "Vertical position of the keyboard display", "kbOffsetY", "int", 0, -300, 300, 10)
-			],
-			"",
-			"Keyboard Display Settings"
-		);
-		
-		return [
-			skinSettings,  // 皮肤设置二级菜单
-			KEOption.create("Hide HUD", "Hide most HUD elements", "hideHud", "bool"),
-			KEOption.create("Flashing Lights", "Enable screen flashes", "flashing", "bool"),
-			KEOption.create("Camera Zooms", "Zoom camera on beat", "camZooms", "bool"),
-			KEOption.create("Center Pause", "Center pause menu", "centerPause", "bool"),
-			KEOption.create("Custom Color", "Color most things by opponent", "customColor", "bool"),
-			KEOption.create("Gradient TimeBar", "Gradient colored timebar", "gradientTimeBar", "bool"),
-			KEOption.create("Score Zoom", "Grow score text on hit", "scoreZoom", "bool"),
-			KEOption.create('Time Bar:',"What should the Time Bar display?","timeBarType","string",['Time Left', 'Time Elapsed', 'Song Name', 'Disabled']),
-			KEOption.create("Health Bar Alpha", "Health bar transparency", "healthBarAlpha", "float", 1, 0, 1, 0.1),
-			KEOption.create("Combo Stacking", "Stack combo numbers", "comboStacking", "bool"),
-			KEOption.create("MS Number", "Make you know how late/early ur when hit notes", "showMS", "bool"),
-			KEOption.create("Health Text", "Show health as number", "healthText", "bool"),
-			KEOption.create("Song Text", "Show song info watermark", "songText", "bool"),
-			KEOption.create("Score Screen", "Show Kade-style results", "scoreScreen", "bool"),
-			KEOption.create("NoteHits Counter", "Show note hits counter", "Counter", "bool"),
-			KEOption.create("Charm Bar Pause", "Modern Pause Sub State", "charmPause", "bool"),
-			hitErrorSettings, // 命中误差条二级菜单
-			keyboardDisplayOptions,
-		];
-	}
-
-	// Appearance 选项
-	function getAppearanceOptions():Array<KEOption>
-	{
-		return [
-			KEOption.create("Low Quality", "Reduce graphics for performance", "lowQuality", "bool"),
-			KEOption.create("Anti-Aliasing", "Smoother visuals", "antialiasing", "bool"),
-			KEOption.create("Shaders", "Enable shader effects", "shaders", "bool"),
-			KEOption.create("GPU Caching", "Use GPU for texture caching", "cacheOnGPU", "bool"),
-			KEOption.create("FPS Counter", "Show FPS counter", "showFPS", "bool"),
-			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 240, 1),
-			//KEOption.create("New Freeplay", "Enable New Freeplay", "newFreeplay", "bool"),
-			//KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool")
-		];
-	}
-
-	// Controls 选项
-	function getControlsOptions():Array<KEOption>
-	{
-		return [
-			KEOption.create("Open Note Colors", "Customize note colors", "", "action"),
-			KEOption.create("Open Controls", "Customize key bindings", "", "action"),
-			KEOption.create("Open EZ KeyBinds", "Customize key bindings in KE Styled Menu", "", "action"),
-			KEOption.create("Adjust Delay and Combo", "Customize ingame experience", "", "action"),   
-			KEOption.create("Reset KeyBinds", "Reset to default keys", "", "action"),
-		];
-	}
-
-	// Advanced 选项
-	function getAdvancedOptions():Array<KEOption>
-	{
-		return [
-			KEOption.create("Check Updates", "Check for game updates", "checkForUpdates", "bool"),
-			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
-			KEOption.create("Enable LUA Debug Printer", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
-			KEOption.create("Language", "Change the game's language", "language", "string", ['en-US', 'pt-BR', 'zh-CN']),
-			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
-			KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
-			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
-			KEOption.create("Reset Settings", "Reset all settings to default [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
-			KEOption.create("Reset Scores", "Clear all high scores [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action")
-		];
+		super.destroy();
+		// 注销语言回调
+		try {
+			if (langReloadCb != null) backend.Language.removeReloadCallback(langReloadCb);
+		} catch(e:Dynamic) {}
+		instance = null;
 	}
 
 	// 分类切换函数
@@ -379,7 +306,7 @@ class KEOptionsMenu extends MusicBeatState
 				var object = selectedCat.optionObjects.members[i];
 				if(object != null && i < selectedCat.options.length) {
 					object.text = selectedCat.options[i].getValue();
-					object.color = FlxColor.WHITE; // 重置颜色
+					object.color = FlxColor.WHITE;
 				}
 			}
 		}
@@ -390,13 +317,14 @@ class KEOptionsMenu extends MusicBeatState
 		if (selectedCat != null && selectedCat.middle)
 			remove(selectedCat.titleObject);
 
+		// 重置前一个选项卡
 		if (selectedCat != null) {
 			selectedCat.changeColor(FlxColor.BLACK);
-			selectedCat.alpha = 0.3;
+			selectedCat.alpha = TAB_ALPHA; // 恢复默认透明度
 			if (selectedCat.titleObject != null)
 			{
 				selectedCat.titleObject.color = FlxColor.WHITE;
-				selectedCat.titleObject.alpha = 0.6;
+				selectedCat.titleObject.alpha = 1.0;
 			}
 		}
 
@@ -405,19 +333,19 @@ class KEOptionsMenu extends MusicBeatState
 		
 		// 设置新分类
 		selectedCat = cat;
-		selectedCat.alpha = 0.2;
-		selectedCat.changeColor(FlxColor.WHITE);
+		selectedCat.alpha = OPTION_ALPHA; // 选中状态稍亮
+		selectedCat.changeColor(FlxColor.BLACK);
 
 		if (selectedCat.middle)
 			add(selectedCat.titleObject);
 
-		// 添加选项对象到显示组
+		// 添加选项对象
 		for (i in selectedCat.optionObjects)
 		{
 			if(i != null) 
 			{
 				shownStuff.add(i);
-				i.color = FlxColor.WHITE; // 确保初始颜色正确
+				i.color = FlxColor.WHITE;
 			}
 		}
 
@@ -430,7 +358,7 @@ class KEOptionsMenu extends MusicBeatState
 		// 计算最大滚动偏移
 		maxScrollOffset = Std.int(Math.max(0, selectedCat.options.length - VISIBLE_OPTIONS));
 		
-		// 更新可见性并选择当前选项
+		// 更新可见性
 		updateOptionPositions();
 		doSelectCurrentOption();
 	}
@@ -444,7 +372,6 @@ class KEOptionsMenu extends MusicBeatState
 			var object = selectedCat.optionObjects.members[i];
 			if(object != null && i < selectedCat.options.length) {
 				var currentValue = selectedCat.options[i].getValue();
-				// 移除可能存在的 > 符号
 				if (currentValue.startsWith("> ")) {
 					object.text = currentValue.substring(2);
 				} else {
@@ -457,7 +384,6 @@ class KEOptionsMenu extends MusicBeatState
 		var object = selectedCat.optionObjects.members[selectedOptionIndex];
 		if(object != null) {
 			var currentValue = selectedOption.getValue();
-			// 检查是否已经包含 > 符号
 			if (!currentValue.startsWith("> ")) {
 				object.text = "> " + currentValue;
 			} else {
@@ -467,11 +393,11 @@ class KEOptionsMenu extends MusicBeatState
 			descText.color = FlxColor.WHITE;
 		}
 		
-		// 确保选中项在可见区域内
+		// 确保选中项可见
 		ensureOptionVisible();
 	}
 
-	// 更新选项位置
+		// 更新选项位置
 	function updateOptionPositions()
 	{
 		if (selectedCat == null || selectedCat.optionObjects == null) return;
@@ -483,7 +409,13 @@ class KEOptionsMenu extends MusicBeatState
 			
 			// 计算相对于滚动偏移的位置
 			var displayIndex = i - scrollOffset;
-			optionText.y = 120 + 54 + (46 * displayIndex);
+			
+			// 计算Y坐标：选项卡下方开始
+			var contentStartY = MARGIN_TOP + CATEGORY_HEIGHT;
+			optionText.y = contentStartY + 10 +(46 * displayIndex);
+			
+			// X坐标：左侧100像素处
+			optionText.x = OPTION_LEFT_MARGIN;
 			
 			// 判断是否在可见区域内
 			var isVisible = (displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS);
@@ -493,11 +425,11 @@ class KEOptionsMenu extends MusicBeatState
 				// 在可见区域内
 				if (i == selectedOptionIndex)
 				{
-					optionText.alpha = 1.0;
+					optionText.alpha = 1.0; // 选中项完全不透明
 				}
 				else
 				{
-					optionText.alpha = 0.6;
+					optionText.alpha = OPTION_ALPHA; // 选项默认透明度
 				}
 			}
 			else
@@ -512,36 +444,30 @@ class KEOptionsMenu extends MusicBeatState
 	private function ensureOptionVisible()
 	{
 		if (selectedOptionIndex < scrollOffset) {
-			// 选中项在滚动区域上方，向上滚动
 			scrollOffset = selectedOptionIndex;
 			updateOptionPositions();
 		} else if (selectedOptionIndex >= scrollOffset + VISIBLE_OPTIONS) {
-			// 选中项在滚动区域下方，向下滚动
 			scrollOffset = selectedOptionIndex - (VISIBLE_OPTIONS - 1);
 			updateOptionPositions();
 		}
 	}
 
-	// 滚动函数 - 支持长按
+	// 滚动函数
 	function scrollOptions(change:Int, isLongPress:Bool = false)
 	{
 		if (selectedCat == null || selectedCat.options.length <= VISIBLE_OPTIONS) return;
 		
 		var newOffset = scrollOffset + change;
 		
-		// 限制滚动范围
 		if (newOffset < 0) newOffset = 0;
 		if (newOffset > maxScrollOffset) newOffset = maxScrollOffset;
 		
-		// 如果滚动位置没有变化，直接返回
 		if (newOffset == scrollOffset) return;
 		
 		scrollOffset = newOffset;
 		
-		// 更新位置
 		updateOptionPositions();
 		
-		// 如果选中项不再可见，调整选中项索引
 		if (selectedOptionIndex < scrollOffset) {
 			selectedOptionIndex = scrollOffset;
 			selectedOption = selectedCat.options[selectedOptionIndex];
@@ -552,10 +478,9 @@ class KEOptionsMenu extends MusicBeatState
 			doSelectCurrentOption();
 		}
 		
-		// 长按时降低音量和频率
 		if (!isLongPress) {
 			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
-		} else if (scrollHoldTime % 2 == 0) { // 长按时每2帧播放一次音效
+		} else if (scrollHoldTime % 2 == 0) {
 			FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
 		}
 	}
@@ -565,6 +490,18 @@ class KEOptionsMenu extends MusicBeatState
 	{
 		super.update(elapsed);
 		
+		if (beamShader != null) 
+		{
+			beamShader.update(elapsed * ClientPrefs.data.particleSpeed);
+			beamShader.setParams(
+			ClientPrefs.data.particleSpeed, // speed
+			ClientPrefs.data.particleTrail, // trail
+			0.004, // size
+			1.0, // intensity
+			ClientPrefs.data.particleAmount // particleCount
+		);
+		}
+	
 		// 更新点击保护计时器
 		if (optionClickCooldown > 0) {
 			optionClickCooldown -= elapsed;
@@ -646,18 +583,21 @@ class KEOptionsMenu extends MusicBeatState
 					// 当前选中分类 - 保持原本效果
 					cat.titleObject.color = FlxColor.WHITE;
 					cat.titleObject.alpha = 1; // 选中分类完全不透明
+					cat.alpha = 0.6; // 选项卡背景也高亮
 				}
 				else if (i == hoveredCatIndex)
 				{
 					// 鼠标悬停分类 - 黄色高亮，保持原本透明度
 					cat.titleObject.color = FlxColor.YELLOW;
-					cat.titleObject.alpha = 0.6; // 保持原本的透明度
+					cat.titleObject.alpha = 0.8; // 悬停时稍亮
+					cat.alpha = 0.5; // 选项卡背景也稍亮
 				}
 				else
 				{
 					// 其他分类 - 恢复原本效果
 					cat.titleObject.color = FlxColor.WHITE;
 					cat.titleObject.alpha = 0.6; // 原本的透明度
+					cat.alpha = 0.8; // 选项卡背景恢复
 				}
 			}
 		}
@@ -1025,5 +965,168 @@ class KEOptionsMenu extends MusicBeatState
 				selectedCatIndex = options.length - 1;
 			doSwitchToCat(options[selectedCatIndex]);
 		}
+	}
+
+		// 在 KEOptionsMenu 类的 getGameplayOptions 函数中，添加二级菜单示例：
+	function getGameplayOptions():Array<KEOption>
+	{
+		// 创建一个窗口设置二级菜单
+		var windowSettings = KEOption.createSubMenu(
+			"Window Settings",
+			"Configure window and timing settings",
+			[
+				KEOption.create("Marvelous Window", "Timing window for SICK", "marvelousWindow", "float", 25, 15, 45, 0.1),
+				KEOption.create("Sick Window", "Timing window for SICK", "sickWindow", "float", 45, 15, 45, 0.1),
+				KEOption.create("Good Window", "Timing window for GOOD", "goodWindow", "float", 90, 15, 90, 0.1),
+				KEOption.create("Bad Window", "Timing window for BAD", "badWindow", "float", 135, 15, 135, 0.1),
+				KEOption.create("Safe Frames", "Frames for early/late hits", "safeFrames", "float", 10, 2, 10, 0.1)
+			],
+			"",
+			"Window Settings"
+		);
+		
+		return [
+			KEOption.create("Downscroll", "Notes scroll downwards instead of upwards", "downScroll", "bool"),
+			KEOption.create("Middlescroll", "Put your lane in the center", "middleScroll", "bool"),
+			KEOption.create("Opponent Notes", "Show opponent's strumline", "opponentStrums", "bool"),
+			KEOption.create("Ghost Tapping", "Allow pressing keys without missing", "ghostTapping", "bool"),
+			KEOption.create("Auto Pause", "Pause when window loses focus", "autoPause", "bool"),
+			KEOption.create("Disable Reset", "Disable the reset button", "noReset", "bool"),
+			KEOption.create("Guitar Hero Sustains", "Sustains count as one note", "guitarHeroSustains", "bool"),
+			KEOption.create("Fast Restart", "Fast Restart When Dead or Press 'R' ", "skipDeath", "bool"),
+			KEOption.create("Hitsound Volume", "Volume of hit sounds", "hitsoundVolume", "float", 0, 0, 1, 0.1),
+			KEOption.create("Rating Offset", "Adjust note hit timing", "ratingOffset", "int", 0, -30, 30, 1),
+			windowSettings, // 使用二级菜单
+			KEOption.create("Note Sustains Offset", "Adjust the timing offset for note sustains", "noteSustainsOffset", "float", 0, 0, 1, 0.05)
+		];
+	}
+
+	// 在 getVisualsOptions 函数中，添加皮肤设置二级菜单：
+	function getVisualsOptions():Array<KEOption>
+	{
+		// 创建皮肤设置二级菜单
+		var skinSettings = KEOption.createSubMenu(
+			"Skin Settings",
+			"Configure note skins, splashes and ratings",
+			[
+				KEOption.create("Note Skins" , "Select your preferred Note skin", "noteSkin","string" , notes),
+				KEOption.create("Note Splashes", "Select your preferred Note Splash variation","splashSkin","string", splashes),
+				KEOption.create("Note HoldCover", "Select your preferred Note Hold Cover","holdCoverSkin","string", holdCovers),
+				KEOption.create("Judgements Style", "Select your preferred judgements Image","customUI","string", ratings),
+				KEOption.create("Note Opacity", "Note transparency", "noteAlpha", "float", 0.9, 0, 1, 0.1),
+				KEOption.create("Note Splash Opacity", "Note splash transparency", "splashAlpha", "float", 0.8, 0, 1, 0.1),
+				KEOption.create("Note HoldCover Opacity", "Note splash transparency", "holdcoverAlpha", "float", 0.8, 0, 1, 0.1)
+			],
+			"",
+			"Skin Settings"
+		);
+		
+		// 创建命中误差条设置二级菜单
+		var hitErrorSettings = KEOption.createSubMenu(
+			"Hit Error Bar",
+			"Configure hit error bar display",
+			[
+				KEOption.create("Hit Error Bar", "Show hit error bar", "hitErrorBarVisible", "bool"),
+				KEOption.create("Hit Bar Lines", "Number of lines on hit error bar", "hitBarLines", "int", 5, 0, 20, 1),
+				KEOption.create("Hit Bar Line Time", "Time (in seconds) each line represents", "hitBarLineTime", "float", 2.0, 0.1, 5.0, 0.1),
+				KEOption.create("Hit Error Bar Offset X", "Horizontal position of hit error bar", "hitErrorBarOffsetX", "int", 0, -500, 500, 10),
+				KEOption.create("Hit Error Bar Offset Y", "Vertical position of hit error bar", "hitErrorBarOffsetY", "int", 0, -300, 300, 10)
+			],
+			"",
+			"Hit Error Bar Settings"
+		);
+
+		var keyboardDisplayOptions = KEOption.createSubMenu(
+			"Keyboard Display",
+			"Configure keyboard display settings",
+			[
+				KEOption.create("Show Keyboard", "Display keyboard on screen", "kb", "bool"),
+				//KEOption.create("Keyboard Opacity", "Transparency of the keyboard display", "kbalpha", "float", 1.0, 0.0, 1.0, 0.1),
+				//KEOption.create("Keyboard Scale", "Scale of the keyboard display", "kbScale", "float", 1.0, 0.5, 2.0, 0.1),
+				KEOption.create("Keyboard Offset X", "Horizontal position of the keyboard display", "kbOffsetX", "int", 0, -500, 500, 10),
+				KEOption.create("Keyboard Offset Y", "Vertical position of the keyboard display", "kbOffsetY", "int", 0, -300, 300, 10)
+			],
+			"",
+			"Keyboard Display Settings"
+		);
+		
+		return [
+			skinSettings,  // 皮肤设置二级菜单
+			KEOption.create("Hide HUD", "Hide most HUD elements", "hideHud", "bool"),
+			KEOption.create("Flashing Lights", "Enable screen flashes", "flashing", "bool"),
+			KEOption.create("Camera Zooms", "Zoom camera on beat", "camZooms", "bool"),
+			KEOption.create("Center Pause", "Center pause menu", "centerPause", "bool"),
+			KEOption.create("Custom Color", "Color most things by opponent", "customColor", "bool"),
+			KEOption.create("Gradient TimeBar", "Gradient colored timebar", "gradientTimeBar", "bool"),
+			KEOption.create("Score Zoom", "Grow score text on hit", "scoreZoom", "bool"),
+			KEOption.create('Time Bar:',"What should the Time Bar display?","timeBarType","string",['Time Left', 'Time Elapsed', 'Song Name', 'Disabled']),
+			KEOption.create("Health Bar Alpha", "Health bar transparency", "healthBarAlpha", "float", 1, 0, 1, 0.1),
+			KEOption.create("Combo Stacking", "Stack combo numbers", "comboStacking", "bool"),
+			KEOption.create("MS Number", "Make you know how late/early ur when hit notes", "showMS", "bool"),
+			KEOption.create("Health Text", "Show health as number", "healthText", "bool"),
+			KEOption.create("Song Text", "Show song info watermark", "songText", "bool"),
+			KEOption.create("Score Screen", "Show Kade-style results", "scoreScreen", "bool"),
+			KEOption.create("Judgements Counter", "Show judgments counter", "Counter", "bool"),
+			KEOption.create("Charm Bar Pause", "Modern Pause Sub State", "charmPause", "bool"),
+			hitErrorSettings, // 命中误差条二级菜单
+			keyboardDisplayOptions,
+		];
+	}
+
+	// Appearance 选项
+	function getAppearanceOptions():Array<KEOption>
+	{
+		return [
+			KEOption.create("Low Quality", "Reduce graphics for performance", "lowQuality", "bool"),
+			KEOption.create("Anti-Aliasing", "Smoother visuals", "antialiasing", "bool"),
+			KEOption.create("Shaders", "Enable shader effects", "shaders", "bool"),
+			KEOption.create("GPU Caching", "Use GPU for texture caching", "cacheOnGPU", "bool"),
+			KEOption.create("FPS Counter", "Show FPS counter", "showFPS", "bool"),
+			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 240, 1),
+			//KEOption.create("New Freeplay", "Enable New Freeplay", "newFreeplay", "bool"),
+			//KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool")
+		];
+	}
+
+	// Controls 选项
+	function getControlsOptions():Array<KEOption>
+	{
+		return [
+			KEOption.create("Open Note Colors", "Customize note colors", "", "action"),
+			KEOption.create("Open Controls", "Customize key bindings", "", "action"),
+			KEOption.create("Open EZ KeyBinds", "Customize key bindings in KE Styled Menu", "", "action"),
+			KEOption.create("Adjust Delay and Combo", "Customize ingame experience", "", "action"),   
+			KEOption.create("Reset KeyBinds", "Reset to default keys", "", "action"),
+		];
+	}
+
+	// Advanced 选项
+	function getAdvancedOptions():Array<KEOption>
+	{
+		var optionsparticle = KEOption.createSubMenu(
+			"Options Particle",
+			"Edit Particle Effects in Menu",
+			[
+				KEOption.create("Show Particle In Option", "Show particle effect in options menu", "particle", "bool"),
+				KEOption.create("Particle Amount", "Amount of particles", "particleAmount", "int", 50, 0, 200, 1),
+				KEOption.create("Particle Speed", "Speed of particles", "particleSpeed", "float", 1.0, 0.1, 5.0, 0.1),
+				KEOption.create("Particle Trail Length", "Length of particle trails", "particleTrail", "int", 2, 0, 50, 1)
+			],
+			"",
+			"Particle"
+		);
+
+		return [
+			KEOption.create("Check Updates", "Check for game updates", "checkForUpdates", "bool"),
+			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
+			KEOption.create("Enable LUA Debug Printer", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
+			KEOption.create("Language", "Change the game's language", "language", "string", ['en-US', 'pt-BR', 'zh-CN']),
+			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
+			KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
+			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
+			KEOption.create("Reset Settings", "Reset all settings to default [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
+			KEOption.create("Reset Scores", "Clear all high scores [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
+			optionsparticle
+		];
 	}
 }

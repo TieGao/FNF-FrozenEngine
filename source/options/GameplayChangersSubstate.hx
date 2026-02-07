@@ -154,89 +154,25 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 	var holdValue:Float = 0;
 	override function update(elapsed:Float)
 	{
-		// 鼠标控制逻辑
-		if (allowMouse && ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed))
+		
+		// 鼠标控制逻辑 - 简化版
+		if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
 		{
-			allowMouse = false;
 			FlxG.mouse.visible = true;
-			timeNotMoving = 0;
 			isMouseControl = true;
-
-			var newMouseOverItem:Int = -1;
-			var minDist:Float = 999999;
+			timeNotMoving = 0;
 			
-			// 检查鼠标是否悬停在某个选项上
-			for (i in 0...grpOptions.length)
-			{
-				var item:Alphabet = grpOptions.members[i];
-				var checkbox:CheckboxThingie = null;
-				var valueText:AttachedText = null;
-				
-				// 检查复选框
-				for (cb in checkboxGroup)
-				{
-					if (cb.ID == i)
-					{
-						checkbox = cb;
-						break;
-					}
-				}
-				
-				// 检查值文本
-				for (vt in grpTexts)
-				{
-					if (vt.ID == i)
-					{
-						valueText = vt;
-						break;
-					}
-				}
-				
-				var isOverItem:Bool = false;
-				
-				// 检查鼠标是否在选项文本、复选框或值文本上
-				if (FlxG.mouse.overlaps(item))
-					isOverItem = true;
-				else if (checkbox != null && FlxG.mouse.overlaps(checkbox))
-					isOverItem = true;
-				else if (valueText != null && FlxG.mouse.overlaps(valueText))
-					isOverItem = true;
-				
-				if (isOverItem)
-				{
-					// 计算距离
-					var distance:Float = Math.sqrt(Math.pow(item.getGraphicMidpoint().x - FlxG.mouse.screenX, 2) + 
-												   Math.pow(item.getGraphicMidpoint().y - FlxG.mouse.screenY, 2));
-					if (distance < minDist)
-					{
-						minDist = distance;
-						newMouseOverItem = i;
-					}
-				}
-			}
-
-			if (newMouseOverItem != -1 && newMouseOverItem != mouseOverItem)
-			{
-				mouseOverItem = newMouseOverItem;
-				// 鼠标悬停时高亮显示
-				updateMouseHover();
-			}
-			else if (newMouseOverItem == -1)
-			{
-				mouseOverItem = -1;
-				updateMouseHover();
-			}
-			
-			allowMouse = true;
-		}
-		else if (isMouseControl)
-		{
-			
+			// 检查鼠标悬停
+			checkMouseOver();
 		}
 		
 		// 鼠标滚轮逻辑
 		if (FlxG.mouse.wheel != 0)
 		{
+			FlxG.mouse.visible = true;
+			isMouseControl = true;
+			timeNotMoving = 0;
+			
 			if (mouseOverItem != -1 && mouseOverItem == curSelected)
 			{
 				// 鼠标悬停在当前选中的选项上：调整数值
@@ -348,25 +284,31 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 			}
 		}
 		
-		// 鼠标点击选择选项
-		if (FlxG.mouse.justPressed && isMouseControl && mouseOverItem != -1)
+		// 鼠标点击选择选项 - 修复版
+		if (FlxG.mouse.justPressed && isMouseControl)
 		{
-			if (curSelected != mouseOverItem)
+			// 先检查鼠标悬停状态
+			checkMouseOver();
+			
+			if (mouseOverItem != -1)
 			{
-				// 左键点击未选中的选项：选择它
-				curSelected = mouseOverItem;
-				changeSelection();
-			}
-			else
-			{
-				// 左键点击已选中的选项：如果是复选框则切换
-				var usesCheckbox:Bool = (curOption.type == BOOL);
-				if (usesCheckbox && nextAccept <= 0)
+				if (curSelected != mouseOverItem)
 				{
-					FlxG.sound.play(Paths.sound('scrollMenu'));
-					curOption.setValue((curOption.getValue() == true) ? false : true);
-					curOption.change();
-					reloadCheckboxes();
+					// 左键点击未选中的选项：选择它
+					curSelected = mouseOverItem;
+					changeSelection();
+				}
+				else
+				{
+					// 左键点击已选中的选项：如果是复选框则切换
+					var usesCheckbox:Bool = (curOption.type == BOOL);
+					if (usesCheckbox && nextAccept <= 0)
+					{
+						FlxG.sound.play(Paths.sound('scrollMenu'));
+						curOption.setValue((curOption.getValue() == true) ? false : true);
+						curOption.change();
+						reloadCheckboxes();
+					}
 				}
 			}
 		}
@@ -376,16 +318,15 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 			close();
 			ClientPrefs.saveSettings();
 			FlxG.sound.play(Paths.sound('cancelMenu'));
-			FlxG.mouse.visible = true;
 		}
 		
-		// 鼠标拖动调整数值（非布尔类型）
+		// 鼠标拖动调整数值（非布尔类型）- 简化版
 		if (FlxG.mouse.pressed && isMouseControl && mouseOverItem != -1 && mouseOverItem == curSelected && !(curOption.type == BOOL) && curOption.type != STRING && nextAccept <= 0)
 		{
 			var mouseDelta:Float = FlxG.mouse.deltaScreenX;
-			if (Math.abs(mouseDelta) > 0.1)
+			if (Math.abs(mouseDelta) > 2) // 提高灵敏度阈值
 			{
-				var add:Dynamic = mouseDelta * curOption.changeValue * 0.5;
+				var add:Dynamic = mouseDelta * curOption.changeValue ; // 降低灵敏度
 				holdValue = curOption.getValue() + add;
 				if(holdValue < curOption.minValue) holdValue = curOption.minValue;
 				else if (holdValue > curOption.maxValue) holdValue = curOption.maxValue;
@@ -403,13 +344,9 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 					default:
 				}
 				
-				if (Math.abs(mouseDelta) > 2) // 防止连续播放音效
-				{
-					FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
-				}
-				
 				updateTextFrom(curOption);
 				curOption.change();
+				
 				timeNotMoving = 0; // 重置不活动时间
 			}
 		}
@@ -561,26 +498,84 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 		if(nextAccept > 0) {
 			nextAccept -= 1;
 		}
+
+		
 		super.update(elapsed);
+	}
+	
+	// 检查鼠标悬停
+	function checkMouseOver():Void
+	{
+		var newMouseOverItem:Int = -1;
+		
+		// 简单检查：只检查选项文本
+		for (i in 0...grpOptions.length)
+		{
+			var item:Alphabet = grpOptions.members[i];
+			if (item != null && FlxG.mouse.overlaps(item))
+			{
+				newMouseOverItem = i;
+				break;
+			}
+		}
+		
+		// 如果没找到，检查复选框
+		if (newMouseOverItem == -1)
+		{
+			for (checkbox in checkboxGroup)
+			{
+				if (checkbox != null && FlxG.mouse.overlaps(checkbox))
+				{
+					newMouseOverItem = checkbox.ID;
+					break;
+				}
+			}
+		}
+		
+		// 如果还没找到，检查值文本
+		if (newMouseOverItem == -1)
+		{
+			for (text in grpTexts)
+			{
+				if (text != null && FlxG.mouse.overlaps(text))
+				{
+					newMouseOverItem = text.ID;
+					break;
+				}
+			}
+		}
+		
+		if (newMouseOverItem != mouseOverItem)
+		{
+			mouseOverItem = newMouseOverItem;
+			updateMouseHover();
+			timeNotMoving = 0; // 重置不活动时间
+		}
 	}
 	
 	function updateMouseHover()
 	{
 		for (num => item in grpOptions.members)
 		{
-			item.alpha = 0.6;
-			if (item.targetY == 0)
-				item.alpha = 1;
-			else if (mouseOverItem == num)
-				item.alpha = 0.8;
+			if (item != null)
+			{
+				item.alpha = 0.6;
+				if (item.targetY == 0)
+					item.alpha = 1;
+				else if (mouseOverItem == num)
+					item.alpha = 0.8;
+			}
 		}
 		for (text in grpTexts)
 		{
-			text.alpha = 0.6;
-			if(text.ID == curSelected)
-				text.alpha = 1;
-			else if(mouseOverItem == text.ID)
-				text.alpha = 0.8;
+			if (text != null)
+			{
+				text.alpha = 0.6;
+				if(text.ID == curSelected)
+					text.alpha = 1;
+				else if(mouseOverItem == text.ID)
+					text.alpha = 0.8;
+			}
 		}
 	}
 
@@ -605,16 +600,22 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 		curSelected = FlxMath.wrap(curSelected + change, 0, optionsArray.length - 1);
 		for (num => item in grpOptions.members)
 		{
-			item.targetY = num - curSelected;
-			item.alpha = 0.6;
-			if (item.targetY == 0)
-				item.alpha = 1;
+			if (item != null)
+			{
+				item.targetY = num - curSelected;
+				item.alpha = 0.6;
+				if (item.targetY == 0)
+					item.alpha = 1;
+			}
 		}
 		for (text in grpTexts)
 		{
-			text.alpha = 0.6;
-			if(text.ID == curSelected)
-				text.alpha = 1;
+			if (text != null)
+			{
+				text.alpha = 0.6;
+				if(text.ID == curSelected)
+					text.alpha = 1;
+			}
 		}
 		
 		// 重置鼠标悬停状态
@@ -626,7 +627,10 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 
 	function reloadCheckboxes() {
 		for (checkbox in checkboxGroup) {
-			checkbox.daValue = (optionsArray[checkbox.ID].getValue() == true);
+			if (checkbox != null)
+			{
+				checkbox.daValue = (optionsArray[checkbox.ID].getValue() == true);
+			}
 		}
 	}
 }

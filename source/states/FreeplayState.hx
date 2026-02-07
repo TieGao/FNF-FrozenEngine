@@ -51,9 +51,6 @@ class FreeplayState extends MusicBeatState
 	var bottomBG:FlxSprite;
 
 	var player:MusicPlayer;
-	
-	// 鼠标控制相关变量
-	var mouseOverItem:Int = -1;
 
 	override function create()
 	{
@@ -162,7 +159,7 @@ class FreeplayState extends MusicBeatState
 		add(missingTextBG);
 		
 		missingText = new FlxText(50, 0, FlxG.width - 100, '', 24);
-		missingText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		missingText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		missingText.scrollFactor.set();
 		missingText.visible = false;
 		add(missingText);
@@ -192,9 +189,6 @@ class FreeplayState extends MusicBeatState
 		changeSelection();
 		updateTexts();
 		super.create();
-		
-		// 初始隐藏鼠标
-		FlxG.mouse.visible = true;
 	}
 
 	override function closeSubState()
@@ -221,351 +215,252 @@ class FreeplayState extends MusicBeatState
 	var holdTime:Float = 0;
 
 	var stopMusicPlay:Bool = false;
-override function update(elapsed:Float)
-{
-	if(WeekData.weeksList.length < 1)
-		return;
-
-	if (FlxG.sound.music.volume < 0.7)
-		FlxG.sound.music.volume += 0.5 * elapsed;
-
-	lerpScore = Math.floor(FlxMath.lerp(intendedScore, lerpScore, Math.exp(-elapsed * 24)));
-	lerpRating = FlxMath.lerp(intendedRating, lerpRating, Math.exp(-elapsed * 12));
-
-	if (Math.abs(lerpScore - intendedScore) <= 10)
-		lerpScore = intendedScore;
-	if (Math.abs(lerpRating - intendedRating) <= 0.01)
-		lerpRating = intendedRating;
-
-	var ratingSplit:Array<String> = Std.string(CoolUtil.floorDecimal(lerpRating * 100, 2)).split('.');
-	if(ratingSplit.length < 2) //No decimals, add an empty space
-		ratingSplit.push('');
-	
-	while(ratingSplit[1].length < 2) //Less than 2 decimals in it, add decimals then
-		ratingSplit[1] += '0';
-
-	var shiftMult:Int = 1;
-	if(FlxG.keys.pressed.SHIFT) shiftMult = 3;
-
-	// 鼠标控制逻辑
-	if ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed)
+	override function update(elapsed:Float)
 	{
-		var newMouseOverItem:Int = -1;
-		var minDist:Float = 999999;
+		if(WeekData.weeksList.length < 1)
+			return;
+
+		if (FlxG.sound.music.volume < 0.7)
+			FlxG.sound.music.volume += 0.5 * elapsed;
+
+		lerpScore = Math.floor(FlxMath.lerp(intendedScore, lerpScore, Math.exp(-elapsed * 24)));
+		lerpRating = FlxMath.lerp(intendedRating, lerpRating, Math.exp(-elapsed * 12));
+
+		if (Math.abs(lerpScore - intendedScore) <= 10)
+			lerpScore = intendedScore;
+		if (Math.abs(lerpRating - intendedRating) <= 0.01)
+			lerpRating = intendedRating;
+
+		var ratingSplit:Array<String> = Std.string(CoolUtil.floorDecimal(lerpRating * 100, 2)).split('.');
+		if(ratingSplit.length < 2) //No decimals, add an empty space
+			ratingSplit.push('');
 		
-		// 检查鼠标是否悬停在某个歌曲上
-		for (i in _lastVisibles)
+		while(ratingSplit[1].length < 2) //Less than 2 decimals in it, add decimals then
+			ratingSplit[1] += '0';
+
+		var shiftMult:Int = 1;
+		if(FlxG.keys.pressed.SHIFT) shiftMult = 3;
+
+		if (!player.playingMusic)
 		{
-			var songText:Alphabet = grpSongs.members[i];
-			var icon:HealthIcon = iconArray[i];
+			scoreText.text = Language.getPhrase('personal_best', 'PERSONAL BEST: {1} ({2}%)', [lerpScore, ratingSplit.join('.')]);
+			positionHighscore();
 			
-			if (songText.visible && (FlxG.mouse.overlaps(songText) || (icon != null && FlxG.mouse.overlaps(icon))))
+			if(songs.length > 1)
 			{
-				// 计算距离
-				var distance:Float = Math.sqrt(Math.pow(songText.getGraphicMidpoint().x - FlxG.mouse.screenX, 2) + 
-											   Math.pow(songText.getGraphicMidpoint().y - FlxG.mouse.screenY, 2));
-				if (distance < minDist)
+				if(FlxG.keys.justPressed.HOME)
 				{
-					minDist = distance;
-					newMouseOverItem = i;
+					curSelected = 0;
+					changeSelection();
+					holdTime = 0;	
+				}
+				else if(FlxG.keys.justPressed.END)
+				{
+					curSelected = songs.length - 1;
+					changeSelection();
+					holdTime = 0;	
+				}
+				if (controls.UI_UP_P)
+				{
+					changeSelection(-shiftMult);
+					holdTime = 0;
+				}
+				if (controls.UI_DOWN_P)
+				{
+					changeSelection(shiftMult);
+					holdTime = 0;
+				}
+
+				if(controls.UI_DOWN || controls.UI_UP)
+				{
+					var checkLastHold:Int = Math.floor((holdTime - 0.5) * 10);
+					holdTime += elapsed;
+					var checkNewHold:Int = Math.floor((holdTime - 0.5) * 10);
+
+					if(holdTime > 0.5 && checkNewHold - checkLastHold > 0)
+						changeSelection((checkNewHold - checkLastHold) * (controls.UI_UP ? -shiftMult : shiftMult));
+				}
+
+				if(FlxG.mouse.wheel != 0)
+				{
+					FlxG.sound.play(Paths.sound('scrollMenu'), 0.2);
+					changeSelection(-shiftMult * FlxG.mouse.wheel, false);
 				}
 			}
-		}
 
-		if (newMouseOverItem != -1 && newMouseOverItem != mouseOverItem)
-		{
-			mouseOverItem = newMouseOverItem;
-			// 鼠标悬停时高亮显示
-			updateMouseHover();
-		}
-		else if (newMouseOverItem == -1)
-		{
-			mouseOverItem = -1;
-			updateMouseHover();
-		}
-	}
-
-	// 鼠标滚轮滚动
-	if (FlxG.mouse.wheel != 0 && songs.length > 1 && !player.playingMusic)
-	{
-		var wheelShiftMult:Int = FlxG.keys.pressed.SHIFT ? 3 : 1;
-		FlxG.sound.play(Paths.sound('scrollMenu'), 0.2);
-		changeSelection(-wheelShiftMult * FlxG.mouse.wheel, false);
-	}
-
-	// 鼠标点击功能
-	if (FlxG.mouse.justPressed && mouseOverItem != -1)
-	{
-		if (curSelected != mouseOverItem)
-		{
-			// 左键点击未选中的歌曲：选择它
-			curSelected = mouseOverItem;
-			changeSelection();
-		}
-		else
-		{
-			// 左键点击已选中的歌曲：进入歌曲
-			if (!player.playingMusic)
+			if (controls.UI_LEFT_P)
 			{
-				selectSong();
+				changeDiff(-1);
+				_updateSongLastDifficulty();
 			}
-		}
-	}
-	
-	// 键盘控制打开Gameplay Changer界面
-	if(FlxG.keys.justPressed.CONTROL && !player.playingMusic)
-	{
-		persistentUpdate = false;
-		openSubState(new GameplayChangersSubstate());
-	}
-
-	if (!player.playingMusic)
-	{
-		scoreText.text = Language.getPhrase('personal_best', 'PERSONAL BEST: {1} ({2}%)', [lerpScore, ratingSplit.join('.')]);
-		positionHighscore();
-		
-		if(songs.length > 1)
-		{
-			if(FlxG.keys.justPressed.HOME)
+			else if (controls.UI_RIGHT_P)
 			{
-				curSelected = 0;
-				changeSelection();
-				holdTime = 0;	
-			}
-			else if(FlxG.keys.justPressed.END)
-			{
-				curSelected = songs.length - 1;
-				changeSelection();
-				holdTime = 0;	
-			}
-			if (controls.UI_UP_P)
-			{
-				changeSelection(-shiftMult);
-				holdTime = 0;
-			}
-			if (controls.UI_DOWN_P)
-			{
-				changeSelection(shiftMult);
-				holdTime = 0;
-			}
-
-			if(controls.UI_DOWN || controls.UI_UP)
-			{
-				var checkLastHold:Int = Math.floor((holdTime - 0.5) * 10);
-				holdTime += elapsed;
-				var checkNewHold:Int = Math.floor((holdTime - 0.5) * 10);
-
-				if(holdTime > 0.5 && checkNewHold - checkLastHold > 0)
-					changeSelection((checkNewHold - checkLastHold) * (controls.UI_UP ? -shiftMult : shiftMult));
+				changeDiff(1);
+				_updateSongLastDifficulty();
 			}
 		}
 
-		if (controls.UI_LEFT_P)
+		if (controls.BACK)
 		{
-			changeDiff(-1);
-			_updateSongLastDifficulty();
+			if (player.playingMusic)
+			{
+				FlxG.sound.music.stop();
+				destroyFreeplayVocals();
+				FlxG.sound.music.volume = 0;
+				instPlaying = -1;
+
+				player.playingMusic = false;
+				player.switchPlayMusic();
+
+				FlxG.sound.playMusic(Paths.music('freakyMenu'), 0);
+				FlxTween.tween(FlxG.sound.music, {volume: 1}, 1);
+			}
+			else 
+			{
+				persistentUpdate = false;
+				FlxG.sound.play(Paths.sound('cancelMenu'));
+				MusicBeatState.switchState(new MainMenuState());
+			}
 		}
-		else if (controls.UI_RIGHT_P)
-		{
-			changeDiff(1);
-			_updateSongLastDifficulty();
-		}
-	}
 
-	// 鼠标中键在任何地方都能打开Gameplay Changer界面
-	if (FlxG.mouse.justPressedMiddle && !player.playingMusic)
-	{
-		persistentUpdate = false;
-		openSubState(new GameplayChangersSubstate());
-	}
-
-	if (controls.BACK || FlxG.mouse.justPressedRight)
-	{
-		if (player.playingMusic)
-		{
-			FlxG.sound.music.stop();
-			destroyFreeplayVocals();
-			FlxG.sound.music.volume = 0;
-			instPlaying = -1;
-
-			player.playingMusic = false;
-			player.switchPlayMusic();
-
-			FlxG.sound.playMusic(Paths.music('freakyMenu'), 0);
-			FlxTween.tween(FlxG.sound.music, {volume: 1}, 1);
-		}
-		else 
+		if(FlxG.keys.justPressed.CONTROL && !player.playingMusic)
 		{
 			persistentUpdate = false;
-			FlxG.sound.play(Paths.sound('cancelMenu'));
-			MusicBeatState.switchState(new MainMenuState());
-			FlxG.mouse.visible = false;
+			openSubState(new GameplayChangersSubstate());
 		}
-	}
-	else if(FlxG.keys.justPressed.SPACE)
-	{
-		if(instPlaying != curSelected && !player.playingMusic)
+		else if(FlxG.keys.justPressed.SPACE)
 		{
+			if(instPlaying != curSelected && !player.playingMusic)
+			{
+				destroyFreeplayVocals();
+				FlxG.sound.music.volume = 0;
+
+				Mods.currentModDirectory = songs[curSelected].folder;
+				var poop:String = Highscore.formatSong(songs[curSelected].songName.toLowerCase(), curDifficulty);
+				Song.loadFromJson(poop, songs[curSelected].songName.toLowerCase());
+				if (PlayState.SONG.needsVoices)
+				{
+					vocals = new FlxSound();
+					try
+					{
+						var playerVocals:String = getVocalFromCharacter(PlayState.SONG.player1);
+						var loadedVocals = Paths.voices(PlayState.SONG.song, (playerVocals != null && playerVocals.length > 0) ? playerVocals : 'Player');
+						if(loadedVocals == null) loadedVocals = Paths.voices(PlayState.SONG.song);
+						
+						if(loadedVocals != null && loadedVocals.length > 0)
+						{
+							vocals.loadEmbedded(loadedVocals);
+							FlxG.sound.list.add(vocals);
+							vocals.persist = vocals.looped = true;
+							vocals.volume = 0.8;
+							vocals.play();
+							vocals.pause();
+						}
+						else vocals = FlxDestroyUtil.destroy(vocals);
+					}
+					catch(e:Dynamic)
+					{
+						vocals = FlxDestroyUtil.destroy(vocals);
+					}
+					
+					opponentVocals = new FlxSound();
+					try
+					{
+						//trace('please work...');
+						var oppVocals:String = getVocalFromCharacter(PlayState.SONG.player2);
+						var loadedVocals = Paths.voices(PlayState.SONG.song, (oppVocals != null && oppVocals.length > 0) ? oppVocals : 'Opponent');
+						
+						if(loadedVocals != null && loadedVocals.length > 0)
+						{
+							opponentVocals.loadEmbedded(loadedVocals);
+							FlxG.sound.list.add(opponentVocals);
+							opponentVocals.persist = opponentVocals.looped = true;
+							opponentVocals.volume = 0.8;
+							opponentVocals.play();
+							opponentVocals.pause();
+							//trace('yaaay!!');
+						}
+						else opponentVocals = FlxDestroyUtil.destroy(opponentVocals);
+					}
+					catch(e:Dynamic)
+					{
+						//trace('FUUUCK');
+						opponentVocals = FlxDestroyUtil.destroy(opponentVocals);
+					}
+				}
+
+				FlxG.sound.playMusic(Paths.inst(PlayState.SONG.song), 0.8);
+				FlxG.sound.music.pause();
+				instPlaying = curSelected;
+
+				player.playingMusic = true;
+				player.curTime = 0;
+				player.switchPlayMusic();
+				player.pauseOrResume(true);
+			}
+			else if (instPlaying == curSelected && player.playingMusic)
+			{
+				player.pauseOrResume(!player.playing);
+			}
+		}
+		else if (controls.ACCEPT && !player.playingMusic)
+		{
+			persistentUpdate = false;
+			var songLowercase:String = Paths.formatToSongPath(songs[curSelected].songName);
+			var poop:String = Highscore.formatSong(songLowercase, curDifficulty);
+
+			try
+			{
+				Song.loadFromJson(poop, songLowercase);
+				PlayState.isStoryMode = false;
+				PlayState.storyDifficulty = curDifficulty;
+
+				trace('CURRENT WEEK: ' + WeekData.getWeekFileName());
+			}
+			catch(e:haxe.Exception)
+			{
+				trace('ERROR! ${e.message}');
+
+				var errorStr:String = e.message;
+				if(errorStr.contains('There is no TEXT asset with an ID of')) errorStr = 'Missing file: ' + errorStr.substring(errorStr.indexOf(songLowercase), errorStr.length-1); //Missing chart
+				else errorStr += '\n\n' + e.stack;
+
+				missingText.text = 'ERROR WHILE LOADING CHART:\n$errorStr';
+				missingText.screenCenter(Y);
+				missingText.visible = true;
+				missingTextBG.visible = true;
+				FlxG.sound.play(Paths.sound('cancelMenu'));
+
+				updateTexts(elapsed);
+				super.update(elapsed);
+				return;
+			}
+
+			@:privateAccess
+			if(PlayState._lastLoadedModDirectory != Mods.currentModDirectory)
+			{
+				trace('CHANGED MOD DIRECTORY, RELOADING STUFF');
+				Paths.freeGraphicsFromMemory();
+			}
+			LoadingState.prepareToSong();
+			LoadingState.loadAndSwitchState(new PlayState());
+			#if !SHOW_LOADING_SCREEN FlxG.sound.music.stop(); #end
+			stopMusicPlay = true;
+
 			destroyFreeplayVocals();
-			FlxG.sound.music.volume = 0;
-
-			Mods.currentModDirectory = songs[curSelected].folder;
-			var poop:String = Highscore.formatSong(songs[curSelected].songName.toLowerCase(), curDifficulty);
-			Song.loadFromJson(poop, songs[curSelected].songName.toLowerCase());
-			if (PlayState.SONG.needsVoices)
-			{
-				vocals = new FlxSound();
-				try
-				{
-					var playerVocals:String = getVocalFromCharacter(PlayState.SONG.player1);
-					var loadedVocals = Paths.voices(PlayState.SONG.song, (playerVocals != null && playerVocals.length > 0) ? playerVocals : 'Player');
-					if(loadedVocals == null) loadedVocals = Paths.voices(PlayState.SONG.song);
-					
-					if(loadedVocals != null && loadedVocals.length > 0)
-					{
-						vocals.loadEmbedded(loadedVocals);
-						FlxG.sound.list.add(vocals);
-						vocals.persist = vocals.looped = true;
-						vocals.volume = 0.8;
-						vocals.play();
-						vocals.pause();
-					}
-					else vocals = FlxDestroyUtil.destroy(vocals);
-				}
-				catch(e:Dynamic)
-				{
-					vocals = FlxDestroyUtil.destroy(vocals);
-				}
-				
-				opponentVocals = new FlxSound();
-				try
-				{
-					//trace('please work...');
-					var oppVocals:String = getVocalFromCharacter(PlayState.SONG.player2);
-					var loadedVocals = Paths.voices(PlayState.SONG.song, (oppVocals != null && oppVocals.length > 0) ? oppVocals : 'Opponent');
-					
-					if(loadedVocals != null && loadedVocals.length > 0)
-					{
-						opponentVocals.loadEmbedded(loadedVocals);
-						FlxG.sound.list.add(opponentVocals);
-						opponentVocals.persist = opponentVocals.looped = true;
-						opponentVocals.volume = 0.8;
-						opponentVocals.play();
-						opponentVocals.pause();
-						//trace('yaaay!!');
-					}
-					else opponentVocals = FlxDestroyUtil.destroy(opponentVocals);
-				}
-				catch(e:Dynamic)
-				{
-					//trace('FUUUCK');
-					opponentVocals = FlxDestroyUtil.destroy(opponentVocals);
-				}
-			}
-
-			FlxG.sound.playMusic(Paths.inst(PlayState.SONG.song), 0.8);
-			FlxG.sound.music.pause();
-			instPlaying = curSelected;
-
-			player.playingMusic = true;
-			player.curTime = 0;
-			player.switchPlayMusic();
-			player.pauseOrResume(true);
+			#if (MODS_ALLOWED && DISCORD_ALLOWED)
+			DiscordClient.loadModRPC();
+			#end
 		}
-		else if (instPlaying == curSelected && player.playingMusic)
+		else if(controls.RESET && !player.playingMusic)
 		{
-			player.pauseOrResume(!player.playing);
+			persistentUpdate = false;
+			openSubState(new ResetScoreSubState(songs[curSelected].songName, curDifficulty, songs[curSelected].songCharacter));
+			FlxG.sound.play(Paths.sound('scrollMenu'));
 		}
-	}
-	else if (controls.ACCEPT && !player.playingMusic)
-	{
-		selectSong();
-	}
-	else if(controls.RESET && !player.playingMusic)
-	{
-		persistentUpdate = false;
-		openSubState(new ResetScoreSubState(songs[curSelected].songName, curDifficulty, songs[curSelected].songCharacter));
-		FlxG.sound.play(Paths.sound('scrollMenu'));
-	}
 
-	updateTexts(elapsed);
-	super.update(elapsed);
-}
-	
-	function selectSong()
-{
-	persistentUpdate = false;
-	var songLowercase:String = Paths.formatToSongPath(songs[curSelected].songName);
-	var poop:String = Highscore.formatSong(songLowercase, curDifficulty);
-
-	try
-	{
-		Song.loadFromJson(poop, songLowercase);
-		PlayState.isStoryMode = false;
-		PlayState.storyDifficulty = curDifficulty;
-
-		trace('CURRENT WEEK: ' + WeekData.getWeekFileName());
-	}
-	catch(e:haxe.Exception)
-	{
-		trace('ERROR! ${e.message}');
-
-		var errorStr:String = e.message;
-		if(errorStr.contains('There is no TEXT asset with an ID of')) errorStr = 'Missing file: ' + errorStr.substring(errorStr.indexOf(songLowercase), errorStr.length-1); //Missing chart
-		else errorStr += '\n\n' + e.stack;
-
-		missingText.text = 'ERROR WHILE LOADING CHART:\n$errorStr';
-		missingText.screenCenter(Y);
-		missingText.visible = true;
-		missingTextBG.visible = true;
-		FlxG.sound.play(Paths.sound('cancelMenu'));
-
-		// 这里不需要调用updateTexts和super.update，因为游戏会继续运行
-		// updateTexts(elapsed);
-		// super.update(elapsed);
-		return;
-	}
-
-	@:privateAccess
-	if(PlayState._lastLoadedModDirectory != Mods.currentModDirectory)
-	{
-		trace('CHANGED MOD DIRECTORY, RELOADING STUFF');
-		Paths.freeGraphicsFromMemory();
-	}
-	LoadingState.prepareToSong();
-	LoadingState.loadAndSwitchState(new PlayState());
-	#if !SHOW_LOADING_SCREEN FlxG.sound.music.stop(); #end
-	stopMusicPlay = true;
-
-	destroyFreeplayVocals();
-	#if (MODS_ALLOWED && DISCORD_ALLOWED)
-	DiscordClient.loadModRPC();
-	#end
-}
-	
-	function updateMouseHover()
-	{
-		for (i in _lastVisibles)
-		{
-			var songText:Alphabet = grpSongs.members[i];
-			var icon:HealthIcon = iconArray[i];
-			
-			if (songText.visible)
-			{
-				if (mouseOverItem == i)
-				{
-					// 鼠标悬停时高亮显示
-					songText.alpha = 0.8;
-					if (icon != null) icon.alpha = 0.8;
-				}
-				else
-				{
-					// 恢复原始透明度
-					songText.alpha = (i == curSelected) ? 1 : 0.6;
-					if (icon != null) icon.alpha = (i == curSelected) ? 1 : 0.6;
-				}
-			}
-		}
+		updateTexts(elapsed);
+		super.update(elapsed);
 	}
 	
 	function getVocalFromCharacter(char:String)
@@ -643,10 +538,6 @@ override function update(elapsed:Float)
 				icon.alpha = 1;
 			}
 		}
-		
-		// 重置鼠标悬停状态
-		mouseOverItem = -1;
-		updateMouseHover();
 		
 		Mods.currentModDirectory = songs[curSelected].folder;
 		PlayState.storyWeek = songs[curSelected].week;

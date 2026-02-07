@@ -111,6 +111,11 @@ import states.TitleState;
 	public var language:String = 'en-US';
 	public var saveReplays:Bool = true;
 	public var luadebugPrint:Bool = true;
+
+	public var particle:Bool = true;
+	public var particleAmount:Int = 10;
+	public var particleSpeed:Float = 1.0;
+	public var particleTrail:Int = 3;
 }
 
 class ClientPrefs {
