@@ -31,7 +31,9 @@ class ParticleBeamShader extends FlxShader
             float particleValue = 0.0;
             
             float screenHeight = resolution.y;
-            float upRegion = 120.0 / screenHeight;
+            float offsetY = 100.0 / screenHeight;
+            
+            float upRegion = 160.0 / screenHeight;
             float downRegion = 160.0 / screenHeight;
             
             int maxParticles = int(particleCount * 7.5);
@@ -44,17 +46,24 @@ class ParticleBeamShader extends FlxShader
                 float seed3 = rand(id * 30.0 + 3.0);
                 
                 float normalizedPos = float(i) / float(maxParticles - 1);
+                
+                float lowerLeftBound = -0.1;
+                float lowerRightBound = 0.25;
+                float upperLeftBound = 0.8;
+                float upperRightBound = 1.25;
+                
                 float startX;
+                float startY;
                 
-                if (normalizedPos < 0.4) {
-                    startX = 0.0 + normalizedPos / 0.4 * 0.4;
-                } else if (normalizedPos > 0.6) {
-                    startX = 0.6 + (normalizedPos - 0.6) / 0.4 * 0.4;
+                if (isUp) {
+                    float regionWidth = upperRightBound - upperLeftBound;
+                    startX = upperLeftBound + (seed2 * regionWidth);
+                    startY = upRegion * 0.5 - offsetY;
                 } else {
-                    continue;
+                    float regionWidth = lowerRightBound - lowerLeftBound;
+                    startX = lowerLeftBound + (seed2 * regionWidth);
+                    startY = 1.0 - downRegion * 0.5 + offsetY;
                 }
-                
-                float startY = isUp ? upRegion * 0.5 : 1.0 - downRegion * 0.5;
                 
                 float particleTime = time * speed * (0.7 + seed2 * 0.6) + seed3 * 10.0;
                 float t = fract(particleTime);
@@ -63,14 +72,10 @@ class ParticleBeamShader extends FlxShader
                 float currentX;
                 
                 if (isUp) {
-                    currentY = startY - t * upRegion;
-                } else {
-                    currentY = startY + t * downRegion;
-                }
-                
-                if (startX < 0.4) {
+                    currentY = startY + t * upRegion;
                     currentX = startX - t * 0.2;
                 } else {
+                    currentY = startY - t * downRegion;
                     currentX = startX + t * 0.2;
                 }
                 
@@ -89,14 +94,10 @@ class ParticleBeamShader extends FlxShader
                     float trailX;
                     
                     if (isUp) {
-                        trailY = startY - trailT * upRegion;
-                    } else {
-                        trailY = startY + trailT * downRegion;
-                    }
-                    
-                    if (startX < 0.4) {
+                        trailY = startY + trailT * upRegion;
                         trailX = startX - trailT * 0.2;
                     } else {
+                        trailY = startY - trailT * downRegion;
                         trailX = startX + trailT * 0.2;
                     }
                     

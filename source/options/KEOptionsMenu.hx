@@ -234,8 +234,9 @@ class KEOptionsMenu extends MusicBeatState
 		// 开始两个颜色循环
 		startColorCycle();      // 选项区域彩色循环
 		startBgColorCycle();    // 主背景颜色循环
-
-		optionBg.shader = beamShader;
+		if (ClientPrefs.data.shaders || ClientPrefs.data.particle) {
+			optionBg.shader = beamShader;
+		}
 
 		// 注册语言重载回调
 		var self = this;
@@ -975,11 +976,11 @@ class KEOptionsMenu extends MusicBeatState
 			"Window Settings",
 			"Configure window and timing settings",
 			[
-				KEOption.create("Marvelous Window", "Timing window for SICK", "marvelousWindow", "float", 25, 15, 45, 0.1),
-				KEOption.create("Sick Window", "Timing window for SICK", "sickWindow", "float", 45, 15, 45, 0.1),
-				KEOption.create("Good Window", "Timing window for GOOD", "goodWindow", "float", 90, 15, 90, 0.1),
-				KEOption.create("Bad Window", "Timing window for BAD", "badWindow", "float", 135, 15, 135, 0.1),
-				KEOption.create("Safe Frames", "Frames for early/late hits", "safeFrames", "float", 10, 2, 10, 0.1)
+				KEOption.create("Marvelous Window", "Timing window for SICK", "marvelousWindow", "float", 22.5, 10, 22.5, 0.5),
+				KEOption.create("Sick Window", "Timing window for SICK", "sickWindow", "float", 45, 10, 45, 0.5),
+				KEOption.create("Good Window", "Timing window for GOOD", "goodWindow", "float", 90, 10, 90, 0.5),
+				KEOption.create("Bad Window", "Timing window for BAD", "badWindow", "float", 135, 10, 135, 0.5),
+				KEOption.create("Safe Frames", "Frames for early/late hits", "safeFrames", "float", 10, 2, 10, 1)
 			],
 			"",
 			"Window Settings"
@@ -1108,7 +1109,7 @@ class KEOptionsMenu extends MusicBeatState
 			"Edit Particle Effects in Menu",
 			[
 				KEOption.create("Show Particle In Option", "Show particle effect in options menu", "particle", "bool"),
-				KEOption.create("Particle Amount", "Amount of particles", "particleAmount", "int", 50, 0, 200, 1),
+				KEOption.create("Particle Amount", "Amount of particles", "particleAmount", "float", 50, 0, 200, 0.1),
 				KEOption.create("Particle Speed", "Speed of particles", "particleSpeed", "float", 1.0, 0.1, 5.0, 0.1),
 				KEOption.create("Particle Trail Length", "Length of particle trails", "particleTrail", "int", 2, 0, 50, 1)
 			],

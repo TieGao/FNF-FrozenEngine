@@ -79,7 +79,7 @@ class CreditsState extends MusicBeatState
 			["Join the Psych Ward!", "discord", "", "https://discord.gg/2ka77eMXDv", "5165F6"],
 			[""],
 			["Frozen Engine Creator"],
-			["Ice_Axe",			"IceAxe",		"Creator of Frozen Engine",							"",		"87CEEB"]
+			["Ice_Axe",			"iceaxe",		"Creator of Frozen Engine",							"",		"87CEEB"]
 		];
 		
 		for(i in defaultList)

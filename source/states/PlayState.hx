@@ -3605,7 +3605,7 @@ private function popUpScore(note:Note = null):Void
 		
 		// 如果ratingFC为MFC或SFC，始终使用Marvelous
 		// 否则只在22.5ms内使用Marvelous
-		if (isMFCOrSFC || noteDiff <= ClientPrefs.data.marvelousWindow)
+		if (isMFCOrSFC || (noteDiff <= ClientPrefs.data.marvelousWindow && daRating.name != "shit" && daRating.name != "bad" && daRating.name != "good"))
 		{
 			ratingImageToUse = "marvelous";
 			shouldUseGoldenNumbers = true;
@@ -3946,7 +3946,7 @@ private function popUpScore(note:Note = null):Void
         {
             if (daNote.mustPress && daNote.noteData == key && !daNote.wasGoodHit && daNote.canBeHit)
             {
-                var diff:Float = Math.abs(daNote.strumTime - Conductor.songPosition);
+                var diff:Float = Math.abs(daNote.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset);
                 if (diff < minDiff)
                 {
                     minDiff = diff;
@@ -3958,7 +3958,7 @@ private function popUpScore(note:Note = null):Void
         if (foundNote != null)
         {
             // 记录实际的时间差
-            var diff = foundNote.strumTime - Conductor.songPosition;
+            var diff = foundNote.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
             //rep.recordNote(foundNote.strumTime, key, foundNote.sustainLength, diff);
         }
     }
@@ -4464,7 +4464,7 @@ function noteMissPress(direction:Int = 1):Void
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('goodNoteHit', [note]);
 		if(!note.isSustainNote) invalidateNote(note);
 
-		var diff = note.strumTime - Conductor.songPosition;
+		var diff = note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
 
 		if (ClientPrefs.data.hitErrorBarVisible) {
 		if (hitErrorBar != null && (!isSus )) {
@@ -5568,8 +5568,8 @@ private function findNoteAtActualHitTime(hitTime:Float, column:Int):Note
             return;
         
         // 计算音符可被击打的时间窗口
-        var noteHitWindowStart:Float = daNote.strumTime - Conductor.safeZoneOffset;
-        var noteHitWindowEnd:Float = daNote.strumTime + Conductor.safeZoneOffset;
+        var noteHitWindowStart:Float = daNote.strumTime - Conductor.safeZoneOffset + ClientPrefs.data.ratingOffset;
+        var noteHitWindowEnd:Float = daNote.strumTime + Conductor.safeZoneOffset + ClientPrefs.data.ratingOffset;
         
         // 如果击打时间在音符的可击打窗口内
         if (hitTime >= noteHitWindowStart && hitTime <= noteHitWindowEnd)
