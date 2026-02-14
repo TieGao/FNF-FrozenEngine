@@ -99,6 +99,51 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		addOption(option);
 		option.onChange = playNoteSplashes;
 
+		// KEOptions: 强制数字颜色（forceNumberColor）
+		var option:Option = new Option('Force Number Color',
+			'Force numbers to a specific color instead of team color',
+			'forceNumberColor',
+			BOOL);
+		addOption(option);
+
+		// 粒子设置（从 KEOptions 反向移植）
+		var optParticle:Option = new Option('Show Particles in Menu',
+			"Show particle effects inside menus",
+			'particle',
+			BOOL);
+		addOption(optParticle);
+
+		var optParticleAmount:Option = new Option('Particle Amount',
+			"Amount of particles used in menu effects",
+			'particleAmount',
+			INT);
+		optParticleAmount.scrollSpeed = 1.6;
+		optParticleAmount.minValue = 0;
+		optParticleAmount.maxValue = 200;
+		optParticleAmount.changeValue = 1;
+		addOption(optParticleAmount);
+
+		var optParticleSpeed:Option = new Option('Particle Speed',
+			"Speed multiplier for particles",
+			'particleSpeed',
+			FLOAT);
+		optParticleSpeed.scrollSpeed = 1.0;
+		optParticleSpeed.minValue = 0.1;
+		optParticleSpeed.maxValue = 5.0;
+		optParticleSpeed.changeValue = 0.1;
+		optParticleSpeed.decimals = 2;
+		addOption(optParticleSpeed);
+
+		var optParticleTrail:Option = new Option('Particle Trail Length',
+			"Length of particle trails",
+			'particleTrail',
+			INT);
+		optParticleTrail.scrollSpeed = 1.0;
+		optParticleTrail.minValue = 0;
+		optParticleTrail.maxValue = 50;
+		optParticleTrail.changeValue = 1;
+		addOption(optParticleTrail);
+
 		var option:Option = new Option('Hide HUD',
 			'If checked, hides most HUD elements.',
 			'hideHud',
@@ -150,11 +195,29 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		option.onChange = onChangeFPSCounter;
 		#end
 		
+		// Pause Music 列表：优先从 mods/shared 扫描 music/list.txt，回退到内置列表
+		var pauseMusicList:Array<String> = Mods.mergeAllTextsNamed('music/list.txt');
+		if(pauseMusicList.length > 0)
+		{
+			if(!pauseMusicList.contains(ClientPrefs.data.pauseMusic))
+				ClientPrefs.data.pauseMusic = ClientPrefs.defaultData.pauseMusic;
+
+			// 默认值始终放在第一位
+			if(!pauseMusicList.contains(ClientPrefs.defaultData.pauseMusic))
+				pauseMusicList.insert(0, ClientPrefs.defaultData.pauseMusic);
+			if(!pauseMusicList.contains('None'))
+				pauseMusicList.insert(0, 'None');
+		}
+		else
+		{
+			pauseMusicList = ['None', 'Tea Time', 'Breakfast', 'Breakfast (Pico)'];
+		}
+
 		var option:Option = new Option('Pause Music:',
 			"What song do you prefer for the Pause Screen?",
 			'pauseMusic',
 			STRING,
-			['None', 'Tea Time', 'Breakfast', 'Breakfast (Pico)']);
+			pauseMusicList);
 		addOption(option);
 		option.onChange = onChangePauseMusic;
 		
@@ -179,6 +242,58 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			'Counter',
 			BOOL);
 		addOption(option);	
+
+			// 键盘显示设置（部分来自 KEOptions）
+			var option:Option = new Option('Show Keyboard',
+				"Display keyboard on screen",
+				'kb',
+				BOOL);
+			addOption(option);
+
+			var option:Option = new Option('Keyboard Opacity',
+				"Transparency of the keyboard display",
+				'keyboardAlpha',
+				PERCENT);
+			option.scrollSpeed = 1.6;
+			option.minValue = 0.0;
+			option.maxValue = 1.0;
+			option.changeValue = 0.05;
+			option.decimals = 2;
+			addOption(option);
+
+			var option:Option = new Option('Keyboard Offset X',
+				"Horizontal position of the keyboard display",
+				'kbOffsetX',
+				INT);
+			option.minValue = -750;
+			option.maxValue = 750;
+			option.changeValue = 10;
+			addOption(option);
+
+			var option:Option = new Option('Keyboard Offset Y',
+				"Vertical position of the keyboard display",
+				'kbOffsetY',
+				INT);
+			option.minValue = -450;
+			option.maxValue = 750;
+			option.changeValue = 10;
+			addOption(option);
+
+			var option:Option = new Option('Keyboard Time Display',
+				"Show time on keyboard display",
+				'keyboardTimeDisplay',
+				BOOL);
+			addOption(option);
+
+			var option:Option = new Option('Keyboard Time Length',
+				"How long the keyboard is displayed (ms)",
+				'keyboardTime',
+				FLOAT);
+			option.minValue = 0;
+			option.maxValue = 2000;
+			option.changeValue = 20;
+			option.decimals = 0;
+			addOption(option);
 
 		var option:Option = new Option('Combo Stacking',
 			"If unchecked, Ratings and Combo won't stack, saving on System Memory and making them easier to read",

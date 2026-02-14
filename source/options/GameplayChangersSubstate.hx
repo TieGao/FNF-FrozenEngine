@@ -17,7 +17,6 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 	// 鼠标控制相关变量
 	var allowMouse:Bool = true;
 	var timeNotMoving:Float = 0;
-	var isMouseControl:Bool = false;
 	var mouseOverItem:Int = -1;
 
 	private var curOption(get, never):GameplayOption;
@@ -159,7 +158,6 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 		if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
 		{
 			FlxG.mouse.visible = true;
-			isMouseControl = true;
 			timeNotMoving = 0;
 			
 			// 检查鼠标悬停
@@ -170,7 +168,6 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 		if (FlxG.mouse.wheel != 0)
 		{
 			FlxG.mouse.visible = true;
-			isMouseControl = true;
 			timeNotMoving = 0;
 			
 			if (mouseOverItem != -1 && mouseOverItem == curSelected)
@@ -260,18 +257,18 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 			var upP = controls.UI_UP_P;
 			var downP = controls.UI_DOWN_P;
 
-			if (upP && !isMouseControl)
+			if (upP)
 			{
 				changeSelection(-shiftMult);
 				holdTime = 0;
 			}
-			if (downP && !isMouseControl)
+			if (downP)
 			{
 				changeSelection(shiftMult);
 				holdTime = 0;
 			}
 
-			if(!isMouseControl && (controls.UI_DOWN || controls.UI_UP))
+			if(controls.UI_DOWN || controls.UI_UP)
 			{
 				var checkLastHold:Int = Math.floor((holdTime - 0.5) * 10);
 				holdTime += elapsed;
@@ -285,7 +282,7 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 		}
 		
 		// 鼠标点击选择选项 - 修复版
-		if (FlxG.mouse.justPressed && isMouseControl)
+		if (FlxG.mouse.justPressed)
 		{
 			// 先检查鼠标悬停状态
 			checkMouseOver();
@@ -321,7 +318,7 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 		}
 		
 		// 鼠标拖动调整数值（非布尔类型）- 简化版
-		if (FlxG.mouse.pressed && isMouseControl && mouseOverItem != -1 && mouseOverItem == curSelected && !(curOption.type == BOOL) && curOption.type != STRING && nextAccept <= 0)
+		if (FlxG.mouse.pressed && mouseOverItem != -1 && mouseOverItem == curSelected && !(curOption.type == BOOL) && curOption.type != STRING && nextAccept <= 0)
 		{
 			var mouseDelta:Float = FlxG.mouse.deltaScreenX;
 			if (Math.abs(mouseDelta) > 2) // 提高灵敏度阈值
@@ -357,7 +354,7 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 			
 			if(usesCheckbox)
 			{
-				if(controls.ACCEPT && !isMouseControl)
+				if(controls.ACCEPT)
 				{
 					FlxG.sound.play(Paths.sound('scrollMenu'));
 					curOption.setValue((curOption.getValue() == true) ? false : true);
@@ -465,7 +462,7 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 					clearHold();
 			}
 
-			if(controls.RESET && !isMouseControl)
+			if(controls.RESET)
 			{
 				for (i in 0...optionsArray.length)
 				{

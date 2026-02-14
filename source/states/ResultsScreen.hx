@@ -163,7 +163,14 @@ class ResultsScreen extends MusicBeatSubstate
         comboText.alpha = 0;
         add(comboText);
 
-        contText = new FlxText(FlxG.width + 100, FlxG.height - 60, 400, 'Press ENTER to continue.');
+        if (isReplayPreview)
+        {
+            contText = new FlxText(FlxG.width + 100, FlxG.height - 60, 400, 'Press ESC to back / Press ENTER to continue.');
+        }
+        else
+        {   
+            contText = new FlxText(FlxG.width + 100, FlxG.height - 60, 400, 'Press ENTER to continue');
+        }
         contText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
         contText.borderSize = 4;
         contText.scrollFactor.set();
@@ -538,8 +545,9 @@ class ResultsScreen extends MusicBeatSubstate
         if (!isReplayPreview && pauseMusic != null && pauseMusic.volume < 0.5) {
             pauseMusic.volume += 0.01 * elapsed;
         }
-
-        if (controls.ACCEPT || FlxG.mouse.justPressed)
+        if (!isReplayPreview)
+        {
+        if (controls.BACK || controls.ACCEPT || FlxG.mouse.justPressed)
         {
             closeResults();
         }
@@ -547,6 +555,19 @@ class ResultsScreen extends MusicBeatSubstate
         if (FlxG.keys.justPressed.F1 || FlxG.mouse.justPressedRight)
         {
             replaySong();
+        }
+        }
+        else
+        {
+        if (controls.BACK ||  FlxG.mouse.justPressedRight)
+        {
+            closeResults();
+        }
+
+        if (FlxG.keys.justPressed.F1 || FlxG.mouse.justPressed || controls.ACCEPT)
+        {
+            replaySong();
+        }
         }
 
         super.update(elapsed);

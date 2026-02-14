@@ -74,6 +74,17 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		option.maxValue = 30;
 		addOption(option);
 
+		var option:Option = new Option('Marvelous Hit Window',
+			'Changes the amount of time you have\nfor hitting a "Marvelous" in milliseconds.',
+			'marvelousWindow',
+			FLOAT);
+		option.displayFormat = '%vms';
+		option.scrollSpeed = 15;
+		option.minValue = 5.0;
+		option.maxValue = 30.0;
+		option.changeValue = 0.1;
+		addOption(option);
+
 		var option:Option = new Option('Sick! Hit Window',
 			'Changes the amount of time you have\nfor hitting a "Sick!" in milliseconds.',
 			'sickWindow',
@@ -115,6 +126,29 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		option.minValue = 2;
 		option.maxValue = 10;
 		option.changeValue = 0.1;
+		addOption(option);
+
+		// Note sustains offset (来自 KEOptions)
+		var option:Option = new Option('Note Sustains Offset',
+			'Adjust the timing offset for note sustains.',
+			'noteSustainsOffset',
+			FLOAT);
+		option.scrollSpeed = 1.0;
+		option.minValue = -1.0;
+		option.maxValue = 1.0;
+		option.changeValue = 0.05;
+		option.decimals = 2;
+		addOption(option);
+
+		// 简易 Note Offset 暴露（原有 NoteOffsetState 提供更完整界面）
+		var option:Option = new Option('Global Note Offset',
+			'Adjust global note timing offset in ms.',
+			'noteOffset',
+			INT);
+		option.scrollSpeed = 20;
+		option.minValue = -500;
+		option.maxValue = 500;
+		option.changeValue = 1;
 		addOption(option);
 
 		super();

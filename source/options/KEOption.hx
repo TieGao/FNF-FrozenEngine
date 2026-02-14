@@ -4,6 +4,7 @@ import backend.Language;
 
 import flixel.FlxG;
 import flixel.math.FlxMath;
+import flixel.util.FlxColor;
 
 class KEOption
 {
@@ -42,6 +43,66 @@ class KEOption
 	// 新增：字符串选项支持
 	public var options:Array<String> = []; // 字符串选项列表
 	public var curOption:Int = 0; // 当前选择的选项索引
+
+	// 新增：颜色类型支持（简单调色板与十六进制显示）
+	public static var COLOR_PALETTE:Array<Int> = [
+		FlxColor.WHITE,
+		FlxColor.GRAY,
+		FlxColor.BLACK,
+		FlxColor.GREEN,
+		FlxColor.LIME,
+		FlxColor.YELLOW,
+		FlxColor.ORANGE,
+		FlxColor.RED,
+		FlxColor.PURPLE,
+		FlxColor.BLUE,
+		FlxColor.BROWN,
+		FlxColor.PINK,
+		FlxColor.MAGENTA,
+		FlxColor.CYAN
+	];
+
+	// 与上面调色板对应的简短名称，用于在菜单中显示
+	public static var COLOR_NAMES:Array<String> = [
+		"WHITE",
+		"GRAY",
+		"BLACK",
+		"GREEN",
+		"LIME",
+		"YELLOW",
+		"ORANGE",
+		"RED",
+		"PURPLE",
+		"BLUE",
+		"BROWN",
+		"PINK",
+		"MAGENTA",
+		"CYAN"
+	];
+
+	private static var HEX_CHARS:Array<String> = ["0","1","2","3","4","5","6","7","8","9","A","B","C","D","E","F"];
+
+	private static function byteToHex(b:Int):String {
+		var hi = (b >> 4) & 0xF;
+		var lo = b & 0xF;
+		return HEX_CHARS[hi] + HEX_CHARS[lo];
+	}
+
+	private static function intToHex(c:Int):String {
+		var rgb = c & 0xFFFFFF;
+		var r = (rgb >> 16) & 0xFF;
+		var g = (rgb >> 8) & 0xFF;
+		var b = rgb & 0xFF;
+		return "#" + byteToHex(r) + byteToHex(g) + byteToHex(b);
+	}
+
+	private static function colorName(c:Int):String {
+		for (i in 0...COLOR_PALETTE.length) {
+			if (COLOR_PALETTE[i] == c) return COLOR_NAMES[i];
+		}
+		// fallback: try FlxColor lookup by converting to web string and uppercase
+		return FlxColor.fromInt(c).toWebString().toUpperCase();
+	}
 
 	// 警告功能相关
 	public var hasWarning:Bool = false;
@@ -382,6 +443,10 @@ class KEOption
 		}
 		
 		switch(type) {
+		case "color":
+			var ci:Int = (value == null) ? 0 : (cast value);
+			return displayName + ": < " + colorName(ci) + " >";
+			
 			case "bool":
 				return displayName + ": < " + (value ? Language.getPhrase("on", "on") : Language.getPhrase("off", "off")) + " >";
 			case "int", "float":
@@ -412,6 +477,16 @@ class KEOption
 		if (!canPress()) return false;
 		
 		switch(type) {
+			case "color":
+				var pal = COLOR_PALETTE;
+				var cur:Int = -1;
+				for (i in 0...pal.length) if (pal[i] == value) { cur = i; break; }
+				if (cur == -1) cur = 0;
+				cur--;
+				if (cur < 0) cur = pal.length - 1;
+				value = pal[cur];
+				saveValue();
+				return true;
 			case "bool":
 				value = !value;
 				saveValue();
@@ -441,6 +516,16 @@ class KEOption
 		if (!canPress()) return false;
 		
 		switch(type) {
+			case "color":
+				var pal = COLOR_PALETTE;
+				var cur:Int = -1;
+				for (i in 0...pal.length) if (pal[i] == value) { cur = i; break; }
+				if (cur == -1) cur = 0;
+				cur++;
+				if (cur >= pal.length) cur = 0;
+				value = pal[cur];
+				saveValue();
+				return true;
 			case "bool":
 				value = !value;
 				saveValue();
@@ -502,6 +587,20 @@ class KEOption
 				// 当语言选项更改时，保存并触发语言重载以便立即生效
 				ClientPrefs.saveSettings();
 				backend.Language.reloadPhrases();
+			case "keyboardBGColor":
+			case "keyboardTextColor":
+				try {
+					var col = Reflect.getProperty(ClientPrefs.data, variable);
+					if (objects.KeyboardViewer.instance != null) {
+						var kv = objects.KeyboardViewer.instance;
+						for (m in kv.members) {
+							try Reflect.setProperty(m, "color", col) catch(_) {}
+						}
+						for (t in kv.keyTexts) t.color = ClientPrefs.data.keyboardTextColor;
+						if (kv.kpsText != null) kv.kpsText.color = ClientPrefs.data.keyboardTextColor;
+						if (kv.totalText != null) kv.totalText.color = ClientPrefs.data.keyboardTextColor;
+					}
+				} catch(e:Dynamic) {}
 			// 移除了对noteSkin和splashSkin的即时预览代码
 		}
 	}
@@ -613,8 +712,13 @@ class KEOption
 			if (val > maxValue) val = maxValue;
 			option.value = (type == "int") ? Math.round(val) : val;
 		}
-		
-		option.acceptValues = (type == "int" || type == "float" || type == "string" && option.options.length > 0);
+			// 颜色类型初始化与接受值
+			if (type == "color") {
+				if (option.value == null) option.value = (defaultValue != null ? defaultValue : FlxColor.WHITE);
+				option.acceptValues = true;
+			} else {
+				option.acceptValues = (type == "int" || type == "float" || type == "string" && option.options.length > 0);
+			}
 		return option;
 	}
 

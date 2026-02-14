@@ -1319,11 +1319,6 @@ class FunkinLua {
 			#end
 		});
 
-		Lua_helper.add_callback(lua, "playMidSongVideo", function(videoName:String, ?canSkip:Bool = false, ?loop:Bool = false, ?callback:String):Bool {
-			return PlayState.instance.playMidSongVideo(videoName, canSkip, loop, callback);
-			}
-		);
-
 		Lua_helper.add_callback(lua, "playMusic", function(sound:String, ?volume:Float = 1, ?loop:Bool = false) {
 			FlxG.sound.playMusic(Paths.music(sound), volume, loop);
 		});

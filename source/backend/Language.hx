@@ -105,8 +105,15 @@ class Language
 	#if TRANSLATIONS_ALLOWED
 	inline static private function formatKey(key:String)
 	{
-		final hideChars = ~/[~&\\\/;:<>#.,'"%?!]/g;
-		return hideChars.replace(key.replace(' ', '_'), '').toLowerCase().trim();
+		if (key == null) return "";
+		var k:String = key.trim();
+		// 把所有空白字符替换为下划线，保持多个空格或制表符的一致性
+		var spaces = ~/\s+/g;
+		k = spaces.replace(k, '_');
+		// 移除常见的标点符号
+		final hideChars = ~/[~&\\\/;:<>#.,'"%?!\(\)\[\]]/g;
+		k = hideChars.replace(k, '');
+		return k.toLowerCase().trim();
 	}
 	#end
 

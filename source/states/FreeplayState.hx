@@ -52,6 +52,11 @@ class FreeplayState extends MusicBeatState
 
 	var player:MusicPlayer;
 
+	// 鼠标支持相关
+	var allowMouse:Bool = true;
+	var timeNotMoving:Float = 0;
+	var mouseOverCard:Int = -1;
+
 	override function create()
 	{
 		//Paths.clearStoredMemory();
@@ -185,6 +190,9 @@ class FreeplayState extends MusicBeatState
 		
 		player = new MusicPlayer(this);
 		add(player);
+		// 启用鼠标显示
+		FlxG.mouse.visible = true;
+		FlxG.mouse.useSystemCursor = true;
 		
 		changeSelection();
 		updateTexts();
@@ -285,6 +293,29 @@ class FreeplayState extends MusicBeatState
 				{
 					FlxG.sound.play(Paths.sound('scrollMenu'), 0.2);
 					changeSelection(-shiftMult * FlxG.mouse.wheel, false);
+				}
+
+				// 鼠标移动显示并更新悬停
+				if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
+				{
+					FlxG.mouse.visible = true;
+					timeNotMoving = 0;
+					updateMouseInteraction();
+				}
+
+				// 鼠标点击：选择或直接播放
+				if (FlxG.mouse.justPressed)
+				{
+					updateMouseInteraction();
+					if (mouseOverCard != -1 && mouseOverCard != curSelected)
+					{
+						curSelected = mouseOverCard;
+						changeSelection(0, false);
+					}
+					else if (mouseOverCard == curSelected && !player.playingMusic)
+					{
+						acceptSelectedSong(elapsed);
+					}
 				}
 			}
 
@@ -405,52 +436,7 @@ class FreeplayState extends MusicBeatState
 		}
 		else if (controls.ACCEPT && !player.playingMusic)
 		{
-			persistentUpdate = false;
-			var songLowercase:String = Paths.formatToSongPath(songs[curSelected].songName);
-			var poop:String = Highscore.formatSong(songLowercase, curDifficulty);
-
-			try
-			{
-				Song.loadFromJson(poop, songLowercase);
-				PlayState.isStoryMode = false;
-				PlayState.storyDifficulty = curDifficulty;
-
-				trace('CURRENT WEEK: ' + WeekData.getWeekFileName());
-			}
-			catch(e:haxe.Exception)
-			{
-				trace('ERROR! ${e.message}');
-
-				var errorStr:String = e.message;
-				if(errorStr.contains('There is no TEXT asset with an ID of')) errorStr = 'Missing file: ' + errorStr.substring(errorStr.indexOf(songLowercase), errorStr.length-1); //Missing chart
-				else errorStr += '\n\n' + e.stack;
-
-				missingText.text = 'ERROR WHILE LOADING CHART:\n$errorStr';
-				missingText.screenCenter(Y);
-				missingText.visible = true;
-				missingTextBG.visible = true;
-				FlxG.sound.play(Paths.sound('cancelMenu'));
-
-				updateTexts(elapsed);
-				super.update(elapsed);
-				return;
-			}
-
-			@:privateAccess
-			if(PlayState._lastLoadedModDirectory != Mods.currentModDirectory)
-			{
-				trace('CHANGED MOD DIRECTORY, RELOADING STUFF');
-				Paths.freeGraphicsFromMemory();
-			}
-			LoadingState.prepareToSong();
-			LoadingState.loadAndSwitchState(new PlayState());
-			#if !SHOW_LOADING_SCREEN FlxG.sound.music.stop(); #end
-			stopMusicPlay = true;
-
-			destroyFreeplayVocals();
-			#if (MODS_ALLOWED && DISCORD_ALLOWED)
-			DiscordClient.loadModRPC();
-			#end
+			acceptSelectedSong(elapsed);
 		}
 		else if(controls.RESET && !player.playingMusic)
 		{
@@ -508,6 +494,90 @@ class FreeplayState extends MusicBeatState
 		positionHighscore();
 		missingText.visible = false;
 		missingTextBG.visible = false;
+	}
+
+	// 接受并进入选中歌曲的逻辑（从 update 中抽离，供鼠标点击和按键共用）
+	function acceptSelectedSong(elapsed:Float)
+	{
+		persistentUpdate = false;
+		var songLowercase:String = Paths.formatToSongPath(songs[curSelected].songName);
+		var poop:String = Highscore.formatSong(songLowercase, curDifficulty);
+
+		try
+		{
+			Song.loadFromJson(poop, songLowercase);
+			PlayState.isStoryMode = false;
+			PlayState.storyDifficulty = curDifficulty;
+
+			trace('CURRENT WEEK: ' + WeekData.getWeekFileName());
+		}
+		catch(e:haxe.Exception)
+		{
+			trace('ERROR! ${e.message}');
+
+			var errorStr:String = e.message;
+			if(errorStr.contains('There is no TEXT asset with an ID of')) errorStr = 'Missing file: ' + errorStr.substring(errorStr.indexOf(songLowercase), errorStr.length-1); //Missing chart
+			else errorStr += '\n\n' + e.stack;
+
+			missingText.text = 'ERROR WHILE LOADING CHART:\n$errorStr';
+			missingText.screenCenter(Y);
+			missingText.visible = true;
+			missingTextBG.visible = true;
+			FlxG.sound.play(Paths.sound('cancelMenu'));
+
+			updateTexts(elapsed);
+			super.update(elapsed);
+			return;
+		}
+
+		@:privateAccess
+		if(PlayState._lastLoadedModDirectory != Mods.currentModDirectory)
+		{
+			trace('CHANGED MOD DIRECTORY, RELOADING STUFF');
+			Paths.freeGraphicsFromMemory();
+		}
+		LoadingState.prepareToSong();
+		LoadingState.loadAndSwitchState(new PlayState());
+		#if !SHOW_LOADING_SCREEN FlxG.sound.music.stop(); #end
+		stopMusicPlay = true;
+
+		destroyFreeplayVocals();
+		#if (MODS_ALLOWED && DISCORD_ALLOWED)
+		DiscordClient.loadModRPC();
+		#end
+	}
+
+	// 更新鼠标与歌曲列表的交互（悬停高亮、检测鼠标所在卡片）
+	function updateMouseInteraction():Void
+	{
+		var newMouseOverCard:Int = -1;
+		for (i in 0...grpSongs.length)
+		{
+			var item:Alphabet = grpSongs.members[i];
+			if (item != null && item.exists && item.visible)
+			{
+				if (FlxG.mouse.overlaps(item))
+				{
+					newMouseOverCard = i;
+					break;
+				}
+			}
+		}
+		if (newMouseOverCard != mouseOverCard)
+		{
+			mouseOverCard = newMouseOverCard;
+			// 更新高亮
+			for (num => item in grpSongs.members)
+			{
+				if (item != null)
+				{
+					item.alpha = 0.6;
+					if (item.targetY == curSelected) item.alpha = 1;
+					else if (mouseOverCard == num) item.alpha = 0.8;
+				}
+			}
+			timeNotMoving = 0;
+		}
 	}
 
 	function changeSelection(change:Int = 0, playSound:Bool = true)

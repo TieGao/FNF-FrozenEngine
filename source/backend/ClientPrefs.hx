@@ -64,17 +64,7 @@ import states.TitleState;
 	public var scoreScreen:Bool = true;
 	public var keOptions:Bool = true;
 	public var gradientTimeBar:Bool = true;
-	public var hitErrorBarVisible:Bool = false;
-	public var hitBarLines:Int = 5;
-	public var hitBarLineTime:Float = 2.0;
-	public var kb:Bool = false;
-	public var kbalpha:Float = 1.0;
-	public var kbsize:Float = 1.0;
-	public var kbOffsetX:Float = 0.0;
-	public var kbOffsetY:Float = 0.0;
-	public var hitErrorBarOffsetX:Int = 0;
-	public var hitErrorBarOffsetY:Int = 0;
-	public var noteSustainsOffset:Float = 0.0;
+
 	public var charmPause:Bool = false;
 	public var gameplaySettings:Map<String, Dynamic> = [
 		'scrollspeed' => 1.0,
@@ -105,6 +95,7 @@ import states.TitleState;
 	public var goodWindow:Float = 90.0;
 	public var badWindow:Float = 135.0;
 	public var safeFrames:Float = 10.0;
+
 	public var guitarHeroSustains:Bool = true;
 	public var discordRPC:Bool = true;
 	public var loadingScreen:Bool = true;
@@ -116,6 +107,24 @@ import states.TitleState;
 	public var particleAmount:Int = 10;
 	public var particleSpeed:Float = 1.0;
 	public var particleTrail:Int = 3;
+
+	public var hitErrorBarVisible:Bool = false;
+	public var hitBarLines:Int = 5;
+	public var hitBarLineTime:Float = 2.0;
+	public var kb:Bool = false;
+	public var kbalpha:Float = 1.0;
+	public var kbsize:Float = 1.0;
+	public var kbOffsetX:Float = 0.0;
+	public var kbOffsetY:Float = 0.0;
+	public var keyboardAlpha:Float = 1.0;
+	public var keyboardBGColor:FlxColor = FlxColor.BLACK;
+	public var keyboardTextColor:FlxColor = FlxColor.WHITE;
+	public var keyboardTimeDisplay:Bool = true;
+	public var keyboardTime:Float = 500.0;
+	public var hitErrorBarOffsetX:Int = 0;
+	public var hitErrorBarOffsetY:Int = 0;
+	public var noteSustainsOffset:Float = 0.0;
+
 }
 
 class ClientPrefs {

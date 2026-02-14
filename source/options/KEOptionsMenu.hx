@@ -39,6 +39,7 @@ class KEOptionsMenu extends MusicBeatState
 	var splashes:Array<String> = Mods.mergeAllTextsNamed('images/noteSplashes/list.txt');
 	var holdCovers:Array<String> = Mods.mergeAllTextsNamed('images/holdCover/list.txt');
 	var ratings:Array<String> = Mods.mergeAllTextsNamed('images/ratings/list.txt');
+	var pauseMusicList:Array<String> = Mods.mergeAllTextsNamed('music/list.txt');
 	
 	var changedOption:Bool = false;
 	public var descText:FlxText;
@@ -90,6 +91,7 @@ class KEOptionsMenu extends MusicBeatState
 		splashes.insert(0, ClientPrefs.defaultData.splashSkin);
 		holdCovers.insert(0, ClientPrefs.defaultData.holdCoverSkin);
 		ratings.insert(0, ClientPrefs.defaultData.customUI);
+		pauseMusicList = ['None', 'Tea Time', 'Breakfast', 'Breakfast (Pico)'];
 	}
 
 	override function create()
@@ -985,7 +987,7 @@ class KEOptionsMenu extends MusicBeatState
 			"",
 			"Window Settings"
 		);
-		
+
 		return [
 			KEOption.create("Downscroll", "Notes scroll downwards instead of upwards", "downScroll", "bool"),
 			KEOption.create("Middlescroll", "Put your lane in the center", "middleScroll", "bool"),
@@ -1016,7 +1018,8 @@ class KEOptionsMenu extends MusicBeatState
 				KEOption.create("Judgements Style", "Select your preferred judgements Image","customUI","string", ratings),
 				KEOption.create("Note Opacity", "Note transparency", "noteAlpha", "float", 0.9, 0, 1, 0.1),
 				KEOption.create("Note Splash Opacity", "Note splash transparency", "splashAlpha", "float", 0.8, 0, 1, 0.1),
-				KEOption.create("Note HoldCover Opacity", "Note splash transparency", "holdcoverAlpha", "float", 0.8, 0, 1, 0.1)
+				KEOption.create("Note HoldCover Opacity", "Note splash transparency", "holdcoverAlpha", "float", 0.8, 0, 1, 0.1),
+				KEOption.create("Force Number Color", "Force numbers to a specific color", "forceNumberColor", "bool")
 			],
 			"",
 			"Skin Settings"
@@ -1042,10 +1045,13 @@ class KEOptionsMenu extends MusicBeatState
 			"Configure keyboard display settings",
 			[
 				KEOption.create("Show Keyboard", "Display keyboard on screen", "kb", "bool"),
-				//KEOption.create("Keyboard Opacity", "Transparency of the keyboard display", "kbalpha", "float", 1.0, 0.0, 1.0, 0.1),
-				//KEOption.create("Keyboard Scale", "Scale of the keyboard display", "kbScale", "float", 1.0, 0.5, 2.0, 0.1),
-				KEOption.create("Keyboard Offset X", "Horizontal position of the keyboard display", "kbOffsetX", "int", 0, -500, 500, 10),
-				KEOption.create("Keyboard Offset Y", "Vertical position of the keyboard display", "kbOffsetY", "int", 0, -300, 300, 10)
+				KEOption.create("Keyboard Opacity", "Transparency of the keyboard display", "keyboardAlpha", "float", 1.0, 0.0, 1.0, 0.1),
+				KEOption.create("Keyboard BG Color", "Background color of the keyboard display", "keyboardBGColor", "color", FlxColor.BLACK),
+				KEOption.create("Keyboard Text Color", "Text color of the keyboard display", "keyboardTextColor", "color", FlxColor.WHITE),
+				KEOption.create("Keyboard Offset X", "Horizontal position of the keyboard display", "kbOffsetX", "int", 0, -750, 750, 10),
+				KEOption.create("Keyboard Offset Y", "Vertical position of the keyboard display", "kbOffsetY", "int", 0, -450, 750, 10),
+				KEOption.create("Keyboard Time Display", "Change the keyboard time should display or not", "keyboardTimeDisplay", "bool"),
+				KEOption.create("Keyboard Time Length", "Change the how long the keyboard is displayed", "keyboardTime", "float", 300, 0 , 2000, 20)
 			],
 			"",
 			"Keyboard Display Settings"
@@ -1061,6 +1067,7 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Gradient TimeBar", "Gradient colored timebar", "gradientTimeBar", "bool"),
 			KEOption.create("Score Zoom", "Grow score text on hit", "scoreZoom", "bool"),
 			KEOption.create('Time Bar:',"What should the Time Bar display?","timeBarType","string",['Time Left', 'Time Elapsed', 'Song Name', 'Disabled']),
+			KEOption.create("Pause Music", "Choose pause screen music", "pauseMusic", "string", pauseMusicList),
 			KEOption.create("Health Bar Alpha", "Health bar transparency", "healthBarAlpha", "float", 1, 0, 1, 0.1),
 			KEOption.create("Combo Stacking", "Stack combo numbers", "comboStacking", "bool"),
 			KEOption.create("MS Number", "Make you know how late/early ur when hit notes", "showMS", "bool"),
@@ -1121,6 +1128,7 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Check Updates", "Check for game updates", "checkForUpdates", "bool"),
 			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
 			KEOption.create("Enable LUA Debug Printer", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
+			KEOption.create("Discord RPC", "Enable Discord Rich Presence", "discordRPC", "bool"),
 			KEOption.create("Language", "Change the game's language", "language", "string", ['en-US', 'pt-BR', 'zh-CN']),
 			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
 			KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
