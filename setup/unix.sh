@@ -13,7 +13,7 @@ haxelib install flixel-tools 1.5.1
 haxelib install hscript-iris 1.1.3
 haxelib install tjson 1.4.0
 haxelib install hxdiscord_rpc 1.2.4
-haxelib install hxvlc 2.0.1 --skip-dependencies
+haxelib install hxvlc 2.2.5 --skip-dependencies
 haxelib install lime 8.3.0
 haxelib install openfl 9.5.0
 haxelib install moonchart 0.5.1
