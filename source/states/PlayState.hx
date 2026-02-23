@@ -26,6 +26,7 @@ import states.FreeplayState;
 import states.editors.ChartingState;
 import states.editors.CharacterEditorState;
 
+import substates.NewPauseSubState;
 import substates.PauseSubState;
 import substates.GameOverSubstate;
 
@@ -218,7 +219,7 @@ class PlayState extends MusicBeatState
 
 	public var botplaySine:Float = 0;
 	public var botplayTxt:FlxText;
-	public var repTxt:FlxText; 
+	public var replayTxt:FlxText; 
 
 	public var iconP1:HealthIcon;
 	public var iconP2:HealthIcon;
@@ -240,6 +241,7 @@ class PlayState extends MusicBeatState
 	private var lastReplayTime:Float = 0; // 上一次回放时间
 	private var replayNoteQueue:Array<Array<Dynamic>> = []; // 回放音符队列（明确类型）
 	public static var inReplay:Bool = false; 
+	public static var replayFileName:String = "";
 
 	var scoreTxtColorTween:FlxTween;
 	var scoreTxtDefaultColor:FlxColor = 0xFFFFFFFF;
@@ -638,19 +640,19 @@ class PlayState extends MusicBeatState
 		botplayTxt.visible = cpuControlled;
 		uiGroup.add(botplayTxt);
 
-		repTxt = new FlxText(400, healthBar.y + (ClientPrefs.data.downScroll ? 100 : -150), FlxG.width - 800, "REPLAY MODE", 32);
-		repTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
-		repTxt.scrollFactor.set();
-		repTxt.borderSize = 1.25;
-		repTxt.visible = inReplay;
-		uiGroup.add(repTxt);
+		replayTxt = new FlxText(400, healthBar.y + (ClientPrefs.data.downScroll ? 100 : -150), FlxG.width - 800, "REPLAY MODE", 32);
+		replayTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
+		replayTxt.scrollFactor.set();
+		replayTxt.borderSize = 1.25;
+		replayTxt.visible = false;
+		uiGroup.add(replayTxt);
 
 		// Instantiate modular UI objects (migrated to objects/)
 		healthTextObj = new objects.HealthText(this);
 		judgementCounterObj = new objects.JudgementCounter(this);
 		songInfoTextObj = new objects.SongInfoText(this);
 
-		keyboardViewer = new KeyboardViewer(FlxG.width/2 + ClientPrefs.data.kbOffsetX, FlxG.height - 150 + ClientPrefs.data.kbOffsetY);
+		keyboardViewer = new KeyboardViewer(FlxG.width/2  - 100 + ClientPrefs.data.kbOffsetX, FlxG.height - 150 + ClientPrefs.data.kbOffsetY);
 		keyboardViewer.antialiasing = ClientPrefs.data.antialiasing;
 		keyboardViewer.cameras = [camOther];
 		if (ClientPrefs.data.kb) add(keyboardViewer);
@@ -659,7 +661,7 @@ class PlayState extends MusicBeatState
 			hitErrorBar = new HitErrorBar();
 			hitErrorBar.screenCenter();
 			hitErrorBar.x -= 250 + ClientPrefs.data.hitErrorBarOffsetX;
-			hitErrorBar.y = FlxG.height * 0.07 + ClientPrefs.data.hitErrorBarOffsetY; // 顶部10%位置
+			hitErrorBar.y = FlxG.height * 0.3 + ClientPrefs.data.hitErrorBarOffsetY; // 顶部10%位置
 			if (ClientPrefs.data.downScroll) {
        		 hitErrorBar.y = FlxG.height - 100 + ClientPrefs.data.hitErrorBarOffsetY;
     		}
@@ -2134,7 +2136,14 @@ public function reloadCounterColors()
 					note.resetAnim = 0;
 				}
 		}
+		if (ClientPrefs.data.charmPause)
+		{
+		openSubState(new NewPauseSubState());
+		}
+		else
+		{
 		openSubState(new PauseSubState());
+		}
 
 		#if DISCORD_ALLOWED
 		if(autoUpdateRPC) DiscordClient.changePresence(detailsPausedText, SONG.song + " (" + storyDifficultyText + ")", iconP2.getCharacter());
@@ -2605,218 +2614,246 @@ public function reloadCounterColors()
 
 	public var transitioning = false;
 	public function endSong():Void
+{
+	//Should kill you if you tried to cheat
+	if(!startingSong)
 	{
-		//Should kill you if you tried to cheat
-		if(!startingSong)
+		notes.forEachAlive(function(daNote:Note)
 		{
-			notes.forEachAlive(function(daNote:Note)
-			{
-				if(daNote.strumTime < songLength - Conductor.safeZoneOffset)
-					health -= 0.05 * healthLoss;
-			});
-			for (daNote in unspawnNotes)
-			{
-				if(daNote != null && daNote.strumTime < songLength - Conductor.safeZoneOffset)
-					health -= 0.05 * healthLoss;
-			}
-
-			if(doDeathCheck()) {
-				return;
-			}
+			if(daNote.strumTime < songLength - Conductor.safeZoneOffset)
+				health -= 0.05 * healthLoss;
+		});
+		for (daNote in unspawnNotes)
+		{
+			if(daNote != null && daNote.strumTime < songLength - Conductor.safeZoneOffset)
+				health -= 0.05 * healthLoss;
 		}
 
-		timeBar.visible = false;
-		timeTxt.visible = false;
-		canPause = false;
-		endingSong = true;
-		camZooming = false;
-		inCutscene = false;
-		updateTime = false;
+		if(doDeathCheck()) {
+			return;
+		}
+	}
 
-		deathCounter = 0;
-		seenCutscene = false;
+	timeBar.visible = false;
+	timeTxt.visible = false;
+	canPause = false;
+	endingSong = true;
+	camZooming = false;
+	inCutscene = false;
+	updateTime = false;
 
-		#if ACHIEVEMENTS_ALLOWED
-		var weekNoMiss:String = WeekData.getWeekFileName() + '_nomiss';
-		checkForAchievement([weekNoMiss, 'ur_bad', 'ur_good', 'hype', 'two_keys', 'toastie' #if BASE_GAME_FILES, 'debugger' #end]);
+	deathCounter = 0;
+	seenCutscene = false;
+
+	#if ACHIEVEMENTS_ALLOWED
+	var weekNoMiss:String = WeekData.getWeekFileName() + '_nomiss';
+	checkForAchievement([weekNoMiss, 'ur_bad', 'ur_good', 'hype', 'two_keys', 'toastie' #if BASE_GAME_FILES, 'debugger' #end]);
+	#end
+
+	var ret:Dynamic = callOnScripts('onEndSong', null, true);
+	if(ret != LuaUtils.Function_Stop && !transitioning)
+	{
+		#if !switch
+		var percent:Float = ratingPercent;
+		if(Math.isNaN(percent)) percent = 0;
+
+		// 只在非回放模式下保存分数
+		if (!loadRep && !inReplay)
+		{
+			Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent);
+		}
 		#end
-
-		var ret:Dynamic = callOnScripts('onEndSong', null, true);
-		if(ret != LuaUtils.Function_Stop && !transitioning)
+		
+		if (loadRep || inReplay)
 		{
-			#if !switch
-			var percent:Float = ratingPercent;
-			if(Math.isNaN(percent)) percent = 0;
-
-			// 只在非回放模式下保存分数
-			if (!loadRep)
-			{
-				Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent);
-			}
-			#end
+			// ========== 回放结束，直接读取回放文件并显示结果 ==========
+			trace('Replay mode ended, loading replay file for results...');
 			
-		if (loadRep)
-		{
+			// 停止所有声音
+			if (vocals != null) vocals.stop();
+			if (FlxG.sound.music != null) FlxG.sound.music.stop();
+			
+			// 获取当前回放的文件名（你需要一种方式来存储它）
+			// 方法1：如果已经在PlayState中存储了replayFileName
+			if (replayFileName != null && replayFileName.length > 0)
+			{
+				// 直接打开结果界面，并传递文件名
+				paused = true;
+				canPause = false;
+				inResults = true;
+				transitioning = true;
+				
+				// 传递文件名，让ResultsScreen自己读取文件
+				openSubState(new ResultsScreen(replayFileName));
+			}
+			else
+			{
+				// 方法2：如果没有存储文件名，尝试从rep对象重建
+				trace('No replay filename stored, attempting to find replay file...');
+				
+				// 查找最近创建的回放文件
+				#if sys
+				var replayDir = "assets/replays/";
+				if (FileSystem.exists(replayDir))
+				{
+					var files = FileSystem.readDirectory(replayDir);
+					files.sort(function(a:String, b:String):Int {
+						try {
+							var aPath = replayDir + a;
+							var bPath = replayDir + b;
+							var aStat = FileSystem.stat(aPath);
+							var bStat = FileSystem.stat(bPath);
+							return Std.int(bStat.mtime.getTime() - aStat.mtime.getTime());
+						} catch(e:Dynamic) {
+							return 0;
+						}
+					});
+					
+					// 找到第一个.kadeReplay文件
+					for (file in files) {
+						if (file.endsWith(".kadeReplay")) {
+							trace('Found latest replay: $file');
+							paused = true;
+							canPause = false;
+							inResults = true;
+							transitioning = true;
+							openSubState(new ResultsScreen(file));
+							break;
+						}
+					}
+				}
+				#end
+			}
+			
+			// 清理回放相关变量
 			loadRep = false;
-			rep = null;
 			inReplay = false;
+			rep = null;
+			replayNoteQueue = [];
+			repNoteIndex = 0;
 			
-			if (repTxt != null)
+			if (replayTxt != null)
 			{
-				repTxt.visible = false;
+				replayTxt.visible = false;
 			}
 			
-			trace('Replay mode ended');
+			return; // 重要：不要继续执行后面的代码
 		}
-        
-			playbackRate = 1;
+		
+		playbackRate = 1;
 
-			if (chartingMode)
-			{
-				openChartEditor();
-				return; 
-			}
+		if (chartingMode)
+		{
+			openChartEditor();
+			return; 
+		}
 
-        // ========== 保存回放数据 ==========
-        if (!loadRep && rep != null && !practiceMode && !cpuControlled && !inReplay && ClientPrefs.data.saveReplays)
-        {
+		// ========== 保存回放数据 ==========
+		if (!loadRep && rep != null && !practiceMode && !cpuControlled && !inReplay && ClientPrefs.data.saveReplays)
+		{
 			try
 			{
 				rep.finishRecording();
 				rep.SaveReplay(rep.replay.songNotes, rep.replay.songJudgements, rep.replay.ana);
 				trace('Replay saved successfully with ' + rep.replay.songNotes.length + ' notes');
 			}
-            catch (e:Dynamic)
-            {
-                trace('Error saving replay: ' + e);
-            }
-        }
-        
-        // ========== 结算页面逻辑 ==========
-        if (ClientPrefs.data.scoreScreen && !loadRep)
-        {
-            if (vocals != null) vocals.stop();
-            if (FlxG.sound.music != null) FlxG.sound.music.stop();
-            
-            paused = true;
-            canPause = false;
-            
-            openSubState(new ResultsScreen());
-            inResults = true;
-            
-            transitioning = true;
-        }
-        else
-        {
-            proceedToNextState();
-        }
+			catch (e:Dynamic)
+			{
+				trace('Error saving replay: ' + e);
+			}
 		}
 		
-		if (inReplay)
+		// ========== 结算页面逻辑 ==========
+		if (ClientPrefs.data.scoreScreen && !loadRep && !inReplay)
 		{
-			trace('Ending replay mode');
-			inReplay = false;
-			loadRep = false;
+			if (vocals != null) vocals.stop();
+			if (FlxG.sound.music != null) FlxG.sound.music.stop();
 			
-			if (repTxt != null)
-			{
-				repTxt.visible = false;
-			}
+			paused = true;
+			canPause = false;
+		
+			openSubState(new ResultsScreen());
+			inResults = true;
 			
-			// 清理回放数据
-			replayNoteQueue = [];
-			repNoteIndex = 0;
-			
-			// 重置回放对象
-			if (rep != null)
-			{
-				rep = null;
-			}
-		}
-	}
-
-	public function proceedToNextState():Void
-	{
-    // 确保游戏音乐已经停止
-    if (vocals != null) vocals.stop();
-    if (FlxG.sound.music != null) FlxG.sound.music.stop();
-    
-     if (loadRep || inReplay)
-    {
-        trace('Replay finished, returning to main menu');
-        Mods.loadTopMod();
-        FlxG.sound.playMusic(Paths.music('freakyMenu'), 0.7);
-        #if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
-        
-        MusicBeatState.switchState(new MainMenuState());
-		return;
-    }
-			
-		if (isStoryMode)
-		{
-				campaignScore += songScore;
-				campaignMisses += songMisses;
-
-				storyPlaylist.remove(storyPlaylist[0]);
-
-				if (storyPlaylist.length <= 0)
-				{
-					Mods.loadTopMod();
-					FlxG.sound.playMusic(Paths.music('freakyMenu'));
-					#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
-
-					canResync = false;
-					MusicBeatState.switchState(new StoryMenuState());
-
-					// if ()
-					if(!ClientPrefs.getGameplaySetting('practice') && !ClientPrefs.getGameplaySetting('botplay')) {
-						StoryMenuState.weekCompleted.set(WeekData.weeksList[storyWeek], true);
-						Highscore.saveWeekScore(WeekData.getWeekFileName(), campaignScore, storyDifficulty);
-
-						FlxG.save.data.weekCompleted = StoryMenuState.weekCompleted;
-						FlxG.save.flush();
-					}
-					changedDifficulty = false;
-				}
-				else
-				{
-					var difficulty:String = Difficulty.getFilePath();
-
-					trace('LOADING NEXT SONG');
-					trace(Paths.formatToSongPath(PlayState.storyPlaylist[0]) + difficulty);
-
-					FlxTransitionableState.skipNextTransIn = true;
-					FlxTransitionableState.skipNextTransOut = true;
-					prevCamFollow = camFollow;
-
-					Song.loadFromJson(PlayState.storyPlaylist[0] + difficulty, PlayState.storyPlaylist[0]);
-					FlxG.sound.music.stop();
-
-					canResync = false;
-					LoadingState.prepareToSong();
-					LoadingState.loadAndSwitchState(new PlayState(), false, false);
-				}
-			}
-			else
-			{
-				trace('WENT BACK TO FREEPLAY??');
-				Mods.loadTopMod();
-				#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
-
-				canResync = false;
-			if(ClientPrefs.data.newFreeplay)
-			{
-				MusicBeatState.switchState(new NewFreeplayState());
-			}
-			else
-			{
-				MusicBeatState.switchState(new FreeplayState());
-			}
-				FlxG.sound.playMusic(Paths.music('freakyMenu'));
-				changedDifficulty = false;
-		}
 			transitioning = true;
+		}
+		else
+		{
+			proceedToNextState();
+		}
 	}
+}
+
+public function proceedToNextState():Void
+{
+	// 确保游戏音乐已经停止
+	if (vocals != null) vocals.stop();
+	if (FlxG.sound.music != null) FlxG.sound.music.stop();
+	
+	if (isStoryMode)
+	{
+		campaignScore += songScore;
+		campaignMisses += songMisses;
+
+		storyPlaylist.remove(storyPlaylist[0]);
+
+		if (storyPlaylist.length <= 0)
+		{
+			Mods.loadTopMod();
+			FlxG.sound.playMusic(Paths.music('freakyMenu'));
+			#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
+
+			canResync = false;
+			MusicBeatState.switchState(new StoryMenuState());
+
+			if(!ClientPrefs.getGameplaySetting('practice') && !ClientPrefs.getGameplaySetting('botplay')) {
+				StoryMenuState.weekCompleted.set(WeekData.weeksList[storyWeek], true);
+				Highscore.saveWeekScore(WeekData.getWeekFileName(), campaignScore, storyDifficulty);
+
+				FlxG.save.data.weekCompleted = StoryMenuState.weekCompleted;
+				FlxG.save.flush();
+			}
+			changedDifficulty = false;
+		}
+		else
+		{
+			var difficulty:String = Difficulty.getFilePath();
+
+			trace('LOADING NEXT SONG');
+			trace(Paths.formatToSongPath(PlayState.storyPlaylist[0]) + difficulty);
+
+			FlxTransitionableState.skipNextTransIn = true;
+			FlxTransitionableState.skipNextTransOut = true;
+			prevCamFollow = camFollow;
+
+			Song.loadFromJson(PlayState.storyPlaylist[0] + difficulty, PlayState.storyPlaylist[0]);
+			FlxG.sound.music.stop();
+
+			canResync = false;
+			LoadingState.prepareToSong();
+			LoadingState.loadAndSwitchState(new PlayState(), false, false);
+		}
+	}
+	else
+	{
+		trace('WENT BACK TO FREEPLAY??');
+		Mods.loadTopMod();
+		#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
+
+		canResync = false;
+		if(ClientPrefs.data.newFreeplay)
+		{
+			MusicBeatState.switchState(new NewFreeplayState());
+		}
+		else
+		{
+			MusicBeatState.switchState(new FreeplayState());
+		}
+		FlxG.sound.playMusic(Paths.music('freakyMenu'));
+		changedDifficulty = false;
+	}
+	transitioning = true;
+}
 		
 	public function KillNotes() {
 		while(notes.length > 0) {
@@ -3053,8 +3090,26 @@ public function reloadCounterColors()
 	rating.x = placement - 40;
 	rating.y -= 60;
 	rating.acceleration.y = 550 * playbackRate * playbackRate;
+	if (SONG.stage == "ejected")
+	{
+		rating.velocity.y -= FlxG.random.int(540, 600) * playbackRate;
+		rating.velocity.x -= FlxG.random.int(-10, 20) * playbackRate;
+	}
+	else if (SONG.stage == "airship")
+	{
+	rating.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
+	rating.velocity.x = FlxG.random.float(-250, -300) * playbackRate;	
+	}
+	else if (SONG.stage == "turbulence")
+	{
+	rating.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
+	rating.velocity.x = FlxG.random.float(250, 300) * playbackRate;	
+	}
+	else
+	{
 	rating.velocity.y -= FlxG.random.int(140, 175) * playbackRate;
 	rating.velocity.x -= FlxG.random.int(0, 10) * playbackRate;
+	}
 	rating.visible = (!ClientPrefs.data.hideHud && showRating);
 	rating.x += ClientPrefs.data.comboOffset[0];
 	rating.y -= ClientPrefs.data.comboOffset[1];
@@ -3205,8 +3260,26 @@ public function reloadCounterColors()
 		numScore.updateHitbox();
 
 		numScore.acceleration.y = FlxG.random.int(200, 300) * playbackRate * playbackRate;
+		if (SONG.stage == "ejected")
+		{
+		numScore.velocity.y -= FlxG.random.int(540, 580) * playbackRate;
+		numScore.velocity.x = FlxG.random.float(-15, 15) * playbackRate;
+		}
+		else if (SONG.stage == "airship")
+		{
+		numScore.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
+		numScore.velocity.x = FlxG.random.float(-250, -300) * playbackRate;	
+		}
+		else if (SONG.stage == "turbulence")
+		{
+		numScore.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
+		numScore.velocity.x = FlxG.random.float(250, 300) * playbackRate;	
+		}
+		else
+		{
 		numScore.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
 		numScore.velocity.x = FlxG.random.float(-5, 5) * playbackRate;
+		}
 		numScore.visible = !ClientPrefs.data.hideHud;
 		numScore.antialiasing = antialias;
 
@@ -3866,6 +3939,7 @@ public function reloadCounterColors()
 		NoteSplash.configs.clear();
 		instance = null;
 
+		inReplay = false;
 		loadRep = false;
 
 		if (modInfoBox != null)
@@ -4421,25 +4495,25 @@ private function createReplayUI():Void
     
     try {
         // 创建回放文字显示
-        repTxt = new FlxText(0, 0, FlxG.width, "REPLAY MODE", 32);
-        repTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, 
+        replayTxt = new FlxText(0, 0, FlxG.width, "REPLAY MODE", 32);
+        replayTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, 
                          OUTLINE, FlxColor.BLACK);
-        repTxt.scrollFactor.set();
-        repTxt.borderSize = 2;
-        repTxt.alpha = 0.8;
+        replayTxt.scrollFactor.set();
+        replayTxt.borderSize = 2;
+        replayTxt.alpha = 0.8;
         
         // 添加文字到组
-        uiGroup.add(repTxt);
-        repTxt.visible = true;
+        uiGroup.add(replayTxt);
+        replayTxt.visible = true;
         
         // 根据滚动方向调整位置
         if (ClientPrefs.data.downScroll) {
-            repTxt.y = healthBar != null ? healthBar.y - 100 : FlxG.height - 150;
+            replayTxt.y = healthBar != null ? healthBar.y - 100 : FlxG.height - 150;
         } else {
-            repTxt.y = healthBar != null ? healthBar.y + 100 : 50;
+            replayTxt.y = healthBar != null ? healthBar.y + 100 : 50;
         }
         
-        //trace('Replay UI created successfully at y=${repTxt.y}');
+        //trace('Replay UI created successfully at y=${replayTxt.y}');
     } catch (e:Dynamic) {
         trace('ERROR creating replay UI: $e');
         trace('Stack: ${e.stack}');
@@ -4756,7 +4830,7 @@ private function processSustainNotes(parentNote:Note, replayNote:Array<Dynamic>)
  */
 private function updateReplayUI(currentTime:Float):Void
 {
-    if (repTxt == null) {
+    if (replayTxt == null) {
         // 尝试重新创建UI
         if (inReplay) {
             createReplayUI();
@@ -4771,9 +4845,9 @@ private function updateReplayUI(currentTime:Float):Void
         // 添加时间信息
         var timeStr:String = FlxStringUtil.formatTime(Math.floor(currentTime / 1000), false);
         
-        repTxt.text = 'REPLAY MODE\n${Math.round(progress)}% (${repNoteIndex}/${totalNotes})\n${timeStr}';
-        repTxt.screenCenter(X);
-        repTxt.visible = true;
+        replayTxt.text = 'REPLAY MODE\n${Math.round(progress)}% (${repNoteIndex}/${totalNotes})\n${timeStr}';
+        replayTxt.screenCenter(X);
+        replayTxt.visible = true;
     } catch (e:Dynamic) {
         trace('ERROR updating replay UI: $e');
     }
@@ -4786,16 +4860,16 @@ private function completeReplay():Void
 {
     trace('Completing replay...');
     
-    if (repTxt != null)
+    if (replayTxt != null)
     {
-        repTxt.text = 'REPLAY COMPLETE!';
-        repTxt.color = FlxColor.GREEN;
+        replayTxt.text = 'REPLAY COMPLETE!';
+        replayTxt.color = FlxColor.GREEN;
         
         // 3秒后隐藏
         new FlxTimer().start(3, function(tmr:FlxTimer)
         {
-            if (repTxt != null) {
-                repTxt.visible = false;
+            if (replayTxt != null) {
+                replayTxt.visible = false;
             }
         });
     }

@@ -113,10 +113,7 @@ class ResultsScreen extends MusicBeatSubstate
         var highestCombo = playState.highestCombo;
         var totalNotesHit = marvelous + sicks + goods + bads + shits;
         var totalNotes = totalNotesHit + misses;
-        var accuracy:Float = 0;
-        if (totalNotes > 0) {
-            accuracy = (marvelous * 1.0 + sicks * 1.0 + goods * 0.75 + bads * 0.25) / totalNotes * 100;
-        }
+        var accuracy:Float = PlayState.instance.ratingPercent * 100;
         
         // 保存游戏统计数据
         gameStats = {
@@ -563,12 +560,11 @@ class ResultsScreen extends MusicBeatSubstate
         {
             closeResults();
         }
-
-        if (FlxG.keys.justPressed.F1 || FlxG.mouse.justPressed || controls.ACCEPT)
+        if (controls.ACCEPT || FlxG.mouse.justPressed)
         {
             replaySong();
         }
-        }
+    }
 
         super.update(elapsed);
     }
@@ -659,11 +655,16 @@ class ResultsScreen extends MusicBeatSubstate
         }
         FlxG.cameras.remove(camResults);
         
-        if (isReplayPreview) {
+        if (isReplayPreview && !PlayState.loadRep) {
             // 回放预览模式：加载回放
             var loadState = new LoadReplayState();
             loadState.loadReplay(replayToLoad);
-        } else {
+        } 
+        else if (isReplayPreview && PlayState.loadRep) {
+            LoadingState.loadAndSwitchState(new LoadReplayState());
+        }
+        else
+        {
             // 游戏模式：重新开始游戏
             PlayState.isStoryMode = false;
             LoadingState.loadAndSwitchState(new PlayState());

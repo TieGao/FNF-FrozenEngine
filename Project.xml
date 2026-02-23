@@ -116,8 +116,8 @@
 	<haxelib name="flixel" version="6.1.0"/>
 	<haxelib name="flixel-addons" version="4.0.1"/>
 	<haxelib name="tjson" version="1.4.0"/>
-	<lime version="8.3.0" />
-	<haxelib name="openfl" version="9.5.0"/>
+	<lime version="8.3.1" />
+	<haxelib name="openfl" version="9.5.1"/>
 
 	<!--Psych stuff needed-->
 	<haxelib name="linc_luajit" if="LUA_ALLOWED"/>

@@ -119,6 +119,8 @@ class KEOptionsMenu extends MusicBeatState
 		var optionBg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		optionBg.alpha = 1; // 选项区域背景透明度
 		optionBg.scrollFactor.set();
+		optionBg.antialiasing = ClientPrefs.data.antialiasing;
+		optionBg.screenCenter();
 		add(optionBg);
 
 		// 主内容区域背景 - 从选项卡下方开始，覆盖整个内容区域
@@ -128,12 +130,14 @@ class KEOptionsMenu extends MusicBeatState
 		bg = new FlxSprite(0, contentStartY).makeGraphic(SCREEN_WIDTH, contentHeight, FlxColor.BLACK);
 		bg.alpha = 0.6; // 选项卡主体透明度
 		bg.scrollFactor.set();
+		bg.antialiasing = ClientPrefs.data.antialiasing;
 		add(bg);
 
 		// 描述区域背景 - 在屏幕底部
 		descBack = new FlxSprite(0, SCREEN_HEIGHT - MARGIN_BOTTOM).makeGraphic(SCREEN_WIDTH, 32, FlxColor.BLACK);
 		descBack.alpha = DESC_ALPHA; // 描述文本区域透明度
 		descBack.scrollFactor.set();
+		descBack.antialiasing = ClientPrefs.data.antialiasing;
 		add(descBack);
 
 		add(shownStuff);
@@ -163,12 +167,14 @@ class KEOptionsMenu extends MusicBeatState
 		descText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 		descText.borderSize = 2;
 		descText.alpha = 1.0; // 描述文字完全不透明
+		descText.antialiasing = ClientPrefs.data.antialiasing;
 		add(descText);
 
 		dateDisplay = new BiosDateDisplay(10, 30, 20, FlxColor.WHITE, true); // 时间在前
 		dateDisplay.setShowSeconds(true); // 显示秒数
 		dateDisplay.setMilitaryTime(false); // 12小时制带AM/PM
 		dateDisplay.scrollFactor.set();
+		dateDisplay.antialiasing = ClientPrefs.data.antialiasing;
 		add(dateDisplay);
 
 		// 初始化第一个分类
@@ -236,7 +242,7 @@ class KEOptionsMenu extends MusicBeatState
 		// 开始两个颜色循环
 		startColorCycle();      // 选项区域彩色循环
 		startBgColorCycle();    // 主背景颜色循环
-		if (ClientPrefs.data.shaders || ClientPrefs.data.particle) {
+		if (ClientPrefs.data.shaders && ClientPrefs.data.particle) {
 			optionBg.shader = beamShader;
 		}
 
@@ -515,6 +521,7 @@ class KEOptionsMenu extends MusicBeatState
 		
 		// 显示鼠标
 		FlxG.mouse.visible = true;
+		FlxG.mouse.useSystemCursor = ClientPrefs.data.useSystemCursor;
 
 		// 退出检测 - 添加鼠标右键支持
 		if (!isClosing && (controls.BACK || FlxG.mouse.justPressedRight))
@@ -1135,7 +1142,8 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
 			KEOption.create("Reset Settings", "Reset all settings to default [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
 			KEOption.create("Reset Scores", "Clear all high scores [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
-			optionsparticle
+			optionsparticle,
+			KEOption.create("Use Default Mouse Cursor", "Use ur system's default mouse cursor in game", "useSystemCursor", "bool")
 		];
 	}
 }

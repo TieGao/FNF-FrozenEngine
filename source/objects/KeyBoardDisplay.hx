@@ -1,3 +1,4 @@
+//已废弃
 package objects;
 
 import flixel.FlxG;

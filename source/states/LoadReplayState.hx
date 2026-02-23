@@ -579,7 +579,7 @@ class LoadReplayState extends MusicBeatState
         if (FlxG.mouse.justPressedRight && hoveredCardIndex < 0) {
             // 在空白处右键：返回主菜单
             FlxG.sound.play(Paths.sound('cancelMenu'));
-            MusicBeatState.switchState(new MainMenuState());
+            MusicBeatState.switchState(new NewFreeplayState());
         }
     }
     
@@ -588,7 +588,7 @@ class LoadReplayState extends MusicBeatState
         if (controls.BACK)
         {
             FlxG.sound.play(Paths.sound('cancelMenu'));
-            MusicBeatState.switchState(new MainMenuState());
+            MusicBeatState.switchState(new NewFreeplayState());
             return;
         }
         

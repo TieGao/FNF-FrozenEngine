@@ -124,7 +124,7 @@ import states.TitleState;
 	public var hitErrorBarOffsetX:Int = 0;
 	public var hitErrorBarOffsetY:Int = 0;
 	public var noteSustainsOffset:Float = 0.0;
-
+	public var useSystemCursor:Bool = false;
 }
 
 class ClientPrefs {

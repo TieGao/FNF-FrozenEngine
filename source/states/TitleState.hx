@@ -95,7 +95,7 @@ class TitleState extends MusicBeatState
 		}
 
 		FlxG.mouse.visible = true;
-		FlxG.mouse.useSystemCursor = true;
+		FlxG.mouse.useSystemCursor = ClientPrefs.data.useSystemCursor;
 		#if FREEPLAY
 		if (ClientPrefs.data.newFreeplay)
 			MusicBeatState.switchState(new NewFreeplayState());

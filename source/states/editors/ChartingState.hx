@@ -4049,6 +4049,145 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		}, btnWid);
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
+		
+		// ========== KADE ENGINE SECTION ==========
+		btnY += 20;
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, 'Kade to Psych...', function()
+		{
+			if(!fileDialog.completed) return;
+			upperBox.isMinimized = true;
+			upperBox.bg.visible = false;
+
+			fileDialog.open('*.json', 'Open Kade Engine Chart', function()
+			{
+				try {
+					var filePath:String = fileDialog.path.replace('\\', '/');
+					var loadedChart:SwagSong = KadeConverter.convertKadeToPsych(filePath);
+					
+					var func:Void->Void = function() {
+						loadChart(loadedChart);
+						Song.chartPath = null;
+						reloadNotesDropdowns();
+						prepareReload();
+						showOutput('Kade Engine chart converted to Psych successfully!');
+					};
+					
+					if(!ignoreProgressCheckBox.checked) 
+						openSubState(new Prompt('Warning: Any unsaved progress will be lost\n\nContinue conversion?', func));
+					else func();
+					
+				} catch(e:Exception) {
+					showOutput('Error: ${e.message}', true);
+					trace(e.stack);
+				}
+			});
+		}, btnWid);
+		tab_group.add(btn);
+
+		btnY += 20;
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, 'Psych to Kade...', function()
+		{
+			if(!fileDialog.completed) return;
+			upperBox.isMinimized = true;
+			upperBox.bg.visible = false;
+
+			updateChartData();
+			
+			fileDialog.openDirectory('Save Kade Engine File', function()
+			{
+				try {
+					var path:String = fileDialog.path.replace('\\', '/');
+					if(!path.endsWith('/')) path += '/';
+					
+					var kadeFileName:String = Paths.formatToSongPath(PlayState.SONG.song) + '.json';
+					var savePath:String = path + kadeFileName;
+					
+					overwriteCheck(savePath, kadeFileName, '', function()
+					{
+						if(KadeConverter.convertPsychToKade(PlayState.SONG, savePath)) {
+							showOutput('Kade Engine file saved successfully: $savePath');
+						} else {
+							showOutput('Kade Engine conversion failed!', true);
+						}
+					});
+				} catch(e:Exception) {
+					showOutput('Error: ${e.message}', true);
+					trace(e.stack);
+				}
+			});
+		}, btnWid);
+		tab_group.add(btn);
+
+		// ========== CODENAME ENGINE SECTION ==========
+		btnY += 20;
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, 'Codename to Psych...', function()
+		{
+			if(!fileDialog.completed) return;
+			upperBox.isMinimized = true;
+			upperBox.bg.visible = false;
+
+			fileDialog.open('*.json', 'Open Codename Engine Chart', function()
+			{
+				try {
+					var filePath:String = fileDialog.path.replace('\\', '/');
+					// Codename might have separate meta file
+					var metaPath = filePath.replace('.json', '-meta.json');
+					var loadedChart:SwagSong = CodenameConverter.convertCodenameToPsych(filePath, 
+						FileSystem.exists(metaPath) ? metaPath : null);
+					
+					var func:Void->Void = function() {
+						loadChart(loadedChart);
+						Song.chartPath = null;
+						reloadNotesDropdowns();
+						prepareReload();
+						showOutput('Codename Engine chart converted to Psych successfully!');
+					};
+					
+					if(!ignoreProgressCheckBox.checked) 
+						openSubState(new Prompt('Warning: Any unsaved progress will be lost\n\nContinue conversion?', func));
+					else func();
+					
+				} catch(e:Exception) {
+					showOutput('Error: ${e.message}', true);
+					trace(e.stack);
+				}
+			});
+		}, btnWid);
+		tab_group.add(btn);
+
+		btnY += 20;
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, 'Psych to Codename...', function()
+		{
+			if(!fileDialog.completed) return;
+			upperBox.isMinimized = true;
+			upperBox.bg.visible = false;
+
+			updateChartData();
+			
+			fileDialog.openDirectory('Save Codename Engine File', function()
+			{
+				try {
+					var path:String = fileDialog.path.replace('\\', '/');
+					if(!path.endsWith('/')) path += '/';
+					
+					var codenameFileName:String = Paths.formatToSongPath(PlayState.SONG.song) + '.json';
+					var savePath:String = path + codenameFileName;
+					
+					overwriteCheck(savePath, codenameFileName, '', function()
+					{
+						if(CodenameConverter.convertPsychToCodename(PlayState.SONG, savePath)) {
+							showOutput('Codename Engine files saved successfully: $savePath');
+						} else {
+							showOutput('Codename Engine conversion failed!', true);
+						}
+					});
+				} catch(e:Exception) {
+					showOutput('Error: ${e.message}', true);
+					trace(e.stack);
+				}
+			});
+		}, btnWid);
+		tab_group.add(btn);
 
 		btnY += 20;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Update (Legacy)...', function()

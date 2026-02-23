@@ -25,6 +25,11 @@ class MasterEditorMenu extends MusicBeatState
 	private var curSelected = 0;
 	private var curDirectory = 0;
 	private var directoryTxt:FlxText;
+	
+	// 鼠标控制变量
+	private var mouseOverIndex:Int = -1;
+	private var lastMousePos:FlxPoint;
+	private var allowMouse:Bool = true;
 
 	override function create()
 	{
@@ -70,69 +75,120 @@ class MasterEditorMenu extends MusicBeatState
 		if(found > -1) curDirectory = found;
 		changeDirectory();
 		#end
+		
+		FlxG.mouse.visible = true; // 显示鼠标
+		lastMousePos = FlxPoint.get();
 		changeSelection();
 
-		FlxG.mouse.visible = false;
 		super.create();
 	}
 
 	override function update(elapsed:Float)
 	{
+		// 检测鼠标移动
+		if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
+		{
+			allowMouse = true;
+			checkMouseOver(); // 更新悬停检测
+		}
+		
+		// 鼠标控制优先
+		if (allowMouse)
+		{
+			// 鼠标滚轮滚动
+			if (FlxG.mouse.wheel != 0)
+			{
+				changeSelection(-Std.int(FlxG.mouse.wheel));
+			}
+			
+			// 鼠标点击处理
+			if (FlxG.mouse.justPressed)
+			{
+				handleMouseClick();
+			}
+			
+			// 鼠标右键返回
+			if (FlxG.mouse.justPressedRight)
+			{
+				FlxG.mouse.visible = false;
+				lastMousePos.put();
+				MusicBeatState.switchState(new MainMenuState());
+			}
+		}
+		
+		// 键盘控制（始终可用）
 		if (controls.UI_UP_P)
 		{
 			changeSelection(-1);
+			allowMouse = false; // 键盘操作时禁用鼠标
+			mouseOverIndex = -1; // 清除悬停效果
 		}
 		if (controls.UI_DOWN_P)
 		{
 			changeSelection(1);
+			allowMouse = false;
+			mouseOverIndex = -1;
 		}
+		
 		#if MODS_ALLOWED
 		if(controls.UI_LEFT_P)
 		{
 			changeDirectory(-1);
+			allowMouse = false;
+			mouseOverIndex = -1;
 		}
 		if(controls.UI_RIGHT_P)
 		{
 			changeDirectory(1);
+			allowMouse = false;
+			mouseOverIndex = -1;
 		}
 		#end
 
-		if (controls.BACK)
-		{
-			MusicBeatState.switchState(new MainMenuState());
-		}
-
 		if (controls.ACCEPT)
 		{
-			switch(options[curSelected]) {
-				case 'Chart Editor'://felt it would be cool maybe
-					LoadingState.loadAndSwitchState(new ChartingState(), false);
-				case 'Character Editor':
-					LoadingState.loadAndSwitchState(new CharacterEditorState(Character.DEFAULT_CHARACTER, false));
-				case 'Stage Editor':
-					LoadingState.loadAndSwitchState(new StageEditorState());
-				case 'Week Editor':
-					MusicBeatState.switchState(new WeekEditorState());
-				case 'Menu Character Editor':
-					MusicBeatState.switchState(new MenuCharacterEditorState());
-				case 'Dialogue Editor':
-					LoadingState.loadAndSwitchState(new DialogueEditorState(), false);
-				case 'Dialogue Portrait Editor':
-					LoadingState.loadAndSwitchState(new DialogueCharacterEditorState(), false);
-				case 'Note Splash Editor':
-					MusicBeatState.switchState(new NoteSplashEditorState());
-			}
-			FlxG.sound.music.volume = 0;
-			FreeplayState.destroyFreeplayVocals();
+			executeSelectedOption();
+		}
+
+		if (controls.BACK)
+		{
+			FlxG.mouse.visible = false;
+			lastMousePos.put();
+			MusicBeatState.switchState(new MainMenuState());
 		}
 		
+		// 更新所有文本的显示效果
 		for (num => item in grpTexts.members)
 		{
 			item.targetY = num - curSelected;
-			item.alpha = 0.6;
+			
+			// 优先显示选中效果，其次是悬停效果
 			if (item.targetY == 0)
-				item.alpha = 1;
+			{
+				item.alpha = 1; // 当前选中项
+			}
+			else if (allowMouse && num == mouseOverIndex)
+			{
+				item.alpha = 0.8; // 鼠标悬停项
+			}
+			else
+			{
+				item.alpha = 0.6; // 其他项
+			}
 		}
+		
+		// 目录文本悬停效果
+		#if MODS_ALLOWED
+		if (allowMouse && checkMouseOverDirectory())
+		{
+			directoryTxt.color = 0xFFFFFF00; // 黄色
+		}
+		else
+		{
+			directoryTxt.color = 0xFFFFFFFF; // 白色
+		}
+		#end
+		
 		super.update(elapsed);
 	}
 
@@ -165,4 +221,108 @@ class MasterEditorMenu extends MusicBeatState
 		directoryTxt.text = directoryTxt.text.toUpperCase();
 	}
 	#end
+	
+	// 检查鼠标悬停
+	private function checkMouseOver()
+	{
+		var mousePos = FlxG.mouse.getPosition();
+		mouseOverIndex = -1;
+		
+		for (i in 0...grpTexts.members.length)
+		{
+			var item = grpTexts.members[i];
+			if (item != null && item.visible)
+			{
+				// 简单的矩形碰撞检测
+				if (mousePos.x >= item.x - 50 && mousePos.x <= item.x + item.width + 50 &&
+					mousePos.y >= item.y - 30 && mousePos.y <= item.y + item.height + 30)
+				{
+					mouseOverIndex = i;
+					break;
+				}
+			}
+		}
+	}
+	
+	// 检查是否悬停在目录文本上
+	private function checkMouseOverDirectory():Bool
+	{
+		#if MODS_ALLOWED
+		var mousePos = FlxG.mouse.getPosition();
+		return (mousePos.x >= directoryTxt.x && mousePos.x <= directoryTxt.x + directoryTxt.width &&
+				mousePos.y >= directoryTxt.y && mousePos.y <= directoryTxt.y + directoryTxt.height);
+		#else
+		return false;
+		#end
+	}
+	
+	// 处理鼠标点击
+	private function handleMouseClick()
+	{
+		// 先更新悬停检测
+		checkMouseOver();
+		
+		// 检查是否点击了目录文本
+		#if MODS_ALLOWED
+		if (checkMouseOverDirectory())
+		{
+			// 左键向右，右键向左
+			changeDirectory(FlxG.mouse.justPressedRight ? -1 : 1);
+			return;
+		}
+		#end
+		
+		// 检查是否点击了选项
+		if (mouseOverIndex != -1)
+		{
+			if (mouseOverIndex != curSelected)
+			{
+				// 点击不同的选项 - 只选中不执行
+				curSelected = mouseOverIndex;
+				FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+			}
+			else
+			{
+				// 点击当前选中的选项 - 执行
+				executeSelectedOption();
+			}
+		}
+	}
+	
+	// 执行选中的选项
+	private function executeSelectedOption()
+	{
+		FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
+		
+		switch(options[curSelected]) {
+			case 'Chart Editor':
+				LoadingState.loadAndSwitchState(new ChartingState(), false);
+			case 'Character Editor':
+				LoadingState.loadAndSwitchState(new CharacterEditorState(Character.DEFAULT_CHARACTER, false));
+			case 'Stage Editor':
+				LoadingState.loadAndSwitchState(new StageEditorState());
+			case 'Week Editor':
+				MusicBeatState.switchState(new WeekEditorState());
+			case 'Menu Character Editor':
+				MusicBeatState.switchState(new MenuCharacterEditorState());
+			case 'Dialogue Editor':
+				LoadingState.loadAndSwitchState(new DialogueEditorState(), false);
+			case 'Dialogue Portrait Editor':
+				LoadingState.loadAndSwitchState(new DialogueCharacterEditorState(), false);
+			case 'Note Splash Editor':
+				MusicBeatState.switchState(new NoteSplashEditorState());
+		}
+		
+		FlxG.mouse.visible = false;
+		FlxG.sound.music.volume = 0;
+		FreeplayState.destroyFreeplayVocals();
+	}
+	
+	override function destroy()
+	{
+		super.destroy();
+		if (lastMousePos != null)
+			lastMousePos.put();
+		FlxG.mouse.visible = false;
+	}
 }

@@ -69,4 +69,11 @@ class Difficulty
 	{
 		return defaultDifficulty;
 	}
+	public static function getDefaultIndex():Int
+{
+    var defaultDiff:String = getDefault();
+    var index:Int = Difficulty.list.indexOf(defaultDiff);
+    if (index == -1) index = 0;
+    return index;
+}
 }

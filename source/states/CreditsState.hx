@@ -1,6 +1,8 @@
 package states;
 
 import objects.AttachedSprite;
+import flixel.ui.FlxButton;
+import flixel.math.FlxPoint;
 
 class CreditsState extends MusicBeatState
 {
@@ -18,15 +20,11 @@ class CreditsState extends MusicBeatState
 	var offsetThing:Float = -75;
 	
 	// 鼠标控制相关变量
-	var allowMouse:Bool = true;
-	var isMouseControl:Bool = false;
-	var mouseOverItem:Int = -1;
-	
-	// 鼠标区域偏移
-	private var mouseXOffset:Float = -200; // X轴偏移
-	private var mouseYOffset:Float = 30; // Y轴偏移，下移一些
-	private var optionWidth:Float = 1000; // 选项宽度
-	private var optionHeight:Float = 60; // 选项高度
+	var mouseOverItem:Alphabet = null;
+	var lastMousePosition:FlxPoint = FlxPoint.get(0, 0);
+	var mouseScrollTimer:Float = 0;
+	var mouseWheelDelay:Float = 0; // 鼠标滚轮延迟
+	var selectedItemLastFrame:Alphabet = null; // 记录上一帧选中的项目，用于滚轮动画
 
 	override function create()
 	{
@@ -49,38 +47,38 @@ class CreditsState extends MusicBeatState
 		#end
 
 		var defaultList:Array<Array<String>> = [ //Name - Icon name - Description - Link - BG Color
-			["Psych Engine Team"],
-			["Shadow Mario",		"shadowmario",		"Main Programmer and Head of Psych Engine",					"https://ko-fi.com/shadowmario",	"444444"],
-			["Riveren",				"riveren",			"Main Artist/Animator of Psych Engine",						"https://x.com/riverennn",			"14967B"],
-			[""],
-			["Former Engine Members"],
-			["bb-panzu",			"bb",				"Ex-Programmer of Psych Engine",							"https://x.com/bbsub3",				"3E813A"],
-			[""],
-			["Engine Contributors"],
-			["crowplexus",			"crowplexus",	"Linux Support, HScript Iris, Input System v3, and Other PRs",	"https://twitter.com/IamMorwen",	"CFCFCF"],
-			["Kamizeta",			"kamizeta",			"Creator of Pessy, Psych Engine's mascot.",				"https://www.instagram.com/cewweey/",	"D21C11"],
-			["MaxNeton",			"maxneton",			"Loading Screen Easter Egg Artist/Animator.",	"https://bsky.app/profile/maxneton.bsky.social","3C2E4E"],
-			["Keoiki",				"keoiki",			"Note Splash Animations and Latin Alphabet",				"https://x.com/Keoiki_",			"D2D2D2"],
-			["SqirraRNG",			"sqirra",			"Crash Handler and Base code for\nChart Editor's Waveform",	"https://x.com/gedehari",			"E1843A"],
-			["EliteMasterEric",		"mastereric",		"Runtime Shaders support and Other PRs",					"https://x.com/EliteMasterEric",	"FFBD40"],
-			["MAJigsaw77",			"majigsaw",			".MP4 Video Loader Library (hxvlc)",						"https://x.com/MAJigsaw77",			"5F5F5F"],
-			["iFlicky",				"flicky",			"Composer of Psync and Tea Time\nAnd some sound effects",	"https://x.com/flicky_i",			"9E29CF"],
-			["KadeDev",				"kade",				"Fixed some issues on Chart Editor and Other PRs",			"https://x.com/kade0912",			"64A250"],
-			["superpowers04",		"superpowers04",	"LUA JIT Fork",												"https://x.com/superpowers04",		"B957ED"],
-			["CheemsAndFriends",	"cheems",			"Creator of FlxAnimate",									"https://x.com/CheemsnFriendos",	"E1E1E1"],
-			[""],
-			["Funkin' Crew"],
-			["ninjamuffin99",		"ninjamuffin99",	"Programmer of Friday Night Funkin'",						"https://x.com/ninja_muffin99",		"CF2D2D"],
-			["PhantomArcade",		"phantomarcade",	"Animator of Friday Night Funkin'",							"https://x.com/PhantomArcade3K",	"FADC45"],
-			["evilsk8r",			"evilsk8r",			"Artist of Friday Night Funkin'",							"https://x.com/evilsk8r",			"5ABD4B"],
-			["kawaisprite",			"kawaisprite",		"Composer of Friday Night Funkin'",							"https://x.com/kawaisprite",		"378FC7"],
-			[""],
-			["Psych Engine Discord"],
-			["Join the Psych Ward!", "discord", "", "https://discord.gg/2ka77eMXDv", "5165F6"],
-			[""],
-			["Frozen Engine Creator"],
-			["Ice_Axe",			"iceaxe",		"Creator of Frozen Engine",							"",		"87CEEB"]
-		];
+            ["Psych Engine Team"],
+            ["Shadow Mario",        "shadowmario",      "Main Programmer and Head of Psych Engine",                 "https://ko-fi.com/shadowmario",    "444444"],
+            ["Riveren",             "riveren",          "Main Artist/Animator of Psych Engine",                     "https://x.com/riverennn",          "14967B"],
+            [""],
+            ["Former Engine Members"],
+            ["bb-panzu",            "bb",               "Ex-Programmer of Psych Engine",                            "https://x.com/bbsub3",             "3E813A"],
+            [""],
+            ["Engine Contributors"],
+            ["crowplexus",          "crowplexus",   "Linux Support, HScript Iris, Input System v3, and Other PRs",  "https://twitter.com/IamMorwen",    "CFCFCF"],
+            ["Kamizeta",            "kamizeta",         "Creator of Pessy, Psych Engine's mascot.",             "https://www.instagram.com/cewweey/",   "D21C11"],
+            ["MaxNeton",            "maxneton",         "Loading Screen Easter Egg Artist/Animator.",   "https://bsky.app/profile/maxneton.bsky.social","3C2E4E"],
+            ["Keoiki",              "keoiki",           "Note Splash Animations and Latin Alphabet",                "https://x.com/Keoiki_",            "D2D2D2"],
+            ["SqirraRNG",           "sqirra",           "Crash Handler and Base code for\nChart Editor's Waveform", "https://x.com/gedehari",           "E1843A"],
+            ["EliteMasterEric",     "mastereric",       "Runtime Shaders support and Other PRs",                    "https://x.com/EliteMasterEric",    "FFBD40"],
+            ["MAJigsaw77",          "majigsaw",         ".MP4 Video Loader Library (hxvlc)",                        "https://x.com/MAJigsaw77",         "5F5F5F"],
+            ["iFlicky",             "flicky",           "Composer of Psync and Tea Time\nAnd some sound effects",   "https://x.com/flicky_i",           "9E29CF"],
+            ["KadeDev",             "kade",             "Fixed some issues on Chart Editor and Other PRs",          "https://x.com/kade0912",           "64A250"],
+            ["superpowers04",       "superpowers04",    "LUA JIT Fork",                                             "https://x.com/superpowers04",      "B957ED"],
+            ["CheemsAndFriends",    "cheems",           "Creator of FlxAnimate",                                    "https://x.com/CheemsnFriendos",    "E1E1E1"],
+            [""],
+            ["Funkin' Crew"],
+            ["ninjamuffin99",       "ninjamuffin99",    "Programmer of Friday Night Funkin'",                       "https://x.com/ninja_muffin99",     "CF2D2D"],
+            ["PhantomArcade",       "phantomarcade",    "Animator of Friday Night Funkin'",                         "https://x.com/PhantomArcade3K",    "FADC45"],
+            ["evilsk8r",            "evilsk8r",         "Artist of Friday Night Funkin'",                           "https://x.com/evilsk8r",           "5ABD4B"],
+            ["kawaisprite",         "kawaisprite",      "Composer of Friday Night Funkin'",                         "https://x.com/kawaisprite",        "378FC7"],
+            [""],
+            ["Psych Engine Discord"],
+            ["Join the Psych Ward!", "discord", "", "https://discord.gg/2ka77eMXDv", "5165F6"],
+            [""],
+            ["Frozen Engine Creator"],
+            ["Ice_Axe",         "iceaxe",       "Creator of Frozen Engine",                         "",     "87CEEB"]
+        ];
 		
 		for(i in defaultList)
 			creditsStuff.push(i);
@@ -93,6 +91,14 @@ class CreditsState extends MusicBeatState
 			optionText.targetY = i;
 			optionText.changeX = false;
 			optionText.snapToPosition();
+			
+			// 为可选项目添加鼠标交互
+			if(isSelectable)
+			{
+				optionText.antialiasing = ClientPrefs.data.antialiasing;
+				optionText.ID = i; // 使用ID存储索引
+			}
+			
 			grpOptions.add(optionText);
 
 			if(isSelectable)
@@ -132,7 +138,7 @@ class CreditsState extends MusicBeatState
 		add(descBox);
 
 		descText = new FlxText(50, FlxG.height + offsetThing - 25, 1180, "", 32);
-		descText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER/*, OUTLINE, FlxColor.BLACK*/);
+		descText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER/*, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK*/);
 		descText.scrollFactor.set();
 		//descText.borderSize = 2.4;
 		descBox.sprTracker = descText;
@@ -141,14 +147,17 @@ class CreditsState extends MusicBeatState
 		bg.color = CoolUtil.colorFromString(creditsStuff[curSelected][4]);
 		intendedColor = bg.color;
 		changeSelection();
-		super.create();
 		
-		// 初始隐藏鼠标
-		FlxG.mouse.visible = true;
+		// 初始化鼠标位置
+		lastMousePosition.set(FlxG.mouse.screenX, FlxG.mouse.screenY);
+		
+		super.create();
 	}
 
 	var quitting:Bool = false;
 	var holdTime:Float = 0;
+	var lastCurSelected:Int = -1; // 记录上一帧选中的索引，用于滚轮动画
+	
 	override function update(elapsed:Float)
 	{
 		if (FlxG.sound.music.volume < 0.7)
@@ -158,115 +167,10 @@ class CreditsState extends MusicBeatState
 
 		if(!quitting)
 		{
-			// 鼠标控制逻辑 - 只在点击、滚轮或明显移动时检测
-			if (allowMouse && (FlxG.mouse.justPressed || FlxG.mouse.justReleased || FlxG.mouse.wheel != 0))
-			{
-				allowMouse = false;
-				FlxG.mouse.visible = true;
-				isMouseControl = true;
-
-				var newMouseOverItem:Int = -1;
-				var minDist:Float = 999999;
-				
-				// 检查鼠标是否悬停在某个可选项上
-				for (i in 0...grpOptions.length)
-				{
-					if (unselectableCheck(i)) continue;
-					
-					var item:Alphabet = grpOptions.members[i];
-					if (item == null) continue;
-					
-					// 计算选项的实际位置（考虑偏移）
-					var itemX:Float = item.x + mouseXOffset;
-					var itemY:Float = item.y + mouseYOffset;
-					
-					// 检查鼠标是否在选项文本区域内
-					var isOverItem:Bool = (FlxG.mouse.screenX >= itemX && 
-										  FlxG.mouse.screenX <= itemX + optionWidth &&
-										  FlxG.mouse.screenY >= itemY && 
-										  FlxG.mouse.screenY <= itemY + optionHeight);
-					
-					// 检查图标区域
-					if (!isOverItem && iconArray[i] != null)
-					{
-						var icon:AttachedSprite = iconArray[i];
-						if (icon.exists)
-						{
-							// 图标区域判定（扩大区域）
-							var iconX:Float = icon.x - 20;
-							var iconY:Float = icon.y - 20;
-							var iconWidth:Float = icon.width + 40;
-							var iconHeight:Float = icon.height + 40;
-							
-							isOverItem = (FlxG.mouse.screenX >= iconX && 
-										 FlxG.mouse.screenX <= iconX + iconWidth &&
-										 FlxG.mouse.screenY >= iconY && 
-										 FlxG.mouse.screenY <= iconY + iconHeight);
-						}
-					}
-					
-					if (isOverItem)
-					{
-						// 计算距离
-						var distance:Float = Math.sqrt(Math.pow(item.getGraphicMidpoint().x - FlxG.mouse.screenX, 2) + 
-													   Math.pow(item.getGraphicMidpoint().y - FlxG.mouse.screenY, 2));
-						if (distance < minDist)
-						{
-							minDist = distance;
-							newMouseOverItem = i;
-						}
-					}
-				}
-
-				if (newMouseOverItem != mouseOverItem)
-				{
-					mouseOverItem = newMouseOverItem;
-					// 鼠标悬停时高亮显示
-					updateMouseHover();
-				}
-				
-				allowMouse = true;
-			}
+			// 鼠标控制
+			handleMouseInput(elapsed);
 			
-			// 鼠标滚轮滚动
-			if (FlxG.mouse.wheel != 0 && creditsStuff.length > 1)
-			{
-				// 滚轮向上为向上滑动（选择上面的选项），向下为向下滑动（选择下面的选项）
-				var shiftMult:Int = FlxG.keys.pressed.SHIFT ? 3 : 1;
-				var selectionChange:Int = -shiftMult * FlxG.mouse.wheel;
-				FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-				changeSelection(selectionChange);
-			}
-
-			// 鼠标点击选择
-			if (FlxG.mouse.justPressed && isMouseControl)
-			{
-				if (mouseOverItem != -1)
-				{
-					if (curSelected != mouseOverItem)
-					{
-						curSelected = mouseOverItem;
-						changeSelection(0);
-					}
-					else if (creditsStuff[curSelected][3] != null && creditsStuff[curSelected][3].length > 4)
-					{
-						// 左键点击已选中的项目时打开链接
-						CoolUtil.browserLoad(creditsStuff[curSelected][3]);
-					}
-				}
-			}
-			
-			// 鼠标右键返回
-			if (FlxG.mouse.justPressedRight && isMouseControl)
-			{
-				FlxG.sound.play(Paths.sound('cancelMenu'));
-				MusicBeatState.switchState(new MainMenuState());
-				quitting = true;
-				FlxG.mouse.visible = false;
-				return;
-			}
-
-			if(creditsStuff.length > 1 && !isMouseControl)
+			if(creditsStuff.length > 1)
 			{
 				var shiftMult:Int = 1;
 				if(FlxG.keys.pressed.SHIFT) shiftMult = 3;
@@ -298,18 +202,44 @@ class CreditsState extends MusicBeatState
 				}
 			}
 
+			// 鼠标点击处理 - 左键点击选中，再次点击打开链接
+			if(FlxG.mouse.justPressed && mouseOverItem != null && !unselectableCheck(mouseOverItem.ID))
+			{
+				var newIndex:Int = mouseOverItem.ID;
+				
+				// 如果点击的是当前选中的项目，且该项目有链接，则打开链接
+				if(newIndex == curSelected)
+				{
+					if(creditsStuff[curSelected][3] != null && creditsStuff[curSelected][3].length > 4)
+					{
+						CoolUtil.browserLoad(creditsStuff[curSelected][3]);
+					}
+				}
+				else // 否则选中该项目
+				{
+					curSelected = newIndex - 1; // 临时减1，让changeSelection的+1生效
+					changeSelection(1);
+				}
+			}
+			
+			// 键盘确认打开链接
 			if(controls.ACCEPT && (creditsStuff[curSelected][3] == null || creditsStuff[curSelected][3].length > 4)) {
 				CoolUtil.browserLoad(creditsStuff[curSelected][3]);
 			}
-			if (controls.BACK)
+			
+			// 返回
+			if (controls.BACK || FlxG.mouse.justPressedRight)
 			{
 				FlxG.sound.play(Paths.sound('cancelMenu'));
 				MusicBeatState.switchState(new MainMenuState());
 				quitting = true;
-				FlxG.mouse.visible = false;
 			}
 		}
 		
+		// 更新鼠标悬停效果（透明度）
+		updateMouseHover();
+		
+		// 更新项目位置动画（原来的逻辑）
 		for (item in grpOptions.members)
 		{
 			if(!item.bold)
@@ -327,33 +257,82 @@ class CreditsState extends MusicBeatState
 				}
 			}
 		}
+		
+		// 更新鼠标位置记录
+		lastMousePosition.set(FlxG.mouse.screenX, FlxG.mouse.screenY);
+		
 		super.update(elapsed);
+	}
+	
+	function handleMouseInput(elapsed:Float)
+	{
+		// 鼠标滚轮控制 - 直接调用changeSelection，和键盘共用逻辑
+		if (FlxG.mouse.wheel != 0)
+		{
+			mouseScrollTimer += elapsed;
+			if (mouseScrollTimer >= mouseWheelDelay)
+			{
+				var scrollAmount:Int = -Std.int(FlxG.mouse.wheel); // 反转方向使其更自然
+				changeSelection(scrollAmount);
+				mouseScrollTimer = 0;
+			}
+		}
+		else
+		{
+			mouseScrollTimer = mouseWheelDelay; // 重置计时器
+		}
+		
+		// 如果鼠标移动了，检查鼠标下的项目
+		if (FlxG.mouse.justMoved)
+		{
+			checkMouseOverItem();
+		}
+	}
+	
+	function checkMouseOverItem()
+	{
+		var foundItem:Alphabet = null;
+		
+		// 从后往前遍历，确保最上面的项目被检测到
+		for (i in (grpOptions.members.length - 1)...0)
+		{
+			var item = grpOptions.members[i];
+			if (item != null && !unselectableCheck(i) && item.visible)
+			{
+				// 简单的矩形碰撞检测
+				if (FlxG.mouse.overlaps(item))
+				{
+					foundItem = item;
+					break;
+				}
+			}
+		}
+		
+		// 如果鼠标下的项目改变了
+		if (foundItem != mouseOverItem)
+		{
+			mouseOverItem = foundItem;
+		}
 	}
 	
 	function updateMouseHover()
 	{
-		for (num => item in grpOptions.members)
+		// 更新所有项目的鼠标悬停效果（透明度）
+		for (i => item in grpOptions.members)
 		{
-			if(!unselectableCheck(num))
+			if (!unselectableCheck(i) && item.visible)
 			{
-				if (mouseOverItem == num)
+				// 基础透明度由选中状态决定
+				var targetAlpha:Float = (item.targetY == 0) ? 1.0 : 0.6;
+				
+				// 鼠标悬停时额外增加透明度（变得更亮）
+				if (item == mouseOverItem)
 				{
-					// 鼠标悬停时高亮显示
-					item.alpha = 0.8;
-					
-					// 图标也高亮
-					if (iconArray[num] != null)
-						iconArray[num].alpha = 0.8;
+					targetAlpha = Math.min(targetAlpha + 0.2, 1.0);
 				}
-				else
-				{
-					// 恢复原始透明度
-					item.alpha = (num == curSelected) ? 1 : 0.6;
-					
-					// 图标也恢复
-					if (iconArray[num] != null)
-						iconArray[num].alpha = (num == curSelected) ? 1 : 0.6;
-				}
+				
+				// 平滑过渡透明度
+				item.alpha = FlxMath.lerp(targetAlpha, item.alpha, 0.8);
 			}
 		}
 	}
@@ -361,22 +340,18 @@ class CreditsState extends MusicBeatState
 	var moveTween:FlxTween = null;
 	function changeSelection(change:Int = 0)
 	{
-		FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-		
-		if (change != 0)
+		// 如果change为0，不播放声音
+		if(change != 0)
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+			
+		do
 		{
-			do
-			{
-				curSelected = FlxMath.wrap(curSelected + change, 0, creditsStuff.length - 1);
-			}
-			while(unselectableCheck(curSelected));
+			curSelected = FlxMath.wrap(curSelected + change, 0, creditsStuff.length - 1);
 		}
-		
-		// 更新鼠标悬停状态
-		mouseOverItem = curSelected;
-		updateMouseHover();
+		while(unselectableCheck(curSelected));
 
 		var newColor:FlxColor = CoolUtil.colorFromString(creditsStuff[curSelected][4]);
+		//trace('The BG color is: $newColor');
 		if(newColor != intendedColor)
 		{
 			intendedColor = newColor;
@@ -387,12 +362,7 @@ class CreditsState extends MusicBeatState
 		for (num => item in grpOptions.members)
 		{
 			item.targetY = num - curSelected;
-			if(!unselectableCheck(num)) {
-				item.alpha = 0.6;
-				if (item.targetY == 0) {
-					item.alpha = 1;
-				}
-			}
+			// 透明度现在在updateMouseHover中统一处理
 		}
 
 		descText.text = creditsStuff[curSelected][2];
@@ -408,6 +378,9 @@ class CreditsState extends MusicBeatState
 			descBox.updateHitbox();
 		}
 		else descText.visible = descBox.visible = false;
+		
+		// 重置鼠标悬停项目（避免悬停状态残留）
+		mouseOverItem = null;
 	}
 
 	#if MODS_ALLOWED
@@ -416,6 +389,7 @@ class CreditsState extends MusicBeatState
 		var creditsFile:String = Paths.mods(folder + '/data/credits.txt');
 		
 		#if TRANSLATIONS_ALLOWED
+		//trace('/data/credits-${ClientPrefs.data.language}.txt');
 		var translatedCredits:String = Paths.mods(folder + '/data/credits-${ClientPrefs.data.language}.txt');
 		#end
 
@@ -439,7 +413,8 @@ class CreditsState extends MusicBeatState
 	
 	override function destroy()
 	{
+		// 清理资源
+		lastMousePosition.put();
 		super.destroy();
-		FlxG.mouse.visible = true;
 	}
 }

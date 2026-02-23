@@ -7,12 +7,10 @@ import backend.Song;
 import flixel.util.FlxStringUtil;
 import flixel.addons.display.FlxBackdrop;
 import flixel.addons.display.FlxGridOverlay;
-import flixel.math.FlxRect;
-import flixel.math.FlxPoint;
 
 import states.StoryMenuState;
-import states.FreeplayState;
 import states.NewFreeplayState;
+import states.FreeplayState;
 import options.OptionsState;
 import options.KEOptionsMenu;
 
@@ -36,12 +34,14 @@ class PauseSubState extends MusicBeatSubstate
 
 	public static var songName:String = null;
 	
-	// 鼠标支持相关变量
-	var skipTimeHovered:Bool = false;
+	// 鼠标控制变量
+	private var mouseOverItem:Int = -1;
+	private var lastMousePos:FlxPoint;
+	private var allowMouse:Bool = true;
 
 	override function create()
 	{
-		if(Difficulty.list.length < 2) menuItemsOG.remove('Change Difficulty'); //No need to change difficulty if there is only one!
+		if(Difficulty.list.length < 2) menuItemsOG.remove('Change Difficulty');
 		if(PlayState.chartingMode)
 		{
 			menuItemsOG.insert(2, 'Leave Charting Mode');
@@ -75,6 +75,7 @@ class PauseSubState extends MusicBeatSubstate
 		pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
 
 		FlxG.sound.list.add(pauseMusic);
+
 		if(ClientPrefs.data.coolBackdrop)
 		{
 			var grid:FlxBackdrop = new FlxBackdrop(FlxGridOverlay.createGrid(80, 80, 160, 160, true, 0x33FFFFFF, 0x0));
@@ -158,9 +159,9 @@ class PauseSubState extends MusicBeatSubstate
 		regenMenu();
 		cameras = [FlxG.cameras.list[FlxG.cameras.list.length - 1]];
 		
-		// 启用鼠标（使用系统光标）
+		// 初始化鼠标
 		FlxG.mouse.visible = true;
-		FlxG.mouse.useSystemCursor = true;
+		lastMousePos = FlxPoint.get();
 
 		super.create();
 	}
@@ -176,68 +177,71 @@ class PauseSubState extends MusicBeatSubstate
 
 	var holdTime:Float = 0;
 	var cantUnpause:Float = 0.1;
+	
 	override function update(elapsed:Float)
 	{
 		cantUnpause -= elapsed;
 		if (pauseMusic.volume < 0.5)
 			pauseMusic.volume += 0.01 * elapsed;
 
-		super.update(elapsed);
+		// ===== 鼠标控制开始 =====
 		
-		// 鼠标滚轮处理 - 参考GameplayChanger的实现方式
-		if (FlxG.mouse.wheel != 0)
+		// 检测鼠标移动，启用鼠标模式
+		if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
 		{
-			// 检查是否在Skip Time文本上
-			var isOverSkipTime:Bool = false;
-			if (skipTimeText != null && skipTimeText.visible && menuItems[curSelected] == 'Skip Time')
-			{
-				var mouseX:Float = FlxG.mouse.screenX;
-				var mouseY:Float = FlxG.mouse.screenY;
-				
-				var skipBounds:FlxRect = skipTimeText.getHitbox();
-				var expandedSkipBounds:FlxRect = new FlxRect(
-					skipBounds.x - 20,
-					skipBounds.y - 10,
-					skipBounds.width + 40,
-					skipBounds.height + 20
-				);
-				
-				if (expandedSkipBounds.containsPoint(FlxPoint.weak(mouseX, mouseY)))
-				{
-					isOverSkipTime = true;
-				}
-			}
-			
-			if (isOverSkipTime && menuItems[curSelected] == 'Skip Time')
-			{
-				// 鼠标在Skip Time数值区域上时，滚轮调整时间
-				FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-				curTime += 1000 * FlxG.mouse.wheel; // 每次滚动调整1秒
-				
-				if(curTime >= FlxG.sound.music.length) curTime = FlxG.sound.music.length - 1000;
-				else if(curTime < 0) curTime = 0;
-				
-				updateSkipTimeText();
-			}
-			else
-			{
-				// 其他任意位置：滚轮滚动菜单选项
-				var shiftMult:Int = FlxG.keys.pressed.SHIFT ? 3 : 1;
-				changeSelection(-shiftMult * FlxG.mouse.wheel);
-			}
+			allowMouse = true;
+			updateMouseOver();
 		}
 		
-		// 鼠标点击处理
-		if (FlxG.mouse.justPressed)
+		// 右键直接返回游戏
+		if (FlxG.mouse.justPressedRight)
+		{
+			close();
+			return;
+		}
+		
+		// 滚轮选择（鼠标模式下）
+		if (allowMouse && FlxG.mouse.wheel != 0)
+		{
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.2);
+			changeSelection(-Std.int(FlxG.mouse.wheel));
+		}
+		
+		// 左键点击处理
+		if (allowMouse && FlxG.mouse.justPressed)
 		{
 			handleMouseClick();
 		}
 		
-		// 右键处理（模拟ESC）
-		if (FlxG.mouse.justPressedRight)
+		// Skip Time的特殊鼠标控制（拖拽调节）
+		if (allowMouse && menuItems[curSelected] == 'Skip Time' && skipTimeTracker != null && FlxG.mouse.overlaps(skipTimeTracker))
 		{
-			close();
+			// 鼠标拖动
+			if (FlxG.mouse.pressed)
+			{
+				var dragSpeed:Float = (FlxG.mouse.deltaScreenX + FlxG.mouse.deltaScreenY) * 10;
+				if (Math.abs(dragSpeed) > 0.5)
+				{
+					curTime += dragSpeed * 100;
+					if(curTime >= FlxG.sound.music.length) curTime = 0;
+					else if(curTime < 0) curTime = FlxG.sound.music.length - 1000;
+					updateSkipTimeText();
+				}
+			}
+			
+			// 滚轮微调
+			if (FlxG.mouse.wheel != 0)
+			{
+				curTime += FlxG.mouse.wheel * 1000;
+				if(curTime >= FlxG.sound.music.length) curTime = 0;
+				else if(curTime < 0) curTime = FlxG.sound.music.length - 1000;
+				updateSkipTimeText();
+			}
 		}
+		
+		// ===== 鼠标控制结束 =====
+
+		super.update(elapsed);
 
 		if(controls.BACK)
 		{
@@ -254,13 +258,21 @@ class PauseSubState extends MusicBeatSubstate
 		}
 
 		updateSkipTextStuff();
+		
+		// 键盘控制
 		if (controls.UI_UP_P)
 		{
 			changeSelection(-1);
+			allowMouse = false; // 键盘操作时禁用鼠标模式
+			mouseOverItem = -1;
+			updateItemAlpha();
 		}
 		if (controls.UI_DOWN_P)
 		{
 			changeSelection(1);
+			allowMouse = false;
+			mouseOverItem = -1;
+			updateItemAlpha();
 		}
 
 		var daSelected:String = menuItems[curSelected];
@@ -296,69 +308,77 @@ class PauseSubState extends MusicBeatSubstate
 
 		if (controls.ACCEPT && (cantUnpause <= 0 || !controls.controllerMode))
 		{
-			doMenuItemAction();
+			selectCurrentOption();
 		}
 	}
 	
-	function handleMouseClick():Void
+	// 更新鼠标悬停检测
+	function updateMouseOver()
 	{
-		if (cantUnpause > 0) return;
+		if (!allowMouse) return;
 		
-		var mouseX:Float = FlxG.mouse.screenX;
-		var mouseY:Float = FlxG.mouse.screenY;
-		var clickedItem:Int = -1;
-		var minDist:Float = 999999;
-		
-		// 检查鼠标点击了哪个菜单项
+		var newMouseOver:Int = -1;
 		for (i in 0...grpMenuShit.members.length)
 		{
-			var item:Alphabet = grpMenuShit.members[i];
-			if (item != null && item.exists && item.visible && item.alpha > 0.3)
+			var item = grpMenuShit.members[i];
+			if (item != null && item.visible && FlxG.mouse.overlaps(item))
 			{
-				var itemBounds:FlxRect = item.getHitbox();
-				
-				// 调整点击区域，使其更易于点击
-				var expandedBounds:FlxRect = new FlxRect(
-					itemBounds.x - 40,
-					itemBounds.y - 10,
-					itemBounds.width + 80,
-					itemBounds.height + 20
-				);
-				
-				if (expandedBounds.containsPoint(FlxPoint.weak(mouseX, mouseY)))
-				{
-					// 计算距离，选择最近的项目
-					var distance:Float = Math.sqrt(Math.pow(item.getGraphicMidpoint().x - mouseX, 2) + 
-												   Math.pow(item.getGraphicMidpoint().y - mouseY, 2));
-					if (distance < minDist)
-					{
-						minDist = distance;
-						clickedItem = i;
-					}
-				}
+				newMouseOver = i;
+				break;
 			}
 		}
 		
-		// 如果点击了某个菜单项
-		if (clickedItem != -1)
+		// 如果悬停项改变，更新透明度显示
+		if (newMouseOver != mouseOverItem)
 		{
-			// 如果点击的不是当前选中的项目，先切换到该项目（会播放滚动音效）
-			if (clickedItem != curSelected)
-			{
-				curSelected = clickedItem;
-				changeSelection(0); // 这会播放滚动音效
-				return;
-			}
-			
-			// 如果点击的是当前选中的项目，直接执行操作（不播放点击音效）
-			doMenuItemAction();
+			mouseOverItem = newMouseOver;
+			updateItemAlpha();
 		}
 	}
 	
-	function doMenuItemAction():Void
+	// 处理鼠标点击
+	function handleMouseClick()
 	{
-		if (cantUnpause > 0) return;
+		if (mouseOverItem == -1) return; // 没点到任何选项
 		
+		if (mouseOverItem != curSelected)
+		{
+			// 点击其他选项：切换到该选项
+			changeSelection(mouseOverItem - curSelected);
+		}
+		else
+		{
+			// 点击当前选中的选项：执行操作
+			selectCurrentOption();
+		}
+	}
+	
+	// 更新所有选项的透明度
+	function updateItemAlpha()
+	{
+		for (num => item in grpMenuShit.members)
+		{
+			if (item == null) continue;
+			
+			// 默认透明度
+			item.alpha = 0.6;
+			
+			// 选中的选项高亮
+			if (num == curSelected)
+			{
+				item.alpha = 1.0;
+			}
+			// 悬停的选项半高亮（如果不是选中的话）
+			else if (allowMouse && num == mouseOverItem)
+			{
+				item.alpha = 0.8;
+			}
+		}
+	}
+
+	// 执行当前选中的选项
+	function selectCurrentOption()
+	{
 		var daSelected:String = menuItems[curSelected];
 		
 		if (menuItems == difficultyChoices)
@@ -447,14 +467,8 @@ class PauseSubState extends MusicBeatSubstate
 				PlayState.instance.paused = true;
 				PlayState.instance.vocals.volume = 0;
 				PlayState.instance.canResync = false;
-				if(ClientPrefs.data.keOptions)
-				{
-					MusicBeatState.switchState(new options.KEOptionsMenu());
-				}
-				else
-				{
-					MusicBeatState.switchState(new OptionsState());
-				}
+				if (ClientPrefs.data.keOptions) MusicBeatState.switchState(new KEOptionsMenu());
+				else MusicBeatState.switchState(new OptionsState());
 				if(ClientPrefs.data.pauseMusic != 'None')
 				{
 					FlxG.sound.playMusic(Paths.music(Paths.formatToSongPath(ClientPrefs.data.pauseMusic)), pauseMusic.volume);
@@ -472,10 +486,8 @@ class PauseSubState extends MusicBeatSubstate
 				Mods.loadTopMod();
 				if(PlayState.isStoryMode)
 					MusicBeatState.switchState(new StoryMenuState());
-				else if (ClientPrefs.data.newFreeplay)
-					MusicBeatState.switchState(new NewFreeplayState());
-				else
-					MusicBeatState.switchState(new FreeplayState());
+				else if(ClientPrefs.data.newFreeplay) MusicBeatState.switchState(new NewFreeplayState());
+				else MusicBeatState.switchState(new FreeplayState());
 
 				FlxG.sound.playMusic(Paths.music('freakyMenu'));
 				PlayState.changedDifficulty = false;
@@ -498,7 +510,7 @@ class PauseSubState extends MusicBeatSubstate
 
 	public static function restartSong(noTrans:Bool = false)
 	{
-		PlayState.instance.paused = true; // For lua
+		PlayState.instance.paused = true;
 		FlxG.sound.music.volume = 0;
 		PlayState.instance.vocals.volume = 0;
 
@@ -513,6 +525,8 @@ class PauseSubState extends MusicBeatSubstate
 	override function destroy()
 	{
 		pauseMusic.destroy();
+		if (lastMousePos != null) lastMousePos.put();
+		FlxG.mouse.visible = false;
 		super.destroy();
 	}
 
@@ -520,28 +534,25 @@ class PauseSubState extends MusicBeatSubstate
 	{
 		curSelected = FlxMath.wrap(curSelected + change, 0, menuItems.length - 1);
 		
+		// 更新targetY
 		for (num => item in grpMenuShit.members)
 		{
 			item.targetY = num - curSelected;
-			item.alpha = 0.6;
-			if(ClientPrefs.data.centerPause)
-			{
-				item.screenCenter(X); 			
-				item.changeX = false;
-			}
-			if (item.targetY == 0)
-			{
-				item.alpha = 1;
-				if(item == skipTimeTracker)
-				{
-					curTime = Math.max(0, Conductor.songPosition);
-					updateSkipTimeText();
-				}
-			}
 		}
+		
+		// 更新透明度
+		updateItemAlpha();
+		
+		// 如果选中了Skip Time，更新curTime
+		if (grpMenuShit.members[curSelected] == skipTimeTracker)
+		{
+			curTime = Math.max(0, Conductor.songPosition);
+			updateSkipTimeText();
+		}
+		
 		missingText.visible = false;
 		missingTextBG.visible = false;
-		if (change != 0) FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+		FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 	}
 
 	function regenMenu():Void {
@@ -590,5 +601,4 @@ class PauseSubState extends MusicBeatSubstate
 		if(skipTimeText != null)
 			skipTimeText.text = FlxStringUtil.formatTime(Math.max(0, Math.floor(curTime / 1000)), false) + ' / ' + FlxStringUtil.formatTime(Math.max(0, Math.floor(FlxG.sound.music.length / 1000)), false);
 	}
-	
 }

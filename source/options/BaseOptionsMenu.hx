@@ -4,7 +4,6 @@ import flixel.input.keyboard.FlxKey;
 import flixel.input.gamepad.FlxGamepad;
 import flixel.input.gamepad.FlxGamepadInputID;
 import flixel.input.gamepad.FlxGamepadManager;
-import flixel.util.FlxColor;
 
 import objects.CheckboxThingie;
 import objects.AttachedText;
@@ -29,14 +28,10 @@ class BaseOptionsMenu extends MusicBeatSubstate
 
 	public var bg:FlxSprite;
 	
-	private var allowMouse:Bool = true;
-	private var isMouseControl:Bool = false;
-	private var mouseOverItem:Int = -1;
-	private var mouseHoldTime:Float = 0;
-	
-	private var mouseXOffset:Float = 0;
-	private var mouseYOffset:Float = 30;
-	private var optionHeight:Float = 100;
+	// 鼠标控制变量
+	private var selectedByMouse:Bool = false;
+	private var lastMouseX:Float = 0;
+	private var lastMouseY:Float = 0;
 
 	public function new()
 	{
@@ -55,6 +50,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		add(bg);
 
+		// avoids lagspikes while scrolling through menus!
 		grpOptions = new FlxTypedGroup<Alphabet>();
 		add(grpOptions);
 
@@ -74,7 +70,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		add(titleText);
 
 		descText = new FlxText(50, 600, 1180, "", 32);
-		descText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		descText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		descText.scrollFactor.set();
 		descText.borderSize = 2.4;
 		add(descText);
@@ -83,6 +79,8 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		{
 			var optionText:Alphabet = new Alphabet(220, 260, optionsArray[i].name, false);
 			optionText.isMenuItem = true;
+			/*optionText.forceX = 300;
+			optionText.yMult = 90;*/
 			optionText.targetY = i;
 			grpOptions.add(optionText);
 
@@ -97,6 +95,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			{
 				optionText.x -= 80;
 				optionText.startPosition.x -= 80;
+				//optionText.xAdd -= 80;
 				var valueText:AttachedText = new AttachedText('' + optionsArray[i].getValue(), optionText.width + 60);
 				valueText.sprTracker = optionText;
 				valueText.copyAlpha = true;
@@ -104,13 +103,12 @@ class BaseOptionsMenu extends MusicBeatSubstate
 				grpTexts.add(valueText);
 				optionsArray[i].child = valueText;
 			}
+			//optionText.snapToPosition(); //Don't ignore me when i ask for not making a fucking pull request to uncomment this line ok
 			updateTextFrom(optionsArray[i]);
 		}
 
 		changeSelection();
 		reloadCheckboxes();
-		
-		FlxG.mouse.visible = false;
 	}
 
 	public function addOption(option:Option) {
@@ -139,186 +137,21 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			return;
 		}
 
-		if (allowMouse && (FlxG.mouse.justPressed || FlxG.mouse.justReleased || FlxG.mouse.wheel != 0 || FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0))
-		{
-			allowMouse = false;
-			FlxG.mouse.visible = true;
-			isMouseControl = true;
-
-			var newMouseOverItem:Int = -1;
-			var minDist:Float = 999999;
-			
-			for (i in 0...grpOptions.length)
-			{
-				var item:Alphabet = grpOptions.members[i];
-				if (item == null) continue;
-				
-				var itemWidth:Float = item.width;
-				var itemX:Float = item.x + mouseXOffset;
-				var itemY:Float = item.y + mouseYOffset;
-				
-				var isOverItem:Bool = (FlxG.mouse.screenX >= itemX && 
-									  FlxG.mouse.screenX <= itemX + itemWidth &&
-									  FlxG.mouse.screenY >= itemY && 
-									  FlxG.mouse.screenY <= itemY + optionHeight);
-				
-				if (!isOverItem)
-				{
-					for (checkbox in checkboxGroup)
-					{
-						if (checkbox.ID == i && checkbox.exists && FlxG.mouse.overlaps(checkbox))
-						{
-							isOverItem = true;
-							break;
-						}
-					}
-					if (!isOverItem && optionsArray[i].type != BOOL)
-					{
-						for (text in grpTexts)
-						{
-							if (text.ID == i && text.exists)
-							{
-								var textX:Float = text.x - 40;
-								var textY:Float = text.y - 20;
-								var textWidth:Float = text.width + 80;
-								var textHeight:Float = text.height + 40;
-								
-								isOverItem = (FlxG.mouse.screenX >= textX && 
-											 FlxG.mouse.screenX <= textX + textWidth &&
-											 FlxG.mouse.screenY >= textY && 
-											 FlxG.mouse.screenY <= textY + textHeight);
-								if (isOverItem) break;
-							}
-						}
-					}
-				}
-				
-				if (isOverItem)
-				{
-					var centerX:Float = itemX + itemWidth / 2;
-					var centerY:Float = itemY + optionHeight / 2;
-					var distance:Float = Math.sqrt(Math.pow(centerX - FlxG.mouse.screenX, 2) + 
-												   Math.pow(centerY - FlxG.mouse.screenY, 2));
-					if (distance < minDist)
-					{
-						minDist = distance;
-						newMouseOverItem = i;
-					}
-				}
-			}
-
-			if (newMouseOverItem != -1 && newMouseOverItem != mouseOverItem)
-			{
-				mouseOverItem = newMouseOverItem;
-				updateMouseHover();
-			}
-			else if (newMouseOverItem == -1)
-			{
-				mouseOverItem = -1;
-				updateMouseHover();
-			}
-			
-			allowMouse = true;
-		}
-		
-		if (FlxG.mouse.wheel != 0)
-		{
-			if (mouseOverItem != -1 && mouseOverItem == curSelected && !isBindingKey())
-			{
-				var wheelValue:Float = FlxG.mouse.wheel * (FlxG.keys.pressed.SHIFT ? 3 : 1);
-				handleMouseWheel(wheelValue);
-			}
-			else
-			{
-				var shiftMult:Int = FlxG.keys.pressed.SHIFT ? 3 : 1;
-				var selectionChange:Int = -shiftMult * FlxG.mouse.wheel;
-				changeSelection(selectionChange);
-			}
-		}
-
-		if (FlxG.mouse.justPressed && isMouseControl && !isBindingKey() && mouseOverItem != -1)
-		{
-			if (curSelected != mouseOverItem)
-			{
-				curSelected = mouseOverItem;
-				changeSelection(0);
-			}
-			else
-			{
-				var usesCheckbox:Bool = (curOption.type == BOOL);
-				if (usesCheckbox && nextAccept <= 0)
-				{
-					FlxG.sound.play(Paths.sound('scrollMenu'));
-					curOption.setValue((curOption.getValue() == true) ? false : true);
-					curOption.change();
-					reloadCheckboxes();
-				}
-			}
-		}
-		
-		if (FlxG.mouse.pressed && isMouseControl && mouseOverItem != -1 && mouseOverItem == curSelected && 
-			!isBindingKey() && nextAccept <= 0 && curOption != null)
-		{
-			if (curOption.type != BOOL && curOption.type != KEYBIND && curOption.type != STRING)
-			{
-				mouseHoldTime += elapsed;
-				if (mouseHoldTime > 0.1)
-				{
-					var mouseDelta:Float = FlxG.mouse.deltaScreenX;
-					if (Math.abs(mouseDelta) > 0.1)
-					{
-						var add:Dynamic = mouseDelta * curOption.changeValue * 0.2;
-						holdValue = curOption.getValue() + add;
-						if(holdValue < curOption.minValue) holdValue = curOption.minValue;
-						else if (holdValue > curOption.maxValue) holdValue = curOption.maxValue;
-
-						switch(curOption.type)
-						{
-							case INT:
-								holdValue = Math.round(holdValue);
-								curOption.setValue(holdValue);
-
-							case FLOAT, PERCENT:
-								holdValue = FlxMath.roundDecimal(holdValue, curOption.decimals);
-								curOption.setValue(holdValue);
-
-							default:
-						}
-						
-						if (Math.abs(mouseDelta) > 2)
-						{
-							FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
-						}
-						
-						updateTextFrom(curOption);
-						curOption.change();
-					}
-				}
-			}
-		}
-		else if (FlxG.mouse.justReleased)
-		{
-			mouseHoldTime = 0;
-		}
-		
-		if (FlxG.mouse.justPressedRight && isMouseControl && !isBindingKey())
-		{
-			close();
-			FlxG.sound.play(Paths.sound('cancelMenu'));
-			FlxG.mouse.visible = true;
-			return;
-		}
+		// 鼠标控制处理
+		handleMouseInput(elapsed);
 
 		if (controls.UI_UP_P)
 		{
 			changeSelection(-1);
+			selectedByMouse = false;
 		}
 		if (controls.UI_DOWN_P)
 		{
 			changeSelection(1);
+			selectedByMouse = false;
 		}
 
-		if (controls.BACK) {
+		if (controls.BACK || FlxG.mouse.justPressedRight) {
 			close();
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 		}
@@ -328,16 +161,17 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			switch(curOption.type)
 			{
 				case BOOL:
-					if(controls.ACCEPT)
+					if(controls.ACCEPT || (FlxG.mouse.justPressed && selectedByMouse && mouseOverOption() == curSelected))
 					{
 						FlxG.sound.play(Paths.sound('scrollMenu'));
 						curOption.setValue((curOption.getValue() == true) ? false : true);
 						curOption.change();
 						reloadCheckboxes();
+						selectedByMouse = false;
 					}
 
 				case KEYBIND:
-					if(controls.ACCEPT)
+					if(controls.ACCEPT || (FlxG.mouse.justPressed && selectedByMouse && mouseOverOption() == curSelected))
 					{
 						bindingBlack = new FlxSprite().makeGraphic(1, 1, FlxColor.WHITE);
 						bindingBlack.scale.set(FlxG.width, FlxG.height);
@@ -345,7 +179,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 						bindingBlack.alpha = 0;
 						FlxTween.tween(bindingBlack, {alpha: 0.6}, 0.35, {ease: FlxEase.linear});
 						add(bindingBlack);
-		
+	
 						bindingText = new Alphabet(FlxG.width / 2, 160, Language.getPhrase('controls_rebinding', 'Rebinding {1}', [curOption.name]), false);
 						bindingText.alignment = CENTERED;
 						add(bindingText);
@@ -353,11 +187,12 @@ class BaseOptionsMenu extends MusicBeatSubstate
 						bindingText2 = new Alphabet(FlxG.width / 2, 340, Language.getPhrase('controls_rebinding2', 'Hold ESC to Cancel\nHold Backspace to Delete'), true);
 						bindingText2.alignment = CENTERED;
 						add(bindingText2);
-		
+	
 						bindingKey = true;
 						holdingEsc = 0;
 						ClientPrefs.toggleVolumeKeys(false);
 						FlxG.sound.play(Paths.sound('scrollMenu'));
+						selectedByMouse = false;
 					}
 
 				default:
@@ -371,14 +206,14 @@ class BaseOptionsMenu extends MusicBeatSubstate
 								var add:Dynamic = null;
 								if(curOption.type != STRING)
 									add = controls.UI_LEFT ? -curOption.changeValue : curOption.changeValue;
-			
+		
 								switch(curOption.type)
 								{
 									case INT, FLOAT, PERCENT:
 										holdValue = curOption.getValue() + add;
 										if(holdValue < curOption.minValue) holdValue = curOption.minValue;
 										else if (holdValue > curOption.maxValue) holdValue = curOption.maxValue;
-			
+		
 										if(curOption.type == INT)
 										{
 											holdValue = Math.round(holdValue);
@@ -389,32 +224,34 @@ class BaseOptionsMenu extends MusicBeatSubstate
 											holdValue = FlxMath.roundDecimal(holdValue, curOption.decimals);
 											curOption.setValue(holdValue);
 										}
-			
+		
 									case STRING:
-										var num:Int = curOption.curOption;
+										var num:Int = curOption.curOption; //lol
 										if(controls.UI_LEFT_P) --num;
 										else num++;
-			
+		
 										if(num < 0)
 											num = curOption.options.length - 1;
 										else if(num >= curOption.options.length)
 											num = 0;
-			
+		
 										curOption.curOption = num;
 										curOption.setValue(curOption.options[num]);
+										//trace(curOption.options[num]);
 
 									default:
 								}
 								updateTextFrom(curOption);
 								curOption.change();
 								FlxG.sound.play(Paths.sound('scrollMenu'));
+								selectedByMouse = false;
 							}
 							else if(curOption.type != STRING)
 							{
 								holdValue += curOption.scrollSpeed * elapsed * (controls.UI_LEFT ? -1 : 1);
 								if(holdValue < curOption.minValue) holdValue = curOption.minValue;
 								else if (holdValue > curOption.maxValue) holdValue = curOption.maxValue;
-			
+		
 								switch(curOption.type)
 								{
 									case INT:
@@ -429,7 +266,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 								curOption.change();
 							}
 						}
-			
+		
 						if(curOption.type != STRING)
 							holdTime += elapsed;
 					}
@@ -442,7 +279,25 @@ class BaseOptionsMenu extends MusicBeatSubstate
 
 			if(controls.RESET)
 			{
-				resetCurrentOption();
+				var leOption:Option = optionsArray[curSelected];
+				if(leOption.type != KEYBIND)
+				{
+					leOption.setValue(leOption.defaultValue);
+					if(leOption.type != BOOL)
+					{
+						if(leOption.type == STRING) leOption.curOption = leOption.options.indexOf(leOption.getValue());
+						updateTextFrom(leOption);
+					}
+				}
+				else
+				{
+					leOption.setValue(!Controls.instance.controllerMode ? leOption.defaultKeys.keyboard : leOption.defaultKeys.gamepad);
+					updateBind(leOption);
+				}
+				leOption.change();
+				FlxG.sound.play(Paths.sound('cancelMenu'));
+				reloadCheckboxes();
+				selectedByMouse = false;
 			}
 		}
 
@@ -451,110 +306,162 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		}
 	}
 	
-	private function handleMouseWheel(wheelValue:Float)
+	// 检查鼠标悬停在哪个选项上
+	function mouseOverOption():Int
 	{
-		if (nextAccept <= 0 && curOption != null)
+		for (i in 0...grpOptions.members.length)
 		{
-			var usesCheckbox:Bool = (curOption.type == BOOL);
-			if (!usesCheckbox && curOption.type != KEYBIND)
+			var option = grpOptions.members[i];
+			if (FlxG.mouse.overlaps(option))
 			{
+				return i;
+			}
+		}
+		return -1;
+	}
+	
+	// 检查鼠标是否悬停在数值文本上
+	function mouseOverValue():Int
+	{
+		for (text in grpTexts)
+		{
+			if (FlxG.mouse.overlaps(text))
+			{
+				return text.ID;
+			}
+		}
+		return -1;
+	}
+	
+	// 鼠标处理函数
+	function handleMouseInput(elapsed:Float)
+	{
+		// 处理鼠标点击
+		if (FlxG.mouse.justPressed)
+		{
+			var mouseOver = mouseOverOption();
+			var valueOver = mouseOverValue();
+			
+			// 先检查是否点击了复选框
+			for (checkbox in checkboxGroup)
+			{
+				if (FlxG.mouse.overlaps(checkbox))
+				{
+					// 如果点击的不是当前选中的复选框，先选中它
+					if (checkbox.ID != curSelected)
+					{
+						changeSelection(checkbox.ID - curSelected);
+					}
+					
+					// 直接切换复选框状态（不需要二次确认）
+					FlxG.sound.play(Paths.sound('scrollMenu'));
+					optionsArray[checkbox.ID].setValue((optionsArray[checkbox.ID].getValue() == true) ? false : true);
+					optionsArray[checkbox.ID].change();
+					reloadCheckboxes();
+					selectedByMouse = false;
+					return;
+				}
+			}
+			
+			// 点击选项文本
+			if (mouseOver >= 0)
+			{
+				if (mouseOver == curSelected)
+				{
+					// 点击已选中的选项，标记为准备确认
+					selectedByMouse = true;
+				}
+				else
+				{
+					// 点击不同选项，切换到该选项
+					changeSelection(mouseOver - curSelected);
+					selectedByMouse = false;
+				}
+				return;
+			}
+			
+			// 点击数值文本
+			if (valueOver >= 0)
+			{
+				if (valueOver == curSelected)
+				{
+					// 点击已选中的数值，标记为准备确认
+					selectedByMouse = true;
+				}
+				else
+				{
+					// 点击不同选项的数值，切换到该选项
+					changeSelection(valueOver - curSelected);
+					selectedByMouse = false;
+				}
+				return;
+			}
+		}
+		
+		// 处理鼠标滚轮 - 调整数值（当悬停在当前选中的数值上时）
+		if (FlxG.mouse.wheel != 0)
+		{
+			var valueOver = mouseOverValue();
+			var optionOver = mouseOverOption();
+			
+			// 如果悬停在当前选项的数值上，调整数值
+			if (valueOver == curSelected || optionOver == curSelected)
+			{
+				var wheelDir = FlxG.mouse.wheel > 0 ? 1 : -1;
+				
 				switch(curOption.type)
 				{
 					case INT, FLOAT, PERCENT:
-						var add:Dynamic = wheelValue * curOption.changeValue;
+						var add = (wheelDir > 0) ? curOption.changeValue : -curOption.changeValue;
+						
 						holdValue = curOption.getValue() + add;
 						if(holdValue < curOption.minValue) holdValue = curOption.minValue;
 						else if (holdValue > curOption.maxValue) holdValue = curOption.maxValue;
-
-						switch(curOption.type)
+		
+						if(curOption.type == INT)
 						{
-							case INT:
-								holdValue = Math.round(holdValue);
-								curOption.setValue(holdValue);
-
-							case FLOAT, PERCENT:
-								holdValue = FlxMath.roundDecimal(holdValue, curOption.decimals);
-								curOption.setValue(holdValue);
-
-							default:
+							holdValue = Math.round(holdValue);
+							curOption.setValue(holdValue);
 						}
+						else
+						{
+							holdValue = FlxMath.roundDecimal(holdValue, curOption.decimals);
+							curOption.setValue(holdValue);
+						}
+						
+						updateTextFrom(curOption);
+						curOption.change();
 						FlxG.sound.play(Paths.sound('scrollMenu'));
-
+						selectedByMouse = false;
+						
 					case STRING:
 						var num:Int = curOption.curOption;
-						if(wheelValue > 0) num++;
-						else if (wheelValue < 0) num--;
-
+						if(wheelDir > 0) num++;
+						else num--;
+		
 						if(num < 0)
 							num = curOption.options.length - 1;
 						else if(num >= curOption.options.length)
 							num = 0;
-
+		
 						curOption.curOption = num;
 						curOption.setValue(curOption.options[num]);
+						
+						updateTextFrom(curOption);
+						curOption.change();
 						FlxG.sound.play(Paths.sound('scrollMenu'));
-
+						selectedByMouse = false;
+						
 					default:
+						// 其他类型不处理
 				}
-				updateTextFrom(curOption);
-				curOption.change();
 			}
-		}
-	}
-	
-	private function resetCurrentOption()
-	{
-		var leOption:Option = optionsArray[curSelected];
-		if(leOption.type != KEYBIND)
-		{
-			leOption.setValue(leOption.defaultValue);
-			if(leOption.type != BOOL)
+			else
 			{
-				if(leOption.type == STRING) leOption.curOption = leOption.options.indexOf(leOption.getValue());
-				updateTextFrom(leOption);
+				// 没有悬停在当前选项上，滚动切换选项
+				changeSelection(FlxG.mouse.wheel > 0 ? -1 : 1);
+				selectedByMouse = false;
 			}
-		}
-		else
-		{
-			leOption.setValue(!Controls.instance.controllerMode ? leOption.defaultKeys.keyboard : leOption.defaultKeys.gamepad);
-			updateBind(leOption);
-		}
-		leOption.change();
-		FlxG.sound.play(Paths.sound('cancelMenu'));
-		reloadCheckboxes();
-	}
-
-	private function isBindingKey():Bool
-	{
-		return bindingKey;
-	}
-
-	private function updateMouseHover()
-	{
-		for (num => item in grpOptions.members)
-		{
-			if (item == null) continue;
-			item.alpha = 0.6;
-			if (item.targetY == 0) 
-				item.alpha = 1;
-			else if (mouseOverItem == num)
-				item.alpha = 0.8;
-		}
-		for (text in grpTexts)
-		{
-			text.alpha = 0.6;
-			if(text.ID == curSelected)
-				text.alpha = 1;
-			else if(mouseOverItem == text.ID)
-				text.alpha = 0.8;
-		}
-		for (checkbox in checkboxGroup)
-		{
-			checkbox.alpha = 0.6;
-			if(checkbox.ID == curSelected)
-				checkbox.alpha = 1;
-			else if(mouseOverItem == checkbox.ID)
-				checkbox.alpha = 0.8;
 		}
 	}
 
@@ -609,9 +516,9 @@ class BaseOptionsMenu extends MusicBeatSubstate
 				var keyPressed:FlxGamepadInputID = NONE;
 				var keyReleased:FlxGamepadInputID = NONE;
 				if(FlxG.gamepads.anyJustPressed(LEFT_TRIGGER))
-					keyPressed = LEFT_TRIGGER;
+					keyPressed = LEFT_TRIGGER; //it wasnt working for some reason
 				else if(FlxG.gamepads.anyJustPressed(RIGHT_TRIGGER))
-					keyPressed = RIGHT_TRIGGER;
+					keyPressed = RIGHT_TRIGGER; //it wasnt working for some reason
 				else
 				{
 					for (i in 0...FlxG.gamepads.numActiveGamepads)
@@ -702,7 +609,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		{
 			switch(alpha.text)
 			{
-				case '[', ']':
+				case '[', ']': //Square and Triangle respectively
 					letter.image = 'alphabet_playstation';
 					letter.updateHitbox();
 					
@@ -738,6 +645,12 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		if(option.type == PERCENT) val *= 100;
 		var def:Dynamic = option.defaultValue;
 		option.text = text.replace('%v', val).replace('%d', def);
+		
+		if (option.child != null)
+		{
+			var child:AttachedText = cast option.child;
+			child.text = option.text;
+		}
 	}
 	
 	function changeSelection(change:Int = 0)
@@ -764,20 +677,11 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		descBox.setGraphicSize(Std.int(descText.width + 20), Std.int(descText.height + 25));
 		descBox.updateHitbox();
 
-		curOption = optionsArray[curSelected];
-		
-		updateMouseHover();
-		
+		curOption = optionsArray[curSelected]; //shorter lol
 		FlxG.sound.play(Paths.sound('scrollMenu'));
 	}
 
 	function reloadCheckboxes()
 		for (checkbox in checkboxGroup)
-			checkbox.daValue = Std.string(optionsArray[checkbox.ID].getValue()) == 'true';
-	
-	override function destroy()
-	{
-		super.destroy();
-		FlxG.mouse.visible = true;
-	}
+			checkbox.daValue = Std.string(optionsArray[checkbox.ID].getValue()) == 'true'; //Do not take off the Std.string() from this, it will break a thing in Mod Settings Menu
 }
