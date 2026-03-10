@@ -30,7 +30,7 @@ import states.TitleState;
 	public var camZooms:Bool = true;
 	public var hideHud:Bool = false;
 	public var showMS:Bool = true;
-	public var newFreeplay:Bool = true;
+	public var oldFreeplay:Bool = false;
 	public var skipDeath:Bool = true;
 	public var noteOffset:Int = 0;
 	public var arrowRGB:Array<Array<FlxColor>> = [
@@ -104,9 +104,9 @@ import states.TitleState;
 	public var luadebugPrint:Bool = true;
 
 	public var particle:Bool = true;
-	public var particleAmount:Int = 10;
-	public var particleSpeed:Float = 1.0;
-	public var particleTrail:Int = 3;
+	public var particleAmount:Int = 1;
+	public var particleSpeed:Float = 1.5;
+	public var particleTrail:Int = 36;
 
 	public var hitErrorBarVisible:Bool = false;
 	public var hitBarLines:Int = 5;
@@ -124,6 +124,7 @@ import states.TitleState;
 	public var hitErrorBarOffsetX:Int = 0;
 	public var hitErrorBarOffsetY:Int = 0;
 	public var noteSustainsOffset:Float = 0.0;
+	public var legacymp:Bool = true;
 	public var useSystemCursor:Bool = false;
 }
 

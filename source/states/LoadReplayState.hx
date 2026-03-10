@@ -293,7 +293,7 @@ class LoadReplayState extends MusicBeatState
         add(pageText);
         
         controlsText = new FlxText(0, FlxG.height - 40, FlxG.width, 
-            "ENTER/Click: Load | BACK/RightClick: Exit | V/MiddleClick : View Result | F: Delete | ←→: Page | Scroll: Navigate", 16);
+            "ENTER/Click: Load | BACK/RightClick: Exit | V: View Result | F: Delete | ←→: Page | Scroll: Navigate", 16);
         controlsText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         controlsText.borderSize = 2;
         add(controlsText);
@@ -314,6 +314,8 @@ class LoadReplayState extends MusicBeatState
         
         lastMouseY = FlxG.mouse.screenY;
         mouseDragStartY = FlxG.mouse.screenY;
+        
+        FlxG.mouse.visible = true;
         
         loadReplays();
         updateDisplay();
@@ -394,7 +396,6 @@ class LoadReplayState extends MusicBeatState
                 if (json.songName == null) json.songName = "Unknown Song";
                 if (json.difficultyName == null) {
                     if (json.songDiff != null) {
-                        // 优先使用回放中记录的难度名称
                         json.difficultyName = Difficulty.getString(Std.int(json.songDiff));
                     } else {
                         json.difficultyName = "Normal";
@@ -550,6 +551,7 @@ class LoadReplayState extends MusicBeatState
         
         lastMouseY = currentMouseY;
     }
+    
     function handleMouseClicks()
     {
         if (FlxG.mouse.justPressed) {
@@ -558,28 +560,25 @@ class LoadReplayState extends MusicBeatState
                     changeSelectionTo(hoveredCardIndex);
                 }
                 
-                // 判断是左键还是右键
-                if (FlxG.mouse.pressedRight) {
-                    // 右键：查看结果
-                    viewReplayResults(replays[curSelected]);
-                } else {
-                    // 左键：加载并播放
-                    loadReplay(replays[curSelected]);
-                }
+                // 左键加载
+                loadReplay(replays[curSelected]);
             }
         }
         
-        // 修改这里：在中键点击时也查看结果（可选）
+        if (FlxG.mouse.justPressedRight) {
+            if (hoveredCardIndex >= 0 && hoveredCardIndex < replays.length) {
+                viewReplayResults(replays[curSelected]);
+            } else {
+                // 在空白处右键：返回主菜单
+                FlxG.sound.play(Paths.sound('cancelMenu'));
+                MusicBeatState.switchState(new FreeplayState());
+            }
+        }
+        
         if (FlxG.mouse.justPressedMiddle) {
             if (hoveredCardIndex >= 0 && hoveredCardIndex < replays.length) {
                 viewReplayResults(replays[curSelected]);
             }
-        }
-        
-        if (FlxG.mouse.justPressedRight && hoveredCardIndex < 0) {
-            // 在空白处右键：返回主菜单
-            FlxG.sound.play(Paths.sound('cancelMenu'));
-            MusicBeatState.switchState(new NewFreeplayState());
         }
     }
     
@@ -588,7 +587,7 @@ class LoadReplayState extends MusicBeatState
         if (controls.BACK)
         {
             FlxG.sound.play(Paths.sound('cancelMenu'));
-            MusicBeatState.switchState(new NewFreeplayState());
+            MusicBeatState.switchState(new FreeplayState());
             return;
         }
         
@@ -622,7 +621,6 @@ class LoadReplayState extends MusicBeatState
                 }
             }
             
-            // 新增：V 键查看回放结果
             if (FlxG.keys.justPressed.V)
             {
                 if (curSelected >= 0 && curSelected < replays.length)
@@ -641,7 +639,6 @@ class LoadReplayState extends MusicBeatState
             }
         }
     }
-    
     
     function changeSelectionTo(index:Int)
     {
@@ -689,7 +686,6 @@ class LoadReplayState extends MusicBeatState
                 if (card.index == oldSelected)
                 {
                     card.updateSelection(false);
-                    // 如果该卡片是悬停状态，恢复悬停显示
                     if (card.index == hoveredCardIndex) {
                         card.updateHover(true);
                     }
@@ -722,150 +718,132 @@ class LoadReplayState extends MusicBeatState
         }
     }
     
-    public function loadReplay(filename:String):Void
-    {
-        trace('Loading replay: $filename');
-        
-        var rep:Replay = Replay.LoadReplay(filename);
-        
-        if (rep != null && rep.isValid())
-        {
-            trace('Successfully loaded replay: ${rep.replay.songName}');
-            trace('Difficulty ID: ${rep.replay.songDiff}');
-            trace('Difficulty Name: ${rep.replay.difficultyName}');
-            trace('Mod Directory: ${rep.replay.modDirectory}');
-            
-            // 设置模组目录
-            var modPath:String = rep.replay.modDirectory;
-            #if MODS_ALLOWED
-            if (modPath != null && modPath.length > 0 && modPath != "null")
-            {
-                Mods.currentModDirectory = modPath;
-                trace('Set mod directory to: $modPath');
-            }
-            else
-            {
-                Mods.currentModDirectory = "";
-                trace('No mod directory specified');
-            }
-            #end
-            
-            // 设置到 PlayState
-            PlayState.rep = rep;
-            PlayState.loadRep = true;
-            PlayState.storyDifficulty = rep.replay.songDiff;
-            
-            // 加载歌曲 - 支持自定义难度名称
-            try
-            {
-                var songName:String = rep.replay.songName;
-                var recordedDifficultyName:String = rep.replay.difficultyName;
-                
-                trace('Loading song: $songName');
-                trace('Recorded difficulty name: $recordedDifficultyName');
-                
-                var loadedSong:SwagSong = null;
-                
-                // 方法1: 直接使用回放中记录的难度ID
-                try {
-                    var difficultyPath = Difficulty.getFilePath(rep.replay.songDiff);
-                    trace('Trying with difficulty ID path: $difficultyPath');
-                    loadedSong = Song.loadFromJson(songName + difficultyPath, songName);
-                    if (loadedSong != null) {
-                        trace('Successfully loaded using difficulty ID');
-                    }
-                } catch(e:Dynamic) {
-                    trace('Failed to load using difficulty ID: $e');
-                }
-                
-                // 方法2: 如果标准难度加载失败，尝试自定义难度名称
-                if (loadedSong == null && recordedDifficultyName != null) {
-                    // 尝试加载自定义难度文件
-                    var customDifficultyPath = "-" + recordedDifficultyName.toLowerCase();
-                    trace('Trying custom difficulty path: $customDifficultyPath');
-                    
-                    try {
-                        loadedSong = Song.loadFromJson(songName + customDifficultyPath, songName);
-                        if (loadedSong != null) {
-                            trace('Successfully loaded using custom difficulty name');
-                        }
-                    } catch(e:Dynamic) {
-                        trace('Failed to load custom difficulty: $e');
-                    }
-                }
-                
-                // 方法3: 尝试常见的难度后缀
-                if (loadedSong == null) {
-                    var commonDifficulties = ["-easy", "", "-hard", "-insane"];
-                    for (diff in commonDifficulties) {
-                        try {
-                            loadedSong = Song.loadFromJson(songName + diff, songName);
-                            if (loadedSong != null) {
-                                trace('Successfully loaded using common difficulty: $diff');
-                                break;
-                            }
-                        } catch(e:Dynamic) {
-                            trace('Failed to load $diff: $e');
-                        }
-                    }
-                }
-                
-                if (loadedSong != null)
-                {
-                    // 设置游戏状态
-                    PlayState.isStoryMode = false;
-                    PlayState.SONG = loadedSong;
-                    
-                    // 设置下滚选项
-                    ClientPrefs.data.downScroll = rep.replay.isDownscroll;
-                    
-                    // 切换到PlayState
-                    FlxG.sound.music.stop();
-                    LoadingState.loadAndSwitchState(new PlayState());
-                    return;
-                }
-                else
-                {
-                    trace('Failed to load any difficulty for song: $songName');
-                }
-            }
-            catch(e:Dynamic)
-            {
-                trace('Error loading song: $e');
-            }
-            
-            FlxG.sound.play(Paths.sound('cancelMenu'));
-            showError("Failed to load replay song!\nChart file may be missing or corrupted.");
-        }
-        else
-        {
-            FlxG.sound.play(Paths.sound('cancelMenu'));
-            showError("Invalid replay file!");
-        }
-    }
-
-        // ========== 新添加的函数 ==========
+   public function loadReplay(filename:String):Void
+{
+    trace('Loading replay: $filename');
     
-   function viewReplayResults(filename:String):Void
+    var rep:Replay = Replay.LoadReplay(filename);
+    
+    if (rep == null || !rep.isValid())
+    {
+        FlxG.sound.play(Paths.sound('cancelMenu'));
+        showError("Invalid replay file!");
+        return;
+    }
+    
+    // 设置模组目录
+    #if MODS_ALLOWED
+    if (rep.replay.modDirectory != null && rep.replay.modDirectory.length > 0)
+    {
+        Mods.currentModDirectory = rep.replay.modDirectory;
+        trace('Set mod directory to: ${rep.replay.modDirectory}');
+    }
+    #end
+    
+    // 设置到 PlayState
+    PlayState.rep = rep;
+    PlayState.loadRep = true;
+    PlayState.inReplay = true;
+    
+    // 重要：存储回放文件名，供结果界面使用
+    PlayState.replayFileName = filename;
+    trace('Set replayFileName to: $filename');
+    
+    // 设置难度
+    var difficultyID:Int = 1; // 默认 Normal
+    
+    if (rep.replay.difficultyName != null)
+    {
+        var diffLower = rep.replay.difficultyName.toLowerCase();
+        
+        if (diffLower.indexOf('easy') >= 0)
+            difficultyID = 0;
+        else if (diffLower.indexOf('normal') >= 0 || diffLower.indexOf('standard') >= 0)
+            difficultyID = 1;
+        else if (diffLower.indexOf('hard') >= 0)
+            difficultyID = 2;
+        else
+            difficultyID = rep.replay.songDiff;
+    }
+    else
+    {
+        difficultyID = rep.replay.songDiff;
+    }
+    
+    PlayState.storyDifficulty = difficultyID;
+    trace('Setting storyDifficulty to: $difficultyID (${Difficulty.getString(difficultyID)})');
+    
+    // 加载歌曲
+    var songName:String = rep.replay.songName;
+    var difficultyName:String = rep.replay.difficultyName;
+    
+    try
+    {
+        var diffSuffix = '';
+        if (difficultyName != null)
+        {
+            var lowerDiff = difficultyName.toLowerCase();
+            if (lowerDiff == 'normal' || lowerDiff == 'standard')
+                diffSuffix = '';
+            else
+                diffSuffix = '-' + lowerDiff;
+        }
+        
+        var jsonToLoad = songName + diffSuffix;
+        trace('Loading JSON: $jsonToLoad');
+        
+        PlayState.SONG = Song.loadFromJson(jsonToLoad, songName);
+        
+        if (PlayState.SONG == null)
+        {
+            throw 'Failed to load song';
+        }
+        
+        PlayState.storyDifficulty = difficultyID;
+        PlayState.isStoryMode = false;
+        ClientPrefs.data.downScroll = rep.replay.isDownscroll;
+        
+        // 切换到PlayState
+        FlxG.sound.music.stop();
+        LoadingState.loadAndSwitchState(new PlayState());
+    }
+    catch(e:Dynamic)
+    {
+        trace('Error loading song: $e');
+        FlxG.sound.play(Paths.sound('cancelMenu'));
+        showError("Failed to load song!\nMissing: ${songName + diffSuffix}.json");
+    }
+}
+    
+    function viewReplayResults(filename:String):Void
 {
     trace('Viewing replay results: $filename');
     
     try
     {
-        // 首先检查文件是否存在
         var filePath = "assets/replays/" + filename;
         if (!FileSystem.exists(filePath)) {
-            trace('Replay file not found: $filePath');
             FlxG.sound.play(Paths.sound('cancelMenu'));
             showError("Replay file not found!");
             return;
         }
         
-        // 创建并打开ResultsScreen
-        // 传递文件名表示是回放预览模式
-        var resultsScreen = new ResultsScreen(filename);
-        openSubState(resultsScreen);
+        // 先加载回放文件，确保数据正确
+        var rep:Replay = Replay.LoadReplay(filename);
+        if (rep == null || !rep.isValid())
+        {
+            FlxG.sound.play(Paths.sound('cancelMenu'));
+            showError("Invalid replay file!");
+            return;
+        }
         
+        // 保存到 PlayState 以便 ResultsScreen 访问
+        PlayState.rep = rep;
+        
+        // 使用 REPLAY_PREVIEW 模式并传递文件名
+        var resultsScreen = new ResultsScreen(REPLAY_PREVIEW , filename);
+        
+        openSubState(resultsScreen);
         FlxG.sound.play(Paths.sound('confirmMenu'));
     }
     catch(e:Dynamic)

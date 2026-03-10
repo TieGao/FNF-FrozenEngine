@@ -5,7 +5,7 @@ import backend.WeekData;
 import objects.Character;
 
 import states.MainMenuState;
-import states.FreeplayState;
+import states.OldFreeplayState;
 
 class MasterEditorMenu extends MusicBeatState
 {
@@ -315,7 +315,7 @@ class MasterEditorMenu extends MusicBeatState
 		
 		FlxG.mouse.visible = false;
 		FlxG.sound.music.volume = 0;
-		FreeplayState.destroyFreeplayVocals();
+		OldFreeplayState.destroyFreeplayVocals();
 	}
 	
 	override function destroy()

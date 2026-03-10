@@ -9,15 +9,15 @@ import flixel.util.FlxStringUtil;
 import flixel.util.FlxColor;
 import flixel.math.FlxMath;
 
-import states.NewFreeplayState;
+import states.FreeplayState;
 
 /**
  * New Music player used for Freeplay with slide animation and dual mode support
  */
-@:access(states.NewFreeplayState)
+@:access(states.FreeplayState)
 class NewMusicPlayer extends FlxGroup 
 {
-    public var instance:NewFreeplayState;
+    public var instance:FreeplayState;
     
     public var playing(get, never):Bool;
 
@@ -56,7 +56,7 @@ class NewMusicPlayer extends FlxGroup
     var baseX:Float = 0;
     var baseY:Float = 0;
 
-    public function new(instance:NewFreeplayState)
+    public function new(instance:FreeplayState)
     {
         super();
 

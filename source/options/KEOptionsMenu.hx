@@ -1140,6 +1140,8 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
 			KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
 			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
+			KEOption.create("Old Freeplay Menu", "Use Psych Engine Default Freeplay Menu", "oldFreeplay", "bool"),
+			KEOption.create("Legacy Music Player", "Use Psych Engine Default Music Player", "legacymp", "bool"),
 			KEOption.create("Reset Settings", "Reset all settings to default [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
 			KEOption.create("Reset Scores", "Clear all high scores [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
 			optionsparticle,

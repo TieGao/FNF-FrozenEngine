@@ -570,11 +570,11 @@ class CustomInterp extends crowplexus.hscript.Interp
     }
     
 private function handleSetFilters(obj:Dynamic, args:Array<Dynamic>):Dynamic {
-    trace('[DEBUG] handleSetFilters called: obj=$obj, args=$args, args.length=${args.length}');
+//    trace('[DEBUG] handleSetFilters called: obj=$obj, args=$args, args.length=${args.length}');
     
     // 处理没有参数的情况（清空所有滤镜）
     if (args.length == 0) {
-        trace('[DEBUG] No arguments provided, clearing filters');
+//        trace('[DEBUG] No arguments provided, clearing filters');
         return clearFiltersOnObject(obj);
     }
     
@@ -582,7 +582,7 @@ private function handleSetFilters(obj:Dynamic, args:Array<Dynamic>):Dynamic {
     
     // 处理 null 参数（清空滤镜）
     if (filtersArg == null) {
-        trace('[DEBUG] Null argument provided, clearing filters');
+//        trace('[DEBUG] Null argument provided, clearing filters');
         return clearFiltersOnObject(obj);
     }
     
@@ -590,7 +590,7 @@ private function handleSetFilters(obj:Dynamic, args:Array<Dynamic>):Dynamic {
     if (Std.isOfType(filtersArg, Array)) {
         var arr:Array<Dynamic> = cast filtersArg;
         if (arr.length == 0) {
-            trace('[DEBUG] Empty array provided, clearing filters');
+//            trace('[DEBUG] Empty array provided, clearing filters');
             return clearFiltersOnObject(obj);
         }
     }
@@ -612,28 +612,28 @@ private function handleSetFilters(obj:Dynamic, args:Array<Dynamic>):Dynamic {
 }
 
 private function clearFiltersOnObject(obj:Dynamic):Dynamic {
-    trace('[DEBUG] Clearing filters on object');
+//    trace('[DEBUG] Clearing filters on object');
     
     try {
         if (Std.isOfType(obj, flixel.FlxCamera)) {
             var cam:flixel.FlxCamera = cast obj;
             cam.filters = [];
-            trace('[DEBUG] Filters cleared on FlxCamera');
+//            trace('[DEBUG] Filters cleared on FlxCamera');
         } else if (obj == FlxG.game) {
             FlxG.game.filters = [];
-            trace('[DEBUG] Filters cleared on FlxG.game');
+//            trace('[DEBUG] Filters cleared on FlxG.game');
         } else if (Std.isOfType(obj, String) && cast(obj, String) == "game") {
             FlxG.game.filters = [];
-            trace('[DEBUG] Filters cleared on game via string');
+//            trace('[DEBUG] Filters cleared on game via string');
         } else if (Std.isOfType(obj, flixel.FlxSprite)) {
             var sprite:flixel.FlxSprite = cast obj;
             sprite.shader = null;
-            trace('[DEBUG] Filters cleared on FlxSprite');
+//            trace('[DEBUG] Filters cleared on FlxSprite');
         } else {
             // 尝试通过反射清空
             if (Reflect.hasField(obj, "filters")) {
                 Reflect.setProperty(obj, "filters", []);
-                trace('[DEBUG] Filters cleared via reflection');
+//                trace('[DEBUG] Filters cleared via reflection');
             } else {
                 // 这不是错误，有些对象可能不支持滤镜
                 trace('[WARN] Object does not support filters or cannot clear them');
@@ -658,20 +658,20 @@ private function setFiltersOnObject(obj:Dynamic, filters:Array<Dynamic>):Dynamic
         if (Std.isOfType(filter, openfl.filters.ShaderFilter) || 
             Std.isOfType(filter, openfl.filters.BitmapFilter)) {
             bitmapFilters.push(filter);
-            trace('[DEBUG] Added filter: ${Type.getClassName(Type.getClass(filter))}');
+//            trace('[DEBUG] Added filter: ${Type.getClassName(Type.getClass(filter))}');
         } else {
-            trace('[WARN] Skipping incompatible filter: ${Type.getClassName(Type.getClass(filter))}');
+//            trace('[WARN] Skipping incompatible filter: ${Type.getClassName(Type.getClass(filter))}');
         }
     }
     
-    trace('[DEBUG] Setting ${bitmapFilters.length} filters on object');
+//    trace('[DEBUG] Setting ${bitmapFilters.length} filters on object');
     
     // 设置过滤器
     try {
         if (Std.isOfType(obj, flixel.FlxCamera)) {
             var cam:flixel.FlxCamera = cast obj;
             cam.filters = bitmapFilters;
-            trace('[DEBUG] Filters set on FlxCamera');
+//            trace('[DEBUG] Filters set on FlxCamera');
         } else if (obj == FlxG.game) {
             FlxG.game.filters = bitmapFilters;
             trace('[DEBUG] Filters set on FlxG.game');

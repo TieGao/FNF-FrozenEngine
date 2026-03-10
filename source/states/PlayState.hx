@@ -22,7 +22,7 @@ import haxe.Json;
 import cutscenes.DialogueBoxPsych;
 
 import states.StoryMenuState;
-import states.FreeplayState;
+import states.OldFreeplayState;
 import states.editors.ChartingState;
 import states.editors.CharacterEditorState;
 
@@ -2664,82 +2664,6 @@ public function reloadCounterColors()
 		}
 		#end
 		
-		if (loadRep || inReplay)
-		{
-			// ========== 回放结束，直接读取回放文件并显示结果 ==========
-			trace('Replay mode ended, loading replay file for results...');
-			
-			// 停止所有声音
-			if (vocals != null) vocals.stop();
-			if (FlxG.sound.music != null) FlxG.sound.music.stop();
-			
-			// 获取当前回放的文件名（你需要一种方式来存储它）
-			// 方法1：如果已经在PlayState中存储了replayFileName
-			if (replayFileName != null && replayFileName.length > 0)
-			{
-				// 直接打开结果界面，并传递文件名
-				paused = true;
-				canPause = false;
-				inResults = true;
-				transitioning = true;
-				
-				// 传递文件名，让ResultsScreen自己读取文件
-				openSubState(new ResultsScreen(replayFileName));
-			}
-			else
-			{
-				// 方法2：如果没有存储文件名，尝试从rep对象重建
-				trace('No replay filename stored, attempting to find replay file...');
-				
-				// 查找最近创建的回放文件
-				#if sys
-				var replayDir = "assets/replays/";
-				if (FileSystem.exists(replayDir))
-				{
-					var files = FileSystem.readDirectory(replayDir);
-					files.sort(function(a:String, b:String):Int {
-						try {
-							var aPath = replayDir + a;
-							var bPath = replayDir + b;
-							var aStat = FileSystem.stat(aPath);
-							var bStat = FileSystem.stat(bPath);
-							return Std.int(bStat.mtime.getTime() - aStat.mtime.getTime());
-						} catch(e:Dynamic) {
-							return 0;
-						}
-					});
-					
-					// 找到第一个.kadeReplay文件
-					for (file in files) {
-						if (file.endsWith(".kadeReplay")) {
-							trace('Found latest replay: $file');
-							paused = true;
-							canPause = false;
-							inResults = true;
-							transitioning = true;
-							openSubState(new ResultsScreen(file));
-							break;
-						}
-					}
-				}
-				#end
-			}
-			
-			// 清理回放相关变量
-			loadRep = false;
-			inReplay = false;
-			rep = null;
-			replayNoteQueue = [];
-			repNoteIndex = 0;
-			
-			if (replayTxt != null)
-			{
-				replayTxt.visible = false;
-			}
-			
-			return; // 重要：不要继续执行后面的代码
-		}
-		
 		playbackRate = 1;
 
 		if (chartingMode)
@@ -2748,8 +2672,8 @@ public function reloadCounterColors()
 			return; 
 		}
 
-		// ========== 保存回放数据 ==========
-		if (!loadRep && rep != null && !practiceMode && !cpuControlled && !inReplay && ClientPrefs.data.saveReplays)
+		// ========== 保存回放数据（普通游戏模式） ==========
+		if (!loadRep && !inReplay && rep != null && !practiceMode && !cpuControlled && ClientPrefs.data.saveReplays)
 		{
 			try
 			{
@@ -2763,32 +2687,108 @@ public function reloadCounterColors()
 			}
 		}
 		
-		// ========== 结算页面逻辑 ==========
-		if (ClientPrefs.data.scoreScreen && !loadRep && !inReplay)
+		// ========== 根据模式显示结算界面 ==========
+		if (ClientPrefs.data.scoreScreen)
 		{
 			if (vocals != null) vocals.stop();
 			if (FlxG.sound.music != null) FlxG.sound.music.stop();
 			
 			paused = true;
 			canPause = false;
-		
-			openSubState(new ResultsScreen());
 			inResults = true;
-			
 			transitioning = true;
+			
+			// 判断当前模式并打开对应的结果界面
+			if (loadRep || inReplay)
+			{
+				// 回放模式：使用 REPLAY_END 模式
+				trace('Opening replay end results screen');
+				
+				// 如果有存储的回放文件名，传递它
+				if (replayFileName != null && replayFileName.length > 0)
+				{
+					openSubState(new ResultsScreen(REPLAY_END, replayFileName));
+				}
+				else
+				{
+					openSubState(new ResultsScreen(REPLAY_END));
+				}
+			}
+			else
+			{
+				// 普通游戏模式：使用 NORMAL 模式
+				trace('Opening normal results screen');
+				openSubState(new ResultsScreen(NORMAL));
+			}
 		}
 		else
 		{
+			// 不显示结算界面，直接进入下一个状态
 			proceedToNextState();
 		}
 	}
 }
+
+// 辅助函数：查找最近的回放文件
+#if sys
+function findReplayFile():String
+{
+	try
+	{
+		var replayDir = "assets/replays/";
+		if (FileSystem.exists(replayDir))
+		{
+			var files = FileSystem.readDirectory(replayDir);
+			files.sort(function(a:String, b:String):Int {
+				try {
+					var aPath = replayDir + a;
+					var bPath = replayDir + b;
+					var aStat = FileSystem.stat(aPath);
+					var bStat = FileSystem.stat(bPath);
+					return Std.int(bStat.mtime.getTime() - aStat.mtime.getTime());
+				} catch(e:Dynamic) {
+					return 0;
+				}
+			});
+			
+			// 找到第一个.kadeReplay文件
+			for (file in files) {
+				if (file.endsWith(".kadeReplay")) {
+					trace('Found latest replay: $file');
+					return file;
+				}
+			}
+		}
+	}
+	catch(e:Dynamic)
+	{
+		trace('Error finding replay file: $e');
+	}
+	return null;
+}
+#end
 
 public function proceedToNextState():Void
 {
 	// 确保游戏音乐已经停止
 	if (vocals != null) vocals.stop();
 	if (FlxG.sound.music != null) FlxG.sound.music.stop();
+	
+	// 清理回放相关变量
+	if (loadRep || inReplay)
+	{
+		loadRep = false;
+		inReplay = false;
+		rep = null;
+		replayNoteQueue = [];
+		repNoteIndex = 0;
+		replayFileName = null;
+		
+		if (replayTxt != null)
+		{
+			replayTxt.visible = false;
+		}
+	}
 	
 	if (isStoryMode)
 	{
@@ -2837,19 +2837,30 @@ public function proceedToNextState():Void
 	else
 	{
 		trace('WENT BACK TO FREEPLAY??');
-		Mods.loadTopMod();
-		#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
-
-		canResync = false;
-		if(ClientPrefs.data.newFreeplay)
+		
+		// 回放模式结束后，返回回放库而不是自由模式
+		if (loadRep || inReplay)
 		{
-			MusicBeatState.switchState(new NewFreeplayState());
+			trace('Returning to replay library after replay');
+			Mods.loadTopMod();
+			MusicBeatState.switchState(new LoadReplayState());
 		}
 		else
 		{
-			MusicBeatState.switchState(new FreeplayState());
+			Mods.loadTopMod();
+			#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
+
+			canResync = false;
+			if(!ClientPrefs.data.oldFreeplay)
+			{
+				MusicBeatState.switchState(new FreeplayState());
+			}
+			else
+			{
+				MusicBeatState.switchState(new OldFreeplayState());
+			}
+			FlxG.sound.playMusic(Paths.music('freakyMenu'));
 		}
-		FlxG.sound.playMusic(Paths.music('freakyMenu'));
 		changedDifficulty = false;
 	}
 	transitioning = true;
@@ -4558,7 +4569,7 @@ private function processReplayNotes(elapsed:Float):Void
             repNoteIndex++;
             continue;
         }
-        
+        var time:Float = spawnTime * playbackRate;
         // 关键：使用实际应该击打的时间（原始strumTime + diff）
         var noteStrTime:Float = replayNote[0]; // 音符的原始出现时间
         var diff:Float = replayNote[3];        // 实际击打时间与音符时间的差值
@@ -4620,28 +4631,20 @@ private function processReplayNotes(elapsed:Float):Void
 private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):Void
 {
     var noteStrTime:Float = replayNote[0];
+	var sustainLength:Float = replayNote[1];
     var column:Int = replayNote[2];
     var diff:Float = replayNote[3];
     var actualHitTime:Float = noteStrTime + diff;
     
    // trace('Processing replay HIT: noteTime=$noteStrTime, col=$column, diff=$diff, actualHit=$actualHitTime, current=$currentTime');
-    
+    var time:Float = spawnTime * playbackRate;
     // 1. 播放按键动画
     var strum:StrumNote = playerStrums.members[column];
     if (strum != null)
     {
-        strum.playAnim('confirm', true);
-        strum.resetAnim = 0;
+        var spr = playerStrums.members[column];
+		strumPlayAnim(false, Std.int(Math.abs(column)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
         
-        // 0.15秒后恢复静态
-        new FlxTimer().start(0.15, function(tmr:FlxTimer)
-        {
-            if (strum != null && strum.animation.curAnim.name == 'confirm')
-            {
-                strum.playAnim('static');
-                strum.resetAnim = 0;
-            }
-        });
     }
     
     // 2. 查找并击中对应的游戏音符
@@ -4649,10 +4652,6 @@ private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):
     var targetNote:Note = findNoteAtOriginalTime(noteStrTime, column);
     if (targetNote != null)
     {
-        //trace('Found target note at ${targetNote.strumTime}, hitting...');
-        
-        // 这里需要确保在正确的时间调用goodNoteHit
-        // 如果时间差太大，可能需要调整
         var timeDiff:Float = currentTime - targetNote.strumTime;
         
         // 如果时间差在安全区内，正常击中
@@ -4671,7 +4670,6 @@ private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):
         }
         
         // 如果需要，处理长条音符
-        var sustainLength:Float = replayNote[1];
         if (sustainLength > 0)
         {
             processSustainNotes(targetNote, replayNote);
@@ -4817,10 +4815,11 @@ private function processSustainNotes(parentNote:Note, replayNote:Array<Dynamic>)
     
     // 处理长条音符
     var sustainTime:Float = replayNote[1];
-    
+    var column:Int = replayNote[2];
+	var strum:StrumNote = playerStrums.members[column];
     if (sustainTime > 0)
     {
-        // 这里可以添加长条音符的持续按键效果
+       strumPlayAnim(false, Std.int(Math.abs(column)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
         //trace('Note has sustain: ${sustainTime}ms');
     }
 }

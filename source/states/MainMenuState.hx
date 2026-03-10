@@ -16,7 +16,7 @@ enum MainMenuColumn {
 
 class MainMenuState extends MusicBeatState
 {
-	public static var frozenEngineVersion:String = '0.4.4';
+	public static var frozenEngineVersion:String = '0.4.5';
 	public static var psychEngineVersion:String = '1.0.4'; // This is also used for Discord RPC
 	public static var curSelected:Int = 0;
 	public static var curColumn:MainMenuColumn = CENTER;
@@ -302,13 +302,13 @@ class MainMenuState extends MusicBeatState
 						case 'story_mode':
 							MusicBeatState.switchState(new StoryMenuState());
 						case 'freeplay':
-							if (ClientPrefs.data.newFreeplay)
+							if (!ClientPrefs.data.oldFreeplay)
 							{
-							MusicBeatState.switchState(new NewFreeplayState());
+							MusicBeatState.switchState(new FreeplayState());
 							}
 							else
 							{
-							MusicBeatState.switchState(new FreeplayState());	
+							MusicBeatState.switchState(new OldFreeplayState());	
 							}
 
 						#if MODS_ALLOWED

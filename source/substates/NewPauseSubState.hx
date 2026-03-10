@@ -11,8 +11,8 @@ import flixel.math.FlxRect;
 import flixel.math.FlxPoint;
 
 import states.StoryMenuState;
+import states.OldFreeplayState;
 import states.FreeplayState;
-import states.NewFreeplayState;
 import options.OptionsState;
 import options.KEOptionsMenu;
 
@@ -1638,10 +1638,10 @@ class NewPauseSubState extends MusicBeatSubstate
 		Mods.loadTopMod();
 		if(PlayState.isStoryMode)
 			MusicBeatState.switchState(new StoryMenuState());
-		else if(ClientPrefs.data.newFreeplay)
-			MusicBeatState.switchState(new NewFreeplayState());
-		else
+		else if(!ClientPrefs.data.oldFreeplay)
 			MusicBeatState.switchState(new FreeplayState());
+		else
+			MusicBeatState.switchState(new OldFreeplayState());
 		
 		FlxG.sound.playMusic(Paths.music('freakyMenu'));
 		PlayState.changedDifficulty = false;

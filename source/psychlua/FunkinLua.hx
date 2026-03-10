@@ -25,8 +25,8 @@ import objects.Character;
 
 import states.MainMenuState;
 import states.StoryMenuState;
+import states.OldFreeplayState;
 import states.FreeplayState;
-import states.NewFreeplayState;
 
 import substates.PauseSubState;
 import substates.GameOverSubstate;
@@ -756,13 +756,13 @@ class FunkinLua {
 			{
 				MusicBeatState.switchState(new StoryMenuState());
 			}
-			else if(ClientPrefs.data.newFreeplay)
+			else if(!ClientPrefs.data.oldFreeplay)
 			{
-				MusicBeatState.switchState(new NewFreeplayState());
+				MusicBeatState.switchState(new FreeplayState());
 			}
 			else
 			{
-				MusicBeatState.switchState(new FreeplayState());
+				MusicBeatState.switchState(new OldFreeplayState());
 			}
 			#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
 
