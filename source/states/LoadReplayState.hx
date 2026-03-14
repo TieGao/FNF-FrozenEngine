@@ -16,6 +16,8 @@ import backend.ClientPrefs;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxTimer;
+import flixel.input.mouse.FlxMouseEventManager;
+import flixel.input.mouse.FlxMouseButton;
 
 // 卡片类 - 使用 FlxSpriteGroup
 class ReplayCard extends FlxSpriteGroup
@@ -33,15 +35,31 @@ class ReplayCard extends FlxSpriteGroup
     public var modTag:FlxText;
     
     public var replayData:Dynamic;
+    public var filename:String;
     public var index:Int;
     public var selected:Bool = false;
     public var hovered:Bool = false;
     
-    public function new(x:Float, y:Float, width:Float, height:Float, data:Dynamic, idx:Int)
+    // 回调函数
+    public var onClick:Void->Void;
+    public var onRightClick:Void->Void;
+    public var onMiddleClick:Void->Void;
+    public var onDoubleClick:Void->Void;
+    public var onMouseOver:Void->Void;
+    public var onMouseOut:Void->Void;
+    
+    // 鼠标悬停计时
+    private var hoverTime:Float = 0;
+    private var doubleClickTimer:Float = 0;
+    private var lastClickTime:Float = 0;
+    private static var DOUBLE_CLICK_DELAY:Float = 0.3;
+    
+    public function new(x:Float, y:Float, width:Float, height:Float, data:Dynamic, fileName:String, idx:Int)
     {
         super(x, y);
         this.index = idx;
         this.replayData = data;
+        this.filename = fileName;
         
         // 背景
         bg = new FlxSprite(0, 0).makeGraphic(Std.int(width), Std.int(height), FlxColor.BLACK);
@@ -108,6 +126,79 @@ class ReplayCard extends FlxSpriteGroup
         
         updateSelection(false);
         updateHover(false);
+    }
+    
+    override function update(elapsed:Float)
+    {
+        super.update(elapsed);
+        
+        // 更新双点计时器
+        if (doubleClickTimer > 0)
+        {
+            doubleClickTimer -= elapsed;
+        }
+        
+        // 更新悬停状态
+        if (hovered)
+        {
+            hoverTime += elapsed;
+        }
+        else
+        {
+            hoverTime = 0;
+        }
+        
+        // 处理鼠标交互
+        if (FlxG.mouse.visible && FlxG.mouse.overlaps(this))
+        {
+            if (!hovered)
+            {
+                hovered = true;
+                if (onMouseOver != null) onMouseOver();
+            }
+            
+            // 处理鼠标点击
+            if (FlxG.mouse.justPressed)
+            {
+                handleClick();
+            }
+            
+            if (FlxG.mouse.justPressedRight)
+            {
+                if (onRightClick != null) onRightClick();
+            }
+            
+            if (FlxG.mouse.justPressedMiddle)
+            {
+                if (onMiddleClick != null) onMiddleClick();
+            }
+        }
+        else
+        {
+            if (hovered)
+            {
+                hovered = false;
+                if (onMouseOut != null) onMouseOut();
+            }
+        }
+    }
+    
+    private function handleClick()
+    {
+        var currentTime = FlxG.game.ticks / 1000;
+        
+        // 检查双点
+        if (currentTime - lastClickTime <= DOUBLE_CLICK_DELAY)
+        {
+            if (onDoubleClick != null) onDoubleClick();
+            lastClickTime = 0; // 重置，避免三次点击触发两次双点
+        }
+        else
+        {
+            // 单点
+            if (onClick != null) onClick();
+            lastClickTime = currentTime;
+        }
     }
     
     public function updateSelection(isSelected:Bool)
@@ -257,14 +348,17 @@ class LoadReplayState extends MusicBeatState
     var deleteConfirmText:FlxText;
     var replayToDelete:String = "";
     
-    // 鼠标控制相关变量
+    // 滚动相关
+    var scrollVelocity:Float = 0;
+    var scrollDecay:Float = 0.95;
+    var minScrollSpeed:Float = 0.5;
     var lastMouseY:Float = 0;
-    var mouseDragStartY:Float = 0;
     var isDragging:Bool = false;
-    var dragThreshold:Float = 5;
-    var wheelAccumulator:Float = 0;
-    var wheelThreshold:Float = 0.3;
-    var hoveredCardIndex:Int = -1;
+    var dragStartY:Float = 0;
+    var dragThreshold:Float = 10;
+    
+    // 悬停相关
+    var hoveredCard:ReplayCard = null;
     
     override function create()
     {
@@ -293,7 +387,7 @@ class LoadReplayState extends MusicBeatState
         add(pageText);
         
         controlsText = new FlxText(0, FlxG.height - 40, FlxG.width, 
-            "ENTER/Click: Load | BACK/RightClick: Exit | V: View Result | F: Delete | ←→: Page | Scroll: Navigate", 16);
+            "Click: Select/Load | Right Click: View Results | Double Click: Load | Middle Click: View | Drag: Scroll | F: Delete", 16);
         controlsText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         controlsText.borderSize = 2;
         add(controlsText);
@@ -312,15 +406,225 @@ class LoadReplayState extends MusicBeatState
         deleteConfirmText.visible = false;
         add(deleteConfirmText);
         
-        lastMouseY = FlxG.mouse.screenY;
-        mouseDragStartY = FlxG.mouse.screenY;
-        
         FlxG.mouse.visible = true;
+        lastMouseY = FlxG.mouse.screenY;
         
         loadReplays();
         updateDisplay();
         
         super.create();
+    }
+    
+    override function update(elapsed:Float)
+    {
+        super.update(elapsed);
+        
+        if (waitingForDeleteConfirm)
+        {
+            handleDeleteConfirmation();
+            return;
+        }
+        
+        // 处理鼠标拖动滚动
+        handleMouseDrag(elapsed);
+        
+        // 处理鼠标滚轮
+        handleMouseWheel(elapsed);
+        
+        // 应用滚动速度
+        applyScrollVelocity(elapsed);
+        
+        // 处理键盘控制
+        handleKeyboardControls();
+        
+        // 检查并处理悬停卡片
+        updateHoverState();
+    }
+    
+    function handleMouseDrag(elapsed:Float)
+    {
+        var currentMouseY = FlxG.mouse.screenY;
+        
+        if (FlxG.mouse.pressed)
+        {
+            if (!isDragging)
+            {
+                // 检查是否开始拖动（超过阈值）
+                if (Math.abs(currentMouseY - dragStartY) > dragThreshold)
+                {
+                    isDragging = true;
+                }
+            }
+            else
+            {
+                // 计算拖动速度
+                var deltaY = currentMouseY - lastMouseY;
+                if (Math.abs(deltaY) > 0)
+                {
+                    // 根据拖动方向添加滚动速度
+                    scrollVelocity += deltaY * 0.5;
+                    
+                    // 限制最大速度
+                    scrollVelocity = Math.max(-30, Math.min(30, scrollVelocity));
+                    
+                    // 实时应用滚动
+                    scrollBy(deltaY);
+                }
+            }
+            
+            dragStartY = currentMouseY;
+        }
+        else
+        {
+            if (isDragging)
+            {
+                isDragging = false;
+            }
+            dragStartY = currentMouseY;
+        }
+        
+        lastMouseY = currentMouseY;
+    }
+    
+    function handleMouseWheel(elapsed:Float)
+    {
+        var wheelDelta = FlxG.mouse.wheel;
+        if (wheelDelta != 0)
+        {
+            // 添加滚轮速度
+            scrollVelocity += wheelDelta * -15; // 负号使滚动方向自然
+            
+            // 立即应用一些滚动
+            scrollBy(wheelDelta * -50);
+            
+            // 播放滚动音效
+            FlxG.sound.play(Paths.sound('scrollMenu'), 0.2);
+        }
+    }
+    
+    function applyScrollVelocity(elapsed:Float)
+    {
+        if (Math.abs(scrollVelocity) > minScrollSpeed)
+        {
+            scrollBy(scrollVelocity * elapsed * 60);
+            scrollVelocity *= scrollDecay;
+        }
+        else
+        {
+            scrollVelocity = 0;
+        }
+    }
+    
+    function scrollBy(amount:Float)
+    {
+        if (grpReplays.members.length == 0) return;
+        
+        // 获取第一张和最后一张卡片的位置
+        var firstCard = grpReplays.members[0];
+        var lastCard = grpReplays.members[grpReplays.members.length - 1];
+        
+        if (firstCard == null || lastCard == null) return;
+        
+        // 计算可滚动范围
+        var topBoundary = 120; // 顶部边界
+        var bottomBoundary = FlxG.height - 100; // 底部边界
+        
+        // 尝试移动所有卡片
+        var newY = firstCard.y + amount;
+        
+        // 检查是否超出边界
+        if (newY > topBoundary)
+        {
+            // 到达顶部，修正位置并停止速度
+            amount = topBoundary - firstCard.y;
+            scrollVelocity = 0;
+        }
+        else if (lastCard.y + lastCard.height < bottomBoundary)
+        {
+            // 到达底部，修正位置并停止速度
+            amount = bottomBoundary - (lastCard.y + lastCard.height);
+            scrollVelocity = 0;
+        }
+        
+        // 移动所有卡片
+        for (card in grpReplays.members)
+        {
+            if (card != null)
+            {
+                card.y += amount;
+            }
+        }
+        
+        // 更新分页基于最上面的卡片
+        updatePageBasedOnScroll();
+    }
+    
+    function updatePageBasedOnScroll()
+    {
+        if (grpReplays.members.length == 0) return;
+        
+        // 根据第一张卡片的位置计算当前页
+        var firstCard = grpReplays.members[0];
+        if (firstCard != null)
+        {
+            var cardHeight = 105; // 卡片高度 + 间距
+            var estimatedIndex = Math.floor((firstCard.y - 120) / cardHeight) * -1;
+            estimatedIndex = Math.floor(estimatedIndex / itemsPerPage) * itemsPerPage;
+            
+            var newPage = Math.floor(estimatedIndex / itemsPerPage);
+            if (newPage < 0) newPage = 0;
+            if (newPage >= totalPages) newPage = totalPages - 1;
+            
+            if (newPage != currentPage)
+            {
+                currentPage = newPage;
+                updatePageText();
+            }
+        }
+    }
+    
+    function updatePageText()
+    {
+        var startIndex = currentPage * itemsPerPage;
+        var endIndex = Math.min(startIndex + itemsPerPage, replays.length);
+        pageText.text = 'Page ${currentPage + 1}/${totalPages} (${startIndex + 1}-${endIndex})';
+    }
+    
+    function updateHoverState()
+    {
+        var newHoveredCard:ReplayCard = null;
+        
+        // 检查鼠标悬停在哪个卡片上
+        for (card in grpReplays.members)
+        {
+            if (card != null && FlxG.mouse.overlaps(card))
+            {
+                newHoveredCard = card;
+                break;
+            }
+        }
+        
+        // 更新悬停状态
+        if (newHoveredCard != hoveredCard)
+        {
+            if (hoveredCard != null)
+            {
+                hoveredCard.updateHover(false);
+            }
+            
+            hoveredCard = newHoveredCard;
+            
+            if (hoveredCard != null)
+            {
+                hoveredCard.updateHover(true);
+                
+                // 如果不处于拖动状态，自动选中悬停的卡片
+                if (!isDragging && hoveredCard.index != curSelected)
+                {
+                    changeSelectionTo(hoveredCard.index, false);
+                }
+            }
+        }
     }
     
     function loadReplays()
@@ -358,7 +662,7 @@ class LoadReplayState extends MusicBeatState
     function updateDisplay()
     {
         grpReplays.clear();
-        hoveredCardIndex = -1;
+        hoveredCard = null;
         
         if (replays.length == 0)
         {
@@ -412,8 +716,43 @@ class LoadReplayState extends MusicBeatState
                     cardWidth,
                     cardHeight,
                     json,
+                    filename,
                     replayIndex
                 );
+                
+                // 设置回调函数
+                card.onClick = function() {
+                    if (card.index == curSelected) {
+                        // 如果已经选中，点击就加载
+                        loadReplay(card.filename);
+                    } else {
+                        // 否则只选中
+                        changeSelectionTo(card.index, true);
+                    }
+                };
+                
+                card.onDoubleClick = function() {
+                    changeSelectionTo(card.index, false);
+                    loadReplay(card.filename);
+                };
+                
+                card.onRightClick = function() {
+                    changeSelectionTo(card.index, true);
+                    viewReplayResults(card.filename);
+                };
+                
+                card.onMiddleClick = function() {
+                    changeSelectionTo(card.index, true);
+                    viewReplayResults(card.filename);
+                };
+                
+                card.onMouseOver = function() {
+                    // 鼠标悬停处理已经在updateHoverState中处理
+                };
+                
+                card.onMouseOut = function() {
+                    // 鼠标离开处理已经在updateHoverState中处理
+                };
                 
                 card.updateSelection(replayIndex == curSelected);
                 grpReplays.add(card);
@@ -421,163 +760,6 @@ class LoadReplayState extends MusicBeatState
             catch(e:Dynamic)
             {
                 trace('Error loading replay ${filename}: $e');
-                var errorBg = new FlxSprite(startX, startY + i * (cardHeight + cardSpacing));
-                errorBg.makeGraphic(cardWidth, cardHeight, FlxColor.RED);
-                errorBg.alpha = 0.3;
-                add(errorBg);
-                
-                var errorText = new FlxText(startX + 10, startY + i * (cardHeight + cardSpacing) + 10, 
-                    cardWidth - 20, "Corrupted: " + filename, 16);
-                errorText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT);
-                add(errorText);
-            }
-        }
-        
-        checkMouseHover();
-    }
-    
-    override function update(elapsed:Float)
-    {
-        super.update(elapsed);
-        
-        if (waitingForDeleteConfirm)
-        {
-            if (FlxG.keys.justPressed.Y)
-            {
-                confirmDelete();
-            }
-            else if (FlxG.keys.justPressed.N || FlxG.keys.justPressed.ESCAPE)
-            {
-                cancelDelete();
-            }
-            return;
-        }
-        
-        handleMouseWheel(elapsed);
-        checkMouseHover();
-        handleMouseDrag(elapsed);
-        handleMouseClicks();
-        handleKeyboardControls();
-    }
-    
-    function handleMouseWheel(elapsed:Float)
-    {
-        wheelAccumulator += FlxG.mouse.wheel;
-        
-        if (Math.abs(wheelAccumulator) >= wheelThreshold) {
-            var direction = wheelAccumulator > 0 ? -1 : 1;
-            wheelAccumulator = 0;
-            
-            if (replays.length > 0) {
-                changeSelection(direction);
-            }
-        }
-        
-        wheelAccumulator *= Math.pow(0.5, elapsed * 60);
-    }
-    
-    function checkMouseHover()
-    {
-        if (replays.length == 0 || grpReplays.members.length == 0) return;
-        
-        var mouseX = FlxG.mouse.screenX;
-        var mouseY = FlxG.mouse.screenY;
-        var newHoverIndex = -1;
-        
-        for (i in 0...grpReplays.members.length) {
-            var card = grpReplays.members[i];
-            if (card != null && card.exists && card.visible) {
-                var cardScreenX = card.x;
-                var cardScreenY = card.y;
-                
-                if (mouseX >= cardScreenX && 
-                    mouseX <= cardScreenX + card.width &&
-                    mouseY >= cardScreenY && 
-                    mouseY <= cardScreenY + card.height) {
-                    
-                    newHoverIndex = card.index;
-                    break;
-                }
-            }
-        }
-        
-        if (newHoverIndex != hoveredCardIndex) {
-            var oldHoverIndex = hoveredCardIndex;
-            hoveredCardIndex = newHoverIndex;
-            
-            // 更新卡片悬停状态
-            for (card in grpReplays.members) {
-                if (card != null) {
-                    if (card.index == oldHoverIndex) {
-                        card.updateHover(false);
-                    }
-                    if (card.index == hoveredCardIndex) {
-                        card.updateHover(true);
-                    }
-                }
-            }
-            
-            // 如果鼠标悬停在卡片上，且不是当前选中的卡片，则选中它
-            if (hoveredCardIndex >= 0 && hoveredCardIndex != curSelected) {
-                changeSelectionTo(hoveredCardIndex);
-            }
-        }
-    }
-    
-    function handleMouseDrag(elapsed:Float)
-    {
-        var currentMouseY = FlxG.mouse.screenY;
-        var deltaY = currentMouseY - lastMouseY;
-        
-        if (FlxG.mouse.pressed) {
-            if (!isDragging) {
-                if (Math.abs(currentMouseY - mouseDragStartY) > dragThreshold) {
-                    isDragging = true;
-                }
-            } else {
-                if (Math.abs(deltaY) > 1 && replays.length > 0) {
-                    var direction = deltaY > 0 ? 1 : -1;
-                    if (Math.random() < 0.2) {
-                        changeSelection(direction);
-                    }
-                }
-            }
-        } else {
-            if (isDragging) {
-                isDragging = false;
-            }
-            mouseDragStartY = currentMouseY;
-        }
-        
-        lastMouseY = currentMouseY;
-    }
-    
-    function handleMouseClicks()
-    {
-        if (FlxG.mouse.justPressed) {
-            if (hoveredCardIndex >= 0 && hoveredCardIndex < replays.length) {
-                if (hoveredCardIndex != curSelected) {
-                    changeSelectionTo(hoveredCardIndex);
-                }
-                
-                // 左键加载
-                loadReplay(replays[curSelected]);
-            }
-        }
-        
-        if (FlxG.mouse.justPressedRight) {
-            if (hoveredCardIndex >= 0 && hoveredCardIndex < replays.length) {
-                viewReplayResults(replays[curSelected]);
-            } else {
-                // 在空白处右键：返回主菜单
-                FlxG.sound.play(Paths.sound('cancelMenu'));
-                MusicBeatState.switchState(new FreeplayState());
-            }
-        }
-        
-        if (FlxG.mouse.justPressedMiddle) {
-            if (hoveredCardIndex >= 0 && hoveredCardIndex < replays.length) {
-                viewReplayResults(replays[curSelected]);
             }
         }
     }
@@ -595,12 +777,12 @@ class LoadReplayState extends MusicBeatState
         {
             if (controls.UI_UP_P)
             {
-                changeSelection(-1);
+                changeSelection(-1, true);
             }
             
             if (controls.UI_DOWN_P)
             {
-                changeSelection(1);
+                changeSelection(1, true);
             }
             
             if (controls.UI_LEFT_P)
@@ -640,18 +822,30 @@ class LoadReplayState extends MusicBeatState
         }
     }
     
-    function changeSelectionTo(index:Int)
+    function handleDeleteConfirmation()
+    {
+        if (FlxG.keys.justPressed.Y)
+        {
+            confirmDelete();
+        }
+        else if (FlxG.keys.justPressed.N || FlxG.keys.justPressed.ESCAPE)
+        {
+            cancelDelete();
+        }
+    }
+    
+    function changeSelectionTo(index:Int, playSound:Bool = true)
     {
         if (index < 0) index = 0;
         if (index >= replays.length) index = replays.length - 1;
         
         var change = index - curSelected;
         if (change != 0) {
-            changeSelection(change);
+            changeSelection(change, playSound);
         }
     }
     
-    function changeSelection(change:Int)
+    function changeSelection(change:Int, playSound:Bool = true)
     {
         if (replays.length == 0) return;
         
@@ -670,13 +864,13 @@ class LoadReplayState extends MusicBeatState
         {
             currentPage = Math.floor(curSelected / itemsPerPage);
             updateDisplay();
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+            if (playSound) FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
         }
         else if (curSelected >= endIndex)
         {
             currentPage = Math.floor(curSelected / itemsPerPage);
             updateDisplay();
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+            if (playSound) FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
         }
         else
         {
@@ -686,16 +880,13 @@ class LoadReplayState extends MusicBeatState
                 if (card.index == oldSelected)
                 {
                     card.updateSelection(false);
-                    if (card.index == hoveredCardIndex) {
-                        card.updateHover(true);
-                    }
                 }
                 if (card.index == curSelected)
                 {
                     card.updateSelection(true);
                 }
             }
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+            if (playSound) FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
         }
     }
     
@@ -718,118 +909,12 @@ class LoadReplayState extends MusicBeatState
         }
     }
     
-   public function loadReplay(filename:String):Void
-{
-    trace('Loading replay: $filename');
-    
-    var rep:Replay = Replay.LoadReplay(filename);
-    
-    if (rep == null || !rep.isValid())
+    public function loadReplay(filename:String):Void
     {
-        FlxG.sound.play(Paths.sound('cancelMenu'));
-        showError("Invalid replay file!");
-        return;
-    }
-    
-    // 设置模组目录
-    #if MODS_ALLOWED
-    if (rep.replay.modDirectory != null && rep.replay.modDirectory.length > 0)
-    {
-        Mods.currentModDirectory = rep.replay.modDirectory;
-        trace('Set mod directory to: ${rep.replay.modDirectory}');
-    }
-    #end
-    
-    // 设置到 PlayState
-    PlayState.rep = rep;
-    PlayState.loadRep = true;
-    PlayState.inReplay = true;
-    
-    // 重要：存储回放文件名，供结果界面使用
-    PlayState.replayFileName = filename;
-    trace('Set replayFileName to: $filename');
-    
-    // 设置难度
-    var difficultyID:Int = 1; // 默认 Normal
-    
-    if (rep.replay.difficultyName != null)
-    {
-        var diffLower = rep.replay.difficultyName.toLowerCase();
+        trace('Loading replay: $filename');
         
-        if (diffLower.indexOf('easy') >= 0)
-            difficultyID = 0;
-        else if (diffLower.indexOf('normal') >= 0 || diffLower.indexOf('standard') >= 0)
-            difficultyID = 1;
-        else if (diffLower.indexOf('hard') >= 0)
-            difficultyID = 2;
-        else
-            difficultyID = rep.replay.songDiff;
-    }
-    else
-    {
-        difficultyID = rep.replay.songDiff;
-    }
-    
-    PlayState.storyDifficulty = difficultyID;
-    trace('Setting storyDifficulty to: $difficultyID (${Difficulty.getString(difficultyID)})');
-    
-    // 加载歌曲
-    var songName:String = rep.replay.songName;
-    var difficultyName:String = rep.replay.difficultyName;
-    
-    try
-    {
-        var diffSuffix = '';
-        if (difficultyName != null)
-        {
-            var lowerDiff = difficultyName.toLowerCase();
-            if (lowerDiff == 'normal' || lowerDiff == 'standard')
-                diffSuffix = '';
-            else
-                diffSuffix = '-' + lowerDiff;
-        }
-        
-        var jsonToLoad = songName + diffSuffix;
-        trace('Loading JSON: $jsonToLoad');
-        
-        PlayState.SONG = Song.loadFromJson(jsonToLoad, songName);
-        
-        if (PlayState.SONG == null)
-        {
-            throw 'Failed to load song';
-        }
-        
-        PlayState.storyDifficulty = difficultyID;
-        PlayState.isStoryMode = false;
-        ClientPrefs.data.downScroll = rep.replay.isDownscroll;
-        
-        // 切换到PlayState
-        FlxG.sound.music.stop();
-        LoadingState.loadAndSwitchState(new PlayState());
-    }
-    catch(e:Dynamic)
-    {
-        trace('Error loading song: $e');
-        FlxG.sound.play(Paths.sound('cancelMenu'));
-        showError("Failed to load song!\nMissing: ${songName + diffSuffix}.json");
-    }
-}
-    
-    function viewReplayResults(filename:String):Void
-{
-    trace('Viewing replay results: $filename');
-    
-    try
-    {
-        var filePath = "assets/replays/" + filename;
-        if (!FileSystem.exists(filePath)) {
-            FlxG.sound.play(Paths.sound('cancelMenu'));
-            showError("Replay file not found!");
-            return;
-        }
-        
-        // 先加载回放文件，确保数据正确
         var rep:Replay = Replay.LoadReplay(filename);
+        
         if (rep == null || !rep.isValid())
         {
             FlxG.sound.play(Paths.sound('cancelMenu'));
@@ -837,22 +922,118 @@ class LoadReplayState extends MusicBeatState
             return;
         }
         
-        // 保存到 PlayState 以便 ResultsScreen 访问
+        #if MODS_ALLOWED
+        if (rep.replay.modDirectory != null && rep.replay.modDirectory.length > 0)
+        {
+            Mods.currentModDirectory = rep.replay.modDirectory;
+            trace('Set mod directory to: ${rep.replay.modDirectory}');
+        }
+        #end
+        
         PlayState.rep = rep;
+        PlayState.loadRep = true;
+        PlayState.inReplay = true;
+        PlayState.replayFileName = filename;
+        trace('Set replayFileName to: $filename');
         
-        // 使用 REPLAY_PREVIEW 模式并传递文件名
-        var resultsScreen = new ResultsScreen(REPLAY_PREVIEW , filename);
+        var difficultyID:Int = 1;
         
-        openSubState(resultsScreen);
-        FlxG.sound.play(Paths.sound('confirmMenu'));
+        if (rep.replay.difficultyName != null)
+        {
+            var diffLower = rep.replay.difficultyName.toLowerCase();
+            
+            if (diffLower.indexOf('easy') >= 0)
+                difficultyID = 0;
+            else if (diffLower.indexOf('normal') >= 0 || diffLower.indexOf('standard') >= 0)
+                difficultyID = 1;
+            else if (diffLower.indexOf('hard') >= 0)
+                difficultyID = 2;
+            else
+                difficultyID = rep.replay.songDiff;
+        }
+        else
+        {
+            difficultyID = rep.replay.songDiff;
+        }
+        
+        PlayState.storyDifficulty = difficultyID;
+        trace('Setting storyDifficulty to: $difficultyID (${Difficulty.getString(difficultyID)})');
+        
+        var songName:String = rep.replay.songName;
+        var difficultyName:String = rep.replay.difficultyName;
+        
+        try
+        {
+            var diffSuffix = '';
+            if (difficultyName != null)
+            {
+                var lowerDiff = difficultyName.toLowerCase();
+                if (lowerDiff == 'normal' || lowerDiff == 'standard')
+                    diffSuffix = '';
+                else
+                    diffSuffix = '-' + lowerDiff;
+            }
+            
+            var jsonToLoad = songName + diffSuffix;
+            trace('Loading JSON: $jsonToLoad');
+            
+            PlayState.SONG = Song.loadFromJson(jsonToLoad, songName);
+            
+            if (PlayState.SONG == null)
+            {
+                throw 'Failed to load song';
+            }
+            
+            PlayState.storyDifficulty = difficultyID;
+            PlayState.isStoryMode = false;
+            ClientPrefs.data.downScroll = rep.replay.isDownscroll;
+            
+            FlxG.sound.music.stop();
+            LoadingState.loadAndSwitchState(new PlayState());
+        }
+        catch(e:Dynamic)
+        {
+            trace('Error loading song: $e');
+            FlxG.sound.play(Paths.sound('cancelMenu'));
+            showError("Failed to load song!\nMissing: ${songName + diffSuffix}.json");
+        }
     }
-    catch(e:Dynamic)
+    
+    function viewReplayResults(filename:String):Void
     {
-        trace('Error viewing replay: $e');
-        FlxG.sound.play(Paths.sound('cancelMenu'));
-        showError("Error loading replay: " + e);
+        trace('Viewing replay results: $filename');
+        
+        try
+        {
+            var filePath = "assets/replays/" + filename;
+            if (!FileSystem.exists(filePath)) {
+                FlxG.sound.play(Paths.sound('cancelMenu'));
+                showError("Replay file not found!");
+                return;
+            }
+            
+            var rep:Replay = Replay.LoadReplay(filename);
+            if (rep == null || !rep.isValid())
+            {
+                FlxG.sound.play(Paths.sound('cancelMenu'));
+                showError("Invalid replay file!");
+                return;
+            }
+            
+            PlayState.rep = rep;
+            
+            var resultsScreen = new ResultsScreen(REPLAY_PREVIEW, filename);
+            
+            openSubState(resultsScreen);
+            FlxG.sound.play(Paths.sound('confirmMenu'));
+        }
+        catch(e:Dynamic)
+        {
+            trace('Error viewing replay: $e');
+            FlxG.sound.play(Paths.sound('cancelMenu'));
+            showError("Error loading replay: " + e);
+        }
     }
-}
     
     function showError(message:String):Void
     {

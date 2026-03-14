@@ -1063,6 +1063,15 @@ class KEOptionsMenu extends MusicBeatState
 			"",
 			"Keyboard Display Settings"
 		);
+		var charthelperOptions = KEOption.createSubMenu(
+			"Chart Helper",
+			"Configure Chart Helper settings",
+			[
+				KEOption.create("Note Guide Line Opacity", "Transparency of the chart helper display", "guideLineAlpha", "float", 1.0, 0.0, 1.0, 0.1),
+			],
+			"",
+			"Chart Helper Settings"
+		);
 		
 		return [
 			skinSettings,  // 皮肤设置二级菜单
@@ -1085,6 +1094,7 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Charm Bar Pause", "Modern Pause Sub State", "charmPause", "bool"),
 			hitErrorSettings, // 命中误差条二级菜单
 			keyboardDisplayOptions,
+			charthelperOptions,
 		];
 	}
 

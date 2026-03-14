@@ -310,6 +310,7 @@ class PlayState extends MusicBeatState
 	private var modInfoBox:ModInfoBox;
 	var hitErrorBar:HitErrorBar;
 	public var keyboardViewer:KeyboardViewer;
+	public var strumGuideLine:StrumGuideLine;
 
 	override public function create()
 	{
@@ -573,6 +574,8 @@ class PlayState extends MusicBeatState
 		uiGroup.add(timeBar);
 		uiGroup.add(timeTxt);
 
+		strumGuideLine = new StrumGuideLine();
+		noteGroup.add(strumGuideLine);
 		noteGroup.add(strumLineNotes);
 
 		noteHoldCover = new NoteHoldCover();
@@ -3958,6 +3961,12 @@ public function proceedToNextState():Void
 			modInfoBox.destroy();
 			modInfoBox = null;
 		}
+		if (strumGuideLine != null)
+		{
+			strumGuideLine.destroy();
+			strumGuideLine = null;
+		}
+
 		super.destroy();
 	}
 

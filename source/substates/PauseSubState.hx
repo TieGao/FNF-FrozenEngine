@@ -38,6 +38,11 @@ class PauseSubState extends MusicBeatSubstate
 	private var mouseOverItem:Int = -1;
 	private var lastMousePos:FlxPoint;
 	private var allowMouse:Bool = true;
+	
+	// 点击判定区域偏移量（可调试）
+	// 正数向下/向右偏移，负数向上/向左偏移
+	private var clickHitboxOffsetX:Float = 200;   // 水平偏移（如果需要）
+	private var clickHitboxOffsetY:Float = 180;  // 垂直偏移
 
 	override function create()
 	{
@@ -186,7 +191,7 @@ class PauseSubState extends MusicBeatSubstate
 
 		// ===== 鼠标控制开始 =====
 		
-		// 检测鼠标移动，启用鼠标模式
+		// 检测鼠标移动，启用鼠标模式并更新悬停
 		if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
 		{
 			allowMouse = true;
@@ -214,28 +219,40 @@ class PauseSubState extends MusicBeatSubstate
 		}
 		
 		// Skip Time的特殊鼠标控制（拖拽调节）
-		if (allowMouse && menuItems[curSelected] == 'Skip Time' && skipTimeTracker != null && FlxG.mouse.overlaps(skipTimeTracker))
+		if (allowMouse && menuItems[curSelected] == 'Skip Time' && skipTimeTracker != null)
 		{
-			// 鼠标拖动
-			if (FlxG.mouse.pressed)
+			// 检查是否悬停在Skip Time文字上（应用偏移量）
+			var originalX:Float = skipTimeTracker.x;
+			var originalY:Float = skipTimeTracker.y;
+			skipTimeTracker.x += clickHitboxOffsetX;
+			skipTimeTracker.y += clickHitboxOffsetY;
+			var overlaps:Bool = FlxG.mouse.overlaps(skipTimeTracker);
+			skipTimeTracker.x = originalX;
+			skipTimeTracker.y = originalY;
+			
+			if (overlaps)
 			{
-				var dragSpeed:Float = (FlxG.mouse.deltaScreenX + FlxG.mouse.deltaScreenY) * 10;
-				if (Math.abs(dragSpeed) > 0.5)
+				// 鼠标拖动
+				if (FlxG.mouse.pressed)
 				{
-					curTime += dragSpeed * 100;
+					var dragSpeed:Float = (FlxG.mouse.deltaScreenX + FlxG.mouse.deltaScreenY) * 10;
+					if (Math.abs(dragSpeed) > 0.5)
+					{
+						curTime += dragSpeed * 100;
+						if(curTime >= FlxG.sound.music.length) curTime = 0;
+						else if(curTime < 0) curTime = FlxG.sound.music.length - 1000;
+						updateSkipTimeText();
+					}
+				}
+				
+				// 滚轮微调（如果已经悬停在Skip Time上）
+				if (FlxG.mouse.wheel != 0)
+				{
+					curTime += FlxG.mouse.wheel * 1000;
 					if(curTime >= FlxG.sound.music.length) curTime = 0;
 					else if(curTime < 0) curTime = FlxG.sound.music.length - 1000;
 					updateSkipTimeText();
 				}
-			}
-			
-			// 滚轮微调
-			if (FlxG.mouse.wheel != 0)
-			{
-				curTime += FlxG.mouse.wheel * 1000;
-				if(curTime >= FlxG.sound.music.length) curTime = 0;
-				else if(curTime < 0) curTime = FlxG.sound.music.length - 1000;
-				updateSkipTimeText();
 			}
 		}
 		
@@ -259,11 +276,11 @@ class PauseSubState extends MusicBeatSubstate
 
 		updateSkipTextStuff();
 		
-		// 键盘控制
+		// 键盘控制（会禁用鼠标模式）
 		if (controls.UI_UP_P)
 		{
 			changeSelection(-1);
-			allowMouse = false; // 键盘操作时禁用鼠标模式
+			allowMouse = false;
 			mouseOverItem = -1;
 			updateItemAlpha();
 		}
@@ -312,7 +329,7 @@ class PauseSubState extends MusicBeatSubstate
 		}
 	}
 	
-	// 更新鼠标悬停检测
+	// 更新鼠标悬停检测（应用偏移量）
 	function updateMouseOver()
 	{
 		if (!allowMouse) return;
@@ -321,10 +338,22 @@ class PauseSubState extends MusicBeatSubstate
 		for (i in 0...grpMenuShit.members.length)
 		{
 			var item = grpMenuShit.members[i];
-			if (item != null && item.visible && FlxG.mouse.overlaps(item))
+			if (item != null && item.visible)
 			{
-				newMouseOver = i;
-				break;
+				// 应用偏移量检测悬停
+				var originalX:Float = item.x;
+				var originalY:Float = item.y;
+				item.x += clickHitboxOffsetX;
+				item.y += clickHitboxOffsetY;
+				var overlaps:Bool = FlxG.mouse.overlaps(item);
+				item.x = originalX;
+				item.y = originalY;
+				
+				if (overlaps)
+				{
+					newMouseOver = i;
+					break;
+				}
 			}
 		}
 		
@@ -362,16 +391,18 @@ class PauseSubState extends MusicBeatSubstate
 			
 			// 默认透明度
 			item.alpha = 0.6;
+			item.color = FlxColor.WHITE; // 恢复默认颜色
 			
-			// 选中的选项高亮
+			// 选中的选项完全不透明
 			if (num == curSelected)
 			{
 				item.alpha = 1.0;
 			}
-			// 悬停的选项半高亮（如果不是选中的话）
+			// 悬停的选项半高亮（如果不是选中的话）并变黄色
 			else if (allowMouse && num == mouseOverItem)
 			{
-				item.alpha = 0.8;
+				item.alpha = 0.9;
+				item.color = 0xFFFFFF00; // 黄色
 			}
 		}
 	}

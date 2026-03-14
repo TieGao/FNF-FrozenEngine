@@ -28,10 +28,14 @@ class BaseOptionsMenu extends MusicBeatSubstate
 
 	public var bg:FlxSprite;
 	
-	// 鼠标控制变量
-	private var selectedByMouse:Bool = false;
-	private var lastMouseX:Float = 0;
-	private var lastMouseY:Float = 0;
+	// 鼠标支持相关
+	private var allowMouse:Bool = true;
+	private var timeNotMoving:Float = 0;
+	private var mouseOverOption:Int = -1;
+	
+	// 文字选项点击判定区域偏移量（可调试）
+	// 复选框不需要偏移，它们的位置已经是正确的
+	private var textHitboxOffset:Float = 70; // 文字选项向下偏移70像素
 
 	public function new()
 	{
@@ -107,7 +111,11 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			updateTextFrom(optionsArray[i]);
 		}
 
-		changeSelection();
+		// 启用鼠标显示
+		FlxG.mouse.visible = true;
+		FlxG.mouse.useSystemCursor = true;
+
+		changeSelection(0);
 		reloadCheckboxes();
 	}
 
@@ -137,144 +145,95 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			return;
 		}
 
-		// 鼠标控制处理
-		handleMouseInput(elapsed);
+		// 鼠标移动显示并更新悬停
+		if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
+		{
+			FlxG.mouse.visible = true;
+			timeNotMoving = 0;
+			updateMouseInteraction();
+		}
+
+		// 鼠标滚轮滚动
+		if (FlxG.mouse.wheel != 0)
+		{
+			FlxG.mouse.visible = true;
+			timeNotMoving = 0;
+			
+			var shiftMult:Int = 1;
+			if(FlxG.keys.pressed.SHIFT) shiftMult = 3;
+			
+			changeSelection(-shiftMult * Std.int(FlxMath.bound(FlxG.mouse.wheel, -1, 1)));
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+		}
+
+		// 鼠标点击处理
+		if (FlxG.mouse.justPressed)
+		{
+			updateMouseInteraction();
+			
+			// 先检查是否点击了复选框（复选框不需要偏移）
+			var checkboxClicked:Bool = false;
+			for (checkbox in checkboxGroup)
+			{
+				if (checkbox != null && checkbox.exists && checkbox.visible)
+				{
+					if (FlxG.mouse.overlaps(checkbox))
+					{
+						checkboxClicked = true;
+						if (checkbox.ID != curSelected)
+						{
+							changeSelection(checkbox.ID - curSelected);
+						}
+						// 点击复选框切换布尔值
+						var option:Option = optionsArray[checkbox.ID];
+						if (option.type == BOOL)
+						{
+							FlxG.sound.play(Paths.sound('scrollMenu'));
+							option.setValue((option.getValue() == true) ? false : true);
+							option.change();
+							reloadCheckboxes();
+						}
+						break;
+					}
+				}
+			}
+			
+			// 如果没有点击复选框，检查选项文本（应用偏移量）
+			if (!checkboxClicked)
+			{
+				if (mouseOverOption != -1 && mouseOverOption != curSelected)
+				{
+					// 先选择悬停的选项
+					changeSelection(mouseOverOption - curSelected);
+				}
+				else if (mouseOverOption == curSelected)
+				{
+					// 点击当前选中项，执行操作
+					handleOptionAction();
+				}
+			}
+		}
 
 		if (controls.UI_UP_P)
 		{
 			changeSelection(-1);
-			selectedByMouse = false;
 		}
 		if (controls.UI_DOWN_P)
 		{
 			changeSelection(1);
-			selectedByMouse = false;
 		}
 
-		if (controls.BACK || FlxG.mouse.justPressedRight) {
+		if (controls.BACK) {
 			close();
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 		}
 
 		if(nextAccept <= 0)
 		{
-			switch(curOption.type)
+			// 键盘/手柄操作（将elapsed传进去）
+			if (!FlxG.mouse.justPressed)
 			{
-				case BOOL:
-					if(controls.ACCEPT || (FlxG.mouse.justPressed && selectedByMouse && mouseOverOption() == curSelected))
-					{
-						FlxG.sound.play(Paths.sound('scrollMenu'));
-						curOption.setValue((curOption.getValue() == true) ? false : true);
-						curOption.change();
-						reloadCheckboxes();
-						selectedByMouse = false;
-					}
-
-				case KEYBIND:
-					if(controls.ACCEPT || (FlxG.mouse.justPressed && selectedByMouse && mouseOverOption() == curSelected))
-					{
-						bindingBlack = new FlxSprite().makeGraphic(1, 1, FlxColor.WHITE);
-						bindingBlack.scale.set(FlxG.width, FlxG.height);
-						bindingBlack.updateHitbox();
-						bindingBlack.alpha = 0;
-						FlxTween.tween(bindingBlack, {alpha: 0.6}, 0.35, {ease: FlxEase.linear});
-						add(bindingBlack);
-	
-						bindingText = new Alphabet(FlxG.width / 2, 160, Language.getPhrase('controls_rebinding', 'Rebinding {1}', [curOption.name]), false);
-						bindingText.alignment = CENTERED;
-						add(bindingText);
-						
-						bindingText2 = new Alphabet(FlxG.width / 2, 340, Language.getPhrase('controls_rebinding2', 'Hold ESC to Cancel\nHold Backspace to Delete'), true);
-						bindingText2.alignment = CENTERED;
-						add(bindingText2);
-	
-						bindingKey = true;
-						holdingEsc = 0;
-						ClientPrefs.toggleVolumeKeys(false);
-						FlxG.sound.play(Paths.sound('scrollMenu'));
-						selectedByMouse = false;
-					}
-
-				default:
-					if(controls.UI_LEFT || controls.UI_RIGHT)
-					{
-						var pressed = (controls.UI_LEFT_P || controls.UI_RIGHT_P);
-						if(holdTime > 0.5 || pressed)
-						{
-							if(pressed)
-							{
-								var add:Dynamic = null;
-								if(curOption.type != STRING)
-									add = controls.UI_LEFT ? -curOption.changeValue : curOption.changeValue;
-		
-								switch(curOption.type)
-								{
-									case INT, FLOAT, PERCENT:
-										holdValue = curOption.getValue() + add;
-										if(holdValue < curOption.minValue) holdValue = curOption.minValue;
-										else if (holdValue > curOption.maxValue) holdValue = curOption.maxValue;
-		
-										if(curOption.type == INT)
-										{
-											holdValue = Math.round(holdValue);
-											curOption.setValue(holdValue);
-										}
-										else
-										{
-											holdValue = FlxMath.roundDecimal(holdValue, curOption.decimals);
-											curOption.setValue(holdValue);
-										}
-		
-									case STRING:
-										var num:Int = curOption.curOption; //lol
-										if(controls.UI_LEFT_P) --num;
-										else num++;
-		
-										if(num < 0)
-											num = curOption.options.length - 1;
-										else if(num >= curOption.options.length)
-											num = 0;
-		
-										curOption.curOption = num;
-										curOption.setValue(curOption.options[num]);
-										//trace(curOption.options[num]);
-
-									default:
-								}
-								updateTextFrom(curOption);
-								curOption.change();
-								FlxG.sound.play(Paths.sound('scrollMenu'));
-								selectedByMouse = false;
-							}
-							else if(curOption.type != STRING)
-							{
-								holdValue += curOption.scrollSpeed * elapsed * (controls.UI_LEFT ? -1 : 1);
-								if(holdValue < curOption.minValue) holdValue = curOption.minValue;
-								else if (holdValue > curOption.maxValue) holdValue = curOption.maxValue;
-		
-								switch(curOption.type)
-								{
-									case INT:
-										curOption.setValue(Math.round(holdValue));
-									
-									case PERCENT:
-										curOption.setValue(FlxMath.roundDecimal(holdValue, curOption.decimals));
-
-									default:
-								}
-								updateTextFrom(curOption);
-								curOption.change();
-							}
-						}
-		
-						if(curOption.type != STRING)
-							holdTime += elapsed;
-					}
-					else if(controls.UI_LEFT_R || controls.UI_RIGHT_R)
-					{
-						if(holdTime > 0.5) FlxG.sound.play(Paths.sound('scrollMenu'));
-						holdTime = 0;
-					}
+				handleKeyboardInput(elapsed);
 			}
 
 			if(controls.RESET)
@@ -297,7 +256,6 @@ class BaseOptionsMenu extends MusicBeatSubstate
 				leOption.change();
 				FlxG.sound.play(Paths.sound('cancelMenu'));
 				reloadCheckboxes();
-				selectedByMouse = false;
 			}
 		}
 
@@ -305,164 +263,194 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			nextAccept -= 1;
 		}
 	}
-	
-	// 检查鼠标悬停在哪个选项上
-	function mouseOverOption():Int
+
+	// 处理鼠标悬停交互（只对文字选项应用偏移量）
+	function updateMouseInteraction():Void
 	{
-		for (i in 0...grpOptions.members.length)
+		var newMouseOverOption:Int = -1;
+		for (i in 0...grpOptions.length)
 		{
-			var option = grpOptions.members[i];
-			if (FlxG.mouse.overlaps(option))
+			var item:Alphabet = grpOptions.members[i];
+			if (item != null && item.exists && item.visible)
 			{
-				return i;
-			}
-		}
-		return -1;
-	}
-	
-	// 检查鼠标是否悬停在数值文本上
-	function mouseOverValue():Int
-	{
-		for (text in grpTexts)
-		{
-			if (FlxG.mouse.overlaps(text))
-			{
-				return text.ID;
-			}
-		}
-		return -1;
-	}
-	
-	// 鼠标处理函数
-	function handleMouseInput(elapsed:Float)
-	{
-		// 处理鼠标点击
-		if (FlxG.mouse.justPressed)
-		{
-			var mouseOver = mouseOverOption();
-			var valueOver = mouseOverValue();
-			
-			// 先检查是否点击了复选框
-			for (checkbox in checkboxGroup)
-			{
-				if (FlxG.mouse.overlaps(checkbox))
-				{
-					// 如果点击的不是当前选中的复选框，先选中它
-					if (checkbox.ID != curSelected)
-					{
-						changeSelection(checkbox.ID - curSelected);
-					}
-					
-					// 直接切换复选框状态（不需要二次确认）
-					FlxG.sound.play(Paths.sound('scrollMenu'));
-					optionsArray[checkbox.ID].setValue((optionsArray[checkbox.ID].getValue() == true) ? false : true);
-					optionsArray[checkbox.ID].change();
-					reloadCheckboxes();
-					selectedByMouse = false;
-					return;
-				}
-			}
-			
-			// 点击选项文本
-			if (mouseOver >= 0)
-			{
-				if (mouseOver == curSelected)
-				{
-					// 点击已选中的选项，标记为准备确认
-					selectedByMouse = true;
-				}
-				else
-				{
-					// 点击不同选项，切换到该选项
-					changeSelection(mouseOver - curSelected);
-					selectedByMouse = false;
-				}
-				return;
-			}
-			
-			// 点击数值文本
-			if (valueOver >= 0)
-			{
-				if (valueOver == curSelected)
-				{
-					// 点击已选中的数值，标记为准备确认
-					selectedByMouse = true;
-				}
-				else
-				{
-					// 点击不同选项的数值，切换到该选项
-					changeSelection(valueOver - curSelected);
-					selectedByMouse = false;
-				}
-				return;
-			}
-		}
-		
-		// 处理鼠标滚轮 - 调整数值（当悬停在当前选中的数值上时）
-		if (FlxG.mouse.wheel != 0)
-		{
-			var valueOver = mouseOverValue();
-			var optionOver = mouseOverOption();
-			
-			// 如果悬停在当前选项的数值上，调整数值
-			if (valueOver == curSelected || optionOver == curSelected)
-			{
-				var wheelDir = FlxG.mouse.wheel > 0 ? 1 : -1;
+				// 只对文字选项应用偏移量，复选框不应用
+				var originalY:Float = item.y;
+				item.y += textHitboxOffset;
+				var overlaps:Bool = FlxG.mouse.overlaps(item);
+				item.y = originalY;
 				
-				switch(curOption.type)
+				if (overlaps)
 				{
-					case INT, FLOAT, PERCENT:
-						var add = (wheelDir > 0) ? curOption.changeValue : -curOption.changeValue;
-						
-						holdValue = curOption.getValue() + add;
-						if(holdValue < curOption.minValue) holdValue = curOption.minValue;
-						else if (holdValue > curOption.maxValue) holdValue = curOption.maxValue;
-		
-						if(curOption.type == INT)
-						{
-							holdValue = Math.round(holdValue);
-							curOption.setValue(holdValue);
-						}
-						else
-						{
-							holdValue = FlxMath.roundDecimal(holdValue, curOption.decimals);
-							curOption.setValue(holdValue);
-						}
-						
-						updateTextFrom(curOption);
-						curOption.change();
-						FlxG.sound.play(Paths.sound('scrollMenu'));
-						selectedByMouse = false;
-						
-					case STRING:
-						var num:Int = curOption.curOption;
-						if(wheelDir > 0) num++;
-						else num--;
-		
-						if(num < 0)
-							num = curOption.options.length - 1;
-						else if(num >= curOption.options.length)
-							num = 0;
-		
-						curOption.curOption = num;
-						curOption.setValue(curOption.options[num]);
-						
-						updateTextFrom(curOption);
-						curOption.change();
-						FlxG.sound.play(Paths.sound('scrollMenu'));
-						selectedByMouse = false;
-						
-					default:
-						// 其他类型不处理
+					newMouseOverOption = i;
+					break;
 				}
 			}
-			else
-			{
-				// 没有悬停在当前选项上，滚动切换选项
-				changeSelection(FlxG.mouse.wheel > 0 ? -1 : 1);
-				selectedByMouse = false;
-			}
 		}
+		
+		if (newMouseOverOption != mouseOverOption)
+		{
+			mouseOverOption = newMouseOverOption;
+			// 更新高亮
+			for (num => item in grpOptions.members)
+			{
+				if (item.targetY == curSelected) item.alpha = 1;
+				else if (mouseOverOption == num) item.alpha = 0.8;
+				else item.alpha = 0.6;
+			}
+			for (text in grpTexts)
+			{
+				if(text.ID == curSelected) text.alpha = 1;
+				else if(mouseOverOption == text.ID) text.alpha = 0.8;
+				else text.alpha = 0.6;
+			}
+			timeNotMoving = 0;
+		}
+	}
+
+	// 处理当前选中选项的操作（被鼠标点击调用）
+	function handleOptionAction()
+	{
+		if (curOption == null) return;
+
+		switch(curOption.type)
+		{
+			case BOOL:
+				FlxG.sound.play(Paths.sound('scrollMenu'));
+				curOption.setValue((curOption.getValue() == true) ? false : true);
+				curOption.change();
+				reloadCheckboxes();
+
+			case KEYBIND:
+				startKeyBinding();
+
+			default:
+				// 对于数值类型，点击一次不做操作（保持使用左右键调节）
+		}
+	}
+
+	// 处理键盘输入（添加elapsed参数）
+	function handleKeyboardInput(elapsed:Float)
+	{
+		switch(curOption.type)
+		{
+			case BOOL:
+				if(controls.ACCEPT)
+				{
+					FlxG.sound.play(Paths.sound('scrollMenu'));
+					curOption.setValue((curOption.getValue() == true) ? false : true);
+					curOption.change();
+					reloadCheckboxes();
+				}
+
+			case KEYBIND:
+				if(controls.ACCEPT)
+				{
+					startKeyBinding();
+				}
+
+			default:
+				if(controls.UI_LEFT || controls.UI_RIGHT)
+				{
+					var pressed = (controls.UI_LEFT_P || controls.UI_RIGHT_P);
+					if(holdTime > 0.5 || pressed)
+					{
+						if(pressed)
+						{
+							var add:Dynamic = null;
+							if(curOption.type != STRING)
+								add = controls.UI_LEFT ? -curOption.changeValue : curOption.changeValue;
+		
+							switch(curOption.type)
+							{
+								case INT, FLOAT, PERCENT:
+									holdValue = curOption.getValue() + add;
+									if(holdValue < curOption.minValue) holdValue = curOption.minValue;
+									else if (holdValue > curOption.maxValue) holdValue = curOption.maxValue;
+		
+									if(curOption.type == INT)
+									{
+										holdValue = Math.round(holdValue);
+										curOption.setValue(holdValue);
+									}
+									else
+									{
+										holdValue = FlxMath.roundDecimal(holdValue, curOption.decimals);
+										curOption.setValue(holdValue);
+									}
+		
+								case STRING:
+									var num:Int = curOption.curOption;
+									if(controls.UI_LEFT_P) --num;
+									else num++;
+		
+									if(num < 0)
+										num = curOption.options.length - 1;
+									else if(num >= curOption.options.length)
+										num = 0;
+		
+									curOption.curOption = num;
+									curOption.setValue(curOption.options[num]);
+
+								default:
+							}
+							updateTextFrom(curOption);
+							curOption.change();
+							FlxG.sound.play(Paths.sound('scrollMenu'));
+						}
+						else if(curOption.type != STRING)
+						{
+							holdValue += curOption.scrollSpeed * elapsed * (controls.UI_LEFT ? -1 : 1);
+							if(holdValue < curOption.minValue) holdValue = curOption.minValue;
+							else if (holdValue > curOption.maxValue) holdValue = curOption.maxValue;
+		
+							switch(curOption.type)
+							{
+								case INT:
+									curOption.setValue(Math.round(holdValue));
+								
+								case FLOAT, PERCENT:
+									curOption.setValue(FlxMath.roundDecimal(holdValue, curOption.decimals));
+
+								default:
+							}
+							updateTextFrom(curOption);
+							curOption.change();
+						}
+					}
+		
+					if(curOption.type != STRING)
+						holdTime += elapsed;
+				}
+				else if(controls.UI_LEFT_R || controls.UI_RIGHT_R)
+				{
+					if(holdTime > 0.5) FlxG.sound.play(Paths.sound('scrollMenu'));
+					holdTime = 0;
+				}
+		}
+	}
+
+	// 开始按键绑定
+	function startKeyBinding()
+	{
+		bindingBlack = new FlxSprite().makeGraphic(1, 1, FlxColor.WHITE);
+		bindingBlack.scale.set(FlxG.width, FlxG.height);
+		bindingBlack.updateHitbox();
+		bindingBlack.alpha = 0;
+		FlxTween.tween(bindingBlack, {alpha: 0.6}, 0.35, {ease: FlxEase.linear});
+		add(bindingBlack);
+
+		bindingText = new Alphabet(FlxG.width / 2, 160, Language.getPhrase('controls_rebinding', 'Rebinding {1}', [curOption.name]), false);
+		bindingText.alignment = CENTERED;
+		add(bindingText);
+		
+		bindingText2 = new Alphabet(FlxG.width / 2, 340, Language.getPhrase('controls_rebinding2', 'Hold ESC to Cancel\nHold Backspace to Delete'), true);
+		bindingText2.alignment = CENTERED;
+		add(bindingText2);
+
+		bindingKey = true;
+		holdingEsc = 0;
+		ClientPrefs.toggleVolumeKeys(false);
+		FlxG.sound.play(Paths.sound('scrollMenu'));
 	}
 
 	function bindingKeyUpdate(elapsed:Float)
@@ -631,6 +619,9 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		bindingText2.destroy();
 		remove(bindingText2);
 		ClientPrefs.toggleVolumeKeys(true);
+		
+		// 恢复鼠标显示
+		FlxG.mouse.visible = true;
 	}
 
 	function updateTextFrom(option:Option) {
@@ -645,14 +636,9 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		if(option.type == PERCENT) val *= 100;
 		var def:Dynamic = option.defaultValue;
 		option.text = text.replace('%v', val).replace('%d', def);
-		
-		if (option.child != null)
-		{
-			var child:AttachedText = cast option.child;
-			child.text = option.text;
-		}
 	}
 	
+	// 恢复原始函数签名（只有change参数）
 	function changeSelection(change:Int = 0)
 	{
 		curSelected = FlxMath.wrap(curSelected + change, 0, optionsArray.length - 1);
@@ -664,24 +650,26 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		for (num => item in grpOptions.members)
 		{
 			item.targetY = num - curSelected;
-			item.alpha = 0.6;
 			if (item.targetY == 0) item.alpha = 1;
+			else if (mouseOverOption == num) item.alpha = 0.8;
+			else item.alpha = 0.6;
 		}
 		for (text in grpTexts)
 		{
-			text.alpha = 0.6;
 			if(text.ID == curSelected) text.alpha = 1;
+			else if(mouseOverOption == text.ID) text.alpha = 0.8;
+			else text.alpha = 0.6;
 		}
 
 		descBox.setPosition(descText.x - 10, descText.y - 10);
 		descBox.setGraphicSize(Std.int(descText.width + 20), Std.int(descText.height + 25));
 		descBox.updateHitbox();
 
-		curOption = optionsArray[curSelected]; //shorter lol
+		curOption = optionsArray[curSelected];
 		FlxG.sound.play(Paths.sound('scrollMenu'));
 	}
 
 	function reloadCheckboxes()
 		for (checkbox in checkboxGroup)
-			checkbox.daValue = Std.string(optionsArray[checkbox.ID].getValue()) == 'true'; //Do not take off the Std.string() from this, it will break a thing in Mod Settings Menu
+			checkbox.daValue = Std.string(optionsArray[checkbox.ID].getValue()) == 'true';
 }

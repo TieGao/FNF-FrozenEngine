@@ -72,7 +72,7 @@ class ModInfoBox extends FlxSpriteGroup
             var formattedSongName:String = Paths.formatToSongPath(originalSongName);
             var content:String = Paths.getTextFromFile('data/${formattedSongName}/info.txt');
             
-            if (content != null && content.length > 0)
+            if (content != null && content.length > 0 && ClientPrefs.data.modInfoBox)
             {
                 var lines:Array<String> = content.split('\n');
                 var lineCount:Int = 0;
@@ -112,7 +112,7 @@ class ModInfoBox extends FlxSpriteGroup
             else
             {
                 shouldDisplay = false;
-                trace('info.txt is empty');
+                trace('info.txt is empty or modInfoBox display is disabled in options.');
             }
         }
         catch (e:Dynamic)

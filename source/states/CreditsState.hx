@@ -77,7 +77,10 @@ class CreditsState extends MusicBeatState
             ["Join the Psych Ward!", "discord", "", "https://discord.gg/2ka77eMXDv", "5165F6"],
             [""],
             ["Frozen Engine Creator"],
-            ["Ice_Axe",         "iceaxe",       "Creator of Frozen Engine",                         "",     "87CEEB"]
+            ["Ice_Axe",         "iceaxe",       "Creator of Frozen Engine","https://github.com/TieGao",     "87CEEB"],
+			["Special Thanks"],
+			["FNF-NovaFlare-Engine Team", "novaflare", "Original of KeyboardViewer", "https://github.com/NovaFlare-Engine-Concentration/", "FF69B4"],
+			["MoonChart","","Chart Converter Lib","https://lib.haxe.org/p/moonchart/", "FF69B4"]
         ];
 		
 		for(i in defaultList)

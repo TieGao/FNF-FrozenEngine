@@ -64,6 +64,8 @@ import states.TitleState;
 	public var scoreScreen:Bool = true;
 	public var keOptions:Bool = true;
 	public var gradientTimeBar:Bool = true;
+	public var guideLineAlpha:Float = 0.0;
+	public var modInfoBox:Bool = true;
 
 	public var charmPause:Bool = false;
 	public var gameplaySettings:Map<String, Dynamic> = [
