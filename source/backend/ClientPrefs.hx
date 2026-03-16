@@ -8,6 +8,20 @@ import states.TitleState;
 
 // Add a variable here and it will get automatically saved
 @:structInit class SaveVariables {
+	// Mobile and Mobile Controls Releated [Psych Engine Mobile 1.0.4 OG]
+	public var extraButtons:String = "NONE"; // mobile extra button option
+	public var hitboxPos:Bool = true; // hitbox extra button position option
+	public var dynamicColors:Bool = true; // yes cause its cool -Karim
+	public var controlsAlpha:Float = FlxG.onMobile ? 0.6 : 0;
+	public var screensaver:Bool = false;
+	public var wideScreen:Bool = false;
+	public var hitboxType:String = "Gradient";
+	public var popUpRating:Bool = true;
+	public var vsync:Bool = false;
+	public var gameOverVibration:Bool = false;
+	public var fpsRework:Bool = false;
+	public var showOS:Bool = false; // show os in fps counter
+	//PE 1.0.4 OG
 	public var downScroll:Bool = false;
 	public var middleScroll:Bool = false;
 	public var opponentStrums:Bool = true;
@@ -17,12 +31,12 @@ import states.TitleState;
 	public var antialiasing:Bool = true;
 	public var noteSkin:String = 'Default';
 	public var splashSkin:String = 'Psych';
-	public var holdCoverSkin:String = 'Default';
+	public var holdCoverSkin:String = 'Default';//FE
 	public var customUI:String = 'Default';
 	public var forceNumberColor:Bool = false;
 	public var noteAlpha:Float = 0.9;
-	public var splashAlpha:Float = 0.8;
-	public var holdcoverAlpha:Float = 0.8;
+	public var splashAlpha:Float = 0.8;//FE
+	public var holdcoverAlpha:Float = 0.8;//FE
 	public var lowQuality:Bool = false;
 	public var shaders:Bool = true;
 	public var cacheOnGPU:Bool = #if !switch false #else true #end; // GPU Caching made by Raltyro
@@ -54,6 +68,8 @@ import states.TitleState;
 	public var pauseMusic:String = 'Tea Time';
 	public var checkForUpdates:Bool = true;
 	public var comboStacking:Bool = true;
+
+	//FE Options
 	public var centerPause:Bool = false;
 	public var coolBackdrop:Bool = true;
 	public var customColor:Bool = true;
@@ -66,8 +82,8 @@ import states.TitleState;
 	public var gradientTimeBar:Bool = true;
 	public var guideLineAlpha:Float = 0.0;
 	public var modInfoBox:Bool = true;
-
 	public var charmPause:Bool = false;
+
 	public var gameplaySettings:Map<String, Dynamic> = [
 		'scrollspeed' => 1.0,
 		'scrolltype' => 'multiplicative', 
@@ -102,6 +118,8 @@ import states.TitleState;
 	public var discordRPC:Bool = true;
 	public var loadingScreen:Bool = true;
 	public var language:String = 'en-US';
+
+	//FE Advanced Options
 	public var saveReplays:Bool = true;
 	public var luadebugPrint:Bool = true;
 
@@ -240,15 +258,20 @@ class ClientPrefs {
 		}
 		#end
 
-		if(data.framerate > FlxG.drawFramerate)
-		{
-			FlxG.updateFramerate = data.framerate;
-			FlxG.drawFramerate = data.framerate;
-		}
+		if (data.fpsRework)
+			FlxG.stage.window.frameRate = data.framerate;
 		else
 		{
-			FlxG.drawFramerate = data.framerate;
-			FlxG.updateFramerate = data.framerate;
+			if (data.framerate > FlxG.drawFramerate)
+			{
+				FlxG.updateFramerate = data.framerate;
+				FlxG.drawFramerate = data.framerate;
+			}
+			else
+			{
+				FlxG.drawFramerate = data.framerate;
+				FlxG.updateFramerate = data.framerate;
+			}
 		}
 
 		if(FlxG.save.data.gameplaySettings != null)

@@ -1108,6 +1108,8 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("GPU Caching", "Use GPU for texture caching", "cacheOnGPU", "bool"),
 			KEOption.create("FPS Counter", "Show FPS counter", "showFPS", "bool"),
 			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 240, 1),
+			KEOption.create("Show OS", "Show operating system in FPS Counter", "showOS", "bool"),
+			KEOption.create("FPS Rework", "Make ur game more smooth", "fpsRework", "bool"),
 			//KEOption.create("New Freeplay", "Enable New Freeplay", "newFreeplay", "bool"),
 			//KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool")
 		];

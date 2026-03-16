@@ -223,7 +223,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			changeSelection(1);
 		}
 
-		if (controls.BACK) {
+		if (controls.BACK || FlxG.mouse.justPressedRight) {
 			close();
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 		}
