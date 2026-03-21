@@ -42,15 +42,15 @@ class MusicPlayerLegacy extends FlxGroup
 
 		var xPos:Float = FlxG.width * 0.7;
 
-		songBG = new FlxSprite(xPos - 6, 0).makeGraphic(1, 100, 0xFF000000);
+		songBG = new FlxSprite(xPos - 6, 85).makeGraphic(1, 100, 0xFF000000);
 		songBG.alpha = 0.6;
 		add(songBG);
 
-		playbackBG = new FlxSprite(xPos - 6, 0).makeGraphic(1, 100, 0xFF000000);
+		playbackBG = new FlxSprite(xPos - 6, 5).makeGraphic(1, 100, 0xFF000000);
 		playbackBG.alpha = 0.6;
 		add(playbackBG);
 
-		songTxt = new FlxText(FlxG.width * 0.7, 5, 0, "", 32);
+		songTxt = new FlxText(FlxG.width * 0.7, 90, 0, "", 32);
 		songTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT);
 		add(songTxt);
 
@@ -74,7 +74,7 @@ class MusicPlayerLegacy extends FlxGroup
 		progressBar.createFilledBar(FlxColor.WHITE, FlxColor.BLACK);
 		add(progressBar);
 
-		playbackTxt = new FlxText(FlxG.width * 0.6, 20, 0, "", 32);
+		playbackTxt = new FlxText(FlxG.width * 0.6, 0, 0, "", 32);
 		playbackTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE);
 		add(playbackTxt);
 

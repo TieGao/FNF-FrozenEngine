@@ -331,9 +331,7 @@ class PauseSubState extends MusicBeatSubstate
 	
 	// 更新鼠标悬停检测（应用偏移量）
 	function updateMouseOver()
-	{
-		if (!allowMouse) return;
-		
+	{	
 		var newMouseOver:Int = -1;
 		for (i in 0...grpMenuShit.members.length)
 		{

@@ -261,7 +261,11 @@ class PlayState extends MusicBeatState
 
 	public var defaultCamZoom:Float = 1.05;
 
-
+	 private var ratingPool:SpritePool;
+    private var comboNumPool:SpritePool;
+    private var comboSpritePool:SpritePool;
+    
+    private var maxPoolSize:Int = 15;
 
 	// how big to stretch the pixel art assets
 	public static var daPixelZoom:Float = 6;
@@ -311,6 +315,17 @@ class PlayState extends MusicBeatState
 	var hitErrorBar:HitErrorBar;
 	public var keyboardViewer:KeyboardViewer;
 	public var strumGuideLine:StrumGuideLine;
+
+	private var numScoreTweenScaleX:FlxTween;
+	private var numScoreTweenScaleY:FlxTween;
+	private var numScoreTweenAlpha:FlxTween;
+	private var ratingTweenScaleX:FlxTween;
+	private var ratingTweenScaleY:FlxTween;
+	private var ratingTweenAlpha:FlxTween;
+	private var ratingTweenDestroy:FlxTween;
+	private var comboTweenScaleX:FlxTween;
+	private var comboTweenScaleY:FlxTween;
+	private var comboTweenAlpha:FlxTween;
 
 	override public function create()
 	{
@@ -2221,7 +2236,7 @@ public function reloadCounterColors()
 				persistentDraw = false;
 				FlxTimer.globalManager.clear();
 				FlxTween.globalManager.clear();
-				FlxG.camera.filters =[];
+				FlxG.camera.filters = [];
 
 				if(GameOverSubstate.deathDelay > 0)
 				{
@@ -2883,7 +2898,7 @@ public function proceedToNextState():Void
 	public var totalPlayed:Int = 0;
 	public var totalNotesHit:Float = 0.0;
 
-	public var showCombo:Bool = false;
+	public var showCombo:Bool = ClientPrefs.data.showCombo;
 	public var showComboNum:Bool = true;
 	public var showRating:Bool = true;
 
@@ -2893,449 +2908,492 @@ public function proceedToNextState():Void
 	public var uiGroup:FlxSpriteGroup;
 	// Stores Note Objects in a Group
 	public var noteGroup:FlxTypedGroup<FlxBasic>;
+	    private function cachePopUpScore() 
+	{
+        var uiFolder:String = getUIFolderInfo().folder;
+        
+        // 只有在combo stacking模式下才初始化对象池
+        if (ClientPrefs.data.comboStacking && ratingPool == null) {
+            initObjectPools();
+            precreatePoolObjects();
+        }
+        
+        // 缓存评级图片
+        for (rating in ratingsData)
+        {
+            Paths.image(uiFolder + rating.image + uiPostfix);
+            
+            // 如果是Forever皮肤，预缓存特殊版本
+            if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI.toLowerCase().contains("forever"))
+            {
+                Paths.image(uiFolder + rating.image + "-e" + uiPostfix);
+                Paths.image(uiFolder + rating.image + "-l" + uiPostfix);
+                Paths.image(uiFolder + "marvelous" + uiPostfix);
+                Paths.image(uiFolder + "goldennum0" + uiPostfix);
+            }
+        }
+        
+        // 缓存数字图片
+        for (i in 0...10)
+        {
+            Paths.image(uiFolder + 'num' + i + uiPostfix);
+            if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI.toLowerCase().contains("forever"))
+            {
+                Paths.image(uiFolder + 'goldennum' + i + uiPostfix);
+            }
+        }
+        
+        // 缓存combo图片
+        if (Paths.fileExists('images/' + uiFolder + 'combo' + uiPostfix + '.png', IMAGE))
+        {
+            Paths.image(uiFolder + 'combo' + uiPostfix);
+        }
+    }
 
-	private function cachePopUpScore()
-{
-	var uiFolder:String = "";
-	var customUIPath:String = "";
-	
-	// 获取自定义UI路径（如果存在）
-	if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI != "")
-	{
-		customUIPath = ClientPrefs.data.customUI + "/";
-	}
-	
-	if (stageUI != "normal")
-	{
-		// 优先使用自定义UI路径，否则使用默认路径
-		if (customUIPath != "")
+	private function popUpScore(note:Note = null):Void 
 		{
-			uiFolder = 'ratings/' + customUIPath + uiPrefix + "UI/";
+        if (combo >= highestCombo) highestCombo = combo;
+        if (ClientPrefs.data.showCombo && combo > 9)
+		{
+			showComboNum = true;
 		}
-		else
+		else if (!ClientPrefs.data.showCombo)
 		{
-			uiFolder =  uiPrefix + "UI/";
+			showComboNum = true;
 		}
-	}
-	else if (customUIPath != "")
-	{
-		// 即使stageUI是normal，如果有自定义UI也使用
-		uiFolder = 'ratings/' + customUIPath;
-	}
-
-	// 缓存评级图片
-	for (rating in ratingsData)
-	{
-		Paths.image(uiFolder + rating.image + uiPostfix);
-	}
-	
-	// 缓存数字图片
-	for (i in 0...10)
-	{
-		Paths.image(uiFolder + 'num' + i + uiPostfix);
-	}
-	
-	// 缓存combo图片
-	if (Paths.fileExists('images/' + uiFolder + 'combo' + uiPostfix + '.png', IMAGE))
-	{
-		Paths.image(uiFolder + 'combo' + uiPostfix);
-	}
-}
-
-	private function popUpScore(note:Note = null):Void
-{
-	if (combo >= highestCombo)
-	{
-		highestCombo = combo;
-	}
-	// 计算带符号的时间差
-	var rawNoteDiff:Float = note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
-	var noteDiff:Float = Math.abs(rawNoteDiff);
-	vocals.volume = 1;
-
-	for (spr in comboGroup)
-	{
-		if(spr == null) continue;
-		
-		if (Std.isOfType(spr, FlxText))
+		else if (ClientPrefs.data.showCombo && combo <= 9)
 		{
-			var text:FlxText = cast(spr, FlxText);
-			// 如果是毫秒显示，立即销毁
-			comboGroup.remove(text);
-			text.destroy();
-			break;
+			showComboNum = false;
 		}
-	}
-
-	if (!ClientPrefs.data.comboStacking && comboGroup.members.length > 0)
-	{
-		for (spr in comboGroup)
-		{
-			if(spr == null) continue;
-
-			comboGroup.remove(spr);
-			spr.destroy();
-		}
-	}
-
-	var placement:Float = FlxG.width * 0.35;
-	var rating:FlxSprite = new FlxSprite();
-	var score:Int = 350;
-
-	// 基于毫秒的判定
-	var daRating:Rating = Conductor.judgeNote(ratingsData, noteDiff / playbackRate);
-
-	totalNotesHit += daRating.ratingMod;
-	note.ratingMod = daRating.ratingMod;
-	if(!note.ratingDisabled) daRating.hits++;
-	note.rating = daRating.name;
-	score = daRating.score;
-
-	// 添加毫秒显示
-	var msTiming:Float = Math.round(rawNoteDiff * 100) / 100; // 保留3位小数
-	var currentTimingShown:FlxText = null;
-	
-	if(daRating.noteSplash && !note.noteSplashData.disabled)
-		spawnNoteSplashOnNote(note);
-
-	if(!cpuControlled) {
-		songScore += score;
-		if(!note.ratingDisabled)
-		{
-			songHits++;
-			totalPlayed++;
-			RecalculateRating(false);
-		}
-	}
-
-	var uiFolder:String = "";
-	var customUIPath:String = "";
-	var antialias:Bool = ClientPrefs.data.antialiasing;
-	
-	// 获取自定义UI路径
-	if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI != "")
-	{
-		customUIPath = ClientPrefs.data.customUI + "/";
-	}
-	
-	if (stageUI != "normal")
-	{
-		// 优先使用自定义UI路径，否则使用默认路径
-		if (customUIPath != "")
-		{
-			uiFolder = 'ratings/' + customUIPath + uiPrefix + "UI/";
-		}
-		else
-		{
-			uiFolder = uiPrefix + "UI/";
-		}
-		antialias = !isPixelStage;
-	}
-	else if (customUIPath != "")
-	{
-		uiFolder = 'ratings/' + customUIPath;
-	}
-
-	// ==================== FOREVER套系特殊逻辑开始 ====================
-	var ratingImageToUse:String = daRating.image;
-	var shouldUseGoldenNumbers:Bool = false;
-	
-	// 检查是否为Forever套系
-	var isForeverUI:Bool = (customUIPath.toLowerCase().contains("forever") || 
-	                       (ClientPrefs.data.customUI != null && 
-	                        ClientPrefs.data.customUI.toLowerCase().contains("forever")));
-	
-	if (isForeverUI)
-	{
-		// 检查ratingFC是否为MFC或SFC
-		var isMFCOrSFC:Bool = (ratingFC == "MFC" || ratingFC == "SFC");
-		
-		// 如果ratingFC为MFC或SFC，始终使用Marvelous
-		// 否则只在22.5ms内使用Marvelous
-		if (isMFCOrSFC || (noteDiff <= ClientPrefs.data.marvelousWindow && daRating.name != "shit" && daRating.name != "bad" && daRating.name != "good"))
-		{
-			ratingImageToUse = "marvelous";
-			shouldUseGoldenNumbers = true;
-		}
-		else
-		{
-			// 对于good/bad/shit评级，添加Early/Late后缀
-			if (daRating.name == "good" || daRating.name == "bad" || daRating.name == "shit")
-			{
-				if (rawNoteDiff > 0)
-				{
-					ratingImageToUse = daRating.image + "-e"; // Early后缀
-				}
-				else
-				{
-					ratingImageToUse = daRating.image + "-l"; // Late后缀
-				}
+        // 计算时间差
+        var rawNoteDiff:Float = note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+        var noteDiff:Float = Math.abs(rawNoteDiff);
+        vocals.volume = 1;
+        
+        // 清理旧的显示（非combo stacking模式保持原有逻辑）
+        var shouldCleanupManually:Bool = false;
+        
+        for (spr in comboGroup)
+        {
+            if(spr == null) continue;
+            if (Std.isOfType(spr, FlxText))
+            {
+                comboGroup.remove(spr);
+                spr.destroy();
+                break;
+            }
+        }
+        
+        if (!ClientPrefs.data.comboStacking && comboGroup.members.length > 0)
+        {
+            shouldCleanupManually = true;
+            for (spr in comboGroup)
+            {
+                if(spr == null) continue;
+                comboGroup.remove(spr);
+                spr.destroy();
+            }
+        }
+        
+        // 判定评级
+        var placement:Float = FlxG.width * 0.35;
+        var daRating:Rating = Conductor.judgeNote(ratingsData, noteDiff / playbackRate);
+        
+        totalNotesHit += daRating.ratingMod;
+        note.ratingMod = daRating.ratingMod;
+        if(!note.ratingDisabled) daRating.hits++;
+        note.rating = daRating.name;
+        
+        if(daRating.noteSplash && !note.noteSplashData.disabled)
+            spawnNoteSplashOnNote(note);
+        
+        if(!cpuControlled) 
+        {
+            songScore += daRating.score;
+            if(!note.ratingDisabled)
+            {
+                songHits++;
+                totalPlayed++;
+                RecalculateRating(false);
+            }
+        }
+        
+        // 获取UI信息
+        var uiInfo = getUIFolderInfo();
+        var uiFolder:String = uiInfo.folder;
+        var antialias:Bool = uiInfo.antialias;
+        
+        // 处理Forever套系逻辑
+        var foreverLogic = processForeverUILogic(daRating, noteDiff, rawNoteDiff);
+        var ratingImageToUse:String = foreverLogic.imageName;
+        var useGoldenNumbers:Bool = foreverLogic.useGoldenNumbers;
+        
+        // ========== 创建或复用评级精灵 ==========
+        var rating:FlxSprite;
+        
+        // 只有combo stacking模式才使用对象池
+        if (ClientPrefs.data.comboStacking) {
+            rating = cast(ratingPool.get(), FlxSprite);
+            if (rating == null) {
+                rating = new FlxSprite();
+            } else {
+                // 重置位置和状态
+                rating.setPosition(0, 0);
+            }
+        } else {
+            rating = new FlxSprite();
+        }
+        
+        var ratingPath:String = uiFolder + ratingImageToUse + uiPostfix;
+        
+        // 图片回退逻辑
+        if (!Paths.fileExists('images/' + ratingPath + '.png', IMAGE) && uiFolder != "")
+        {
+            if (ratingImageToUse.contains("-e") || ratingImageToUse.contains("-l"))
+            {
+                ratingPath = uiFolder + daRating.image + uiPostfix;
+                if (!Paths.fileExists('images/' + ratingPath + '.png', IMAGE))
+                {
+                    var fallback:String = (stageUI != "normal") ? uiPrefix + "UI/" : "";
+                    ratingPath = fallback + daRating.image + uiPostfix;
+                }
+            }
+            else
+            {
+                var fallback:String = (stageUI != "normal") ? uiPrefix + "UI/" : "";
+                ratingPath = fallback + daRating.image + uiPostfix;
+            }
+        }
+        
+        rating.loadGraphic(Paths.image(ratingPath));
+        rating.screenCenter();
+        rating.x = placement - 40 + ClientPrefs.data.comboOffset[0];
+		rating.y -= 60 - ClientPrefs.data.comboOffset[1];
+        if (ClientPrefs.data.comboStacking) {
+			rating.acceleration.y = 550 * playbackRate * playbackRate;
+			applyStageVelocity(rating);}
+        rating.visible = (!ClientPrefs.data.hideHud && showRating);
+        rating.antialiasing = antialias;
+        
+        // ========== 创建毫秒文本（不使用对象池） ==========
+        var msText:FlxText = null;
+        if (!ClientPrefs.data.hideHud && ClientPrefs.data.showMS)
+        {
+            msText = new FlxText(0, 0, 0, "", 16);
+            msText.setFormat(Paths.font('pixel-latin.ttf'), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+            
+            var msTiming:Float = Math.round(rawNoteDiff * 100) / 100;
+            msText.text = (msTiming >= 0 ? "+" : "") + msTiming + "ms";
+            
+            if (ClientPrefs.data.customColor)
+            {
+                switch(daRating.name)
+                {
+                    case 'sick': msText.color = FlxColor.CYAN;
+                    case 'good': msText.color = FlxColor.LIME;
+                    case 'bad': msText.color = FlxColor.RED;
+                    case 'shit': msText.color = FlxColor.RED;
+                }
+            }
+            msText.screenCenter();
+            msText.x = placement + ClientPrefs.data.comboOffset[0] + 175;
+            msText.y -= - ClientPrefs.data.comboOffset[1];
+        }
+        
+        // ========== 创建或复用Combo精灵 ==========
+        var comboSpr:FlxSprite;
+        
+        if (ClientPrefs.data.comboStacking && showCombo) {
+            comboSpr = cast(comboSpritePool.get(), FlxSprite);
+            if (comboSpr == null) {
+                comboSpr = new FlxSprite();
+            } else {
+                comboSpr.setPosition(0, 0);
+            }
+        } else {
+            comboSpr = new FlxSprite();
+        }
+        
+        if (showCombo) {
+            var comboPath:String = uiFolder + 'combo' + uiPostfix;
+            if (!Paths.fileExists('images/' + comboPath + '.png', IMAGE))
+            {
+                var fallback:String = (stageUI != "normal") ? uiPrefix + "UI/" : "";
+                comboPath = fallback + 'combo' + uiPostfix;
+            }
+            comboSpr.loadGraphic(Paths.image(comboPath));
+            comboSpr.screenCenter();
+            comboSpr.x = placement + ClientPrefs.data.comboOffset[0];
+            comboSpr.y = comboSpr.y + 120 - ClientPrefs.data.comboOffset[1];
+			if (ClientPrefs.data.comboStacking) {
+            comboSpr.acceleration.y = FlxG.random.int(550, 600) * playbackRate * playbackRate;
+            comboSpr.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
+            comboSpr.velocity.x += FlxG.random.int(1, 10) * playbackRate;
 			}
-		}
-	}
-	// ==================== FOREVER套系特殊逻辑结束 ====================
+            comboSpr.visible = (!ClientPrefs.data.hideHud && showCombo && combo >9);
+            comboSpr.antialiasing = antialias;
+        }
+        
+        comboGroup.insert(comboGroup.length,rating);
+        if (msText != null) comboGroup.insert(comboGroup.length,msText);
+        if (showCombo) comboGroup.insert(comboGroup.length,comboSpr);
 
-	var ratingImagePath:String = uiFolder + ratingImageToUse + uiPostfix;
-	if (!Paths.fileExists('images/' + ratingImagePath + '.png', IMAGE) && uiFolder != "")
-	{
-		// 如果带后缀的图片不存在，尝试使用原始评级图片
-		if (ratingImageToUse.contains("-e") || ratingImageToUse.contains("-l"))
-		{
-			ratingImagePath = uiFolder + daRating.image + uiPostfix;
-			if (!Paths.fileExists('images/' + ratingImagePath + '.png', IMAGE))
-			{
-				var fallbackFolder:String = "";
-				if (stageUI != "normal")
-					fallbackFolder = uiPrefix + "UI/";
-				ratingImagePath = fallbackFolder + daRating.image + uiPostfix;
-			}
-		}
-		else
-		{
-			var fallbackFolder:String = "";
-			if (stageUI != "normal")
-				fallbackFolder = uiPrefix + "UI/";
-			ratingImagePath = fallbackFolder + daRating.image + uiPostfix;
-		}
-	}
+        // 调整大小
+        if (!PlayState.isPixelStage)
+        {
+            rating.setGraphicSize(Std.int(rating.width * 0.7));
+            if (showCombo) comboSpr.setGraphicSize(Std.int(comboSpr.width * 0.65));
+        }
+        else
+        {
+            rating.setGraphicSize(Std.int(rating.width * daPixelZoom * 0.85));
+            if (showCombo) comboSpr.setGraphicSize(Std.int(comboSpr.width * daPixelZoom * 0.85));
+        }
+        if (showCombo) comboSpr.updateHitbox();
+        rating.updateHitbox();
+        
+        // ========== 创建或复用数字精灵 ==========
+        var separatedScore:String = Std.string(combo).lpad('0', 3);
+        var xThing:Float = 0;
+        var createdNumbers:Array<FlxSprite> = [];
+        
+        for (i in 0...separatedScore.length)
+        {
+            var digit:Int = Std.parseInt(separatedScore.charAt(i));
+            var numPath:String;
+            
+            // Forever套系金色数字逻辑
+            if (useGoldenNumbers)
+            {
+                numPath = uiFolder + 'goldennum' + digit + uiPostfix;
+                if (!Paths.fileExists('images/' + numPath + '.png', IMAGE))
+                {
+                    numPath = uiFolder + 'num' + digit + uiPostfix;
+                }
+            }
+            else
+            {
+                numPath = uiFolder + 'num' + digit + uiPostfix;
+            }
+            
+            // 数字图片回退
+            if (!Paths.fileExists('images/' + numPath + '.png', IMAGE) && uiFolder != "")
+            {
+                var fallback:String = (stageUI != "normal") ? uiPrefix + "UI/" : "";
+                numPath = fallback + 'num' + digit + uiPostfix;
+            }
+            
+            // 从对象池获取或创建新数字精灵（只有combo stacking模式才使用对象池）
+            var numScore:FlxSprite;
+            
+            if (ClientPrefs.data.comboStacking && showComboNum) {
+                numScore = cast(comboNumPool.get(), FlxSprite);
+                if (numScore == null) {
+                    numScore = new FlxSprite();
+                } else {
+                    numScore.setPosition(0, 0);
+                    numScore.color = 0xFFFFFF; // 重置颜色
+                }
+            } else {
+                numScore = new FlxSprite();
+            }
+            
+            numScore.loadGraphic(Paths.image(numPath));
+            numScore.screenCenter();
+            numScore.x = placement + (43 * i) - 90 + ClientPrefs.data.comboOffset[2];
+			numScore.y += 80 - ClientPrefs.data.comboOffset[3];
 
-	rating.loadGraphic(Paths.image(ratingImagePath));
-	rating.screenCenter();
-	rating.x = placement - 40;
-	rating.y -= 60;
-	rating.acceleration.y = 550 * playbackRate * playbackRate;
-	if (SONG.stage == "ejected")
-	{
-		rating.velocity.y -= FlxG.random.int(540, 600) * playbackRate;
-		rating.velocity.x -= FlxG.random.int(-10, 20) * playbackRate;
-	}
-	else if (SONG.stage == "airship")
-	{
-	rating.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
-	rating.velocity.x = FlxG.random.float(-250, -300) * playbackRate;	
-	}
-	else if (SONG.stage == "turbulence")
-	{
-	rating.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
-	rating.velocity.x = FlxG.random.float(250, 300) * playbackRate;	
-	}
-	else
-	{
-	rating.velocity.y -= FlxG.random.int(140, 175) * playbackRate;
-	rating.velocity.x -= FlxG.random.int(0, 10) * playbackRate;
-	}
-	rating.visible = (!ClientPrefs.data.hideHud && showRating);
-	rating.x += ClientPrefs.data.comboOffset[0];
-	rating.y -= ClientPrefs.data.comboOffset[1];
-	rating.antialiasing = antialias;
+			if (!PlayState.isPixelStage) numScore.setGraphicSize(Std.int(numScore.width * 0.5));
+			else numScore.setGraphicSize(Std.int(numScore.width * daPixelZoom));
+            
+            // 数字着色
+            if (ClientPrefs.data.customColor && ClientPrefs.data.customUI == "Frozen" || ClientPrefs.data.forceNumberColor)
+            {
+                switch(daRating.name)
+                {
+                    case 'sick': numScore.color = 0x00FFFF;
+                    case 'good': numScore.color = 0x00FF00;
+                    case 'bad': numScore.color = 0xFF0000;
+                    case 'shit': numScore.color = 0x690000;
+                }
+            }
+            
+            numScore.updateHitbox();
+            
+            // 设置velocity
+			if (ClientPrefs.data.comboStacking) {
+				numScore.acceleration.y = FlxG.random.int(200, 300) * playbackRate * playbackRate;
+				applyStageVelocity(numScore, 0.6);}
+            numScore.visible = !ClientPrefs.data.hideHud;
+            numScore.antialiasing = antialias;
+            
+            if(showComboNum) {
+                comboGroup.insert(comboGroup.length,numScore);
+                createdNumbers.push(numScore);
+            }
+            
+            if(numScore.x > xThing ) xThing = numScore.x;
+        }
+        
+        if (showCombo && comboSpr != null) {
+            comboSpr.x = xThing + 50;
+        }
+        
+        // 根据combo stacking模式处理动画和对象回收
+        if (ClientPrefs.data.comboStacking) {
+            
+            for (numScore in createdNumbers) {
+                FlxTween.tween(numScore, {alpha: 0}, 0.2 / playbackRate, {
+                    onComplete: function(tween:FlxTween) {
+                        if (comboGroup.members.contains(numScore)) {
+							comboGroup.remove(numScore);
+                        }
+                        comboNumPool.put(numScore);
+                    },
+                    startDelay: Conductor.crochet * 0.002 / playbackRate
+                });
+            }
+            
+            // 评级动画 - 完成后归还到对象池
+            			
+                FlxTween.tween(rating, {alpha: 0}, 0.15 / playbackRate, {
+                    onComplete: function(tween:FlxTween) {
+                        if (comboGroup.members.contains(rating)) {
+                            comboGroup.remove(rating);
+                        }
+                        ratingPool.put(rating);
+                    },
+                    startDelay: Conductor.crochet * 0.0015 / playbackRate
+                });
+            
+            // Combo动画 - 完成后归还到对象池
+            if (showCombo) {
+                FlxTween.tween(comboSpr, {alpha: 0}, 0.12 / playbackRate, {
+                    onComplete: function(tween:FlxTween) {
+                        if (comboGroup.members.contains(comboSpr)) {
+							comboGroup.remove(comboSpr);
+                        }
+                        comboSpritePool.put(comboSpr);
+                    },
+                    startDelay: Conductor.crochet * 0.0012 / playbackRate
+                });
 	
-	if (!ClientPrefs.data.hideHud && ClientPrefs.data.showMS)
-	{
-		var msText:String = (msTiming >= 0 ? "+" : "") + msTiming + "ms";
-		
-		currentTimingShown = new FlxText(0, 0, 0, msText, 16);
-		currentTimingShown.setFormat(Paths.font('pixel-latin.ttf'), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-		
-		if (ClientPrefs.data.customColor)
-		{
-			switch(daRating.name)
-			{
-				case 'sick': 
-					currentTimingShown.color = FlxColor.CYAN;      // 0x00FFFF
-				case 'good': 
-					currentTimingShown.color = FlxColor.LIME;      // 0x00FF00
-				case 'bad': 
-					currentTimingShown.color = FlxColor.RED;    // 0xFF0000
-				case 'shit': 
-					currentTimingShown.color = FlxColor.RED;       // 0x970000
-			}
-		}
-		currentTimingShown.size = 16;
-		var msX:Float =	placement + ClientPrefs.data.comboOffset[0] + 175; // rating.x + 100
-		var msY:Float = 310 - ClientPrefs.data.comboOffset[1] ;   // rating.y + 50
-		currentTimingShown.x += msX;
-		currentTimingShown.y += msY;
+            }
+            
+            
+            if (msText != null)
+            {
+                FlxTween.tween(msText, {alpha: 0}, 0.2 / playbackRate, {
+                    onComplete: function(tween:FlxTween) {
+                        if (comboGroup.members.contains(msText)) {
+                            comboGroup.remove(msText);
+                        }
+                        msText.destroy(); // 文本对象直接销毁
+                    },
+                    startDelay: Conductor.crochet * 0.002 / playbackRate
+                });
+            }
+        } else {
+    // 非combo stacking模式 - 保持原有销毁逻辑
+    // 数字动画 - 参考popUpScore中数字的动画方式
+    for (numScore in createdNumbers) {
+        // 保存原始缩放
+        var originalScaleX:Float = numScore.scale.x;
+        var originalScaleY:Float = numScore.scale.y;
+        
+        // 先瞬间放大（与popUpScore中的 scale + 0.07 效果一致）
+        numScore.scale.x = originalScaleX + 0.07;
+        numScore.scale.y = originalScaleY + 0.07;
+        
+        // 回缩动画（与popUpScore中的0.2秒动画一致）
+        FlxTween.tween(numScore.scale, {x: originalScaleX}, 0.2 / playbackRate);
+        FlxTween.tween(numScore.scale, {y: originalScaleY}, 0.2 / playbackRate);
+        
+        // 淡出并销毁（与popUpScore中的延迟淡出一致）
+        FlxTween.tween(numScore, {alpha: 0}, 0.2 / playbackRate, {
+            onComplete: function(tween:FlxTween) {
+                if (comboGroup.members.contains(numScore)) {
+                    comboGroup.remove(numScore);
+                }
+                numScore.destroy();
+            },
+            startDelay: Conductor.crochet * 0.002 / playbackRate
+        });
+    }
+    
+    // 评级动画 - 添加放大回缩效果
+    var ratingOriginalScaleX:Float = rating.scale.x;
+    var ratingOriginalScaleY:Float = rating.scale.y;
+    
+    // 先瞬间放大
+    rating.scale.x = ratingOriginalScaleX + 0.07;
+    rating.scale.y = ratingOriginalScaleY + 0.07;
+    
+    // 回缩动画
+    FlxTween.tween(rating.scale, {x: ratingOriginalScaleX}, 0.2 / playbackRate);
+    FlxTween.tween(rating.scale, {y: ratingOriginalScaleY}, 0.2 / playbackRate);
+    
+    // 淡出动画
+    FlxTween.tween(rating, {alpha: 0}, 0.2 / playbackRate, {
+        startDelay: Conductor.crochet * 0.001 / playbackRate
+    });
+    
+    // Combo动画
+    if (showCombo) {
+        var comboOriginalScaleX:Float = comboSpr.scale.x;
+        var comboOriginalScaleY:Float = comboSpr.scale.y;
+        
+        // 先瞬间放大
+        comboSpr.scale.x = comboOriginalScaleX + 0.07;
+        comboSpr.scale.y = comboOriginalScaleY + 0.07;
+        
+        // 回缩动画
+        FlxTween.tween(comboSpr.scale, {x: comboOriginalScaleX}, 0.2 / playbackRate);
+        FlxTween.tween(comboSpr.scale, {y: comboOriginalScaleY}, 0.2 / playbackRate);
+        
+        // 淡出并销毁
+        FlxTween.tween(comboSpr, {alpha: 0}, 0.2 / playbackRate, {
+            onComplete: function(tween:FlxTween) {
+                if (comboGroup.members.contains(comboSpr)) {
+                    comboGroup.remove(comboSpr);
+                }
+                comboSpr.destroy();
+                
+                if (comboGroup.members.contains(rating)) {
+                    comboGroup.remove(rating);
+                }
+                rating.destroy();
+            },
+            startDelay: Conductor.crochet * 0.002 / playbackRate
+        });
+    } else {
+        // rating已经在上面处理了淡出，这里只做延迟销毁
+        FlxTween.tween(rating, {alpha: 0}, 0.2 / playbackRate, {
+            onComplete: function(tween:FlxTween) {
+                if (comboGroup.members.contains(rating)) {
+                    comboGroup.remove(rating);
+                }
+                rating.destroy();
+            },
+            startDelay: Conductor.crochet * 0.002 / playbackRate
+        });
+    }
+    
+    // MS文本动画
+    if (msText != null) {
+        FlxTween.tween(msText, {alpha: 0}, 0.2 / playbackRate, {
+            onComplete: function(tween:FlxTween) {
+                if (comboGroup.members.contains(msText)) {
+                    comboGroup.remove(msText);
+                }
+                msText.destroy();
+            },
+            startDelay: Conductor.crochet * 0.001 / playbackRate
+        });
+    }
+
 	}
-
-	// 加载combo图片，检查是否存在
-	var comboSpr:FlxSprite = new FlxSprite();
-	var comboImagePath:String = uiFolder + 'combo' + uiPostfix;
-	if (Paths.fileExists('images/' + comboImagePath + '.png', IMAGE))
-	{
-		comboSpr.loadGraphic(Paths.image(comboImagePath));
 	}
-	else
-	{
-		// 回退到默认路径
-		var fallbackFolder:String = "";
-		if (stageUI != "normal")
-			fallbackFolder = uiPrefix + "UI/";
-		comboSpr.loadGraphic(Paths.image(fallbackFolder + 'combo' + uiPostfix));
-	}
-	
-	comboSpr.screenCenter();
-	comboSpr.x = placement;
-	comboSpr.acceleration.y = FlxG.random.int(200, 300) * playbackRate * playbackRate;
-	comboSpr.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
-	comboSpr.visible = (!ClientPrefs.data.hideHud && showCombo);
-	comboSpr.x += ClientPrefs.data.comboOffset[0];
-	comboSpr.y -= ClientPrefs.data.comboOffset[1];
-	comboSpr.antialiasing = antialias;
-	comboSpr.y += 60;
-	comboSpr.velocity.x += FlxG.random.int(1, 10) * playbackRate;
-	comboGroup.add(rating);
-	if (currentTimingShown != null)
-		comboGroup.add(currentTimingShown);
-
-	if (!PlayState.isPixelStage)
-	{
-		rating.setGraphicSize(Std.int(rating.width * 0.7));
-		comboSpr.setGraphicSize(Std.int(comboSpr.width * 0.7));
-	}
-	else
-	{
-		rating.setGraphicSize(Std.int(rating.width * daPixelZoom * 0.85));
-		comboSpr.setGraphicSize(Std.int(comboSpr.width * daPixelZoom * 0.85));
-	}
-
-	comboSpr.updateHitbox();
-	rating.updateHitbox();
-
-	var daLoop:Int = 0;
-	var xThing:Float = 0;
-	if (showCombo)
-		comboGroup.add(comboSpr);
-
-	var separatedScore:String = Std.string(combo).lpad('0', 3);
-	
-	// 数字根据评级变色
-	for (i in 0...separatedScore.length)
-	{
-		var numImagePath:String;
-		
-		// ==================== FOREVER套系数字逻辑开始 ====================
-		if (isForeverUI && shouldUseGoldenNumbers)
-		{
-			// 使用金色数字前缀
-			numImagePath = uiFolder + 'goldennum' + Std.parseInt(separatedScore.charAt(i)) + uiPostfix;
-			
-			// 如果金色数字不存在，回退到普通数字
-			if (!Paths.fileExists('images/' + numImagePath + '.png', IMAGE))
-			{
-				numImagePath = uiFolder + 'num' + Std.parseInt(separatedScore.charAt(i)) + uiPostfix;
-			}
-		}
-		else
-		{
-			// 非Forever套系或非Marvelous情况，使用默认数字
-			numImagePath = uiFolder + 'num' + Std.parseInt(separatedScore.charAt(i)) + uiPostfix;
-		}
-		// ==================== FOREVER套系数字逻辑结束 ====================
-		
-		// 检查数字图片是否存在，不存在则回退
-		if (!Paths.fileExists('images/' + numImagePath + '.png', IMAGE) && uiFolder != "")
-		{
-			var fallbackFolder:String = "";
-			if (stageUI != "normal")
-				fallbackFolder = uiPrefix + "UI/";
-			numImagePath = fallbackFolder + 'num' + Std.parseInt(separatedScore.charAt(i)) + uiPostfix;
-		}
-		
-		var numScore:FlxSprite = new FlxSprite().loadGraphic(Paths.image(numImagePath));
-		numScore.screenCenter();
-		numScore.x = placement + (43 * daLoop) - 90 + ClientPrefs.data.comboOffset[2];
-		numScore.y += 80 - ClientPrefs.data.comboOffset[3];
-
-		if (!PlayState.isPixelStage) 
-		{
-			numScore.setGraphicSize(Std.int(numScore.width * 0.5));
-		}
-		else 
-		{
-			numScore.setGraphicSize(Std.int(numScore.width * daPixelZoom));
-		}
-		
-		// 根据评级给数字着色
-		if (ClientPrefs.data.customColor && ClientPrefs.data.customUI == "Frozen" || ClientPrefs.data.forceNumberColor)
-		{
-			switch(daRating.name)
-			{
-			case 'sick':
-					numScore.color = 0x00FFFF; // 青色/CYAN
-			case 'good':
-				numScore.color = 0x00FF00; // 绿色/GREEN
-			case 'bad':
-				numScore.color = 0xFF0000; // 橙色/ORANGE
-			case 'shit':
-				numScore.color = 0x690000; // 红色/RED
-		}
-		}
-		
-		numScore.updateHitbox();
-
-		numScore.acceleration.y = FlxG.random.int(200, 300) * playbackRate * playbackRate;
-		if (SONG.stage == "ejected")
-		{
-		numScore.velocity.y -= FlxG.random.int(540, 580) * playbackRate;
-		numScore.velocity.x = FlxG.random.float(-15, 15) * playbackRate;
-		}
-		else if (SONG.stage == "airship")
-		{
-		numScore.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
-		numScore.velocity.x = FlxG.random.float(-250, -300) * playbackRate;	
-		}
-		else if (SONG.stage == "turbulence")
-		{
-		numScore.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
-		numScore.velocity.x = FlxG.random.float(250, 300) * playbackRate;	
-		}
-		else
-		{
-		numScore.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
-		numScore.velocity.x = FlxG.random.float(-5, 5) * playbackRate;
-		}
-		numScore.visible = !ClientPrefs.data.hideHud;
-		numScore.antialiasing = antialias;
-
-		if(showComboNum)
-			comboGroup.add(numScore);
-
-		// 保持原来的消失时间
-		FlxTween.tween(numScore, {alpha: 0}, 0.2 / playbackRate, {
-			onComplete: function(tween:FlxTween)
-			{
-				numScore.destroy();
-			},
-			startDelay: Conductor.crochet * 0.002 / playbackRate
-		});
-
-		daLoop++;
-		if(numScore.x > xThing) xThing = numScore.x;
-	}
-	
-	comboSpr.x = xThing + 50;
-	FlxTween.tween(rating, {alpha: 0}, 0.2 / playbackRate, {
-		startDelay: Conductor.crochet * 0.001 / playbackRate
-	});
-
-	FlxTween.tween(comboSpr, {alpha: 0}, 0.2 / playbackRate, {
-		onComplete: function(tween:FlxTween)
-		{
-			comboSpr.destroy();
-			rating.destroy();
-		},
-		startDelay: Conductor.crochet * 0.002 / playbackRate
-	});
-
-	if (currentTimingShown != null)
-	{
-		FlxTween.tween(currentTimingShown, {alpha: 0}, 0.2 / playbackRate, {
-			onComplete: function(tween:FlxTween)
-			{},
-			startDelay: Conductor.crochet * 0.001 / playbackRate // 与rating同时开始
-		});
-	}
-}
 
 	public var strumsBlocked:Array<Bool> = [];
 	private function onKeyPress(event:KeyboardEvent):Void
@@ -3967,6 +4025,7 @@ public function proceedToNextState():Void
 			strumGuideLine = null;
 		}
 
+		clearObjectPools();
 		super.destroy();
 	}
 
@@ -4610,9 +4669,7 @@ private function processReplayNotes(elapsed:Float):Void
         try {
             if (!isMiss) {
                 processReplayHit(replayNote, realCurrentTime);
-            } else {
-                processReplayMiss(replayNote, realCurrentTime);
-            }
+            } 
             
             // 标记为已处理
             replayNoteQueue[repNoteIndex][5] = true;
@@ -4699,27 +4756,6 @@ private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):
 }
 
 /**
- * 处理回放失误 (miss)
- */
-private function processReplayMiss(replayNote:Array<Dynamic>, currentTime:Float):Void
-{
-    var noteStrTime:Float = replayNote[0];
-    var column:Int = replayNote[2];
-    
-    trace('Processing replay MISS: time=${noteStrTime}, col=${column}');
-    
-    // 播放miss效果
-    noteMissPress(column);
-    
-    // 播放miss动画
-    var animName:String = singAnimations[column] + 'miss';
-    if (boyfriend != null && boyfriend.hasAnimation(animName))
-    {
-        boyfriend.playAnim(animName, true);
-    }
-}
-
-/**
  * 基于音符的原始出现时间查找音符（关键修复）
  */
 private function findNoteAtOriginalTime(targetTime:Float, column:Int):Note
@@ -4777,42 +4813,6 @@ private function findNoteAtOriginalTime(targetTime:Float, column:Int):Note
     return bestNote;
 }
 
-/**
- * 备选方案：根据实际击打时间查找音符
- */
-private function findNoteAtActualHitTime(hitTime:Float, column:Int):Note
-{
-    var bestNote:Note = null;
-    var minTimeDiff:Float = Conductor.safeZoneOffset * 0.5; // 50%的安全区
-    
-    notes.forEachAlive(function(daNote:Note)
-    {
-        if (!daNote.mustPress || 
-            daNote.wasGoodHit || 
-            daNote.tooLate || 
-            !daNote.canBeHit || 
-            daNote.noteData != column)
-            return;
-        
-        // 计算音符可被击打的时间窗口
-        var noteHitWindowStart:Float = daNote.strumTime - Conductor.safeZoneOffset + ClientPrefs.data.ratingOffset;
-        var noteHitWindowEnd:Float = daNote.strumTime + Conductor.safeZoneOffset + ClientPrefs.data.ratingOffset;
-        
-        // 如果击打时间在音符的可击打窗口内
-        if (hitTime >= noteHitWindowStart && hitTime <= noteHitWindowEnd)
-        {
-            // 选择时间最接近的音符
-            var timeDiff:Float = Math.abs(daNote.strumTime - hitTime);
-            if (timeDiff < minTimeDiff)
-            {
-                minTimeDiff = timeDiff;
-                bestNote = daNote;
-            }
-        }
-    });
-    
-    return bestNote;
-}
 
 /**
  * 处理长条音符
@@ -4885,4 +4885,181 @@ private function completeReplay():Void
     // 可以选择自动退出回放模式
     inReplay = false;
 }
+
+/**
+ * 获取UI文件夹路径和抗锯齿设置
+ */
+private function getUIFolderInfo():{folder:String, antialias:Bool}
+{
+    var uiFolder:String = "";
+    var customUIPath:String = "";
+    var antialias:Bool = ClientPrefs.data.antialiasing;
+    
+    // 获取自定义UI路径（如果存在）
+    if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI != "")
+    {
+        customUIPath = ClientPrefs.data.customUI + "/";
+    }
+    
+    if (stageUI != "normal")
+    {
+        // 优先使用自定义UI路径，否则使用默认路径
+        uiFolder = (customUIPath != "") ? 'ratings/' + customUIPath + uiPrefix + "UI/" : uiPrefix + "UI/";
+        antialias = !isPixelStage;
+    }
+    else if (customUIPath != "")
+    {
+        uiFolder = 'ratings/' + customUIPath;
+    }
+    
+    return {folder: uiFolder, antialias: antialias};
+}
+
+/**
+ * 处理Forever套系的特殊逻辑
+ * @return 返回要使用的评级图片名称和是否使用金色数字
+ */
+private function processForeverUILogic(daRating:Rating, noteDiff:Float, rawNoteDiff:Float):{imageName:String, useGoldenNumbers:Bool}
+{
+    var imageName:String = daRating.image;
+    var useGoldenNumbers:Bool = false;
+    
+    // 检查是否为Forever套系
+    var isForever:Bool = (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI.toLowerCase().contains("forever"));
+    if (!isForever) return {imageName: imageName, useGoldenNumbers: useGoldenNumbers};
+    
+    // 检查ratingFC是否为MFC或SFC
+    var isMFCOrSFC:Bool = (ratingFC == "MFC" || ratingFC == "SFC");
+    
+    // 如果ratingFC为MFC或SFC，始终使用Marvelous
+    // 否则只在22.5ms内使用Marvelous
+    if (isMFCOrSFC || (noteDiff <= ClientPrefs.data.marvelousWindow && daRating.name != "shit" && daRating.name != "bad" && daRating.name != "good"))
+    {
+        imageName = "marvelous";
+        useGoldenNumbers = true;
+    }
+    else
+    {
+        // 对于good/bad/shit评级，添加Early/Late后缀
+        if (daRating.name == "good" || daRating.name == "bad" || daRating.name == "shit")
+        {
+            imageName = daRating.image + (rawNoteDiff > 0 ? "-e" : "-l");
+        }
+    }
+    
+    return {imageName: imageName, useGoldenNumbers: useGoldenNumbers};
+}
+
+/**
+ * 根据场景设置velocity
+ */
+private function applyStageVelocity(sprite:FlxSprite, multiplier:Float = 1.0):Void
+{
+    switch(SONG.stage)
+    {
+        case "ejected":
+            sprite.velocity.y -= FlxG.random.int(540, 600) * playbackRate * multiplier;
+            if (multiplier == 1.0) // rating
+                sprite.velocity.x -= FlxG.random.int(-10, 20) * playbackRate;
+            else // numbers
+                sprite.velocity.x = FlxG.random.float(-15, 15) * playbackRate;
+                
+        case "airship":
+            sprite.velocity.y -= FlxG.random.int(140, 160) * playbackRate * multiplier;
+            sprite.velocity.x = FlxG.random.float(-250, -300) * playbackRate;
+            
+        case "turbulence":
+            sprite.velocity.y -= FlxG.random.int(140, 160) * playbackRate * multiplier;
+            sprite.velocity.x = FlxG.random.float(250, 300) * playbackRate;
+            
+        default:
+            sprite.velocity.y -= FlxG.random.int(140, 175) * playbackRate * multiplier;
+            sprite.velocity.x -= FlxG.random.int(0, 10) * playbackRate;
+    }
+}
+ private function initObjectPools():Void {
+        ratingPool = new SpritePool(maxPoolSize);
+        comboNumPool = new SpritePool(maxPoolSize);
+        comboSpritePool = new SpritePool(maxPoolSize);
+    }
+    
+    // 清理对象池
+    private function clearObjectPools():Void {
+        if (ratingPool != null) ratingPool.clear();
+        if (comboNumPool != null) comboNumPool.clear();
+        if (comboSpritePool != null) comboSpritePool.clear();
+    }
+
+	  // 预创建池对象
+    private function precreatePoolObjects():Void {
+        if (maxPoolSize <= 0 || !ClientPrefs.data.comboStacking) return;
+        
+        // 预创建评级精灵
+        for (i in 0...Math.floor(maxPoolSize / 3)) {
+            var rating = new FlxSprite();
+            ratingPool.put(rating);
+        }
+        
+        // 预创建数字精灵（需要多一些，因为combo数字多）
+        for (i in 0...maxPoolSize) {
+            var num = new FlxSprite();
+            comboNumPool.put(num);
+        }
+        
+        // 预创建combo精灵
+        for (i in 0...Math.floor(maxPoolSize / 3)) {
+            var combo = new FlxSprite();
+            comboSpritePool.put(combo);
+        }
+    }
+
+}
+//对象池V2.0，增加了重置对象状态的功能，并且改为队列结构（FIFO）, 还有Funkin Team我早密码
+class SpritePool {
+    private var pool:Array<FlxSprite> = [];
+    private var maxSize:Int;
+    
+    public function new(maxSize:Int = 20) {
+        this.maxSize = maxSize;
+    }
+    
+    public function get():FlxSprite {
+    if (pool.length > 0) {
+        var obj = pool.shift();
+        return obj;
+    }
+    return null;
+}
+
+    public function put(obj:FlxSprite):Void {
+        if (pool.length < maxSize) {
+            resetObject(obj);
+            pool.push(obj); // 加入队列末尾
+        } else {
+            obj.destroy();
+        }
+    }
+    
+    private function resetObject(obj:FlxSprite):Void {
+        // 重置基本属性
+        obj.alpha = 1;
+        obj.visible = true;
+        obj.active = true;
+        obj.velocity.set(0, 0);
+        obj.acceleration.set(0, 0);
+        obj.scale.set(1, 1);
+        obj.color = 0xFFFFFF; // 重置颜色
+        
+        // 取消所有动画
+        FlxTween.cancelTweensOf(obj);
+
+    }
+    
+    public function clear():Void {
+        while (pool.length > 0) {
+            var obj = pool.shift();
+            if (obj != null) obj.destroy();
+        }
+        pool = [];
+    }
 }

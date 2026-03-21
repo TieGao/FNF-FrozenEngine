@@ -8,6 +8,7 @@ import flixel.util.FlxTimer;
 import states.MainMenuState;
 import backend.MusicBeatState;
 import backend.StageData;
+import backend.Controls;
 
 import objects.BiosDateDisplay;
 
@@ -82,6 +83,7 @@ class KEOptionsMenu extends MusicBeatState
 
 	var beamShader:ParticleBeamShader = new ParticleBeamShader();
 
+
 	public function new(pauseMenu:Bool = false)
 	{
 		super();
@@ -97,7 +99,6 @@ class KEOptionsMenu extends MusicBeatState
 	override function create()
 	{
 		super.create();
-
 		// 创建横向铺满的选项卡
 		options = [
 			new KEOptionCata(0, MARGIN_TOP, "Basics", getControlsOptions()),
@@ -195,8 +196,6 @@ class KEOptionsMenu extends MusicBeatState
 		var currentColorIndex:Int = 0;
 		var nextColorIndex:Int = 1;
 		var colorTransitionTime:Float = 2.5;
-
-		// 设置选项区域背景的初始颜色
 
 		// 开始颜色渐变循环
 		function startColorCycle():Void
@@ -523,7 +522,7 @@ class KEOptionsMenu extends MusicBeatState
 		FlxG.mouse.visible = true;
 		FlxG.mouse.useSystemCursor = ClientPrefs.data.useSystemCursor;
 
-		// 退出检测 - 添加鼠标右键支持
+		// 使用 Controls 的 BACK 退出检测 - 添加鼠标右键支持
 		if (!isClosing && (controls.BACK || FlxG.mouse.justPressedRight))
 		{
 			if(onMainMenuState && !onPlayState)
@@ -691,33 +690,19 @@ class KEOptionsMenu extends MusicBeatState
 		updateOptionPositions();
 		#end
 
-		
-		var gamepad:FlxGamepad = FlxG.gamepads.lastActive;
-
-		var accept = false;
-		var right = false;
-		var left = false;
-		var up = false;
-		var down = false;
-		var escape = false;
-		var rightPressed = false;
-		var leftPressed = false;
-		var upPressed = false;
-		var downPressed = false;
+		// 使用 Controls 获取输入状态
+		var accept = controls.ACCEPT;
+		var right = controls.UI_RIGHT_P;
+		var left = controls.UI_LEFT_P;
+		var up = controls.UI_UP_P;
+		var down = controls.UI_DOWN_P;
+		var rightPressed = controls.UI_RIGHT;
+		var leftPressed = controls.UI_LEFT;
+		var upPressed = controls.UI_UP;
+		var downPressed = controls.UI_DOWN;
 
 		changedOption = false;
 
-		accept = FlxG.keys.justPressed.ENTER || (gamepad != null ? gamepad.justPressed.A : false);
-		right = FlxG.keys.justPressed.RIGHT || (gamepad != null ? gamepad.justPressed.DPAD_RIGHT : false);
-		left = FlxG.keys.justPressed.LEFT || (gamepad != null ? gamepad.justPressed.DPAD_LEFT : false);
-		up = FlxG.keys.justPressed.UP || (gamepad != null ? gamepad.justPressed.DPAD_UP : false);
-		down = FlxG.keys.justPressed.DOWN || (gamepad != null ? gamepad.justPressed.DPAD_DOWN : false);
-		rightPressed = FlxG.keys.pressed.RIGHT || (gamepad != null ? gamepad.pressed.DPAD_RIGHT : false);
-		leftPressed = FlxG.keys.pressed.LEFT || (gamepad != null ? gamepad.pressed.DPAD_LEFT : false);
-		upPressed = FlxG.keys.pressed.UP || (gamepad != null ? gamepad.pressed.DPAD_UP : false);
-		downPressed = FlxG.keys.pressed.DOWN || (gamepad != null ? gamepad.pressed.DPAD_DOWN : false);
-		escape = FlxG.keys.justPressed.ESCAPE || (gamepad != null ? gamepad.justPressed.B : false);
-		
 		// 鼠标点击分类标签切换分类
 		for (i in 0...options.length)
 		{
@@ -977,7 +962,7 @@ class KEOptionsMenu extends MusicBeatState
 		}
 	}
 
-		// 在 KEOptionsMenu 类的 getGameplayOptions 函数中，添加二级菜单示例：
+	// 在 KEOptionsMenu 类的 getGameplayOptions 函数中，添加二级菜单示例：
 	function getGameplayOptions():Array<KEOption>
 	{
 		// 创建一个窗口设置二级菜单
@@ -1026,7 +1011,13 @@ class KEOptionsMenu extends MusicBeatState
 				KEOption.create("Note Opacity", "Note transparency", "noteAlpha", "float", 0.9, 0, 1, 0.1),
 				KEOption.create("Note Splash Opacity", "Note splash transparency", "splashAlpha", "float", 0.8, 0, 1, 0.1),
 				KEOption.create("Note HoldCover Opacity", "Note splash transparency", "holdcoverAlpha", "float", 0.8, 0, 1, 0.1),
-				KEOption.create("Force Number Color", "Force numbers to a specific color", "forceNumberColor", "bool")
+				KEOption.create("Force Number Color", "Force numbers to a specific color", "forceNumberColor", "bool"),
+				KEOption.create("showEarlyLate", "Show early/late text on hit", "showEarlyLate", "bool"),
+				KEOption.create("showCombo", "Show combo text when combo > 10", "showCombo", "bool"),
+				KEOption.create("Force Note Skin", "Force using the custom note skin", "forceNoteSkin", "bool"),
+				KEOption.create("Force Splash Skin", "Force using the custom splash skin", "forceSplashSkin", "bool"),
+				KEOption.create("Force RGB Shader", "Force using the RGB shader for notes and splashes", "forceRGBShader", "bool")
+
 			],
 			"",
 			"Skin Settings"

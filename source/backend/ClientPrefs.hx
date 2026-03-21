@@ -146,6 +146,11 @@ import states.TitleState;
 	public var noteSustainsOffset:Float = 0.0;
 	public var legacymp:Bool = true;
 	public var useSystemCursor:Bool = false;
+	public var showEarlyLate:Bool = true;
+	public var showCombo:Bool = false;
+	public var forceNoteSkins:Bool = false;
+	public var forceSplashSkins:Bool = false;
+	public var forceNoteRGB:Bool = false;
 }
 
 class ClientPrefs {
