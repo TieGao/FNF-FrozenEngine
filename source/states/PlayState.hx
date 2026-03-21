@@ -558,9 +558,11 @@ class PlayState extends MusicBeatState
 		startCharacterScripts(boyfriend.curCharacter);
 		#end
 
+		videoGroup = new FlxSpriteGroup();
 		uiGroup = new FlxSpriteGroup();
 		comboGroup = new FlxSpriteGroup();
 		noteGroup = new FlxTypedGroup<FlxBasic>();
+		add(videoGroup);
 		add(comboGroup);
 		add(uiGroup);
 		add(noteGroup);
@@ -691,6 +693,7 @@ class PlayState extends MusicBeatState
 		if(ClientPrefs.data.downScroll)
 			botplayTxt.y = healthBar.y + 70;
 
+		videoGroup.cameras = [camHUD];
 		uiGroup.cameras = [camHUD];
 		noteGroup.cameras = [camHUD];
 		comboGroup.cameras = [camHUD];
@@ -1001,7 +1004,7 @@ class PlayState extends MusicBeatState
 	}
 
 	public var videoCutscene:VideoSprite = null;
-	public function startVideo(name:String, forMidSong:Bool = false, canSkip:Bool = true, loop:Bool = false, playOnLoad:Bool = true)
+	public function startVideo(name:String, forMidSong:Bool = false, canSkip:Bool = true, loop:Bool = false, playOnLoad:Bool = true, group:String = "", place = 0)
 	{
 		#if VIDEOS_ALLOWED
 		inCutscene = !forMidSong;
@@ -1041,8 +1044,16 @@ class PlayState extends MusicBeatState
 				videoCutscene.onSkip = onVideoEnd;
 			}
 			if (GameOverSubstate.instance != null && isDead) GameOverSubstate.instance.add(videoCutscene);
-			else add(videoCutscene);
-
+			else if (group == "videoGroup")	
+			{
+				videoCutscene.cameras = [camHUD];
+				videoGroup.add(videoCutscene);
+			}
+			else
+			{
+				videoCutscene.cameras = [FlxG.cameras.list[FlxG.cameras.list.length -1]];
+				add(videoCutscene);
+			}
 			if (playOnLoad)
 				videoCutscene.play();
 			return videoCutscene;
@@ -2902,6 +2913,7 @@ public function proceedToNextState():Void
 	public var showComboNum:Bool = true;
 	public var showRating:Bool = true;
 
+	public var videoGroup:FlxSpriteGroup;
 	// Stores Ratings and Combo Sprites in a group
 	public var comboGroup:FlxSpriteGroup;
 	// Stores HUD Objects in a Group
@@ -3068,7 +3080,7 @@ public function proceedToNextState():Void
         rating.loadGraphic(Paths.image(ratingPath));
         rating.screenCenter();
         rating.x = placement - 40 + ClientPrefs.data.comboOffset[0];
-		rating.y -= 60 - ClientPrefs.data.comboOffset[1];
+		rating.y -= 60 + ClientPrefs.data.comboOffset[1];
         if (ClientPrefs.data.comboStacking) {
 			rating.acceleration.y = 550 * playbackRate * playbackRate;
 			applyStageVelocity(rating);}
@@ -3097,7 +3109,7 @@ public function proceedToNextState():Void
             }
             msText.screenCenter();
             msText.x = placement + ClientPrefs.data.comboOffset[0] + 175;
-            msText.y -= - ClientPrefs.data.comboOffset[1];
+            msText.y -= ClientPrefs.data.comboOffset[1];
         }
         
         // ========== 创建或复用Combo精灵 ==========

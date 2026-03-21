@@ -1327,7 +1327,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         }
         
         var alpha = 0.6;
-        if (Math.abs(distance) == 1) {
+        if (Math.abs(distance) < 0.7) {
             alpha = 0.8;
             bgSprite.color = 0xFF4A4A4A; 
         } else {
