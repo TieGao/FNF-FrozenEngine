@@ -150,7 +150,7 @@ class MasterEditorMenu extends MusicBeatState
 			executeSelectedOption();
 		}
 
-		if (controls.BACK)
+		if (controls.BACK || FlxG.mouse.justPressedRight)
 		{
 			FlxG.mouse.visible = false;
 			lastMousePos.put();

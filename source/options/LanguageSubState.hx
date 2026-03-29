@@ -116,7 +116,7 @@ class LanguageSubState extends MusicBeatSubstate
 		if(FlxG.mouse.wheel != 0)
 			changeSelected(FlxG.mouse.wheel * mult);
 
-		if(controls.BACK)
+		if(controls.BACK || FlxG.mouse.justPressedRight)
 		{
 			if(changedLanguage)
 			{

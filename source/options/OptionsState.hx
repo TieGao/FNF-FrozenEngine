@@ -112,7 +112,7 @@ class OptionsState extends MusicBeatState
     if (controls.UI_DOWN_P)
         changeSelection(1);
 
-    if (controls.BACK)
+    if (controls.BACK || FlxG.mouse.justPressedRight)
     {
         FlxG.sound.play(Paths.sound('cancelMenu'));
         if(onPlayState)

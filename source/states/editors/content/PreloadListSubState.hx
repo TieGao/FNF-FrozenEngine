@@ -213,7 +213,7 @@ class PreloadListSubState extends MusicBeatSubstate implements PsychUIEvent
 		outputTxt.alpha = outputTime;
 		if(!fileDialog.completed) return;
 			
-		if(controls.BACK)
+		if(controls.BACK || FlxG.mouse.justPressedRight)
 		{
 			close();
 		}

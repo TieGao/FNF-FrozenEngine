@@ -24,7 +24,7 @@ class OutdatedSubState extends MusicBeatSubstate
 		add(bg);
 
 		warnText = new FlxText(0, 0, FlxG.width,
-			'Sup bro, looks like you\'re running an outdated version of\nPsych Engine (${MainMenuState.psychEngineVersion})\n
+			'Sup bro, looks like you\'re running an outdated version of\nPsych Engine (${MainMenuState.frozenEngineVersion})\n
 			-----------------------------------------------\n
 			Press ENTER to update to the latest version ${updateVersion}\n
 			Press ESCAPE to proceed anyway.\n
@@ -50,7 +50,7 @@ class OutdatedSubState extends MusicBeatSubstate
 				leftState = true;
 				CoolUtil.browserLoad("https://github.com/TieGao/FNF-FrozenEngine/releases");
 			}
-			else if(controls.BACK) {
+			else if(controls.BACK || FlxG.mouse.justPressedRight	) {
 				leftState = true;
 			}
 			if(leftState)

@@ -205,8 +205,6 @@ class FreeplayState extends MusicBeatState
             card.targetY = i;
             cards.push(card);
             add(card);
-            
-            Mods.currentModDirectory = oldModDir;
         }
 
         // 分数显示
@@ -299,7 +297,6 @@ class FreeplayState extends MusicBeatState
     function preloadConfiguredArts()
     {
         #if MODS_ALLOWED
-        var oldModDir = Mods.currentModDirectory;
         
         for (song in songs)
         {
@@ -322,7 +319,6 @@ class FreeplayState extends MusicBeatState
             }
         }
         
-        Mods.currentModDirectory = oldModDir;
         #end
     }
 
@@ -336,13 +332,6 @@ class FreeplayState extends MusicBeatState
     public function addSong(songName:String, weekNum:Int, songCharacter:String, color:Int)
 {
     var song = new NewSongMetaData(songName, weekNum, songCharacter, color);
-    song.folder = Mods.currentModDirectory;
-    
-    // 重要：先保存当前目录
-    var oldModDir = Mods.currentModDirectory;
-    
-    // 设置到歌曲所在的模组目录
-    Mods.currentModDirectory = song.folder;
     
     // 从当前周加载难度
     var weekData = WeekData.weeksLoaded.get(WeekData.weeksList[weekNum]);
@@ -399,11 +388,7 @@ class FreeplayState extends MusicBeatState
         // 使用默认难度
         difficulties = Difficulty.defaultList.copy();
         song.difficultyInfo = SongInfoParser.preloadAllDifficulties(songName, song.folder, difficulties, null);
-    }
-    
-    // 恢复原来的目录
-    Mods.currentModDirectory = oldModDir;
-    
+    }  
     songs.push(song);
 }
 
@@ -499,8 +484,7 @@ class FreeplayState extends MusicBeatState
         try
         {
             destroyFreeplayVocals();
-            
-            var oldModDirectory = Mods.currentModDirectory;
+
             Mods.currentModDirectory = songs[curSelected].folder;
             
             #if sys
@@ -510,7 +494,6 @@ class FreeplayState extends MusicBeatState
                 chartPath = Paths.json(songLowercase + '/' + poop);
                 if (!sys.FileSystem.exists(chartPath))
                 {
-                    Mods.currentModDirectory = oldModDirectory;
                     throw new haxe.Exception('Chart file not found: $poop');
                 }
             }
@@ -551,8 +534,6 @@ class FreeplayState extends MusicBeatState
             
             musicPlayer.playingMusic = true;
             musicPlayer.switchPlayMusic();
-            
-            Mods.currentModDirectory = oldModDirectory;
         }
         catch(e:haxe.Exception)
         {
@@ -944,6 +925,9 @@ class FreeplayState extends MusicBeatState
     // 修复：完整的 changeSelection 函数
   function changeSelection(change:Int = 0, playSound:Bool = true)
 {
+    var oldModDir = Mods.currentModDirectory;
+    
+    Mods.currentModDirectory = songs[curSelected].folder;
     if (musicPlayer.playingMusic)
         return;
 
@@ -961,12 +945,6 @@ class FreeplayState extends MusicBeatState
     }
 
     updateCornerGlow();
-
-    // 重要：先保存当前目录
-    var oldModDir = Mods.currentModDirectory;
-    
-    // 设置到选中歌曲的模组目录
-    Mods.currentModDirectory = songs[curSelected].folder;
     
     // 设置周目录并加载难度
     PlayState.storyWeek = songs[curSelected].week;
@@ -997,8 +975,6 @@ class FreeplayState extends MusicBeatState
         Difficulty.loadFromWeek();
     }
     
-    // 恢复原来的目录
-    Mods.currentModDirectory = oldModDir;
     
     // 修复：恢复选中歌曲的最后使用难度
     var savedDiff:String = songs[curSelected].lastDifficulty;
@@ -1180,8 +1156,6 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         icon.updateHitbox();
         icon.scrollFactor.set();
         add(icon);
-        
-        Mods.currentModDirectory = oldModDir;
         
         rhombusBg = new FlxSprite(x + 400, y);
 

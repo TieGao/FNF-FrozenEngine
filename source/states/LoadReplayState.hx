@@ -766,7 +766,7 @@ class LoadReplayState extends MusicBeatState
     
     function handleKeyboardControls()
     {
-        if (controls.BACK)
+        if (controls.BACK || FlxG.mouse.justPressedRight) // 右键也作为返回
         {
             FlxG.sound.play(Paths.sound('cancelMenu'));
             MusicBeatState.switchState(new FreeplayState());

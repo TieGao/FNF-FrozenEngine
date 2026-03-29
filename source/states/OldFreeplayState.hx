@@ -331,7 +331,7 @@ class OldFreeplayState extends MusicBeatState
 			}
 		}
 
-		if (controls.BACK)
+		if (controls.BACK || FlxG.mouse.justPressedRight)
 		{
 			if (player.playingMusic)
 			{
