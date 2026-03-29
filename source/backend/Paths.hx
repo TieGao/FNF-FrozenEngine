@@ -273,16 +273,64 @@ class Paths
 
 	public static var currentTrackedAssets:Map<String, FlxGraphic> = [];
 	static public function image(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxGraphic
-	{
-		key = Language.getFileTranslation('images/$key') + '.png';
-		var bitmap:BitmapData = null;
-		if (currentTrackedAssets.exists(key))
-		{
-			localTrackedAssets.push(key);
-			return currentTrackedAssets.get(key);
-		}
-		return cacheBitmap(key, parentFolder, bitmap, allowGPU);
-	}
+{
+    key = Language.getFileTranslation('images/$key') + '.png';
+    
+    // 关键修改：如果当前有模组目录，使用模组隔离的缓存键
+    var cacheKey = key;
+    #if MODS_ALLOWED
+    if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0 && Mods.currentModDirectory != "base")
+    {
+        cacheKey = Mods.currentModDirectory + ":" + key;
+    }
+    #end
+    
+    // 检查全局缓存（使用模组隔离的键）
+    if (currentTrackedAssets.exists(cacheKey))
+    {
+        localTrackedAssets.push(cacheKey);
+        return currentTrackedAssets.get(cacheKey);
+    }
+    
+    // 加载位图
+    var bitmap:BitmapData = null;
+    var file:String = getPath(key, IMAGE, parentFolder, true);
+    
+    #if MODS_ALLOWED
+    if (FileSystem.exists(file))
+        bitmap = BitmapData.fromFile(file);
+    else #end if (OpenFlAssets.exists(file, IMAGE))
+        bitmap = OpenFlAssets.getBitmapData(file);
+    
+    if (bitmap == null)
+    {
+        trace('Bitmap not found: $file | key: $key');
+        return null;
+    }
+    
+    if (allowGPU && ClientPrefs.data.cacheOnGPU && bitmap.image != null)
+    {
+        bitmap.lock();
+        if (bitmap.__texture == null)
+        {
+            bitmap.image.premultiplied = true;
+            bitmap.getTexture(FlxG.stage.context3D);
+        }
+        bitmap.getSurface();
+        bitmap.disposeImage();
+        bitmap.image.data = null;
+        bitmap.image = null;
+        bitmap.readable = true;
+    }
+    
+    var graph:FlxGraphic = FlxGraphic.fromBitmapData(bitmap, false, cacheKey);
+    graph.persist = true;
+    graph.destroyOnNoUse = false;
+    
+    currentTrackedAssets.set(cacheKey, graph);
+    localTrackedAssets.push(cacheKey);
+    return graph;
+}
 
 	public static function cacheBitmap(key:String, ?parentFolder:String = null, ?bitmap:BitmapData, ?allowGPU:Bool = true):FlxGraphic
 	{
@@ -606,5 +654,4 @@ class Paths
 		spr.loadAtlasEx(folderOrImg, spriteJson, animationJson);
 	}
 	#end
-
 }

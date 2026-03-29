@@ -592,11 +592,9 @@ class PlayState extends MusicBeatState
 		uiGroup.add(timeTxt);
 
 		strumGuideLine = new StrumGuideLine();
-		noteGroup.add(strumGuideLine);
+		uiGroup.insert(0,strumGuideLine);
 		noteGroup.add(strumLineNotes);
 
-		noteHoldCover = new NoteHoldCover();
-		noteGroup.add(noteHoldCover);
 		if(ClientPrefs.data.timeBarType == 'Song Name')
 		{
 			timeTxt.size = 24;
@@ -1544,6 +1542,9 @@ public function reloadCounterColors()
 
 		notes = new FlxTypedGroup<Note>();
 		noteGroup.add(notes);
+
+		noteHoldCover = new NoteHoldCover();
+		noteGroup.add(noteHoldCover);
 
 		try
 		{
@@ -2689,7 +2690,7 @@ public function reloadCounterColors()
 		// 只在非回放模式下保存分数
 		if (!loadRep && !inReplay)
 		{
-			Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent);
+			Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent, Mods.currentModDirectory);
 		}
 		#end
 		
@@ -2837,7 +2838,7 @@ public function proceedToNextState():Void
 
 			if(!ClientPrefs.getGameplaySetting('practice') && !ClientPrefs.getGameplaySetting('botplay')) {
 				StoryMenuState.weekCompleted.set(WeekData.weeksList[storyWeek], true);
-				Highscore.saveWeekScore(WeekData.getWeekFileName(), campaignScore, storyDifficulty);
+				Highscore.saveWeekScore(WeekData.getWeekFileName(), campaignScore, storyDifficulty, Mods.currentModDirectory);
 
 				FlxG.save.data.weekCompleted = StoryMenuState.weekCompleted;
 				FlxG.save.flush();
@@ -2965,18 +2966,6 @@ public function proceedToNextState():Void
 	private function popUpScore(note:Note = null):Void 
 		{
         if (combo >= highestCombo) highestCombo = combo;
-        if (ClientPrefs.data.showCombo && combo > 9)
-		{
-			showComboNum = true;
-		}
-		else if (!ClientPrefs.data.showCombo)
-		{
-			showComboNum = true;
-		}
-		else if (ClientPrefs.data.showCombo && combo <= 9)
-		{
-			showComboNum = false;
-		}
         // 计算时间差
         var rawNoteDiff:Float = note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
         var noteDiff:Float = Math.abs(rawNoteDiff);
@@ -3198,7 +3187,7 @@ public function proceedToNextState():Void
             // 从对象池获取或创建新数字精灵（只有combo stacking模式才使用对象池）
             var numScore:FlxSprite;
             
-            if (ClientPrefs.data.comboStacking && showComboNum) {
+            if (ClientPrefs.data.comboStacking) {
                 numScore = cast(comboNumPool.get(), FlxSprite);
                 if (numScore == null) {
                     numScore = new FlxSprite();
@@ -3213,7 +3202,7 @@ public function proceedToNextState():Void
             numScore.loadGraphic(Paths.image(numPath));
             numScore.screenCenter();
             numScore.x = placement + (43 * i) - 90 + ClientPrefs.data.comboOffset[2];
-			numScore.y += 80 - ClientPrefs.data.comboOffset[3];
+			numScore.y = numScore.y + 80 - ClientPrefs.data.comboOffset[3]; 
 
 			if (!PlayState.isPixelStage) numScore.setGraphicSize(Std.int(numScore.width * 0.5));
 			else numScore.setGraphicSize(Std.int(numScore.width * daPixelZoom));
@@ -3239,10 +3228,10 @@ public function proceedToNextState():Void
             numScore.visible = !ClientPrefs.data.hideHud;
             numScore.antialiasing = antialias;
             
-            if(showComboNum) {
-                comboGroup.insert(comboGroup.length,numScore);
-                createdNumbers.push(numScore);
-            }
+           
+            comboGroup.insert(comboGroup.length,numScore);
+            createdNumbers.push(numScore);
+
             
             if(numScore.x > xThing ) xThing = numScore.x;
         }
@@ -4012,7 +4001,7 @@ public function proceedToNextState():Void
 		FlxG.stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyPress);
 		FlxG.stage.removeEventListener(KeyboardEvent.KEY_UP, onKeyRelease);
 
-		FlxG.camera.filters =[];
+		FlxG.camera.filters = [];
 
 		#if FLX_PITCH FlxG.sound.music.pitch = 1; #end
 		FlxG.animationTimeScale = 1;

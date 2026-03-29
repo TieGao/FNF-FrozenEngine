@@ -5,10 +5,13 @@ import flixel.graphics.FlxGraphic;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import backend.SongArtConfig;
+import backend.Paths;
+import backend.Mods;
 
 class SongArtDisplay extends FlxSprite
 {
-    private var currentArtPath:String = "";
+    private var currentModFolder:String = "";
+    private var currentArtName:String = "";
     private var isTweening:Bool = false;
     
     public function new()
@@ -21,7 +24,8 @@ class SongArtDisplay extends FlxSprite
     
     public function showArt(songName:String, folder:String, animated:Bool = true)
     {
-        var artName:String = SongArtConfig.getArtForSong(songName);
+        // 关键修改：传入模组文件夹获取正确的艺术图
+        var artName:String = SongArtConfig.getArtForSong(songName, folder);
         
         if (artName == null)
         {
@@ -29,18 +33,16 @@ class SongArtDisplay extends FlxSprite
             return;
         }
         
-        var newArtPath = artName + "_" + folder;
-        if (currentArtPath == newArtPath && visible)
+        if (currentModFolder == folder && currentArtName == artName && visible)
             return;
-            
+        
+        // 保存当前模组目录并切换
         var oldModDir = Mods.currentModDirectory;
         Mods.currentModDirectory = folder;
         
-        var graphic:FlxGraphic = null;
-        try {
-            graphic = Paths.image('songArt/$artName', null, true);
-        } catch (e:Dynamic) {}
+        var graphic = Paths.image('songArt/$artName', null, true);
         
+        // 恢复模组目录
         Mods.currentModDirectory = oldModDir;
         
         if (graphic == null)
@@ -63,9 +65,10 @@ class SongArtDisplay extends FlxSprite
         updateHitbox();
         
         var targetX:Float = FlxG.width / 2 - width / 2;
-        var targetY:Float = FlxG.height - 300;
+        var targetY:Float = FlxG.height - 175;
         
-        currentArtPath = newArtPath;
+        currentModFolder = folder;
+        currentArtName = artName;
         
         if (!animated)
         {
@@ -90,7 +93,13 @@ class SongArtDisplay extends FlxSprite
     
     public function hide()
     {
+        if (isTweening)
+        {
+            FlxTween.cancelTweensOf(this);
+            isTweening = false;
+        }
         visible = false;
-        currentArtPath = "";
+        currentModFolder = "";
+        currentArtName = "";
     }
 }

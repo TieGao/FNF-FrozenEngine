@@ -207,7 +207,7 @@ class StoryMenuState extends MusicBeatState
 	{
 		if(WeekData.weeksList.length < 1)
 		{
-			if (controls.BACK || FlxG.mouse.justPressedRight && !movedBack && !selectedWeek)
+			if ((controls.BACK || FlxG.mouse.justPressedRight) && !movedBack && !selectedWeek)
 			{
 				FlxG.sound.play(Paths.sound('cancelMenu'));
 				movedBack = true;
@@ -357,7 +357,7 @@ class StoryMenuState extends MusicBeatState
 				selectWeek();
 		}
 
-		if (controls.BACK || FlxG.mouse.justPressedRight && !movedBack && !selectedWeek)
+		if ((controls.BACK || FlxG.mouse.justPressedRight) && !movedBack && !selectedWeek)
 		{
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 			movedBack = true;

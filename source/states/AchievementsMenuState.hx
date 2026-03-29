@@ -20,11 +20,7 @@ class AchievementsMenuState extends MusicBeatState
 	var camFollow:FlxObject;
 
 	var MAX_PER_ROW:Int = 4;
-	
-	// 鼠标控制相关变量
-	var allowMouse:Bool = true;
-	var timeNotMoving:Float = 0;
-	var isMouseControl:Bool = false;
+
 
 	override function create()
 	{
@@ -158,12 +154,10 @@ class AchievementsMenuState extends MusicBeatState
 		if(!goingBack && options.length > 0)
 		{
 			// 鼠标控制逻辑
-			if (allowMouse && ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed))
+			if ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed)
 			{
-				allowMouse = false;
 				FlxG.mouse.visible = true;
-				timeNotMoving = 0;
-				isMouseControl = true;
+				
 
 				var distItem:Int = -1;
 				var minDist:Float = 999999;
@@ -190,15 +184,10 @@ class AchievementsMenuState extends MusicBeatState
 					_changeSelection();
 				}
 				
-				allowMouse = true;
-			}
-			else if (isMouseControl)
-			{
-			
 			}
 
 			// 键盘控制逻辑（仅在鼠标未使用时）
-			if (!isMouseControl && options.length > 1)
+			if (options.length > 1)
 			{
 				var add:Int = 0;
 				if (controls.UI_LEFT_P) add = -1;
@@ -250,7 +239,7 @@ class AchievementsMenuState extends MusicBeatState
 			}
 			
 			// 鼠标点击选择（支持鼠标点击选择）
-			if (FlxG.mouse.justPressed && isMouseControl)
+			if (FlxG.mouse.justPressed)
 			{
 				for (i in 0...grpOptions.members.length)
 				{
@@ -279,7 +268,7 @@ class AchievementsMenuState extends MusicBeatState
 		}
 		
 		// 鼠标点击确认（模拟键盘确认）
-		if (FlxG.mouse.justPressed && isMouseControl)
+		if (FlxG.mouse.justPressed)
 		{
 			// 这里可以添加点击成就图标后的额外功能
 			// 例如：显示更多信息或播放音效
@@ -326,11 +315,6 @@ class AchievementsMenuState extends MusicBeatState
 			if(spr.ID == curSelected) spr.alpha = 1;
 		});
 		
-		// 选择后重置鼠标不活动时间
-		if (isMouseControl)
-		{
-			timeNotMoving = 0;
-		}
 	}
 }
 
@@ -339,11 +323,6 @@ class ResetAchievementSubstate extends MusicBeatSubstate
 	var onYes:Bool = false;
 	var yesText:Alphabet;
 	var noText:Alphabet;
-	
-	// 鼠标控制相关变量
-	var allowMouse:Bool = true;
-	var timeNotMoving:Float = 0;
-	var isMouseControl:Bool = false;
 
 	public function new()
 	{
@@ -387,12 +366,10 @@ class ResetAchievementSubstate extends MusicBeatSubstate
 	override function update(elapsed:Float)
 	{
 		// 鼠标控制逻辑
-		if (allowMouse && ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed))
+		if ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed)
 		{
-			allowMouse = false;
 			FlxG.mouse.visible = true;
-			timeNotMoving = 0;
-			isMouseControl = true;
+			
 
 			// 检查鼠标是否悬停在Yes或No选项上
 			if (checkMouseOverlap(yesText))
@@ -412,29 +389,23 @@ class ResetAchievementSubstate extends MusicBeatSubstate
 				}
 			}
 			
-			allowMouse = true;
-		}
-		else if (isMouseControl)
-		{
-		
 		}
 
-		if(controls.BACK)
+		if(controls.BACK || FlxG.mouse.justPressedRight)
 		{
 			close();
 			FlxG.sound.play(Paths.sound('cancelMenu'));
-			FlxG.mouse.visible = false;
 			return;
 		}
 
 		super.update(elapsed);
 
-		if(!isMouseControl && (controls.UI_LEFT_P || controls.UI_RIGHT_P)) {
+		if(controls.UI_LEFT_P || controls.UI_RIGHT_P) {
 			onYes = !onYes;
 			updateOptions();
 		}
 
-		if(controls.ACCEPT || (FlxG.mouse.justPressed && isMouseControl))
+		if(controls.ACCEPT || FlxG.mouse.justPressed )
 		{
 			if(onYes)
 			{
@@ -491,12 +462,6 @@ class ResetAchievementSubstate extends MusicBeatSubstate
 		noText.alpha = alphas[1 - confirmInt];
 		noText.scale.set(scales[1 - confirmInt], scales[1 - confirmInt]);
 		FlxG.sound.play(Paths.sound('scrollMenu'));
-		
-		// 选择后重置鼠标不活动时间
-		if (isMouseControl)
-		{
-			timeNotMoving = 0;
-		}
 	}
 }
 #end

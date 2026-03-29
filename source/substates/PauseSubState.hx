@@ -19,7 +19,7 @@ class PauseSubState extends MusicBeatSubstate
 	var grpMenuShit:FlxTypedGroup<Alphabet>;
 
 	var menuItems:Array<String> = [];
-	var menuItemsOG:Array<String> = ['Resume', 'Restart Song', 'Change Difficulty', 'Options', 'Exit to menu'];
+	var menuItemsOG:Array<String> = ['Resume', 'Restart Song','Change Difficulty', 'Options', 'Exit to menu'];
 	var difficultyChoices = [];
 	var curSelected:Int = 0;
 
@@ -41,12 +41,12 @@ class PauseSubState extends MusicBeatSubstate
 	
 	// 点击判定区域偏移量（可调试）
 	// 正数向下/向右偏移，负数向上/向左偏移
-	private var clickHitboxOffsetX:Float = 200;   // 水平偏移（如果需要）
-	private var clickHitboxOffsetY:Float = 180;  // 垂直偏移
+	private var clickHitboxOffsetX:Float = 0;   // 水平偏移（如果需要）
+	private var clickHitboxOffsetY:Float = 0;  // 垂直偏移
 
 	override function create()
 	{
-		if(Difficulty.list.length < 2) menuItemsOG.remove('Change Difficulty');
+		//if(Difficulty.list.length >= 2) menuItemsOG.insert(menuItems.length - 2,'Change Difficulty');
 		if(PlayState.chartingMode)
 		{
 			menuItemsOG.insert(2, 'Leave Charting Mode');

@@ -5,10 +5,13 @@ import flixel.graphics.FlxGraphic;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import backend.SongArtConfig;
+import backend.Paths;
+import backend.Mods;
 
 class CharacterArtDisplay extends FlxSprite
 {
-    private var currentArtPath:String = "";
+    private var currentModFolder:String = "";
+    private var currentArtName:String = "";
     private var isTweening:Bool = false;
     
     public function new()
@@ -21,8 +24,9 @@ class CharacterArtDisplay extends FlxSprite
     
     public function showCharacter(songName:String, folder:String, animated:Bool = true)
     {
-        var artName:String = SongArtConfig.getCharacterArtForSong(songName);
-        var scale:Float = SongArtConfig.getCharacterScaleForSong(songName);
+        // 关键修改：传入模组文件夹获取正确的角色图
+        var artName:String = SongArtConfig.getCharacterArtForSong(songName, folder);
+        var scale:Float = SongArtConfig.getCharacterScaleForSong(songName, folder);
         
         if (artName == null)
         {
@@ -30,18 +34,16 @@ class CharacterArtDisplay extends FlxSprite
             return;
         }
         
-        var newArtPath = artName + "_" + folder;
-        if (currentArtPath == newArtPath && visible)
+        if (currentModFolder == folder && currentArtName == artName && visible)
             return;
-            
+        
+        // 保存当前模组目录并切换
         var oldModDir = Mods.currentModDirectory;
         Mods.currentModDirectory = folder;
         
-        var graphic:FlxGraphic = null;
-        try {
-            graphic = Paths.image('characterArt/$artName', null, true);
-        } catch (e:Dynamic) {}
+        var graphic = Paths.image('characterArt/$artName', null, true);
         
+        // 恢复模组目录
         Mods.currentModDirectory = oldModDir;
         
         if (graphic == null)
@@ -66,7 +68,8 @@ class CharacterArtDisplay extends FlxSprite
         var targetX:Float = FlxG.width - width - 50;
         var targetY:Float = (FlxG.height - height) / 2;
         
-        currentArtPath = newArtPath;
+        currentModFolder = folder;
+        currentArtName = artName;
         
         y = targetY;
         
@@ -91,7 +94,13 @@ class CharacterArtDisplay extends FlxSprite
     
     public function hide()
     {
+        if (isTweening)
+        {
+            FlxTween.cancelTweensOf(this);
+            isTweening = false;
+        }
         visible = false;
-        currentArtPath = "";
+        currentModFolder = "";
+        currentArtName = "";
     }
 }

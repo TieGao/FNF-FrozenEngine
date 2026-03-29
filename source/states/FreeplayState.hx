@@ -620,7 +620,7 @@ class FreeplayState extends MusicBeatState
         // ==========================
 
         var shiftMult:Int = 1;
-        if(FlxG.keys.pressed.SHIFT) shiftMult = 3;
+        if(FlxG.keys.pressed.SHIFT && !musicPlayer.playingMusic) shiftMult = 3;
 
         if (!musicPlayer.playingMusic && !musicPlayerLegacy.playingMusic)
         {
@@ -803,7 +803,7 @@ class FreeplayState extends MusicBeatState
         else if(controls.RESET && !musicPlayer.playingMusic)
         {
             persistentUpdate = false;
-            openSubState(new ResetScoreSubState(songs[curSelected].songName, curDifficulty, songs[curSelected].songCharacter));
+            openSubState(new ResetScoreSubState(songs[curSelected].songName, curDifficulty, songs[curSelected].songCharacter, -1, songs[curSelected].folder));
             FlxG.sound.play(Paths.sound('scrollMenu'));
         }
 
@@ -914,31 +914,32 @@ class FreeplayState extends MusicBeatState
         opponentVocals = FlxDestroyUtil.destroy(opponentVocals);
     }
 
-    // 修复：完整的 changeDiff 函数
     function changeDiff(change:Int = 0)
-    {
-        if (musicPlayer.playingMusic)
-            return;
+{
+    if (musicPlayer.playingMusic)
+        return;
 
-        curDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.list.length-1);
-        #if !switch
-        intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
-        intendedRating = Highscore.getRating(songs[curSelected].songName, curDifficulty);
-        #end
+    curDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.list.length-1);
+    
+    // 关键修改：传入模组文件夹获取分数
+    #if !switch
+    intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty, songs[curSelected].folder);
+    intendedRating = Highscore.getRating(songs[curSelected].songName, curDifficulty, songs[curSelected].folder);
+    #end
 
-        lastDifficultyName = Difficulty.getString(curDifficulty, false);
-        var displayDiff:String = Difficulty.getString(curDifficulty);
-        if (Difficulty.list.length > 1)
-            diffText.text = '< ' + displayDiff.toUpperCase() + ' >';
-        else
-            diffText.text = displayDiff.toUpperCase();
+    lastDifficultyName = Difficulty.getString(curDifficulty, false);
+    var displayDiff:String = Difficulty.getString(curDifficulty);
+    if (Difficulty.list.length > 1)
+        diffText.text = '< ' + displayDiff.toUpperCase() + ' >';
+    else
+        diffText.text = displayDiff.toUpperCase();
 
-        positionHighscore();
-        missingText.visible = false;
-		missingTextBG.visible = false;
+    positionHighscore();
+    missingText.visible = false;
+    missingTextBG.visible = false;
 
-        updateCardDifficultyInfo();
-    }
+    updateCardDifficultyInfo();
+}
 
     // 修复：完整的 changeSelection 函数
   function changeSelection(change:Int = 0, playSound:Bool = true)
@@ -1173,7 +1174,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         var oldModDir = Mods.currentModDirectory;
         Mods.currentModDirectory = this.folder;
         
-        icon = new HealthIcon(songCharacter, false);
+        icon = new HealthIcon(songCharacter, false, true, this.folder);
         icon.setPosition(x + 30, y + 5);
         icon.scale.set(0.6, 0.6);
         icon.updateHitbox();
@@ -1220,7 +1221,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         var bestRating:Float = 0;
         for (diff in 0...Difficulty.list.length)
         {
-            var rating:Float = Highscore.getRating(songLowercase, diff);
+            var rating:Float = Highscore.getRating(songLowercase, diff, folder);
             if (rating > bestRating)
             {
                 bestRating = rating;

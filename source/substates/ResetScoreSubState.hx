@@ -18,13 +18,15 @@ class ResetScoreSubState extends MusicBeatSubstate
 	var song:String;
 	var difficulty:Int;
 	var week:Int;
+	var modFolder:String; // 新增：模组文件夹
 
 	// Week -1 = Freeplay
-	public function new(song:String, difficulty:Int, character:String, week:Int = -1)
+	public function new(song:String, difficulty:Int, character:String, week:Int = -1, ?modFolder:String = null)
 	{
 		this.song = song;
 		this.difficulty = difficulty;
 		this.week = week;
+		this.modFolder = modFolder; // 保存模组文件夹
 
 		super();
 
@@ -53,7 +55,8 @@ class ResetScoreSubState extends MusicBeatSubstate
 		text.alpha = 0;
 		add(text);
 		if(week == -1) {
-			icon = new HealthIcon(character);
+			// 关键修改：传入模组文件夹
+			icon = new HealthIcon(character, false, true, modFolder);
 			icon.setGraphicSize(Std.int(icon.width * tooLong));
 			icon.updateHitbox();
 			icon.setPosition(text.x - icon.width + (10 * tooLong), text.y - 30);
@@ -96,9 +99,10 @@ class ResetScoreSubState extends MusicBeatSubstate
 		} else if(controls.ACCEPT) {
 			if(onYes) {
 				if(week == -1) {
-					Highscore.resetSong(song, difficulty);
+					// 关键修改：传入模组文件夹重置分数
+					Highscore.resetSong(song, difficulty, modFolder);
 				} else {
-					Highscore.resetWeek(WeekData.weeksList[week], difficulty);
+					Highscore.resetWeek(WeekData.weeksList[week], difficulty, modFolder);
 				}
 			}
 			FlxG.sound.play(Paths.sound('cancelMenu'), 1);
