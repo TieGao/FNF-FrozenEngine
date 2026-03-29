@@ -1,0 +1,123 @@
+name: Mobile + Release
+on: workflow_dispatch
+
+permissions:
+  contents: write
+  discussions: write
+
+env:
+  PROJECT_NAME: FrozenEngine
+  REPO_PATH: TieGao/FNF-FrozenEngine
+
+jobs:
+  get-commit-hash:
+    runs-on: ubuntu-latest
+    outputs:
+      commit_hash: ${{ steps.get_commit_hash.outputs.COMMIT_HASH }}
+    steps:
+      - name: Check Repository
+        run: |
+          echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+          echo "REPO_PATH: ${{ env.REPO_PATH }}"
+          if [[ "$GITHUB_REPOSITORY" != "${{ env.REPO_PATH }}" ]]; then
+            echo "Doesn't seem to be correct, returning SIGABRT..."
+            exit 6
+          else
+            echo "Seems to be correct..."
+          fi
+
+      - name: Get latest commit hash
+        id: get_commit_hash
+        run: |
+          commit_hash=${GITHUB_SHA::7}
+          echo "Latest commit hash is $commit_hash"
+          echo "::set-output name=COMMIT_HASH::$commit_hash"
+
+  build:
+    name: ${{ matrix.name }}
+    needs: get-commit-hash
+    strategy:
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            buildArgs: windows
+            setupCommand: .\"setup/windows.bat"
+            artifactName: windowsBuild-x86_64
+            artifactPath: export\release\windows\bin\*
+          - name: Linux
+            os: ubuntu-latest
+            buildArgs: linux
+            setupCommand: sh ./setup/unix.sh
+            artifactName: linuxBuild-x86_64
+            artifactPath: export/release/linux/bin/*
+          - name: macOS x86_64
+            os: macos-latest
+            setupCommand: sh ./setup/unix.sh
+            buildArgs: "mac -64 -D HXCPP_M64"
+            artifactName: macOSBuild-x86_64
+            artifactPath: export/release/macos/bin/*
+          - name: macOS ARM64
+            os: macos-latest
+            setupCommand: sh ./setup/unix.sh
+            buildArgs: "mac -arm64 -D HXCPP_ARM64"
+            artifactName: macOSBuild-arm64
+            artifactPath: export/release/macos/bin/*
+    uses: ./.github/workflows/build.yml
+    with:
+        name: ${{ matrix.name }}
+        os: ${{ matrix.os }}
+        setupCommand: ${{ matrix.setupCommand }}
+        buildArgs: ${{ matrix.buildArgs }}
+        artifactName: ${{ matrix.artifactName }}
+        artifactPath: ${{ matrix.artifactPath }}
+
+  Releaser:
+    needs: [get-commit-hash, build]
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Download Windows Build
+        uses: actions/download-artifact@main
+        with:
+           name: windowsBuild-x86_64
+           path: ${{ github.workspace }}/WindowsBuild
+
+      - name: Pack Windows Build
+        run: zip -j /home/runner/${{ env.PROJECT_NAME }}-Windows.zip ${{ github.workspace }}/WindowsBuild/*  
+
+      - name: Download Linux Build
+        uses: actions/download-artifact@main
+        with:
+           name: linuxBuild-x86_64
+           path: ${{ github.workspace }}/LinuxBuild
+
+      - name: Pack Linux Build
+        run: zip -j /home/runner/${{ env.PROJECT_NAME }}-Linux.zip ${{ github.workspace }}/LinuxBuild/*    
+      
+      - name: Download macOS x86_64 Build
+        uses: actions/download-artifact@main
+        with:
+           name: macOSBuild-x86_64
+           path: ${{ github.workspace }}/macOSBuild-x86_64
+
+      - name: Pack macOS x86_64 Build
+        run: zip -j /home/runner/${{ env.PROJECT_NAME }}-macOS-x86_64.zip ${{ github.workspace }}/macOSBuild-x86_64/*     
+      
+      - name: Download macOS ARM64 Build
+        uses: actions/download-artifact@main
+        with:
+           name: macOSBuild-arm64
+           path: ${{ github.workspace }}/macOSBuild-arm64
+
+      - name: Pack macOS ARM64 Build
+        run: zip -j /home/runner/${{ env.PROJECT_NAME }}-macOS-arm64.zip ${{ github.workspace }}/macOSBuild-arm64/*    
+
+      - name: Publish The Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "DevBuild ${{ needs.get-commit-hash.outputs.commit_hash }}"
+          tag_name: "devbuild-${{ needs.get-commit-hash.outputs.commit_hash }}"
+          prerelease: true
+          files: |
+            /home/runner/*.zip
