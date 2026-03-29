@@ -84,7 +84,7 @@ jobs:
            path: ${{ github.workspace }}/WindowsBuild
 
       - name: Pack Windows Build
-        run: zip -j /home/runner/${{ env.PROJECT_NAME }}-Windows.zip ${{ github.workspace }}/WindowsBuild/*  
+        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Windows.zip ${{ github.workspace }}/WindowsBuild/*  
 
       - name: Download Linux Build
         uses: actions/download-artifact@main
@@ -93,7 +93,7 @@ jobs:
            path: ${{ github.workspace }}/LinuxBuild
 
       - name: Pack Linux Build
-        run: zip -j /home/runner/${{ env.PROJECT_NAME }}-Linux.zip ${{ github.workspace }}/LinuxBuild/*    
+        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux.zip ${{ github.workspace }}/LinuxBuild/*    
       
       - name: Download macOS x86_64 Build
         uses: actions/download-artifact@main
@@ -102,7 +102,7 @@ jobs:
            path: ${{ github.workspace }}/macOSBuild-x86_64
 
       - name: Pack macOS x86_64 Build
-        run: zip -j /home/runner/${{ env.PROJECT_NAME }}-macOS-x86_64.zip ${{ github.workspace }}/macOSBuild-x86_64/*     
+        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-x86_64.zip ${{ github.workspace }}/macOSBuild-x86_64/*     
       
       - name: Download macOS ARM64 Build
         uses: actions/download-artifact@main
@@ -111,7 +111,7 @@ jobs:
            path: ${{ github.workspace }}/macOSBuild-arm64
 
       - name: Pack macOS ARM64 Build
-        run: zip -j /home/runner/${{ env.PROJECT_NAME }}-macOS-arm64.zip ${{ github.workspace }}/macOSBuild-arm64/*    
+        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-arm64.zip ${{ github.workspace }}/macOSBuild-arm64/*    
 
       - name: Publish The Release
         uses: softprops/action-gh-release@v2
