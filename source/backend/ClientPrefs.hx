@@ -83,6 +83,10 @@ import states.TitleState;
 	public var guideLineAlpha:Float = 0.0;
 	public var modInfoBox:Bool = true;
 	public var charmPause:Bool = false;
+	
+	
+	public var totalPlaytime:Float = 0;        // 累计总时长（秒）
+    public var sessionStartTime:Float = 0;     // 本次会话开始时间（毫秒时间戳）
 
 	public var gameplaySettings:Map<String, Dynamic> = [
 		'scrollspeed' => 1.0,

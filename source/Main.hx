@@ -242,6 +242,13 @@ class Main extends Sprite
 			if (FlxG.game != null)
 			resetSpriteCache(FlxG.game);
 		});
+
+		  ClientPrefs.data.sessionStartTime = Date.now().getTime(); //PlayTimeTracker: 记录会话开始时间
+
+		/*lime.system.System.setExitHandler(function() {
+			saveSessionPlaytime();
+			return false; // 让系统继续正常退出
+		});*/
 	}
 
 	static function resetSpriteCache(sprite:Sprite):Void {
@@ -297,6 +304,18 @@ class Main extends Sprite
 		DiscordClient.shutdown();
 		#end
 		Sys.exit(1);
+		  saveSessionPlaytime();
 	}
 	#end
+
+	public static function saveSessionPlaytime():Void
+	{
+		if (ClientPrefs.data.sessionStartTime > 0)
+		{
+			var currentTime:Float = Date.now().getTime();
+			var sessionSeconds:Float = (currentTime - ClientPrefs.data.sessionStartTime) / 1000;
+			ClientPrefs.data.totalPlaytime += sessionSeconds;
+			ClientPrefs.saveSettings();  // 自动保存到 FlxG.save.data
+		}
+	}
 }
