@@ -1142,7 +1142,8 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Show OS", "Show operating system in FPS Counter", "showOS", "bool"),
 			KEOption.create("FPS Rework", "Make ur game more smooth", "fpsRework", "bool"),
 			//KEOption.create("New Freeplay", "Enable New Freeplay", "newFreeplay", "bool"),
-			//KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool")
+			KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool"),
+			KEOption.create("Space Back Ground EveryWhere", "Show space background everywhere", "globalspace", "bool")
 		];
 	}
 

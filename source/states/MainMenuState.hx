@@ -105,7 +105,7 @@ class MainMenuState extends MusicBeatState
         starsFG.alpha = 0;
         add(starsFG);
 
-		if (ClientPrefs.data.freeplayspace)
+		if (ClientPrefs.data.globalspace)
 		{
 			space.alpha = 1;
 			starsBG.alpha = 1;
