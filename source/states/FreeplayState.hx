@@ -186,7 +186,7 @@ class FreeplayState extends MusicBeatState
         songArtDisplay = new SongArtDisplay();
         add(songArtDisplay);
 
-        if (ClientPrefs.data.globalspace)
+        if (ClientPrefs.data.freeplayspace)
         {
             space.alpha = 1;
             starsBG.alpha = 1;
