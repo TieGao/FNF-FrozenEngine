@@ -29,6 +29,10 @@ class StoryMenuState extends MusicBeatState
 
 	private static var curWeek:Int = 0;
 
+	var space:FlxSprite;
+	var starsBG:FlxBackdrop;
+	var starsFG:FlxBackdrop;
+
 	var txtTracklist:FlxText;
 
 	var grpWeekText:FlxTypedGroup<MenuItem>;
@@ -72,6 +76,36 @@ class StoryMenuState extends MusicBeatState
 				function() MusicBeatState.switchState(new states.MainMenuState())));
 			return;
 		}
+
+		space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+        space.antialiasing = ClientPrefs.data.antialiasing;
+        space.updateHitbox();
+        space.scrollFactor.set();
+        space.alpha = 0;
+        add(space);
+
+        starsBG = new FlxBackdrop(Paths.image('starBG'));
+        starsBG.setPosition(111.3, 67.95);
+        starsBG.antialiasing = true;
+        starsBG.updateHitbox();
+        starsBG.scrollFactor.set();
+        starsBG.alpha = 0;
+        add(starsBG);
+
+        starsFG = new FlxBackdrop(Paths.image('starFG'));
+        starsFG.setPosition(54.3, 59.45);
+        starsFG.updateHitbox();
+        starsFG.antialiasing = true;
+        starsFG.scrollFactor.set();
+        starsFG.alpha = 0;
+        add(starsFG);
+
+        if (ClientPrefs.data.freeplayspace)
+        {
+            space.alpha = 1;
+            starsBG.alpha = 1;
+            starsFG.alpha = 1;
+        }
 
 		if(curWeek >= WeekData.weeksList.length) curWeek = 0;
 
@@ -205,6 +239,12 @@ class StoryMenuState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
+		starsBG.x -= 0.05;
+        starsFG.x -= 0.15;
+        
+        if (starsBG.x < -starsBG.width) starsBG.x = 0;
+        if (starsFG.x < -starsFG.width) starsFG.x = 0;
+
 		if(WeekData.weeksList.length < 1)
 		{
 			if ((controls.BACK || FlxG.mouse.justPressedRight) && !movedBack && !selectedWeek)

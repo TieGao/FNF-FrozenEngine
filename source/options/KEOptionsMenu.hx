@@ -34,6 +34,10 @@ class KEOptionsMenu extends MusicBeatState
 	public static var onPlayState:Bool = false;
 	public static var onMainMenuState:Bool = false;
 
+	var space:FlxSprite;
+    var starsBG:FlxBackdrop;
+    var starsFG:FlxBackdrop;
+
 	public var dateDisplay:BiosDateDisplay;
 
 	var notes:Array<String> = Mods.mergeAllTextsNamed('images/noteSkins/list.txt');
@@ -123,6 +127,36 @@ class KEOptionsMenu extends MusicBeatState
 		optionBg.antialiasing = ClientPrefs.data.antialiasing;
 		optionBg.screenCenter();
 		add(optionBg);
+
+		space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+        space.antialiasing = ClientPrefs.data.antialiasing;
+        space.updateHitbox();
+        space.scrollFactor.set();
+        space.alpha = 0;
+        add(space);
+
+        starsBG = new FlxBackdrop(Paths.image('starBG'));
+        starsBG.setPosition(111.3, 67.95);
+        starsBG.antialiasing = true;
+        starsBG.updateHitbox();
+        starsBG.scrollFactor.set();
+        starsBG.alpha = 0;
+        add(starsBG);
+
+        starsFG = new FlxBackdrop(Paths.image('starFG'));
+        starsFG.setPosition(54.3, 59.45);
+        starsFG.updateHitbox();
+        starsFG.antialiasing = true;
+        starsFG.scrollFactor.set();
+        starsFG.alpha = 0;
+        add(starsFG);
+
+		if (ClientPrefs.data.freeplayspace)
+		{
+			space.alpha = 1; 
+			starsBG.alpha = 1;
+			starsFG.alpha = 1;
+		}
 
 		// 主内容区域背景 - 从选项卡下方开始，覆盖整个内容区域
 		var contentStartY:Int = MARGIN_TOP + CATEGORY_HEIGHT;
@@ -241,7 +275,7 @@ class KEOptionsMenu extends MusicBeatState
 		// 开始两个颜色循环
 		startColorCycle();      // 选项区域彩色循环
 		startBgColorCycle();    // 主背景颜色循环
-		if (ClientPrefs.data.shaders && ClientPrefs.data.particle) {
+		if (ClientPrefs.data.shaders && ClientPrefs.data.beamparticle) {
 			optionBg.shader = beamShader;
 		}
 
@@ -496,6 +530,12 @@ class KEOptionsMenu extends MusicBeatState
 	// 更新函数
 	override function update(elapsed:Float)
 	{
+		starsBG.x -= 0.05;
+        starsFG.x -= 0.15;
+        
+        if (starsBG.x < -starsBG.width) starsBG.x = 0;
+        if (starsFG.x < -starsFG.width) starsFG.x = 0;
+
 		super.update(elapsed);
 		
 		if (beamShader != null) 

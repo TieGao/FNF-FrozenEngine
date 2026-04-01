@@ -17,7 +17,7 @@ enum MainMenuColumn {
 class MainMenuState extends MusicBeatState
 {
 	public static var frozenEngineVersion:String = '0.4.7';
-	public static var psychEngineVersion:String = '1.0.4'; // This is also used for Discord RPC
+	public static var psychEngineVersion:String = '4.1.0'; // This is also used for Discord RPC
 	public static var curSelected:Int = 0;
 	public static var curColumn:MainMenuColumn = CENTER;
 	var allowMouse:Bool = true; //Turn this off to block mouse movement in menus
@@ -25,6 +25,10 @@ class MainMenuState extends MusicBeatState
 	var menuItems:FlxTypedGroup<FlxSprite>;
 	var leftItem:FlxSprite;
 	var rightItem:FlxSprite;
+
+	var space:FlxSprite;
+    var starsBG:FlxBackdrop;
+    var starsFG:FlxBackdrop;
 
 	//Centered/Text options
 	var optionShit:Array<String> = [
@@ -68,9 +72,6 @@ class MainMenuState extends MusicBeatState
 		bg.screenCenter();
 		add(bg);
 
-		camFollow = new FlxObject(0, 0, 1, 1);
-		add(camFollow);
-
 		magenta = new FlxSprite(-80).loadGraphic(Paths.image('menuDesat'));
 		magenta.antialiasing = ClientPrefs.data.antialiasing;
 		magenta.scrollFactor.set(0, yScroll);
@@ -80,6 +81,39 @@ class MainMenuState extends MusicBeatState
 		magenta.visible = false;
 		magenta.color = 0xFFfd719b;
 		add(magenta);
+
+		space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+        space.antialiasing = ClientPrefs.data.antialiasing;
+        space.updateHitbox();
+        space.scrollFactor.set();
+        space.alpha = 0;
+        add(space);
+
+        starsBG = new FlxBackdrop(Paths.image('starBG'));
+        starsBG.setPosition(111.3, 67.95);
+        starsBG.antialiasing = true;
+        starsBG.updateHitbox();
+        starsBG.scrollFactor.set();
+        starsBG.alpha = 0;
+        add(starsBG);
+
+        starsFG = new FlxBackdrop(Paths.image('starFG'));
+        starsFG.setPosition(54.3, 59.45);
+        starsFG.updateHitbox();
+        starsFG.antialiasing = true;
+        starsFG.scrollFactor.set();
+        starsFG.alpha = 0;
+        add(starsFG);
+
+		if (ClientPrefs.data.freeplayspace)
+		{
+			space.alpha = 1;
+			starsBG.alpha = 1;
+			starsFG.alpha = 1;
+		}
+
+		camFollow = new FlxObject(0, 0, 1, 1);
+		add(camFollow);
 
 		menuItems = new FlxTypedGroup<FlxSprite>();
 		add(menuItems);
@@ -99,11 +133,11 @@ class MainMenuState extends MusicBeatState
 			rightItem.x -= rightItem.width;
 		}
 
-		var frozenVer:FlxText = new FlxText(12, FlxG.height - 64, 0, "Frozen Engine v" + frozenEngineVersion, 12);
+		/*var frozenVer:FlxText = new FlxText(12, FlxG.height - 64, 0, "Frozen Engine v" + frozenEngineVersion, 12);
 		frozenVer.scrollFactor.set();
 		frozenVer.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
-		add(frozenVer);
-		var psychVer:FlxText = new FlxText(12, FlxG.height - 44, 0, "Psych Engine v" + psychEngineVersion, 12);
+		add(frozenVer);*/
+		var psychVer:FlxText = new FlxText(12, FlxG.height - 44, 0, "Vs Impostor v" + psychEngineVersion, 12);
 		psychVer.scrollFactor.set();
 		psychVer.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 		add(psychVer);
@@ -155,6 +189,12 @@ class MainMenuState extends MusicBeatState
 	var timeNotMoving:Float = 0;
 	override function update(elapsed:Float)
 	{
+		starsBG.x -= 0.05;
+        starsFG.x -= 0.15;
+        
+        if (starsBG.x < -starsBG.width) starsBG.x = 0;
+        if (starsFG.x < -starsFG.width) starsFG.x = 0;
+
 		if (FlxG.sound.music.volume < 0.8)
 			FlxG.sound.music.volume = Math.min(FlxG.sound.music.volume + 0.5 * elapsed, 0.8);
 

@@ -127,7 +127,7 @@ import states.TitleState;
 	public var saveReplays:Bool = true;
 	public var luadebugPrint:Bool = true;
 
-	public var particle:Bool = true;
+	public var beamparticle:Bool = false;
 	public var particleAmount:Int = 1;
 	public var particleSpeed:Float = 1.5;
 	public var particleTrail:Int = 36;

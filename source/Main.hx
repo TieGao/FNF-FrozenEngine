@@ -16,6 +16,7 @@ import openfl.display.Sprite;
 import openfl.events.Event;
 import openfl.display.StageScaleMode;
 import lime.app.Application;
+import lime.system.System;
 import states.TitleState;
 
 #if HSCRIPT_ALLOWED
@@ -243,12 +244,24 @@ class Main extends Sprite
 			resetSpriteCache(FlxG.game);
 		});
 
-		  ClientPrefs.data.sessionStartTime = Date.now().getTime(); //PlayTimeTracker: 记录会话开始时间
-
-		/*lime.system.System.setExitHandler(function() {
-			saveSessionPlaytime();
-			return false; // 让系统继续正常退出
-		});*/
+        ClientPrefs.data.sessionStartTime = Date.now().getTime();
+        
+        // 监听退出事件
+        var currentApp = Application.current;
+        if (currentApp != null)
+        {
+            currentApp.onExit.add(function(code:Int) {
+                saveSessionPlaytime();
+            });
+        }
+        
+        // 窗口关闭事件（作为额外保障）
+        #if (cpp || hl)
+        Lib.current.stage.window.onClose.add(function() {
+            saveSessionPlaytime();
+            return true;
+        });
+        #end
 	}
 
 	static function resetSpriteCache(sprite:Sprite):Void {
@@ -315,7 +328,10 @@ class Main extends Sprite
 			var currentTime:Float = Date.now().getTime();
 			var sessionSeconds:Float = (currentTime - ClientPrefs.data.sessionStartTime) / 1000;
 			ClientPrefs.data.totalPlaytime += sessionSeconds;
-			ClientPrefs.saveSettings();  // 自动保存到 FlxG.save.data
+			ClientPrefs.saveSettings();
+			
+			// 重置开始时间，避免重复保存
+			ClientPrefs.data.sessionStartTime = 0;
 		}
 	}
 }

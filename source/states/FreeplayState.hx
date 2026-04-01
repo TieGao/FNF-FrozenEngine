@@ -154,7 +154,7 @@ class FreeplayState extends MusicBeatState
         space.alpha = 0;
         add(space);
 
-        starsBG = new FlxBackdrop(Paths.image('freeplay/starBG'));
+        starsBG = new FlxBackdrop(Paths.image('starBG'));
         starsBG.setPosition(111.3, 67.95);
         starsBG.antialiasing = true;
         starsBG.updateHitbox();
@@ -162,7 +162,7 @@ class FreeplayState extends MusicBeatState
         starsBG.alpha = 0;
         add(starsBG);
 
-        starsFG = new FlxBackdrop(Paths.image('freeplay/starFG'));
+        starsFG = new FlxBackdrop(Paths.image('starFG'));
         starsFG.setPosition(54.3, 59.45);
         starsFG.updateHitbox();
         starsFG.antialiasing = true;

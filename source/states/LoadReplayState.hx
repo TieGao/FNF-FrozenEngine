@@ -356,6 +356,10 @@ class LoadReplayState extends MusicBeatState
     var isDragging:Bool = false;
     var dragStartY:Float = 0;
     var dragThreshold:Float = 10;
+
+    var space:FlxSprite;
+    var starsBG:FlxBackdrop;
+    var starsFG:FlxBackdrop;
     
     // 悬停相关
     var hoveredCard:ReplayCard = null;
@@ -369,6 +373,29 @@ class LoadReplayState extends MusicBeatState
         bg.screenCenter();
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
+
+        space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+        space.antialiasing = ClientPrefs.data.antialiasing;
+        space.updateHitbox();
+        space.scrollFactor.set();
+        space.alpha = 0;
+        add(space);
+
+        starsBG = new FlxBackdrop(Paths.image('starBG'));
+        starsBG.setPosition(111.3, 67.95);
+        starsBG.antialiasing = true;
+        starsBG.updateHitbox();
+        starsBG.scrollFactor.set();
+        starsBG.alpha = 0;
+        add(starsBG);
+
+        starsFG = new FlxBackdrop(Paths.image('starFG'));
+        starsFG.setPosition(54.3, 59.45);
+        starsFG.updateHitbox();
+        starsFG.antialiasing = true;
+        starsFG.scrollFactor.set();
+        starsFG.alpha = 0;
+        add(starsFG);
         
         titleText = new FlxText(0, 20, FlxG.width, "REPLAY LIBRARY", 32);
         titleText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
@@ -409,6 +436,36 @@ class LoadReplayState extends MusicBeatState
         FlxG.mouse.visible = true;
         lastMouseY = FlxG.mouse.screenY;
         
+		space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+        space.antialiasing = ClientPrefs.data.antialiasing;
+        space.updateHitbox();
+        space.scrollFactor.set();
+        space.alpha = 0;
+        add(space);
+
+        starsBG = new FlxBackdrop(Paths.image('starBG'));
+        starsBG.setPosition(111.3, 67.95);
+        starsBG.antialiasing = true;
+        starsBG.updateHitbox();
+        starsBG.scrollFactor.set();
+        starsBG.alpha = 0;
+        add(starsBG);
+
+        starsFG = new FlxBackdrop(Paths.image('starFG'));
+        starsFG.setPosition(54.3, 59.45);
+        starsFG.updateHitbox();
+        starsFG.antialiasing = true;
+        starsFG.scrollFactor.set();
+        starsFG.alpha = 0;
+        add(starsFG);
+
+        if (ClientPrefs.data.freeplayspace)
+        {
+            space.alpha = 1;
+            starsBG.alpha = 1;
+            starsFG.alpha = 1;
+        }
+        
         loadReplays();
         updateDisplay();
         
@@ -417,6 +474,12 @@ class LoadReplayState extends MusicBeatState
     
     override function update(elapsed:Float)
     {
+    	starsBG.x -= 0.05;
+        starsFG.x -= 0.15;
+        
+        if (starsBG.x < -starsBG.width) starsBG.x = 0;
+        if (starsFG.x < -starsFG.width) starsFG.x = 0;
+
         super.update(elapsed);
         
         if (waitingForDeleteConfirm)

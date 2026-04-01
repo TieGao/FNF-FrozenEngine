@@ -17,6 +17,10 @@ class AchievementsMenuState extends MusicBeatState
 	public var progressTxt:FlxText;
 	public var progressBar:Bar;
 
+	var space:FlxSprite;
+    var starsBG:FlxBackdrop;
+    var starsFG:FlxBackdrop;
+
 	var camFollow:FlxObject;
 
 	var MAX_PER_ROW:Int = 4;
@@ -49,6 +53,36 @@ class AchievementsMenuState extends MusicBeatState
 		menuBG.screenCenter();
 		menuBG.scrollFactor.set();
 		add(menuBG);
+
+		space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+        space.antialiasing = ClientPrefs.data.antialiasing;
+        space.updateHitbox();
+        space.scrollFactor.set();
+        space.alpha = 0;
+        add(space);
+
+        starsBG = new FlxBackdrop(Paths.image('starBG'));
+        starsBG.setPosition(111.3, 67.95);
+        starsBG.antialiasing = true;
+        starsBG.updateHitbox();
+        starsBG.scrollFactor.set();
+        starsBG.alpha = 0;
+        add(starsBG);
+
+        starsFG = new FlxBackdrop(Paths.image('starFG'));
+        starsFG.setPosition(54.3, 59.45);
+        starsFG.updateHitbox();
+        starsFG.antialiasing = true;
+        starsFG.scrollFactor.set();
+        starsFG.alpha = 0;
+        add(starsFG);
+
+		if (ClientPrefs.data.freeplayspace)
+        {
+            space.alpha = 1;
+            starsBG.alpha = 1;
+            starsFG.alpha = 1;
+        }
 
 		grpOptions = new FlxSpriteGroup();
 		grpOptions.scrollFactor.x = 0;
@@ -151,6 +185,13 @@ class AchievementsMenuState extends MusicBeatState
 
 	var goingBack:Bool = false;
 	override function update(elapsed:Float) {
+
+		starsBG.x -= 0.05;
+        starsFG.x -= 0.15;
+        
+        if (starsBG.x < -starsBG.width) starsBG.x = 0;
+        if (starsFG.x < -starsFG.width) starsFG.x = 0;
+
 		if(!goingBack && options.length > 0)
 		{
 			// 鼠标控制逻辑
