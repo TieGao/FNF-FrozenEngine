@@ -1,0 +1,424 @@
+// ============================================
+// 繁體中文翻譯 - KEngine Options Menu
+// ============================================
+
+// Gameplay
+botplay: "自動演奏"
+
+// Dialogues
+dialogue_skip: "按BACK跳過"
+
+// Pause Menu
+pause_resume: "繼續"
+pause_restart_song: "重新開始歌曲"
+pause_leave_charting_mode: "退出製譜模式"
+pause_skip_time: "跳轉時間"
+pause_end_song: "結束歌曲"
+pause_change_difficulty: "切換難度"
+pause_toggle_practice_mode: "切換練習模式"
+pause_toggle_botplay: "切換自動演奏"
+pause_options: "設定"
+pause_exit_to_menu: "返回選單"
+pause_back: "返回"
+practice_mode: "練習模式"
+charting_mode: "製譜模式"
+blueballed: "死亡次數: {1}"
+
+// Story Mode
+week_score: "最佳得分: {1}"
+
+storyname_tutorial: "教程"
+storyname_week1: "岳父"
+storyname_week2: "恐怖月"
+storyname_week3: "PICO"
+storyname_week4: "岳母殺人犯"
+storyname_week5: "紅色暴雪"
+storyname_week6: "恨覺模擬器 ft. moawling"
+storyname_weekend1: "逾期債務"
+
+// Freeplay
+personal_best: "最高分: {1} ({2}%)"
+freeplay_tip: "按SPACE試聽/按CTRL打開修改器選單/按RESET清除分數"
+
+musicplayer_playing: "播放中: {1}"
+musicplayer_paused: "暫停: {1}"
+musicplayer_tip: "按SPACE暫停/按ESC退出/按R重播"
+
+// Mods Menu
+no_mods_installed: "未安裝任何MOD\n按BACK退出或添加MOD"
+no_mods_found: "未找到MOD"
+mod_restart: "* 移動或切換MOD會重啟遊戲"
+reload_button: "重新載入"
+enable_all_button: "全部啟用"
+disable_all_button: "全部禁用"
+
+// Reset Score/Achievement
+reset_score: "重置分數："
+reset_achievement: "重置成就："
+yes: "是"
+no: "否"
+
+// Achievements
+achievement_friday_night_play: "週五夜"
+description_friday_night_play: "在週五晚上遊玩一次"
+achievement_week1_nomiss: "她也叫我Daddy"
+description_week1_nomiss: "在困難模式下無失誤通過第1週"
+achievement_week2_nomiss: "不再惡作劇"
+description_week2_nomiss: "在困難模式下無失誤通過第2週"
+achievement_week3_nomiss: "目標已消滅"
+description_week3_nomiss: "在困難模式下無失誤通過第3週"
+achievement_week4_nomiss: "人妻殺手"
+description_week4_nomiss: "在困難模式下無失誤通過第4週"
+achievement_week5_nomiss: "酸澀聖誕"
+description_week5_nomiss: "在困難模式下無失誤通過第5週"
+achievement_week6_nomiss: "新紀錄!!"
+description_week6_nomiss: "在困難模式下無失誤通過第6週"
+achievement_week7_nomiss: "你個混蛋..."
+description_week7_nomiss: "在困難模式下無失誤通過第7週"
+achievement_weekend1_nomiss: "友誼不倒的爭吵"
+description_weekend1_nomiss: "在困難模式下無失誤通過週末1"
+achievement_ur_bad: "低分段"
+description_ur_bad: "以低於20%的準確率完成一首歌"
+achievement_ur_good: "一百昏！"
+description_ur_good: "以100%準確率完成一首歌"
+achievement_roadkill_enthusiast: "過馬路要看兩邊"
+description_roadkill_enthusiast: "看小兵被撞死50次"
+achievement_oversinging: "誰才是主唱？"
+description_oversinging: "持續演唱10秒或更久"
+achievement_hype: "過動症"
+description_hype: "整首歌都不停下來"
+achievement_two_keys: "一對一！"
+description_two_keys: "只用兩個鍵完成一首歌"
+achievement_toastie: "烤麵包機電腦"
+description_toastie: "你嘗試過在土司機上玩遊戲麼？"
+achievement_debugger: "調試模式"
+description_debugger: "通過製譜器遊玩Test曲目"
+achievement_pessy_easter_egg: "編程少女"
+description_pessy_easter_egg: "嘿嘿，你找到我啦~！"
+
+// ============================================
+// KEOptionsMenu 分類標題
+// ============================================
+basics: "基礎選項"
+gameplay: "遊玩選項"
+visuals: "視覺選項"
+graphics: "圖形選項"
+advanced: "進階選項"
+
+// ============================================
+// 選項名稱 (用於顯示)
+// ============================================
+
+// Basics 分類
+open_note_colors: "自定義音符顏色"
+open_controls: "自定義按鍵綁定"
+open_ez_keybinds: "KE風格按鍵綁定"
+adjust_delay_and_combo: "自定義遊戲體驗"
+reset_keybinds: "恢復默認按鍵"
+
+// Gameplay 分類
+downscroll: "下落式"
+middlescroll: "中置音符"
+opponent_notes: "顯示對手音符"
+ghost_tapping: "允許空敲"
+auto_pause: "自動暫停"
+disable_reset: "禁用重置鍵"
+guitar_hero_sustains: "長音合併"
+fast_restart: "快速重開"
+hitsound_volume: "敲擊音量"
+rating_offset: "判定偏移"
+window_settings: "判定窗口設置"
+note_sustains_offset: "長音偏移"
+
+// Visuals 分類
+skin_settings: "皮膚設置"
+hide_hud: "隱藏HUD"
+flashing_lights: "閃爍燈光"
+camera_zooms: "鏡頭縮放"
+center_pause: "居中暫停選單"
+custom_color: "對手自定義色"
+gradient_timebar: "漸變時間條"
+score_zoom: "分數跳動"
+time_bar: "時間條"
+pause_music: "暫停音樂"
+health_bar_alpha: "血條透明度"
+combo_stacking: "連擊堆疊"
+ms_number: "顯示判定偏移"
+health_text: "顯示血量"
+song_text: "顯示歌曲信息"
+score_screen: "顯示結算界面"
+judgements_counter: "判定計數器"
+charm_bar_pause: "現代暫停界面"
+hit_error_bar: "命中誤差條"
+keyboard_display: "鍵盤顯示設置"
+chart_helper: "譜面輔助"
+
+// Graphics 分類
+low_quality: "低畫質"
+antialiasing: "抗鋸齒"
+shaders: "著色器"
+gpu_caching: "GPU緩存"
+fps_counter: "FPS顯示"
+framerate: "幀率"
+show_os: "顯示操作系統"
+fps_rework: "FPS優化"
+globalspace: "全局星空背景"
+old_freeplay: "舊版自由遊玩"
+legacymp: "舊版音樂播放器"
+use_system_cursor: "使用系統光標"
+
+// Advanced 分類
+check_updates: "檢查更新"
+loading_screen: "加載界面"
+enable_lua_debug_printer: "啟用LUA調試"
+discord_rpc: "Discord狀態"
+language: "語言"
+replay: "回放"
+replay_manager: "回放管理"
+newoptions: "新選項選單"
+reset_settings: "重置所有設置"
+reset_scores: "重置所有分數"
+options_particle: "粒子設置"
+
+// ============================================
+// 選項描述 (使用下劃線鍵名)
+// ============================================
+
+// Basics 描述
+Customize_note_colors: "自定義音符顏色"
+Customize_key_bindings: "自定義按鍵綁定"
+Customize_key_bindings_in_KE_Styled_Menu: "在KE風格選單中自定義按鍵綁定"
+Customize_ingame_experience: "自定義遊戲內體驗"
+Reset_to_default_keys: "重置為默認按鍵"
+
+// Gameplay 描述
+Notes_scroll_downwards_instead_of_upwards: "音符方向從上升改為下落"
+Put_your_lane_in_the_center: "將你的音軌置於中間"
+Show_opponents_strumline: "顯示對手的彈奏軌道"
+Allow_pressing_keys_without_missing: "允許在無音符時按鍵而不記為失誤"
+Pause_when_window_loses_focus: "窗口失去焦點時自動暫停"
+Disable_the_reset_button: "禁用重置按鈕"
+Sustains_count_as_one_note: "長音計為一個音符"
+Fast_Restart_When_Dead_or_Press_R: "死亡或按R鍵時快速重開"
+Volume_of_hit_sounds: "敲擊音效的音量"
+Adjust_note_hit_timing: "調整音符命中的時間偏移"
+Configure_window_and_timing_settings: "配置判定窗口與時間設置"
+Adjust_the_timing_offset_for_note_sustains: "調整長音的時間偏移"
+
+// Visuals 描述
+Configure_note_skins_splashes_and_ratings: "配置音符皮膚、特效與判定樣式"
+Hide_most_HUD_elements: "隱藏大部分HUD元素"
+Enable_screen_flashes: "啟用屏幕閃爍效果"
+Zoom_camera_on_beat: "隨節拍縮放鏡頭"
+Center_pause_menu: "將暫停選單居中顯示"
+Color_most_things_by_opponent: "按對手為大部分元素著色"
+Gradient_colored_timebar: "使用漸變色時間條"
+Grow_score_text_on_hit: "命中時放大分數文字"
+What_should_the_Time_Bar_display: "時間條應顯示什麼？"
+Choose_pause_screen_music: "暫停界面播放哪首歌？"
+Health_bar_transparency: "血條透明度"
+Stack_combo_numbers: "連擊數字堆疊"
+Make_you_know_how_late_early_ur_when_hit_notes: "顯示你命中音符的時機快慢(單位：毫秒)"
+Show_health_as_number: "顯示剩餘血量百分比"
+Show_song_info_watermark: "顯示歌曲信息"
+Show_Kade-style_results: "顯示Kade風格的結算界面"
+Show_judgments_counter: "顯示判定計數器"
+Modern_Pause_Sub_State: "使用現代化暫停界面"
+Configure_hit_error_bar_display: "配置命中誤差條的顯示"
+Configure_keyboard_display_settings: "配置屏幕鍵盤的顯示設置"
+Configure_Chart_Helper_settings: "配置譜面輔助設置"
+
+// Graphics 描述
+Reduce_graphics_for_performance: "降低畫質以提升性能"
+Smoother_visuals: "更平滑的視覺效果"
+Enable_shader_effects: "啟用著色器特效"
+Use_GPU_for_texture_caching: "使用GPU進行貼圖緩存（可能減少內存佔用）"
+Show_FPS_counter: "顯示當前FPS"
+Target_framerate: "目標幀率"
+Show_operating_system_in_FPS_Counter: "在FPS計數器中顯示操作系統"
+Make_ur_game_more_smooth: "讓遊戲更流暢"
+Just_a_cool_background_lol: "酷炫的背景效果"
+Show_space_background_everywhere: "在所有界面顯示星空背景"
+Use_ur_systems_default_mouse_cursor_in_game: "在遊戲中使用系統默認鼠標光標"
+
+// Advanced 描述
+Check_for_game_updates: "檢查遊戲更新"
+Show_loading_screen: "顯示加載界面"
+Uncheck_it_if_u_dont_want_to_see_them: "取消勾選以隱藏Lua調試輸出"
+Enable_Discord_Rich_Presence: "啟用Discord狀態顯示"
+Change_the_games_language: "更改遊戲語言"
+Score_Menu_and_Replay_Required: "需要評分界面和回放支持"
+Manage_and_view_ur_Replays: "管理並查看你的回放"
+Disable_it_if_u_dont_like_current_options_menu: "如果不喜歡當前選項選單則禁用"
+Reset_all_settings_to_default_DO_NOT_APPLY_IT_UNLESS_YOU_KNOW_WHAT_YOU_ARE_DOING: "重置所有設置為默認（僅在你清楚後果時使用）"
+Clear_all_high_scores_DO_NOT_APPLY_IT_UNLESS_YOU_KNOW_WHAT_YOU_ARE_DOING: "清除所有最高分（僅在你清楚後果時使用）"
+Edit_Particle_Effects_in_Menu: "編輯設置中的粒子效果"
+
+// ============================================
+// 子選單選項名稱
+// ============================================
+
+// Skin Settings 子選單
+Note_Skins: "音符皮膚"
+Note_Splashes: "濺射皮膚"
+Note_HoldCover: "長音濺射皮膚"
+Judgements_Style: "判定套系風格"
+Note_Opacity: "音符不透明度"
+Note_Splash_Opacity: "濺射不透明度"
+Note_HoldCover_Opacity: "長音濺射不透明度"
+Force_Number_Color: "強制數字顏色"
+showEarlyLate: "顯示快慢提示"
+showCombo: "顯示連擊文字"
+Force_Note_Skin: "強制音符皮膚"
+Force_Splash_Skin: "強制濺射皮膚"
+Force_RGB_Shader: "強制RGB著色器"
+
+// Hit Error Bar 子選單
+Hit_Error_Bar: "命中誤差條"
+Hit_Bar_Lines: "誤差條線數"
+Hit_Bar_Line_Time: "每線時間(秒)"
+Hit_Error_Bar_Offset_X: "誤差條X偏移"
+Hit_Error_Bar_Offset_Y: "誤差條Y偏移"
+
+// Keyboard Display 子選單
+Show_Keyboard: "顯示鍵盤"
+Keyboard_Opacity: "鍵盤透明度"
+Keyboard_BG_Color: "鍵盤背景色"
+Keyboard_Text_Color: "鍵盤文本色"
+Keyboard_Offset_X: "鍵盤X偏移"
+Keyboard_Offset_Y: "鍵盤Y偏移"
+Keyboard_Time_Display: "鍵盤時間顯示"
+Keyboard_Time_Length: "鍵盤顯示時長(毫秒)"
+
+// Chart Helper 子選單
+Note_Guide_Line_Opacity: "輔助線透明度"
+
+// Window Settings 子選單
+Marvelous_Window: "Marvelous判定區間"
+Sick_Window: "Sick判定區間"
+Good_Window: "Good判定區間"
+Bad_Window: "Bad判定區間"
+Safe_Frames: "容錯幀"
+
+// Options Particle 子選單
+Show_Particle_In_Option: "選項選單粒子特效"
+Particle_Amount: "粒子數量"
+Particle_Speed: "粒子速度"
+Particle_Trail_Length: "粒子拖尾長度"
+
+// ============================================
+// 子選單選項描述 (使用下劃線鍵名)
+// ============================================
+
+Select_your_preferred_Note_skin: "選擇你喜歡的音符皮膚"
+Select_your_preferred_Note_Splash_variation: "選擇你喜歡的音符特效樣式"
+Select_your_preferred_Note_Hold_Cover: "選擇你喜歡的長音濺射皮膚"
+Select_your_preferred_judgements_Image: "選擇你喜歡的判定樣式貼圖"
+Note_transparency: "音符透明度"
+Note_splash_transparency: "音符特效透明度"
+Force_numbers_to_a_specific_color: "強制將數字設置為特定顏色"
+Show_early_late_text_on_hit: "命中音符時顯示提前/延後提示"
+Show_combo_text_when_combo_10: "連擊數大於10時顯示連擊文字"
+Force_using_the_custom_note_skin: "強制使用自定義音符皮膚"
+Force_using_the_custom_splash_skin: "強制使用自定義濺射皮膚"
+Force_using_the_RGB_shader_for_notes_and_splashes: "強制為音符和濺射使用RGB著色器"
+
+Show_hit_error_bar: "顯示命中誤差條"
+Number_of_lines_on_hit_error_bar: "命中誤差條上的線條數量"
+Time_in_seconds_each_line_represents: "每條線代表的時間（秒）"
+Horizontal_position_of_hit_error_bar: "命中誤差條的水平位置"
+Vertical_position_of_hit_error_bar: "命中誤差條的垂直位置"
+
+Display_keyboard_on_screen: "在屏幕上顯示鍵盤"
+Transparency_of_the_keyboard_display: "鍵盤顯示的透明度"
+Background_color_of_the_keyboard_display: "鍵盤顯示的背景顏色"
+Text_color_of_the_keyboard_display: "鍵盤顯示的文本顏色"
+Horizontal_position_of_the_keyboard_display: "鍵盤顯示的水平位置"
+Vertical_position_of_the_keyboard_display: "鍵盤顯示的垂直位置"
+Change_the_keyboard_time_should_display_or_not: "是否顯示鍵盤時間"
+Change_the_how_long_the_keyboard_is_displayed: "更改鍵盤顯示的持續時間（毫秒）"
+
+Transparency_of_the_chart_helper_display: "譜面輔助線的透明度"
+
+Timing_window_for_SICK: "SICK判定區間（毫秒）"
+Timing_window_for_GOOD: "GOOD判定區間（毫秒）"
+Timing_window_for_BAD: "BAD判定區間（毫秒）"
+Frames_for_early_late_hits: "允許提前/延後命中的幀數"
+
+Show_particle_effect_in_options_menu: "在選項選單中顯示粒子效果"
+Amount_of_particles: "粒子數量"
+Speed_of_particles: "粒子速度"
+Length_of_particle_trails: "粒子拖尾長度"
+
+// ============================================
+// 時間條選項值
+// ============================================
+Time_Left: "剩餘時間"
+Time_Elapsed: "已用時間"
+Song_Name: "歌曲名"
+Disabled: "禁用"
+
+// ============================================
+// 暫停音樂選項值
+// ============================================
+None: "無"
+Tea_Time: "茶會時間"
+Breakfast: "早餐"
+Breakfast_Pico: "早餐(Pico)"
+
+// ============================================
+// 語言選項值
+// ============================================
+en-US: "英語（美國）"
+pt-BR: "葡萄牙語（巴西）"
+zh-CN: "簡體中文"
+
+// ============================================
+// 通用
+// ============================================
+on: "開啟"
+off: "關閉"
+Set_Key: "設置按鍵"
+back: "返回"
+
+// ============================================
+// 重置警告消息
+// ============================================
+warning_reset_keybinds: "確定要將所有按鍵綁定重置為默認值嗎？\n此操作無法撤銷！"
+warning_reset_settings: "確定要將所有設置重置為默認值嗎？\n這將重置圖形、遊戲和其他偏好！\n此操作無法撤銷！"
+warning_reset_scores: "確定要重置所有最高分嗎？\n這將刪除你所有的進度和評級！\n此操作無法撤銷！"
+
+// ============================================
+// 統計界面
+// ============================================
+stats_title: "=== 遊戲統計 ==="
+stats_hint: "←/→ 切換頁面 | ESC 關閉"
+stats_page: "第"
+
+stats_total_score: "總分"
+stats_total_plays: "遊玩次數"
+stats_songs_cleared: "通關歌曲"
+stats_total_playtime: "總遊玩時間"
+stats_highest_score: "單曲最高分"
+stats_highest_combo: "最高連擊"
+stats_best_accuracy: "最佳準確率"
+stats_perfect_clears: "完美通關"
+stats_full_combos: "全連次數"
+
+stats_marvelous: "奇蹟"
+stats_sicks: "完美"
+stats_goods: "優秀"
+stats_bads: "良好"
+stats_shits: "糟糕"
+stats_misses: "失誤"
+stats_total_notes: "命中音符"
+stats_total_judgements: "總音符數"
+
+// ============================================
+// 難度
+// ============================================
+difficulty_easy: "簡單"
+difficulty_normal: "普通"
+difficulty_hard: "困難"
+
+fonts/vcr.ttf: "fonts/HarmonyOS_Sans_TC_Medium.ttf"

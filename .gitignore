@@ -25,3 +25,6 @@ vs_Community.exe
 !.vscode/extensions.json
 art/build_html.bat
 art/build_html-debug.bat
+.github/agents/note-splash-spritepool.agent.md
+compile-output.txt
+patch_note_pool.py
