@@ -2,6 +2,7 @@ package states.editors.content;
 
 import backend.Song;
 import backend.Rating;
+import backend.SpritePool;
 
 import objects.Note;
 import objects.NoteSplash;
@@ -35,11 +36,10 @@ class EditorPlayState extends MusicBeatSubstate
 	var opponentStrums:FlxTypedGroup<StrumNote>;
 	var playerStrums:FlxTypedGroup<StrumNote>;
 	var grpNoteSplashes:FlxTypedGroup<NoteSplash>;
-	
 	var combo:Int = 0;
-	var lastRating:FlxSprite;
-	var lastCombo:FlxSprite;
-	var lastScore:Array<FlxSprite> = [];
+
+    private var splashPool:SpritePool;
+    private var maxPoolSize:Int = 15;
 	var keysArray:Array<String> = [
 		'note_left',
 		'note_down',
@@ -108,8 +108,14 @@ class EditorPlayState extends MusicBeatSubstate
 		add(strumLineNotes);
 		grpNoteSplashes = new FlxTypedGroup<NoteSplash>();
 		add(grpNoteSplashes);
-		
-		var splash:NoteSplash = new NoteSplash();
+		splashPool = new SpritePool(maxPoolSize);
+		NoteSplash.pool = splashPool;
+		for (i in 0...maxPoolSize) {
+			splashPool.put(new NoteSplash());
+		}
+
+		var splash:NoteSplash = cast splashPool.get();
+		if (splash == null) splash = new NoteSplash();
 		grpNoteSplashes.add(splash);
 		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
 
@@ -160,6 +166,7 @@ class EditorPlayState extends MusicBeatSubstate
 
 	override function update(elapsed:Float)
 	{
+		recycleDeadSplashes();
 		if(controls.BACK || FlxG.keys.justPressed.ESCAPE || FlxG.keys.justPressed.F12)
 		{
 			endSong();
@@ -240,6 +247,19 @@ class EditorPlayState extends MusicBeatSubstate
 		super.update(elapsed);
 	}
 
+	private function recycleDeadSplashes():Void {
+		if (splashPool == null || grpNoteSplashes == null) return;
+		var i:Int = grpNoteSplashes.length - 1;
+		while (i >= 0) {
+			var splash:NoteSplash = grpNoteSplashes.members[i];
+			if (splash != null && !splash.exists) {
+				grpNoteSplashes.remove(splash, false);
+				splashPool.put(splash);
+			}
+			--i;
+		}
+	}
+
 	var lastBeatHit:Int = -1;
 	override function beatHit()
 	{
@@ -269,14 +289,17 @@ class EditorPlayState extends MusicBeatSubstate
 		FlxG.stage.removeEventListener(KeyboardEvent.KEY_UP, onKeyRelease);
 		FlxG.mouse.visible = true;
 		NoteSplash.configs.clear();
+		if (splashPool != null) {
+			splashPool.clear();
+			splashPool = null;
+		}
+		NoteSplash.pool = null;
 		FlxG.sound.list.remove(inst);
 		flixel.util.FlxDestroyUtil.destroy(inst);
 		super.destroy();
 	}
-	
-	function startSong():Void
-	{
-		startingSong = false;
+
+	function startSong():Void {
 		@:privateAccess inst.loadEmbedded(FlxG.sound.music._sound);
 		inst.looped = false;
 		inst.onComplete = finishSong;
@@ -894,7 +917,8 @@ class EditorPlayState extends MusicBeatSubstate
 	}
 
 	function spawnNoteSplash(x:Float, y:Float, data:Int, ?note:Note = null, strum:StrumNote) {
-		var splash:NoteSplash = new NoteSplash();
+		var splash:NoteSplash = cast splashPool != null ? splashPool.get() : null;
+		if (splash == null) splash = new NoteSplash();
 		splash.babyArrow = strum;
 		splash.spawnSplashNote(note);
 		grpNoteSplashes.add(splash);

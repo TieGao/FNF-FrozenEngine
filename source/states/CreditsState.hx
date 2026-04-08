@@ -113,8 +113,8 @@ class CreditsState extends MusicBeatState
             ["Frozen Engine Creator"],
             ["Ice_Axe",         "iceaxe",       "Creator of Frozen Engine","https://github.com/TieGao",     "87CEEB"],
 			["Special Thanks"],
-			["FNF-NovaFlare-Engine Team", "novaflare", "Original of KeyboardViewer", "https://github.com/NovaFlare-Engine-Concentration/", "FF69B4"],
-			["MoonChart","","Chart Converter Lib","https://lib.haxe.org/p/moonchart/", "FF69B4"]
+			["beihu", "novaflare", "Original of KeyboardViewer", "https://space.bilibili.com/511083372", "FF69B4"],
+			["MaybeMaru","","Chart Converter Lib","https://lib.haxe.org/p/moonchart/", "FF69B4"]
         ];
 		
 		for(i in defaultList)

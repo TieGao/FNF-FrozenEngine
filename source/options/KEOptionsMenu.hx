@@ -1069,7 +1069,7 @@ class KEOptionsMenu extends MusicBeatState
 			"Configure hit error bar display",
 			[
 				KEOption.create("Hit Error Bar", "Show hit error bar", "hitErrorBarVisible", "bool"),
-				KEOption.create("Hit Bar Lines", "Number of lines on hit error bar", "hitBarLines", "int", 5, 0, 20, 1),
+				KEOption.create("Hit Bar Lines", "Number of lines on hit error bar", "hitBarLines", "int", 5, 0, 200, 1),
 				KEOption.create("Hit Bar Line Time", "Time (in seconds) each line represents", "hitBarLineTime", "float", 2.0, 0.1, 5.0, 0.1),
 				KEOption.create("Hit Error Bar Offset X", "Horizontal position of hit error bar", "hitErrorBarOffsetX", "int", 0, -500, 500, 10),
 				KEOption.create("Hit Error Bar Offset Y", "Vertical position of hit error bar", "hitErrorBarOffsetY", "int", 0, -300, 300, 10)
@@ -1126,6 +1126,9 @@ class KEOptionsMenu extends MusicBeatState
 			hitErrorSettings, // 命中误差条二级菜单
 			keyboardDisplayOptions,
 			charthelperOptions,
+			KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "globalspace", "bool"),
+			KEOption.create("Space Back Ground EveryWhere", "Show space background everywhere", "globalspace", "bool"),
+			KEOption.create("Impostor V3 Story Mode BG", "Use Impostor V3 Story Mode Background", "ImpStory", "bool")
 		];
 	}
 
@@ -1138,12 +1141,10 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Shaders", "Enable shader effects", "shaders", "bool"),
 			KEOption.create("GPU Caching", "Use GPU for texture caching", "cacheOnGPU", "bool"),
 			KEOption.create("FPS Counter", "Show FPS counter", "showFPS", "bool"),
-			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 240, 1),
+			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 480, 1),
 			KEOption.create("Show OS", "Show operating system in FPS Counter", "showOS", "bool"),
-			KEOption.create("FPS Rework", "Make ur game more smooth", "fpsRework", "bool"),
+			KEOption.create("FPS Rework", "Make ur game more smooth", "fpsRework", "bool")
 			//KEOption.create("New Freeplay", "Enable New Freeplay", "newFreeplay", "bool"),
-			KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "globalspace", "bool"),
-			KEOption.create("Space Back Ground EveryWhere", "Show space background everywhere", "globalspace", "bool")
 		];
 	}
 

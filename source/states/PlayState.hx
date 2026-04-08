@@ -5,6 +5,7 @@ import backend.StageData;
 import backend.WeekData;
 import backend.Song;
 import backend.Rating;
+import backend.SpritePool;
 
 import flixel.FlxBasic;
 import flixel.FlxObject;
@@ -261,10 +262,12 @@ class PlayState extends MusicBeatState
 
 	public var defaultCamZoom:Float = 1.05;
 
-	 private var ratingPool:SpritePool;
+	private var ratingPool:SpritePool;
     private var comboNumPool:SpritePool;
     private var comboSpritePool:SpritePool;
-    
+    private var splashPool:SpritePool;
+    private var notePool:SpritePool;
+
     private var maxPoolSize:Int = 15;
 
 	// how big to stretch the pixel art assets
@@ -761,7 +764,15 @@ class PlayState extends MusicBeatState
 		stagesFunc(function(stage:BaseStage) stage.createPost());
 		callOnScripts('onCreatePost');
 		
-		var splash:NoteSplash = new NoteSplash();
+		splashPool = new SpritePool(maxPoolSize);
+		NoteSplash.pool = splashPool;
+		for (i in 0...maxPoolSize) {
+			var preloadSplash:NoteSplash = new NoteSplash();
+			splashPool.put(preloadSplash);
+		}
+
+		var splash:NoteSplash = cast splashPool.get();
+		if (splash == null) splash = new NoteSplash();
 		grpNoteSplashes.add(splash);
 		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
 
@@ -1542,6 +1553,7 @@ public function reloadCounterColors()
 
 		notes = new FlxTypedGroup<Note>();
 		noteGroup.add(notes);
+		notePool = new SpritePool(maxPoolSize);
 
 		noteHoldCover = new NoteHoldCover();
 		noteGroup.add(noteHoldCover);
@@ -1597,7 +1609,12 @@ public function reloadCounterColors()
 					}
 				}
 
-				var swagNote:Note = new Note(spawnTime, noteColumn, oldNote);
+				var swagNote:Note = cast notePool.get();
+				if (swagNote != null)
+					swagNote.reuse(spawnTime, noteColumn, oldNote);
+				else
+					swagNote = new Note(spawnTime, noteColumn, oldNote);
+
 				var isAlt: Bool = section.altAnim && !gottaHitNote;
 				swagNote.gfNote = (section.gfSection && gottaHitNote == section.mustHitSection);
 				swagNote.animSuffix = isAlt ? "-alt" : "";
@@ -1616,7 +1633,11 @@ public function reloadCounterColors()
 					{
 						oldNote = unspawnNotes[Std.int(unspawnNotes.length - 1)];
 
-						var sustainNote:Note = new Note(spawnTime + (curStepCrochet * susNote), noteColumn, oldNote, true);
+						var sustainNote:Note = cast notePool.get();
+						if (sustainNote != null)
+							sustainNote.reuse(spawnTime + (curStepCrochet * susNote), noteColumn, oldNote, true);
+						else
+							sustainNote = new Note(spawnTime + (curStepCrochet * susNote), noteColumn, oldNote, true);
 						sustainNote.animSuffix = swagNote.animSuffix;
 						sustainNote.mustPress = swagNote.mustPress;
 						sustainNote.gfNote = swagNote.gfNote;
@@ -2102,8 +2123,22 @@ public function reloadCounterColors()
 		if (healthTextObj != null) healthTextObj.refresh();
 		if (judgementCounterObj != null) judgementCounterObj.update();
 
+		recycleDeadSplashes();
 		setOnScripts('botPlay', cpuControlled);
 		callOnScripts('onUpdatePost', [elapsed]);
+	}
+
+	private function recycleDeadSplashes():Void {
+		if (splashPool == null || grpNoteSplashes == null) return;
+		var i:Int = grpNoteSplashes.length - 1;
+		while (i >= 0) {
+			var splash:NoteSplash = grpNoteSplashes.members[i];
+			if (splash != null && !splash.exists) {
+				grpNoteSplashes.remove(splash, false);
+				splashPool.put(splash);
+			}
+			--i;
+		}
 	}
 
 	// Health icon updaters
@@ -3943,7 +3978,10 @@ public function proceedToNextState():Void
 	public function invalidateNote(note:Note):Void {
 		note.kill();
 		notes.remove(note, true);
-		note.destroy();
+		if (notePool != null)
+			notePool.put(note);
+		else
+			note.destroy();
 	}
 
 	public function spawnNoteSplashOnNote(note:Note) {
@@ -3955,7 +3993,8 @@ public function proceedToNextState():Void
 	}
 
 	public function spawnNoteSplash(x:Float = 0, y:Float = 0, ?data:Int = 0, ?note:Note, ?strum:StrumNote) {
-		var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
+		var splash:NoteSplash = cast splashPool != null ? splashPool.get() : null;
+		if (splash == null) splash = new NoteSplash();
 		splash.babyArrow = strum;
 		splash.spawnSplashNote(x, y, data, note);
 		grpNoteSplashes.add(splash);
@@ -4027,6 +4066,8 @@ public function proceedToNextState():Void
 		}
 
 		clearObjectPools();
+
+		keyboardViewer.save();
 		super.destroy();
 	}
 
@@ -4989,6 +5030,9 @@ private function applyStageVelocity(sprite:FlxSprite, multiplier:Float = 1.0):Vo
         if (ratingPool != null) ratingPool.clear();
         if (comboNumPool != null) comboNumPool.clear();
         if (comboSpritePool != null) comboSpritePool.clear();
+        if (splashPool != null) splashPool.clear();
+        if (notePool != null) notePool.clear();
+        NoteSplash.pool = null;
     }
 
 	  // 预创建池对象
@@ -5014,53 +5058,4 @@ private function applyStageVelocity(sprite:FlxSprite, multiplier:Float = 1.0):Vo
         }
     }
 
-}
-//对象池V2.0，增加了重置对象状态的功能，并且改为队列结构（FIFO）, 还有Funkin Team我早密码
-class SpritePool {
-    private var pool:Array<FlxSprite> = [];
-    private var maxSize:Int;
-    
-    public function new(maxSize:Int = 20) {
-        this.maxSize = maxSize;
-    }
-    
-    public function get():FlxSprite {
-    if (pool.length > 0) {
-        var obj = pool.shift();
-        return obj;
-    }
-    return null;
-}
-
-    public function put(obj:FlxSprite):Void {
-        if (pool.length < maxSize) {
-            resetObject(obj);
-            pool.push(obj); // 加入队列末尾
-        } else {
-            obj.destroy();
-        }
-    }
-    
-    private function resetObject(obj:FlxSprite):Void {
-        // 重置基本属性
-        obj.alpha = 1;
-        obj.visible = true;
-        obj.active = true;
-        obj.velocity.set(0, 0);
-        obj.acceleration.set(0, 0);
-        obj.scale.set(1, 1);
-        obj.color = 0xFFFFFF; // 重置颜色
-        
-        // 取消所有动画
-        FlxTween.cancelTweensOf(obj);
-
-    }
-    
-    public function clear():Void {
-        while (pool.length > 0) {
-            var obj = pool.shift();
-            if (obj != null) obj.destroy();
-        }
-        pool = [];
-    }
 }

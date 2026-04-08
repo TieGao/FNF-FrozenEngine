@@ -236,9 +236,96 @@ class Note extends FlxSprite
 	public function new(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?inEditor:Bool = false, ?createdFrom:Dynamic = null)
 	{
 		super();
-
 		animation = new PsychAnimationController(this);
+		initializeNote(strumTime, noteData, prevNote, sustainNote, inEditor, createdFrom);
+	}
 
+	public function reuse(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?inEditor:Bool = false, ?createdFrom:Dynamic = null)
+	{
+		resetForReuse();
+		if (animation != null)
+		{
+			animation.destroy();
+		}
+		animation = new PsychAnimationController(this);
+		initializeNote(strumTime, noteData, prevNote, sustainNote, inEditor, createdFrom);
+	}
+
+	private function resetForReuse():Void
+	{
+		extraData = new Map<String, Dynamic>();
+		strumTime = 0;
+		noteData = 0;
+		mustPress = false;
+		canBeHit = false;
+		tooLate = false;
+		wasGoodHit = false;
+		missed = false;
+		ignoreNote = false;
+		hitByOpponent = false;
+		noteWasHit = false;
+		prevNote = null;
+		nextNote = null;
+		spawned = false;
+		tail = [];
+		parent = null;
+		blockHit = false;
+		sustainLength = 0;
+		isSustainNote = false;
+		noteType = null;
+		eventName = '';
+		eventLength = 0;
+		eventVal1 = '';
+		eventVal2 = '';
+		inEditor = false;
+		gfNote = false;
+		earlyHitMult = 1;
+		lateHitMult = 1;
+		lowPriority = false;
+		offsetX = 0;
+		offsetY = 0;
+		offsetAngle = 0;
+		multAlpha = 1;
+		multSpeed = 1;
+		hitHealth = 0.02;
+		missHealth = 0.075;
+		rating = 'unknown';
+		ratingMod = 0;
+		ratingDisabled = false;
+		texture = null;
+		noAnimation = false;
+		noMissAnimation = false;
+		hitCausesMiss = false;
+		distance = 2000;
+		hitsoundDisabled = false;
+		hitsoundChartEditor = true;
+		hitsoundForce = false;
+		hitsound = 'hitsound';
+		alpha = 1;
+		visible = true;
+		exists = true;
+		alive = true;
+		active = true;
+		velocity.set(0, 0);
+		acceleration.set(0, 0);
+		scale.set(1, 1);
+		angle = 0;
+		flipY = false;
+		noteSplashData = {
+			disabled: false,
+			texture: null,
+			antialiasing: !PlayState.isPixelStage,
+			useGlobalShader: false,
+			useRGBShader: (PlayState.SONG != null) ? !(PlayState.SONG.disableNoteRGB == true) : true,
+			r: -1,
+			g: -1,
+			b: -1,
+			a: ClientPrefs.data.splashAlpha
+		};
+	}
+
+	private function initializeNote(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?inEditor:Bool = false, ?createdFrom:Dynamic = null)
+	{
 		antialiasing = ClientPrefs.data.antialiasing;
 		if(createdFrom == null) createdFrom = PlayState.instance;
 
@@ -250,13 +337,12 @@ class Note extends FlxSprite
 		this.inEditor = inEditor;
 		this.moves = false;
 
+		x = 0;
+		y = 0;
 		x += (ClientPrefs.data.middleScroll ? PlayState.STRUM_X_MIDDLESCROLL : PlayState.STRUM_X) + 50;
-		// MAKE SURE ITS DEFINITELY OFF SCREEN?
 		y -= 2000;
 		this.strumTime = strumTime;
 		if(!inEditor) this.strumTime += ClientPrefs.data.noteOffset;
-
-		    if (!inEditor && PlayState.instance != null && backend.OpponentModeSystem.isEnabled()) {}
 
 		this.noteData = noteData;
 
@@ -273,8 +359,6 @@ class Note extends FlxSprite
 				animation.play(animToPlay + 'Scroll');
 			}
 		}
-
-		// trace(prevNote);
 
 		if(prevNote != null)
 			prevNote.nextNote = this;

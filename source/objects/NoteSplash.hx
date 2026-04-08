@@ -1,6 +1,7 @@
 package objects;
 
 import backend.animation.PsychAnimationController;
+import backend.SpritePool;
 import shaders.RGBPalette;
 import flixel.system.FlxAssets.FlxShader;
 
@@ -34,6 +35,8 @@ class NoteSplash extends FlxSprite
 	public var config(default, set):NoteSplashConfig;
 	public var babyArrow:StrumNote;
 	public var noteData:Int = 0;
+
+	public static var pool:SpritePool;
 
 	public var copyX:Bool = true;
 	public var copyY:Bool = true;
@@ -361,24 +364,24 @@ class NoteSplash extends FlxSprite
 
 	public static function getSplashSkinPostfix()
 	{
-		var skin:String = '';
-		if (ClientPrefs.data.splashSkin != ClientPrefs.defaultData.splashSkin)
-			skin = '-' + ClientPrefs.data.splashSkin.trim().toLowerCase().replace(' ', '-');
-		return skin;
-	}
+        var skin:String = '';
+        if (ClientPrefs.data.splashSkin != ClientPrefs.defaultData.splashSkin)
+            skin = '-' + ClientPrefs.data.splashSkin.trim().toLowerCase().replace(' ', '-');
+        return skin;
+    }
 
 	public static function createConfig():NoteSplashConfig
 	{
-		return {
-			animations: new Map(),
-			scale: 1,
-			allowRGB: true,
-			allowPixel: true,
-			rgb: null
+        return {
+            animations: new Map(),
+            scale: 1,
+            allowRGB: true,
+            allowPixel: true,
+            rgb: null
 		}
-	}
+    }
 
-	public static function addAnimationToConfig(config:NoteSplashConfig, scale:Float, name:String, prefix:String, fps:Array<Int>, offsets:Array<Float>, indices:Array<Int>, noteData:Int):NoteSplashConfig
+    public static function addAnimationToConfig(config:NoteSplashConfig, scale:Float, name:String, prefix:String, fps:Array<Int>, offsets:Array<Float>, indices:Array<Int>, noteData:Int):NoteSplashConfig
 	{
 		if (config == null) config = createConfig();
 

@@ -15,6 +15,8 @@ import substates.ResetScoreSubState;
 
 import backend.StageData;
 
+import objects.WeekBGDisplay;
+
 class StoryMenuState extends MusicBeatState
 {
 	public static var weekCompleted:Map<String, Bool> = new Map<String, Bool>();
@@ -53,6 +55,8 @@ class StoryMenuState extends MusicBeatState
 	var mouseOverLeftArrow:Bool = false;
 	var mouseOverRightArrow:Bool = false;
 
+	var weekBGDisplay:WeekBGDisplay;
+
 	override function create()
 	{
 		Paths.clearStoredMemory();
@@ -61,6 +65,9 @@ class StoryMenuState extends MusicBeatState
 		persistentUpdate = persistentDraw = true;
 		PlayState.isStoryMode = true;
 		WeekData.reloadWeekFiles(true);
+
+		backend.WeekBGConfig.loadAllConfigs();
+    	//trace('WeekBGConfig loaded, has config for week 0: ' + backend.WeekBGConfig.hasConfig(0));
 
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence
@@ -100,6 +107,9 @@ class StoryMenuState extends MusicBeatState
         starsFG.alpha = 0;
         add(starsFG);
 
+		weekBGDisplay = new WeekBGDisplay();
+		add(weekBGDisplay);
+
         if (ClientPrefs.data.globalspace)
         {
             space.alpha = 1;
@@ -117,7 +127,7 @@ class StoryMenuState extends MusicBeatState
 		txtWeekTitle.alpha = 0.7;
 
 		var ui_tex = Paths.getSparrowAtlas('campaign_menu_UI_assets');
-		var bgYellow:FlxSprite = new FlxSprite(0, 56).makeGraphic(FlxG.width, 386, 0xFFF9CF51);
+		//var bgYellow:FlxSprite = new FlxSprite(0, 56).makeGraphic(FlxG.width, 386, 0xFFF9CF51);
 		bgSprite = new FlxSprite(0, 56);
 
 		grpWeekText = new FlxTypedGroup<MenuItem>();
@@ -205,7 +215,7 @@ class StoryMenuState extends MusicBeatState
 		rightArrow.animation.play('idle');
 		difficultySelectors.add(rightArrow);
 
-		add(bgYellow);
+		//add(bgYellow);
 		add(bgSprite);
 		add(grpWeekCharacters);
 
@@ -602,6 +612,15 @@ class StoryMenuState extends MusicBeatState
 			curDifficulty = Math.round(Math.max(0, Difficulty.defaultList.indexOf(Difficulty.getDefault())));
 		else
 			curDifficulty = 0;
+
+		if (ClientPrefs.data.ImpStory)
+		{
+			// 使用 fileName 作为唯一标识
+			var weekKey:String = leWeek.fileName;
+			trace('Showing week background for: ' + weekKey);
+			var modFolder:String = Mods.currentModDirectory;
+			weekBGDisplay.showWeek(weekKey, modFolder, true);
+		}
 
 		var newPos:Int = Difficulty.list.indexOf(lastDifficultyName);
 		//trace('Pos of ' + lastDifficultyName + ' is ' + newPos);

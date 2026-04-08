@@ -198,7 +198,6 @@ class AchievementsMenuState extends MusicBeatState
 			if ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed)
 			{
 				FlxG.mouse.visible = true;
-				
 
 				var distItem:Int = -1;
 				var minDist:Float = 999999;

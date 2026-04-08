@@ -87,7 +87,24 @@ import states.TitleState;
 	
 	
 	public var totalPlaytime:Float = 0;        // 累计总时长（秒）
-    public var sessionStartTime:Float = 0;     // 本次会话开始时间（毫秒时间戳）
+	public var sessionStartTime:Float = 0;     // 本次会话开始时间（毫秒时间戳）
+
+	// 新增统计变量
+	public var totalScore:Int = 0;             // 累计总分
+	public var totalPlays:Int = 0;             // 总游玩次数
+	public var totalSongsCleared:Int = 0;      // 通关歌曲总数（不包括失败）
+	public var totalMarvelous:Int = 0;         // 累计 Marvelous 数
+	public var totalSicks:Int = 0;             // 累计 Sick 数
+	public var totalGoods:Int = 0;             // 累计 Good 数
+	public var totalBads:Int = 0;              // 累计 Bad 数
+	public var totalShits:Int = 0;             // 累计 Shit 数
+	public var totalMisses:Int = 0;            // 累计 Miss 数
+	public var highestScore:Int = 0;           // 历史最高分（单首歌曲）
+	public var highestCombo:Int = 0;           // 历史最高连击
+	public var bestAccuracy:Float = 0;         // 历史最高准确率
+	public var perfectClears:Int = 0;          // 完美通关次数（FC/无Miss）
+	public var fullComboCount:Int = 0;         // Full Combo 次数
+	public var songsByDifficulty:Array<Int> = [0, 0, 0]; // 各难度通关次数 [Easy, Normal, Hard]
 
 	public var gameplaySettings:Map<String, Dynamic> = [
 		'scrollspeed' => 1.0,
