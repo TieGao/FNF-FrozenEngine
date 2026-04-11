@@ -2,7 +2,6 @@ package objects;
 
 import flixel.group.FlxSpriteGroup.FlxTypedSpriteGroup;
 import flixel.FlxSprite;
-import flixel.FlxG;
 import flixel.math.FlxPoint;
 import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
@@ -454,7 +453,8 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
             }
             else
             {
-                var oppMode = PlayState.instance.opponentMode;
+
+                var oppMode:Bool = PlayState.instance.opponentMode == 'opponent';
                 if (!oppMode)
                 {
                 playAnimWithOffset(sprite, 'End', true);
@@ -520,7 +520,7 @@ function createSprite(index:Int, isPlayer:Bool):FlxSprite
                 // 长按结束
                 if (oppSplashEnabled)
                 {
-                 var oppMode = PlayState.instance.opponentMode;
+                 var oppMode:Bool = PlayState.instance.opponentMode == 'opponent';
                     if (oppMode)
                     {
                     playAnimWithOffset(sprite, 'End', true);

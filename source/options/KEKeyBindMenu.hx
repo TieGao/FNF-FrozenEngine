@@ -3,10 +3,7 @@ package options;
 import flixel.input.keyboard.FlxKey;
 import flixel.input.gamepad.FlxGamepad;
 import flixel.input.gamepad.FlxGamepadInputID;
-import flixel.input.gamepad.FlxGamepadManager;
-import flixel.input.mouse.FlxMouse;
 
-import flixel.util.FlxAxes;
 import flixel.util.FlxColor;
 import flixel.text.FlxText;
 import flixel.tweens.FlxTween;
@@ -15,7 +12,6 @@ import flixel.FlxSprite;
 import flixel.FlxG;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
-import flixel.util.FlxStringUtil;
 import backend.InputFormatter;
 
 using StringTools;

@@ -1,7 +1,6 @@
 package objects;
 
 import flixel.FlxSprite;
-import flixel.FlxG;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.group.FlxGroup;

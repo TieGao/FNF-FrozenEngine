@@ -12,13 +12,8 @@ import flixel.FlxObject;
 import flixel.FlxSubState;
 import flixel.util.FlxSort;
 import flixel.util.FlxStringUtil;
-import flixel.util.FlxSave;
 import flixel.input.keyboard.FlxKey;
-import flixel.animation.FlxAnimationController;
-import lime.utils.Assets;
-import openfl.utils.Assets as OpenFlAssets;
 import openfl.events.KeyboardEvent;
-import haxe.Json;
 
 import cutscenes.DialogueBoxPsych;
 
@@ -32,7 +27,6 @@ import substates.PauseSubState;
 import substates.GameOverSubstate;
 
 #if !flash
-import openfl.filters.ShaderFilter;
 #end
 
 import shaders.ErrorHandledShader;
@@ -41,7 +35,6 @@ import objects.VideoSprite;
 import objects.Note.EventNote;
 import objects.*;
 import states.stages.*;
-import states.stages.objects.*;
 
 #if LUA_ALLOWED
 import psychlua.*;
@@ -58,7 +51,6 @@ import crowplexus.hscript.Printer;
 #end
 
 import backend.Replay;
-import backend.OpponentModeSystem;
 
 	typedef ReplayNote = 
 	{
@@ -215,8 +207,72 @@ class PlayState extends MusicBeatState
 	public var instakillOnMiss:Bool = false;
 	public var cpuControlled:Bool = false;
 	public var practiceMode:Bool = false;
-	public var opponentMode:Bool = false;
+	public var opponentMode:String = 'player';
+	public static var lastKeyBindIndex:Int = 0;
 	public var pressMissDamage:Float = 0.05;
+
+	private function noteIsHuman(note:Note, keyBindIndex:Int = -1):Bool
+	{
+		switch(opponentMode)
+		{
+			case "opponent":
+				return !note.mustPress;
+			case "coop":
+				if (keyBindIndex < 0) return true;
+				return keyBindIndex == 0 ? note.mustPress : !note.mustPress;
+			default:
+				return note.mustPress;
+		}
+	}
+
+	private function noteShouldUseOpponentSide(note:Note):Bool
+	{
+		return !note.mustPress;
+	}
+
+	private function shouldFireOpponentEvents(note:Note):Bool
+	{
+		return !note.mustPress && (opponentMode == "opponent" || opponentMode == "coop");
+	}
+
+	private function triggerOpponentEventsForHumanHit(note:Note):Void
+	{
+		var result:Dynamic = callOnLuas('opponentNoteHitPre', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
+		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll)
+			result = callOnHScript('opponentNoteHitPre', [note]);
+
+		if(result == LuaUtils.Function_Stop) return;
+
+		note.hitByOpponent = true;
+		if (note.isSustainNote && noteHoldCover != null)
+		{
+			if (noteShouldUseOpponentSide(note))
+				noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+			else
+				noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+		}
+
+		stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
+		var result2:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
+		if(result2 != LuaUtils.Function_Stop && result2 != LuaUtils.Function_StopHScript && result2 != LuaUtils.Function_StopAll)
+			callOnHScript('opponentNoteHit', [note]);
+	}
+
+	private function getStrumGroup(note:Note):FlxTypedGroup<StrumNote>
+	{
+		// Opponent mode only changes which notes the player hits.
+		// It does not swap the visual side of the notes.
+		return note.mustPress ? playerStrums : opponentStrums;
+	}
+
+	private function getStrumForKey(key:Int, keyBindIndex:Int = 0):StrumNote
+	{
+		if (opponentMode == "coop" && keyBindIndex > 0)
+			return opponentStrums.members[key];
+		if (opponentMode == "opponent")
+			return opponentStrums.members[key];
+		return playerStrums.members[key];
+	}
 
 	public var botplaySine:Float = 0;
 	public var botplayTxt:FlxText;
@@ -317,18 +373,21 @@ class PlayState extends MusicBeatState
 	private var modInfoBox:ModInfoBox;
 	var hitErrorBar:HitErrorBar;
 	public var keyboardViewer:KeyboardViewer;
+	public var keys:Int = 4; // 键位数量，用于KeyboardViewer显示
 	public var strumGuideLine:StrumGuideLine;
 
-	private var numScoreTweenScaleX:FlxTween;
-	private var numScoreTweenScaleY:FlxTween;
-	private var numScoreTweenAlpha:FlxTween;
-	private var ratingTweenScaleX:FlxTween;
-	private var ratingTweenScaleY:FlxTween;
-	private var ratingTweenAlpha:FlxTween;
-	private var ratingTweenDestroy:FlxTween;
-	private var comboTweenScaleX:FlxTween;
-	private var comboTweenScaleY:FlxTween;
-	private var comboTweenAlpha:FlxTween;
+		// 新增 - 非combo stacking模式
+		var numAlpha:Array<FlxTween> = [];        // 数字淡出tween
+		var numScaleX:Array<FlxTween> = [];       // 数字X轴缩放tween
+		var numScaleY:Array<FlxTween> = [];       // 数字Y轴缩放tween
+
+		var ratingAlpha:FlxTween;                 // 评级淡出tween
+		var ratingScaleX:FlxTween;                // 评级X轴缩放tween
+		var ratingScaleY:FlxTween;                // 评级Y轴缩放tween+
+
+		var comboSprAlpha:FlxTween;               // Combo淡出tween
+		var comboSprScaleX:FlxTween;              // Combo X轴缩放tween
+		var comboSprScaleY:FlxTween;              // Combo Y轴缩放tween
 
 	override public function create()
 	{
@@ -338,6 +397,15 @@ class PlayState extends MusicBeatState
         trace('=== REPLAY MODE INITIALIZATION ===');
         trace('Loading replay: ' + rep.path);
         trace('Song: ' + rep.replay.songName);
+        
+        // 设置游戏模式（从replay数据中读取）
+        if (rep.replay.opponentMode != null)
+            opponentMode = rep.replay.opponentMode;
+        else
+            opponentMode = "player"; // 向后兼容
+        
+        keys = (opponentMode == "coop") ? 8 : 4; // 根据游戏模式设置键位数量
+        trace('Opponent mode set to: ' + opponentMode);
         
         // 设置回放模式标志
         inReplay = true;
@@ -391,6 +459,7 @@ class PlayState extends MusicBeatState
 		practiceMode = ClientPrefs.getGameplaySetting('practice');
 		cpuControlled = ClientPrefs.getGameplaySetting('botplay');
 		opponentMode = ClientPrefs.getGameplaySetting('opponentplay');
+		keys = (opponentMode == "coop") ? 8 : 4; // 根据游戏模式设置键位数量
 		guitarHeroSustains = ClientPrefs.data.guitarHeroSustains;
 
 		// var gameCam:FlxCamera = FlxG.camera;
@@ -673,7 +742,7 @@ class PlayState extends MusicBeatState
 		judgementCounterObj = new objects.JudgementCounter(this);
 		songInfoTextObj = new objects.SongInfoText(this);
 
-		keyboardViewer = new KeyboardViewer(FlxG.width/2  - 100 + ClientPrefs.data.kbOffsetX, FlxG.height - 150 + ClientPrefs.data.kbOffsetY);
+		keyboardViewer = new KeyboardViewer(FlxG.width/2 + ClientPrefs.data.kbOffsetX, FlxG.height - 150 + ClientPrefs.data.kbOffsetY, keys);
 		keyboardViewer.antialiasing = ClientPrefs.data.antialiasing;
 		keyboardViewer.cameras = [camOther];
 		if (ClientPrefs.data.kb) add(keyboardViewer);
@@ -2066,42 +2135,49 @@ public function reloadCounterColors()
 							var daNote:Note = notes.members[i];
 							if(daNote == null) continue;
 
-							var strumGroup:FlxTypedGroup<StrumNote> = playerStrums;
-							if(!daNote.mustPress) strumGroup = opponentStrums;
+					var strumGroup:FlxTypedGroup<StrumNote> = getStrumGroup(daNote);
+					var strum:StrumNote = strumGroup.members[daNote.noteData];
+					daNote.followStrumNote(strum, fakeCrochet, songSpeed / playbackRate);
 
-							var strum:StrumNote = strumGroup.members[daNote.noteData];
-							daNote.followStrumNote(strum, fakeCrochet, songSpeed / playbackRate);
-
-							if(daNote.mustPress)
-							{
-								if(cpuControlled && !daNote.blockHit && daNote.canBeHit && (daNote.isSustainNote || daNote.strumTime <= Conductor.songPosition))
-									goodNoteHit(daNote);
-							}
-							else if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote)
-								opponentNoteHit(daNote);
-
-							if(daNote.isSustainNote && strum.sustainReduce) daNote.clipToStrumNote(strum);
-
-							// Kill extremely late notes and cause misses
-							if (Conductor.songPosition - daNote.strumTime > noteKillOffset)
-							{
-								if (daNote.mustPress && !cpuControlled && !daNote.ignoreNote && !endingSong && (daNote.tooLate || !daNote.wasGoodHit))
-									noteMiss(daNote);
-
-								daNote.active = daNote.visible = false;
-								invalidateNote(daNote);
-							}
-							if(daNote.exists) i++;
-						}
-					}
-					else
+					if(noteIsHuman(daNote))
 					{
-						notes.forEachAlive(function(daNote:Note)
-						{
-							daNote.canBeHit = false;
-							daNote.wasGoodHit = false;
-						});
+						if(cpuControlled && !daNote.blockHit && daNote.canBeHit && (daNote.isSustainNote || daNote.strumTime <= Conductor.songPosition))
+							goodNoteHit(daNote);
 					}
+					else if (opponentMode != "opponent")
+					{
+						if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote)
+								opponentNoteHit(daNote);
+					}
+					else if (!daNote.blockHit && daNote.strumTime <= Conductor.songPosition)
+					{
+						if ((opponentMode == "opponent" && daNote.mustPress) || (opponentMode != "opponent" && !daNote.mustPress))
+							opponentNoteHit(daNote);
+						else if (opponentMode == "opponent" && !daNote.mustPress)
+							opponentNoteHit(daNote); // 在对手模式下，对手控制BF的note
+					}
+
+					if(daNote.isSustainNote && strum.sustainReduce) daNote.clipToStrumNote(strum);
+
+					if (Conductor.songPosition - daNote.strumTime > noteKillOffset)
+					{
+						if (noteIsHuman(daNote) && !cpuControlled && !daNote.ignoreNote && !endingSong && (daNote.tooLate || !daNote.wasGoodHit))
+							noteMiss(daNote);
+
+						daNote.active = daNote.visible = false;
+						invalidateNote(daNote);
+					}
+					if(daNote.exists) i++;
+					}
+				}
+				else
+				{
+					notes.forEachAlive(function(daNote:Note)
+					{
+						daNote.canBeHit = false;
+						daNote.wasGoodHit = false;
+					});
+				}
 				}
 			}
 			checkEventNote();
@@ -2119,7 +2195,7 @@ public function reloadCounterColors()
 			}
 		}
 		#end
-
+	
 		if (healthTextObj != null) healthTextObj.refresh();
 		if (judgementCounterObj != null) judgementCounterObj.update();
 
@@ -2725,7 +2801,8 @@ public function reloadCounterColors()
 		// 只在非回放模式下保存分数
 		if (!loadRep && !inReplay)
 		{
-			Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent, Mods.currentModDirectory);
+			var mode:String = opponentMode == 'player' ? null : opponentMode;
+				Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent, Mods.currentModDirectory, mode);
 		}
 		#end
 		
@@ -2742,6 +2819,7 @@ public function reloadCounterColors()
 		{
 			try
 			{
+				rep.replay.opponentMode = opponentMode; // 设置游戏模式
 				rep.finishRecording();
 				rep.SaveReplay(rep.replay.songNotes, rep.replay.songJudgements, rep.replay.ana);
 				trace('Replay saved successfully with ' + rep.replay.songNotes.length + ' notes');
@@ -3329,24 +3407,36 @@ public function proceedToNextState():Void
                     startDelay: Conductor.crochet * 0.002 / playbackRate
                 });
             }
-        } else {
+       } else {
     // 非combo stacking模式 - 保持原有销毁逻辑
     // 数字动画 - 参考popUpScore中数字的动画方式
-    for (numScore in createdNumbers) {
+    for (i in 0...createdNumbers.length) {
+        var numScore = createdNumbers[i];
         // 保存原始缩放
         var originalScaleX:Float = numScore.scale.x;
         var originalScaleY:Float = numScore.scale.y;
         
         // 先瞬间放大（与popUpScore中的 scale + 0.07 效果一致）
-        numScore.scale.x = originalScaleX + 0.07;
-        numScore.scale.y = originalScaleY + 0.07;
+        numScore.scale.x += 0.07;
+        numScore.scale.y += 0.07;
+        
+        // 打断已有的tween
+        if (numScaleX[i] != null) {
+            numScaleX[i].cancel();
+        }
+        if (numScaleY[i] != null) {
+            numScaleY[i].cancel();
+        }
+        if (numAlpha[i] != null) {
+            numAlpha[i].cancel();
+        }
         
         // 回缩动画（与popUpScore中的0.2秒动画一致）
-        FlxTween.tween(numScore.scale, {x: originalScaleX}, 0.2 / playbackRate);
-        FlxTween.tween(numScore.scale, {y: originalScaleY}, 0.2 / playbackRate);
+        numScaleX[i] = FlxTween.tween(numScore.scale, {x: originalScaleX}, 0.2 / playbackRate);
+        numScaleY[i] = FlxTween.tween(numScore.scale, {y: originalScaleY}, 0.2 / playbackRate);
         
         // 淡出并销毁（与popUpScore中的延迟淡出一致）
-        FlxTween.tween(numScore, {alpha: 0}, 0.2 / playbackRate, {
+        numAlpha[i] = FlxTween.tween(numScore, {alpha: 0}, 0.2 / playbackRate, {
             onComplete: function(tween:FlxTween) {
                 if (comboGroup.members.contains(numScore)) {
                     comboGroup.remove(numScore);
@@ -3362,15 +3452,26 @@ public function proceedToNextState():Void
     var ratingOriginalScaleY:Float = rating.scale.y;
     
     // 先瞬间放大
-    rating.scale.x = ratingOriginalScaleX + 0.07;
-    rating.scale.y = ratingOriginalScaleY + 0.07;
+    rating.scale.x += 0.07;
+    rating.scale.y += 0.07;
+    
+    // 打断已有的tween
+    if (ratingScaleX != null) {
+        ratingScaleX.cancel();
+    }
+    if (ratingScaleY != null) {
+        ratingScaleY.cancel();
+    }
+    if (ratingAlpha != null) {
+        ratingAlpha.cancel();
+    }
     
     // 回缩动画
-    FlxTween.tween(rating.scale, {x: ratingOriginalScaleX}, 0.2 / playbackRate);
-    FlxTween.tween(rating.scale, {y: ratingOriginalScaleY}, 0.2 / playbackRate);
+    ratingScaleX = FlxTween.tween(rating.scale, {x: ratingOriginalScaleX}, 0.2 / playbackRate);
+    ratingScaleY = FlxTween.tween(rating.scale, {y: ratingOriginalScaleY}, 0.2 / playbackRate);
     
     // 淡出动画
-    FlxTween.tween(rating, {alpha: 0}, 0.2 / playbackRate, {
+    ratingAlpha = FlxTween.tween(rating, {alpha: 0}, 0.2 / playbackRate, {
         startDelay: Conductor.crochet * 0.001 / playbackRate
     });
     
@@ -3383,12 +3484,23 @@ public function proceedToNextState():Void
         comboSpr.scale.x = comboOriginalScaleX + 0.07;
         comboSpr.scale.y = comboOriginalScaleY + 0.07;
         
+        // 打断已有的tween
+        if (comboSprScaleX != null) {
+            comboSprScaleX.cancel();
+        }
+        if (comboSprScaleY != null) {
+            comboSprScaleY.cancel();
+        }
+        if (comboSprAlpha != null) {
+            comboSprAlpha.cancel();
+        }
+        
         // 回缩动画
-        FlxTween.tween(comboSpr.scale, {x: comboOriginalScaleX}, 0.2 / playbackRate);
-        FlxTween.tween(comboSpr.scale, {y: comboOriginalScaleY}, 0.2 / playbackRate);
+        comboSprScaleX = FlxTween.tween(comboSpr.scale, {x: comboOriginalScaleX}, 0.2 / playbackRate);
+        comboSprScaleY = FlxTween.tween(comboSpr.scale, {y: comboOriginalScaleY}, 0.2 / playbackRate);
         
         // 淡出并销毁
-        FlxTween.tween(comboSpr, {alpha: 0}, 0.2 / playbackRate, {
+        comboSprAlpha = FlxTween.tween(comboSpr, {alpha: 0}, 0.2 / playbackRate, {
             onComplete: function(tween:FlxTween) {
                 if (comboGroup.members.contains(comboSpr)) {
                     comboGroup.remove(comboSpr);
@@ -3403,8 +3515,16 @@ public function proceedToNextState():Void
             startDelay: Conductor.crochet * 0.002 / playbackRate
         });
     } else {
-        // rating已经在上面处理了淡出，这里只做延迟销毁
-        FlxTween.tween(rating, {alpha: 0}, 0.2 / playbackRate, {
+        // rating已经在上面处理了淡出，这里只需要在淡出完成后销毁rating
+        // 注意：需要确保rating的淡出动画完成后销毁，避免重复销毁
+        
+        // 打断之前的销毁tween（如果有）
+        if (ratingAlpha != null) {
+            ratingAlpha.cancel();
+        }
+        
+        // 重新创建淡出动画，确保销毁逻辑
+        ratingAlpha = FlxTween.tween(rating, {alpha: 0}, 0.2 / playbackRate, {
             onComplete: function(tween:FlxTween) {
                 if (comboGroup.members.contains(rating)) {
                     comboGroup.remove(rating);
@@ -3414,6 +3534,7 @@ public function proceedToNextState():Void
             startDelay: Conductor.crochet * 0.002 / playbackRate
         });
     }
+
     
     // MS文本动画
     if (msText != null) {
@@ -3446,16 +3567,20 @@ public function proceedToNextState():Void
 			@:privateAccess if (!FlxG.keys._keyListMap.exists(eventKey)) return;
 			#end
 
-			if(FlxG.keys.checkStatus(eventKey, JUST_PRESSED)) keyPressed(key);
+			if(FlxG.keys.checkStatus(eventKey, JUST_PRESSED)) keyPressed(key, PlayState.lastKeyBindIndex);
 		}
 	}
 
-	private function keyPressed(key:Int)
+	private function keyPressed(key:Int, ?keyBindIndex:Int = -1)
 	{
 		if(cpuControlled || paused || inCutscene || key < 0 || key >= playerStrums.length || !generatedMusic || endingSong || boyfriend.stunned) return;
-		if (inReplay || loadRep) return;
+		if (!inReplay && (loadRep)) return; // 只在非replay模式下跳过loadRep
 
-		if (keyboardViewer != null) keyboardViewer.pressed(key);
+		if (keyboardViewer != null) {
+			var displayKey = key;
+			if (opponentMode == "coop" && keyBindIndex == 1) displayKey += 4;
+			keyboardViewer.pressed(displayKey);
+		}
 
 		var ret:Dynamic = callOnScripts('onKeyPressPre', [key]);
 		if(ret == LuaUtils.Function_Stop) return;
@@ -3466,8 +3591,8 @@ public function proceedToNextState():Void
 
 		// obtain notes that the player can hit
 		var plrInputNotes:Array<Note> = notes.members.filter(function(n:Note):Bool {
-			var canHit:Bool = n != null && !strumsBlocked[n.noteData] && n.canBeHit && n.mustPress && !n.tooLate && !n.wasGoodHit && !n.blockHit;
-			return canHit && !n.isSustainNote && n.noteData == key;
+			var canHit:Bool = n != null && !strumsBlocked[n.noteData] && n.canBeHit && !n.tooLate && !n.wasGoodHit && !n.blockHit;
+			return canHit && !n.isSustainNote && n.noteData == key && noteIsHuman(n, keyBindIndex);
 		});
 		plrInputNotes.sort(sortHitNotes);
 
@@ -3505,7 +3630,7 @@ public function proceedToNextState():Void
 		//more accurate hit time for the ratings? part 2 (Now that the calculations are done, go back to the time it was before for not causing a note stutter)
 		Conductor.songPosition = lastTime;
 
-		var spr:StrumNote = playerStrums.members[key];
+		var spr:StrumNote = getStrumForKey(key, keyBindIndex);
 		if(strumsBlocked[key] != true && spr != null && spr.animation.curAnim.name != 'confirm')
 		{
 			spr.playAnim('pressed');
@@ -3528,18 +3653,22 @@ public function proceedToNextState():Void
 	{
 		var eventKey:FlxKey = event.keyCode;
 		var key:Int = getKeyFromEvent(keysArray, eventKey);
-		if(!controls.controllerMode && key > -1) keyReleased(key);
+		if(!controls.controllerMode && key > -1) keyReleased(key, PlayState.lastKeyBindIndex);
 	}
 
-	private function keyReleased(key:Int)
+	private function keyReleased(key:Int, ?keyBindIndex:Int = 0)
 	{
- if(cpuControlled || !startedCountdown || paused || key < 0 || key >= 4) return;
+		if(cpuControlled || !startedCountdown || paused || key < 0 || key >= 4) return;
 
-		if (keyboardViewer != null) keyboardViewer.released(key);
+		if (keyboardViewer != null) {
+			var displayKey = key;
+			if (opponentMode == "coop" && keyBindIndex == 1) displayKey += 4;
+			keyboardViewer.released(displayKey);
+		}
 		var ret:Dynamic = callOnScripts('onKeyReleasePre', [key]);
 		if(ret == LuaUtils.Function_Stop) return;
 
-		var spr:StrumNote = playerStrums.members[key];
+		var spr:StrumNote = getStrumForKey(key, keyBindIndex);
 		if(spr != null)
 		{
 			spr.playAnim('static');
@@ -3550,14 +3679,18 @@ public function proceedToNextState():Void
 
 	public static function getKeyFromEvent(arr:Array<String>, key:FlxKey):Int
 	{
+		PlayState.lastKeyBindIndex = -1;
 		if(key != NONE)
 		{
 			for (i in 0...arr.length)
 			{
 				var note:Array<FlxKey> = Controls.instance.keyboardBinds[arr[i]];
-				for (noteKey in note)
-					if(key == noteKey)
+				for (j in 0...note.length)
+					if(key == note[j])
+					{
+						PlayState.lastKeyBindIndex = j;
 						return i;
+					}
 			}
 		}
 		return -1;
@@ -3568,41 +3701,63 @@ public function proceedToNextState():Void
 	{
 		// HOLDING
 		var holdArray:Array<Bool> = [];
+		var holdArrayAlt:Array<Bool> = [];
 		var pressArray:Array<Bool> = [];
+		var pressArrayAlt:Array<Bool> = [];
 		var releaseArray:Array<Bool> = [];
+		var releaseArrayAlt:Array<Bool> = [];
 		for (key in keysArray)
 		{
-			holdArray.push(controls.pressed(key));
-			pressArray.push(controls.justPressed(key));
-			releaseArray.push(controls.justReleased(key));
+			holdArray.push(controls.pressedKeyIndex(key, 0));
+			holdArrayAlt.push(controls.pressedKeyIndex(key, 1));
+			pressArray.push(controls.justPressedKeyIndex(key, 0));
+			pressArrayAlt.push(controls.justPressedKeyIndex(key, 1));
+			releaseArray.push(controls.justReleasedKeyIndex(key, 0));
+			releaseArrayAlt.push(controls.justReleasedKeyIndex(key, 1));
 		}
 
 		// TO DO: Find a better way to handle controller inputs, this should work for now
-		if(controls.controllerMode && pressArray.contains(true))
+		if(controls.controllerMode && (pressArray.contains(true) || pressArrayAlt.contains(true)))
 			for (i in 0...pressArray.length)
+			{
 				if(pressArray[i] && strumsBlocked[i] != true)
-					keyPressed(i);
+					keyPressed(i, 0);
+				if(pressArrayAlt[i] && strumsBlocked[i] != true)
+					keyPressed(i, 1);
+			}
 
 		if (startedCountdown && !inCutscene && !boyfriend.stunned && generatedMusic)
 		{
 			if (notes.length > 0) {
 				for (n in notes) { // I can't do a filter here, that's kinda awesome
 					var canHit:Bool = (n != null && !strumsBlocked[n.noteData] && n.canBeHit
-						&& n.mustPress && !n.tooLate && !n.wasGoodHit && !n.blockHit);
+						&& noteIsHuman(n) && !n.tooLate && !n.wasGoodHit && !n.blockHit);
 
 					if (guitarHeroSustains)
 						canHit = canHit && n.parent != null && n.parent.wasGoodHit;
 
 					if (canHit && n.isSustainNote) {
-						var released:Bool = !holdArray[n.noteData];
+						var released:Bool = true;
+						if (opponentMode == "coop")
+							released = !((n.mustPress ? holdArray[n.noteData] : holdArrayAlt[n.noteData]));
+						else
+							released = !(holdArray[n.noteData] || holdArrayAlt[n.noteData]);
 
 						if (!released)
 							goodNoteHit(n);
 					}
+
+					/*if (cpuControlled && opponentMode == "opponent" && n.mustPress && !strumsBlocked[n.noteData] && n.canBeHit && !n.tooLate && !n.wasGoodHit && !n.blockHit && n.isSustainNote) {
+						var released:Bool = !(holdArray[n.noteData] || holdArrayAlt[n.noteData]);
+						if (!released) {
+							n.wasGoodHit = true;
+							opponentNoteHit(n);
+						}
+					}*/
 				}
 			}
 
-			if (!holdArray.contains(true) || endingSong)
+			if ((!holdArray.contains(true) && !holdArrayAlt.contains(true)) || endingSong)
 				playerDance();
 
 			#if ACHIEVEMENTS_ALLOWED
@@ -3611,16 +3766,16 @@ public function proceedToNextState():Void
 		}
 
 		// TO DO: Find a better way to handle controller inputs, this should work for now
-		if((controls.controllerMode || strumsBlocked.contains(true)) && releaseArray.contains(true))
+		if((controls.controllerMode || strumsBlocked.contains(true)) && (releaseArray.contains(true) || releaseArrayAlt.contains(true)))
 			for (i in 0...releaseArray.length)
-				if(releaseArray[i] || strumsBlocked[i] == true)
-					keyReleased(i);
+				if(releaseArray[i] || releaseArrayAlt[i] || strumsBlocked[i] == true)
+					keyReleased(i, releaseArrayAlt[i] ? 1 : 0);
 	}
 
 	function noteMiss(daNote:Note):Void { //You didn't hit the key and let it go offscreen, also used by Hurt Notes
 		//Dupe note remove
 		notes.forEachAlive(function(note:Note) {
-			if (daNote != note && daNote.mustPress && daNote.noteData == note.noteData && daNote.isSustainNote == note.isSustainNote && Math.abs(daNote.strumTime - note.strumTime) < 1)
+			if (daNote != note && noteIsHuman(daNote) && daNote.noteData == note.noteData && daNote.isSustainNote == note.isSustainNote && Math.abs(daNote.strumTime - note.strumTime) < 1)
 				invalidateNote(note);
 		});
 
@@ -3629,40 +3784,39 @@ public function proceedToNextState():Void
 		var result:Dynamic = callOnLuas('noteMiss', [notes.members.indexOf(daNote), daNote.noteData, daNote.noteType, daNote.isSustainNote]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('noteMiss', [daNote]);
 
+		if(scoreTxt != null) {
+			if(scoreTxtColorTween != null) {
+				scoreTxtColorTween.cancel();
+			}
+			
+			if(ClientPrefs.data.customColor){
+				scoreTxtColorTween = FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFF1512, {
+					onComplete: function(twn:FlxTween) {
+						new FlxTimer().start(0.4, function(tmr:FlxTimer) 
+						{
+							FlxTween.color(scoreTxt, 0.1, scoreTxt.color, getOpponentHealthColor());
+						});
+					}
+				});
+			}
+			else {
+				scoreTxtColorTween = FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFF1512, {
+					onComplete: function(twn:FlxTween) {
+						new FlxTimer().start(0.4, function(tmr:FlxTimer) 
+						{
+							FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFFFFFF);
+						});
+					}
+				});
+			}
+		}
 		
-    if(scoreTxt != null) {
-        if(scoreTxtColorTween != null) {
-            scoreTxtColorTween.cancel();
-        }
-        
-        if(ClientPrefs.data.customColor){
-            scoreTxtColorTween = FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFF1512, {
-                onComplete: function(twn:FlxTween) {
-                    new FlxTimer().start(0.4, function(tmr:FlxTimer) 
-                    {
-                        FlxTween.color(scoreTxt, 0.1, scoreTxt.color, getOpponentHealthColor());
-                    });
-                }
-            });
-        }
-        else {
-            scoreTxtColorTween = FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFF1512, {
-                onComplete: function(twn:FlxTween) {
-                    new FlxTimer().start(0.4, function(tmr:FlxTimer) 
-                    {
-                        FlxTween.color(scoreTxt, 0.1, scoreTxt.color, 0xFFFFFFFF);
-                    });
-                }
-            });
-        }
-    }
-    
-    // ========== 回放录制 ==========
-      if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
-    {
-        rep.recordMiss(daNote.noteData, daNote.strumTime);
-        //trace('Replay recorded miss at strumTime: ' + daNote.strumTime);
-    }
+		// ========== 回放录制 ==========
+		if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
+		{
+			rep.recordMiss(daNote.noteData, daNote.strumTime);
+			//trace('Replay recorded miss at strumTime: ' + daNote.strumTime);
+		}
 	}
 
 	function noteMissPress(direction:Int = 1):Void //You pressed a key when there was no notes to press for this key
@@ -3743,15 +3897,28 @@ public function proceedToNextState():Void
 
 		// play character anims
 		var char:Character = boyfriend;
+		if(note != null && !note.mustPress && opponentMode != "opponent") char = dad;
+		if(note != null && note.mustPress && opponentMode == "opponent") char = boyfriend;
 		if((note != null && note.gfNote) || (SONG.notes[curSection] != null && SONG.notes[curSection].gfSection)) char = gf;
 
-		if(char != null && (note == null || !note.noMissAnimation) && char.hasMissAnimations)
+		if(char != null && (note == null || !note.noMissAnimation))
 		{
 			var postfix:String = '';
 			if(note != null) postfix = note.animSuffix;
 
-			var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, direction)))] + 'miss' + postfix;
+			var animToPlay:String;
+			if(char.hasMissAnimations)
+				animToPlay = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, direction)))] + 'miss' + postfix;
+			else
+				animToPlay = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, direction)))] + postfix;
 			char.playAnim(animToPlay, true);
+
+			// Set character to gray color on miss
+			var originalColor:FlxColor = char.color;
+			char.color = FlxColor.GRAY;
+			new FlxTimer().start(0.5, function(tmr:FlxTimer) {
+				char.color = originalColor;
+			});
 
 			if(char != gf && lastCombo > 5 && gf != null && gf.hasAnimation('sad'))
 			{
@@ -3772,15 +3939,20 @@ public function proceedToNextState():Void
 		if (songName != 'tutorial')
 			camZooming = true;
 
-		if(note.noteType == 'Hey!' && dad.hasAnimation('hey'))
+		if(note.noteType == 'Hey!')
 		{
-			dad.playAnim('hey', true);
-			dad.specialAnim = true;
-			dad.heyTimer = 0.6;
+			var heyChar:Character = (opponentMode == "opponent") ? boyfriend : dad;
+			if(note.gfNote) heyChar = gf;
+			if(heyChar.hasAnimation('hey'))
+			{
+				heyChar.playAnim('hey', true);
+				heyChar.specialAnim = true;
+				heyChar.heyTimer = 0.6;
+			}
 		}
 		else if(!note.noAnimation)
 		{
-			var char:Character = dad;
+			var char:Character = (opponentMode == "opponent") ? boyfriend : dad;
 			var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, note.noteData)))] + note.animSuffix;
 			if(note.gfNote) char = gf;
 
@@ -3800,7 +3972,8 @@ public function proceedToNextState():Void
 		}
 
 		if(opponentVocals.length <= 0) vocals.volume = 1;
-		strumPlayAnim(true, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
+		var isDadStrum:Bool = !(opponentMode == "opponent" && note.mustPress);
+		strumPlayAnim(isDadStrum, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
 		note.hitByOpponent = true;
 		
 		stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
@@ -3808,16 +3981,12 @@ public function proceedToNextState():Void
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('opponentNoteHit', [note]);
 
 		if (note.isSustainNote && noteHoldCover != null)
-	{
-		if (opponentMode)
 		{
-		noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+			if (noteShouldUseOpponentSide(note))
+				noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+			else
+				noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
 		}
-		else
-		{
-		noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
-		}
-	}
 		if (!note.isSustainNote) invalidateNote(note);
 	}
 
@@ -3825,6 +3994,9 @@ public function proceedToNextState():Void
 	{
 		if(note.wasGoodHit) return;
 		if(cpuControlled && note.ignoreNote) return;
+
+		if (opponentMode == "coop" && songName != "tutorial") camZooming = true;
+	
 
 		var isSus:Bool = note.isSustainNote; //GET OUT OF MY HEAD, GET OUT OF MY HEAD, GET OUT OF MY HEAD
 		var leData:Int = Math.round(Math.abs(note.noteData));
@@ -3853,6 +4025,11 @@ public function proceedToNextState():Void
 					char = gf;
 					animCheck = 'cheer';
 				}
+				else if (!note.mustPress)
+				{
+					char = dad;
+					animCheck = 'hey';
+				}
 
 				if(char != null)
 				{
@@ -3866,6 +4043,9 @@ public function proceedToNextState():Void
 	
 					if(canPlay) char.playAnim(animToPlay, true);
 					char.holdTimer = 0;
+
+					// Reset color if it was gray from miss
+					if(char.color == FlxColor.GRAY) char.color = FlxColor.WHITE;
 
 					if(note.noteType == 'Hey!')
 					{
@@ -3881,10 +4061,10 @@ public function proceedToNextState():Void
 
 			if(!cpuControlled)
 			{
-				var spr = playerStrums.members[note.noteData];
+				var spr = getStrumGroup(note).members[note.noteData];
 				if(spr != null) spr.playAnim('confirm', true);
 			}
-			else strumPlayAnim(false, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
+			else strumPlayAnim(!note.mustPress, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
 			vocals.volume = 1;
 
 			if (!note.isSustainNote)
@@ -3918,20 +4098,20 @@ public function proceedToNextState():Void
 		}
 
 				if (note.isSustainNote && noteHoldCover != null)
-		{
-			if (opponentMode)
 			{
-				noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+				if (noteShouldUseOpponentSide(note))
+					noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+				else
+					noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
 			}
-			else
-			{
-				noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
-			}
-		}
 
 		stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
 		var result:Dynamic = callOnLuas('goodNoteHit', [notes.members.indexOf(note), leData, leType, isSus]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('goodNoteHit', [note]);
+
+		if (shouldFireOpponentEvents(note))
+			triggerOpponentEventsForHumanHit(note);
+
 		if(!note.isSustainNote) invalidateNote(note);
 
 		var diff = note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
@@ -3986,7 +4166,7 @@ public function proceedToNextState():Void
 
 	public function spawnNoteSplashOnNote(note:Note) {
 		if(note != null) {
-			var strum:StrumNote = playerStrums.members[note.noteData];
+			var strum:StrumNote = getStrumGroup(note).members[note.noteData];
 			if(strum != null)
 				spawnNoteSplash(strum.x, strum.y, note.noteData, note, strum);
 		}

@@ -125,7 +125,7 @@ import states.TitleState;
 		'instakill' => false,
 		'practice' => false,
 		'botplay' => false,
-		'opponentplay' => false
+		'opponentplay' => 'player'
 	];
 
 	public var comboOffset:Array<Int> = [0, 0, 0, 0];
@@ -340,7 +340,18 @@ class ClientPrefs {
 	inline public static function getGameplaySetting(name:String, defaultValue:Dynamic = null, ?customDefaultValue:Bool = false):Dynamic
 	{
 		if(!customDefaultValue) defaultValue = defaultData.gameplaySettings.get(name);
-		return /*PlayState.isStoryMode ? defaultValue : */ (data.gameplaySettings.exists(name) ? data.gameplaySettings.get(name) : defaultValue);
+
+		var value:Dynamic = data.gameplaySettings.exists(name) ? data.gameplaySettings.get(name) : defaultValue;
+		if (name == 'opponentplay')
+		{
+			if (Std.is(value, Bool))
+				return value ? 'opponent' : 'player';
+			if (value == null)
+				return 'player';
+			return value;
+		}
+
+		return /*PlayState.isStoryMode ? defaultValue : */ value;
 	}
 
 	public static function reloadVolumeKeys()

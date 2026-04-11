@@ -1,6 +1,5 @@
 package options;
 
-import backend.StageData;
 import objects.Character;
 import objects.Bar;
 import flixel.addons.display.shapes.FlxShapeCircle;

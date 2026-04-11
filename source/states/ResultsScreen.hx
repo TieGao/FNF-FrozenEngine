@@ -2,12 +2,10 @@ package states;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.FlxSubState;
 import flixel.text.FlxText;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
-import flixel.math.FlxMath;
 import flixel.sound.FlxSound;
 
 import backend.Replay;

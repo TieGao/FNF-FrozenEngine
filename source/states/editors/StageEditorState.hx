@@ -1,19 +1,14 @@
 package states.editors;
 
 import backend.StageData;
-import backend.PsychCamera;
 import objects.Character;
-import psychlua.LuaUtils;
 
 import flixel.FlxObject;
 import flixel.addons.display.FlxBackdrop;
 import flixel.addons.display.FlxGridOverlay;
-import flixel.math.FlxRect;
 import flixel.util.FlxDestroyUtil;
 
-import openfl.utils.Assets;
 
-import openfl.display.Sprite;
 
 import openfl.net.FileReference;
 

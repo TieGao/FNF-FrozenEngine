@@ -4,7 +4,6 @@ import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup.FlxTypedSpriteGroup;
 import flixel.FlxG;
 import flixel.util.FlxColor;
-import flixel.math.FlxPoint;
 
 import states.PlayState;
 

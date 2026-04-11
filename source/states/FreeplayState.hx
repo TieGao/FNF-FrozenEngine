@@ -21,18 +21,14 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.FlxSprite;
 import flixel.text.FlxText;
 import flixel.tweens.FlxTween;
-import flixel.tweens.FlxEase;
-import flixel.graphics.FlxGraphic;
 import flixel.FlxG;
 
-import openfl.utils.Assets;
 
 import haxe.Json;
 
 import flixel.addons.display.FlxBackdrop;
 
 #if sys
-import sys.FileSystem;
 import sys.io.File;
 #end
 
@@ -327,6 +323,12 @@ class FreeplayState extends MusicBeatState
         changeSelection(0, false);
         persistentUpdate = true;
         super.closeSubState();
+        // Update rating sprite in case gameplay settings changed
+        for (card in cards)
+        {
+            if (card != null)
+                card.updateRatingSprite();
+        }
     }
 
     public function addSong(songName:String, weekNum:Int, songCharacter:String, color:Int)
@@ -904,8 +906,9 @@ class FreeplayState extends MusicBeatState
     
     // 关键修改：传入模组文件夹获取分数
     #if !switch
-    intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty, songs[curSelected].folder);
-    intendedRating = Highscore.getRating(songs[curSelected].songName, curDifficulty, songs[curSelected].folder);
+    var highscoreMode:String = ClientPrefs.getGameplaySetting('opponentplay');
+    intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty, songs[curSelected].folder, highscoreMode);
+    intendedRating = Highscore.getRating(songs[curSelected].songName, curDifficulty, songs[curSelected].folder, highscoreMode);
     #end
 
     lastDifficultyName = Difficulty.getString(curDifficulty, false);
@@ -1187,15 +1190,16 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         lengthText.text = 'LENGTH: $formattedLength';
     }
     
-    public function updateRatingSprite()
+    public function updateRatingSprite(?mode:String = null)
     {
+        if (mode == null) mode = ClientPrefs.getGameplaySetting('opponentplay');
         var songLowercase:String = songName.toLowerCase();
         songLowercase = songLowercase.replace(" ", "-");
         
         var bestRating:Float = 0;
         for (diff in 0...Difficulty.list.length)
         {
-            var rating:Float = Highscore.getRating(songLowercase, diff, folder);
+            var rating:Float = Highscore.getRating(songLowercase, diff, folder, mode);
             if (rating > bestRating)
             {
                 bestRating = rating;

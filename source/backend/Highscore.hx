@@ -19,10 +19,10 @@ class Highscore
 		setWeekScore(daWeek, 0);
 	}
 
-	public static function saveScore(song:String, score:Int = 0, ?diff:Int = 0, ?rating:Float = -1, ?modFolder:String = null):Void
+	public static function saveScore(song:String, score:Int = 0, ?diff:Int = 0, ?rating:Float = -1, ?modFolder:String = null, ?mode:String = null):Void
 	{
 		if(song == null) return;
-		var daSong:String = formatSong(song, diff, modFolder);
+		var daSong:String = formatSong(song, diff, modFolder, mode);
 
 		if (songScores.exists(daSong))
 		{
@@ -76,33 +76,36 @@ class Highscore
 	 * 格式化歌曲键名，支持模组隔离
 	 * 格式：[模组名:]歌曲名_难度
 	 */
-	public static function formatSong(song:String, diff:Int, ?modFolder:String = null):String
+	public static function formatSong(song:String, diff:Int, ?modFolder:String = null, ?mode:String = null):String
 	{
 		var formattedSong:String = Paths.formatToSongPath(song);
 		var diffPath:String = Difficulty.getFilePath(diff);
-		
+		var modeSuffix:String = '';
+		if (mode != null && mode.length > 0 && mode != 'player')
+			modeSuffix = '_' + mode;
+
 		// 如果有模组文件夹，使用模组隔离的键
 		if (modFolder != null && modFolder.length > 0 && modFolder != "base")
 		{
-			return modFolder + ":" + formattedSong + diffPath;
+			return modFolder + ":" + formattedSong + diffPath + modeSuffix;
 		}
 		
 		// 默认行为（向后兼容）
-		return formattedSong + diffPath;
+		return formattedSong + diffPath + modeSuffix;
 	}
 
-	public static function getScore(song:String, diff:Int, ?modFolder:String = null):Int
+	public static function getScore(song:String, diff:Int, ?modFolder:String = null, ?mode:String = null):Int
 	{
-		var daSong:String = formatSong(song, diff, modFolder);
+		var daSong:String = formatSong(song, diff, modFolder, mode);
 		if (!songScores.exists(daSong))
 			setScore(daSong, 0);
 
 		return songScores.get(daSong);
 	}
 
-	public static function getRating(song:String, diff:Int, ?modFolder:String = null):Float
+	public static function getRating(song:String, diff:Int, ?modFolder:String = null, ?mode:String = null):Float
 	{
-		var daSong:String = formatSong(song, diff, modFolder);
+		var daSong:String = formatSong(song, diff, modFolder, mode);
 		if (!songRating.exists(daSong))
 			setRating(daSong, 0);
 

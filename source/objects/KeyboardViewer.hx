@@ -8,6 +8,7 @@ import flixel.text.FlxText;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 import flixel.graphics.FlxGraphic;
+import flixel.input.keyboard.FlxKey;
 import openfl.display.BitmapData;
 import openfl.display.Bitmap;
 import openfl.display.Shape;
@@ -25,6 +26,7 @@ class KeyboardViewer extends FlxSpriteGroup
 	public var _y:Float;
 	public var _width:Float;
 	public var _height:Float;
+	public var centerOffset:Float;
 	public var kpsText:FlxText;
 	public var totalText:FlxText;
 
@@ -34,7 +36,7 @@ class KeyboardViewer extends FlxSpriteGroup
 
 	public static var instance:KeyboardViewer;
 
-	public function new(X:Float, Y:Float)
+	public function new(X:Float, Y:Float, ?keys:Int = 4)
 	{
 		super();
 		instance = this;
@@ -42,35 +44,39 @@ class KeyboardViewer extends FlxSpriteGroup
 		_x = X;
 		_y = Y;
 
-		keys = 4;
+		// 设置键位数量
+		this.keys = keys;
 
 		for(i in 0...keys) noteArrays.push([]);
 
 		_width = (KeyButton.size + 4) * keys;
 		_height = (KeyButton.size + 4) * 2;
 
-		// 创建4个键位按钮
-		for (i in 0...4)
+		// 计算居中偏移
+		centerOffset = -_width / 2;
+
+		// 创建键位按钮
+		for (i in 0...keys)
 		{
-			var obj:KeyButton = new KeyButton(X + (KeyButton.size + 4) * i, Y, KeyButton.size, KeyButton.size);
+			var obj:KeyButton = new KeyButton(X + centerOffset + (KeyButton.size + 4) * i, Y, KeyButton.size, KeyButton.size);
 			add(obj);
 		}
 
-		// 创建4个高亮按钮
-		for (i in 0...4)
+		// 创建高亮按钮
+		for (i in 0...keys)
 		{
-			var obj:KeyButtonAlpha = new KeyButtonAlpha(X + (KeyButton.size + 4) * i, Y);
+			var obj:KeyButtonAlpha = new KeyButtonAlpha(X + centerOffset + (KeyButton.size + 4) * i, Y);
 			keyAlphas.push(obj);
 			add(obj);
 		}
 
 		// 创建键位文本
 		var textArray:Array<String> = createArray();
-		for (i in 0...4)
+		for (i in 0...keys)
 		{
-			var obj:FlxText = new FlxText(X + (KeyButton.size + 4) * i, Y, KeyButton.size, textArray[i], 16);
+			var obj:FlxText = new FlxText(X + centerOffset + (KeyButton.size + 4) * i, Y, KeyButton.size, textArray[i], 16);
 			obj.setFormat("assets/fonts/vcr.ttf", 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-			obj.x = X + (KeyButton.size + 4) * i + (KeyButton.size - obj.width) / 2;
+			obj.x = X + centerOffset + (KeyButton.size + 4) * i + (KeyButton.size - obj.width) / 2;
 			obj.y = Y + (KeyButton.size - obj.height) / 2;
 			obj.color = ClientPrefs.data.keyboardTextColor;
 			obj.alpha = ClientPrefs.data.keyboardAlpha;
@@ -78,9 +84,9 @@ class KeyboardViewer extends FlxSpriteGroup
 			add(obj);
 		}
 
-		// 计算大按钮宽度
-		var bigButtonWidth:Int = 100;
-		var startX = X + (_width - bigButtonWidth * 2 - 4) / 2;
+		// 计算大按钮宽度（根据键位数量调整）
+		var bigButtonWidth:Int = keys * 25;
+		var startX = X + (-_width / 2) + (_width - bigButtonWidth * 2 - 4) / 2;
 
 		// 创建KPS和Total背景按钮
 		for (i in 0...2)
@@ -142,7 +148,7 @@ class KeyboardViewer extends FlxSpriteGroup
 		if (!ClientPrefs.data.keyboardTimeDisplay)
 			return;
 
-		var obj:TimeDis = new TimeDis(key, Conductor.songPosition, _x, _y);
+		var obj:TimeDis = new TimeDis(key, Conductor.songPosition, _x + centerOffset, _y);
 		add(obj);
 
 		if(key < noteArrays.length) {
@@ -177,10 +183,22 @@ class KeyboardViewer extends FlxSpriteGroup
 	{
 		var array:Array<String> = [];
 		
-		array.push(InputFormatter.getKeyName(Controls.instance.keyboardBinds['note_left'][0]));
-		array.push(InputFormatter.getKeyName(Controls.instance.keyboardBinds['note_down'][0]));
-		array.push(InputFormatter.getKeyName(Controls.instance.keyboardBinds['note_up'][0]));
-		array.push(InputFormatter.getKeyName(Controls.instance.keyboardBinds['note_right'][0]));
+		var keyNames = ['note_left', 'note_down', 'note_up', 'note_right'];
+		var mode:String = PlayState.instance != null ? PlayState.instance.opponentMode : "player";
+		
+		for (i in 0...keys)
+		{
+			var keyIndex = i % 4;
+			var bindIndex:Int = (mode == "coop" && i >= 4) ? 1 : 0;
+			var keyList:Array<FlxKey> = Controls.instance.keyboardBinds[keyNames[keyIndex]];
+			var keyCode:FlxKey = 0;
+			if (keyList != null && keyList.length > 0)
+			{
+				var safeIndex:Int = bindIndex < keyList.length ? bindIndex : keyList.length - 1;
+				keyCode = keyList[safeIndex];
+			}
+			array.push(InputFormatter.getKeyName(keyCode));
+		}
 		
 		return array;
 	}

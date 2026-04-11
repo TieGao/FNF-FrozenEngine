@@ -9,6 +9,7 @@ import shaders.RGBPalette.RGBShaderReference;
 import objects.StrumNote;
 
 import flixel.math.FlxRect;
+import states.PlayState;
 
 using StringTools;
 
@@ -559,15 +560,19 @@ class Note extends FlxSprite
 		super.update(elapsed);
 
 
-		if (mustPress)
-		{
-			canBeHit = (strumTime > Conductor.songPosition - (Conductor.safeZoneOffset * lateHitMult) &&
-						strumTime < Conductor.songPosition + (Conductor.safeZoneOffset * earlyHitMult));
+var allowHumanHit:Bool = mustPress;
+	if (PlayState.instance != null)
+		allowHumanHit = allowHumanHit || (PlayState.instance.opponentMode == "opponent" || PlayState.instance.opponentMode == "coop");
 
-			if (strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !wasGoodHit)
-				tooLate = true;
-		}
-		else
+	if (allowHumanHit)
+	{
+		canBeHit = (strumTime > Conductor.songPosition - (Conductor.safeZoneOffset * lateHitMult) &&
+				strumTime < Conductor.songPosition + (Conductor.safeZoneOffset * earlyHitMult));
+
+		if (strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !wasGoodHit)
+			tooLate = true;
+	}
+	else
 		{
 			canBeHit = false;
 
@@ -628,7 +633,7 @@ class Note extends FlxSprite
 
 	public function clipToStrumNote(myStrum:StrumNote)
 	{
-		var center:Float = myStrum.y  + Note.swagWidth / 2 + offsetY + 5;
+		var center:Float = myStrum.y + offsetY + Note.swagWidth / 2;
 		if((mustPress || !ignoreNote) && (wasGoodHit || (prevNote.wasGoodHit && !canBeHit)))
 		{
 			var swagRect:FlxRect = clipRect;

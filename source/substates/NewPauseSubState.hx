@@ -1,13 +1,11 @@
 package substates;
 
-import backend.WeekData;
 import backend.Highscore;
 import backend.Song;
 
 import flixel.util.FlxStringUtil;
 import flixel.addons.display.FlxBackdrop;
 import flixel.addons.display.FlxGridOverlay;
-import flixel.math.FlxRect;
 import flixel.math.FlxPoint;
 
 import states.StoryMenuState;

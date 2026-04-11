@@ -1,7 +1,6 @@
 package objects;
 
 import flixel.FlxSprite;
-import flixel.graphics.FlxGraphic;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import backend.SongArtConfig;

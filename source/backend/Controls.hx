@@ -109,6 +109,36 @@ class Controls
 		return result || _myGamepadJustReleased(gamepadBinds[key]) == true;
 	}
 
+	public function justPressedKeyIndex(key:String, index:Int):Bool
+	{
+		var keys:Array<FlxKey> = keyboardBinds[key];
+		if(keys == null || index < 0 || index >= keys.length) return false;
+		var result:Bool = (FlxG.keys.checkStatus(keys[index], JUST_PRESSED) == true);
+		if(result) controllerMode = false;
+
+		return result || _myGamepadJustPressedIndex(gamepadBinds[key], index) == true;
+	}
+
+	public function pressedKeyIndex(key:String, index:Int):Bool
+	{
+		var keys:Array<FlxKey> = keyboardBinds[key];
+		if(keys == null || index < 0 || index >= keys.length) return false;
+		var result:Bool = (FlxG.keys.checkStatus(keys[index], PRESSED) == true);
+		if(result) controllerMode = false;
+
+		return result || _myGamepadPressedIndex(gamepadBinds[key], index) == true;
+	}
+
+	public function justReleasedKeyIndex(key:String, index:Int):Bool
+	{
+		var keys:Array<FlxKey> = keyboardBinds[key];
+		if(keys == null || index < 0 || index >= keys.length) return false;
+		var result:Bool = (FlxG.keys.checkStatus(keys[index], JUST_RELEASED) == true);
+		if(result) controllerMode = false;
+
+		return result || _myGamepadJustReleasedIndex(gamepadBinds[key], index) == true;
+	}
+
 	public var controllerMode:Bool = false;
 	private function _myGamepadJustPressed(keys:Array<FlxGamepadInputID>):Bool
 	{
@@ -121,6 +151,18 @@ class Controls
 					controllerMode = true;
 					return true;
 				}
+			}
+		}
+		return false;
+	}
+	private function _myGamepadJustPressedIndex(keys:Array<FlxGamepadInputID>, index:Int):Bool
+	{
+		if(keys != null && index >= 0 && index < keys.length)
+		{
+			if (FlxG.gamepads.anyJustPressed(keys[index]) == true)
+			{
+				controllerMode = true;
+				return true;
 			}
 		}
 		return false;
@@ -140,6 +182,18 @@ class Controls
 		}
 		return false;
 	}
+	private function _myGamepadPressedIndex(keys:Array<FlxGamepadInputID>, index:Int):Bool
+	{
+		if(keys != null && index >= 0 && index < keys.length)
+		{
+			if (FlxG.gamepads.anyPressed(keys[index]) == true)
+			{
+				controllerMode = true;
+				return true;
+			}
+		}
+		return false;
+	}
 	private function _myGamepadJustReleased(keys:Array<FlxGamepadInputID>):Bool
 	{
 		if(keys != null)
@@ -151,6 +205,18 @@ class Controls
 					controllerMode = true;
 					return true;
 				}
+			}
+		}
+		return false;
+	}
+	private function _myGamepadJustReleasedIndex(keys:Array<FlxGamepadInputID>, index:Int):Bool
+	{
+		if(keys != null && index >= 0 && index < keys.length)
+		{
+			if (FlxG.gamepads.anyJustReleased(keys[index]) == true)
+			{
+				controllerMode = true;
+				return true;
 			}
 		}
 		return false;

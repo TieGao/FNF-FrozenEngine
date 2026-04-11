@@ -13,11 +13,7 @@ import haxe.Json;
 import backend.Song;
 import backend.Difficulty;
 import backend.ClientPrefs;
-import flixel.tweens.FlxEase;
-import flixel.tweens.FlxTween;
 import flixel.util.FlxTimer;
-import flixel.input.mouse.FlxMouseEventManager;
-import flixel.input.mouse.FlxMouseButton;
 
 // 卡片类 - 使用 FlxSpriteGroup
 class ReplayCard extends FlxSpriteGroup

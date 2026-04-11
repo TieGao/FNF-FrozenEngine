@@ -1,9 +1,6 @@
 package objects;
 
 import haxe.Json;
-import openfl.utils.Assets;
-import openfl.text.TextField;
-import openfl.text.TextFormat;
 import flixel.text.FlxText;
 
 enum Alignment

@@ -13,7 +13,6 @@ import substates.ResetScoreSubState;
 import flixel.math.FlxMath;
 import flixel.util.FlxDestroyUtil;
 
-import openfl.utils.Assets;
 
 import haxe.Json;
 
@@ -480,10 +479,10 @@ class OldFreeplayState extends MusicBeatState
 
 		curDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.list.length-1);
 		#if !switch
-		intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
-		intendedRating = Highscore.getRating(songs[curSelected].songName, curDifficulty);
+        var highscoreMode:String = ClientPrefs.getGameplaySetting('opponentplay');
+        intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty, null, highscoreMode);
+        intendedRating = Highscore.getRating(songs[curSelected].songName, curDifficulty, null, highscoreMode);
 		#end
-
 		lastDifficultyName = Difficulty.getString(curDifficulty, false);
 		var displayDiff:String = Difficulty.getString(curDifficulty);
 		if (Difficulty.list.length > 1)

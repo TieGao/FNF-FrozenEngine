@@ -1,15 +1,11 @@
 package states.editors.content;
 
-import haxe.Json;
 import sys.io.File;
 import sys.FileSystem;
 import backend.Song;
-import objects.Note;
 import moonchart.formats.fnf.FNFCodename;
 import moonchart.formats.fnf.legacy.FNFPsych;
 import moonchart.formats.BasicFormat;
-import moonchart.formats.BasicFormat.*;
-import moonchart.backend.Util;
 
 class CodenameConverter
 {

@@ -372,6 +372,7 @@ Breakfast_Pico: "早餐(Pico)"
 en-US: "英语（美国）"
 pt-BR: "葡萄牙语（巴西）"
 zh-CN: "简体中文"
+zh-TW: "繁体中文"
 
 // ============================================
 // 通用
@@ -507,6 +508,10 @@ setting_health_loss_multiplier: "掉血倍率"
 setting_instakill_on_miss: "失误即死"
 setting_practice_mode: "练习模式"
 setting_botplay: "自动演奏"
+setting_player_mode: "玩家模式"
+setting_player_mode-player : "玩家"
+setting_player_mode-opponent : "对手"
+setting_player_mode-coop : "合作"
 
 // Graphics Settings
 setting_low_quality: "低画质"

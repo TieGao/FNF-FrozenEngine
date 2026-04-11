@@ -1,20 +1,16 @@
 package options;
 
 import flixel.math.FlxRect;
-import flixel.input.gamepad.FlxGamepad;
-import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxTimer;
 import states.MainMenuState;
 import backend.MusicBeatState;
 import backend.StageData;
-import backend.Controls;
 
 import objects.BiosDateDisplay;
 
 import shaders.ParticleBeamShader;
 #if !flash
-import openfl.filters.ShaderFilter;
 #end
 
 class KEOptionsMenu extends MusicBeatState
@@ -1181,7 +1177,7 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
 			KEOption.create("Enable LUA Debug Printer", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
 			KEOption.create("Discord RPC", "Enable Discord Rich Presence", "discordRPC", "bool"),
-			KEOption.create("Language", "Change the game's language", "language", "string", ['en-US', 'pt-BR', 'zh-CN']),
+			KEOption.create("Language", "Change the game's language", "language", "string", ['en-US', 'pt-BR', 'zh-CN', 'zh-TW']),
 			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
 			KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
 			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),

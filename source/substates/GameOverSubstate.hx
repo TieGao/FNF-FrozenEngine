@@ -1,11 +1,7 @@
 package substates;
 
-import backend.WeekData;
-import backend.StageData;
-
 import objects.Character;
 import flixel.FlxObject;
-import flixel.FlxSubState;
 import flixel.math.FlxPoint;
 
 import states.StoryMenuState;

@@ -3,7 +3,6 @@ package options;
 import backend.Language;
 
 import flixel.FlxG;
-import flixel.math.FlxMath;
 import flixel.util.FlxColor;
 
 class KEOption

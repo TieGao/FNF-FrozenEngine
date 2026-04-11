@@ -56,6 +56,7 @@ typedef ReplayJSON =
     public var sf:Int;
     public var sm:Bool;
     public var ana:Analysis;
+    public var opponentMode:String; // 新增：游戏模式 (player/opponent/coop)
     // 已移除 playerName
     public var accuracy:Float;
     public var score:Int;
@@ -98,6 +99,7 @@ class Replay
             sf: 10,
             ana: new Analysis(),
             songJudgements: [],
+            opponentMode: "player", // 新增：默认玩家模式
             // 已移除 playerName
             accuracy: 0.0,
             score: 0,

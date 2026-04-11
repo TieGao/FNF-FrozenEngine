@@ -8,7 +8,6 @@ import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
 import flixel.math.FlxRect;
-import backend.Controls;
 
 class KESubMenu extends MusicBeatSubstate
 {
