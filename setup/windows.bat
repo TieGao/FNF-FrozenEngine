@@ -11,8 +11,8 @@ haxelib install hscript-iris 1.1.3
 haxelib install tjson 1.4.0
 haxelib install hxdiscord_rpc 1.2.4
 haxelib install hxvlc 2.2.5 --skip-dependencies
-haxelib git lime https://github.com/openfl/lime
-haxelib git openfl https://github.com/openfl/openfl
+haxelib git lime https://github.com/TieGao/lime
+haxelib git openfl https://github.com/TieGao/openfl
 haxelib install format
 haxelib install hxp
 haxelib install moonchart 0.5.1
