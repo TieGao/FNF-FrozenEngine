@@ -1,5 +1,6 @@
 package states;
 
+import backend.DifficultyCalculator;
 import backend.WeekData;
 import backend.Highscore;
 import backend.Song;
@@ -11,6 +12,7 @@ import objects.NewMusicPlayer;
 import objects.MusicPlayerLegacy;
 import objects.CharacterArtDisplay;
 import objects.SongArtDisplay;
+import objects.SearchBar;
 
 import options.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
@@ -59,6 +61,9 @@ class FreeplayState extends MusicBeatState
     var scoreBG:FlxSprite;
     var scoreText:FlxText;
     var diffText:FlxText;
+    var noteCountText:FlxText;
+    var difficultyRatingText:FlxText;
+    var modFolderText:FlxText;
     var lerpScore:Int = 0;
     var lerpRating:Float = 0;
     var intendedScore:Int = 0;
@@ -86,13 +91,17 @@ class FreeplayState extends MusicBeatState
 
     var replayButton:FlxSprite;
     
+    var searchInput:SearchBar;
+    var originalSongs:Array<NewSongMetaData> = [];
+    var filterTimer:Float = -1; // -1表示不需要过滤
+        
     var updateTimer:Float = 0;
     var updateInterval:Float = 0.016;
 
     override function create()
     {
-        Paths.clearStoredMemory();
-        Paths.clearUnusedMemory();
+        //Paths.clearStoredMemory();
+        //Paths.clearUnusedMemory();
         
         persistentUpdate = true;
         PlayState.isStoryMode = false;
@@ -130,6 +139,9 @@ class FreeplayState extends MusicBeatState
                 addSong(song[0], i, song[1], FlxColor.fromRGB(colors[0], colors[1], colors[2]));
             }
         }
+        
+        // 保存原始歌曲列表用于搜索
+        originalSongs = songs.copy();
         
         Mods.loadTopMod();
 
@@ -216,9 +228,34 @@ class FreeplayState extends MusicBeatState
         diffText.font = scoreText.font;
         add(diffText);
 
+        noteCountText = new FlxText(scoreText.x, scoreText.y + 66, 0, "", 20);
+        noteCountText.font = scoreText.font;
+        noteCountText.color = 0xFFAAAAAA;
+        add(noteCountText);
+
+        difficultyRatingText = new FlxText(scoreText.x, scoreText.y + 90, 0, "", 20);
+        difficultyRatingText.font = scoreText.font;
+        difficultyRatingText.color = DifficultyCalculator.getRatingColor(0);
+        add(difficultyRatingText);
+
         topBar = new FlxSprite(0, 0 ).loadGraphic(Paths.image('freeplay/topBar'));
         topBar.alpha = 0.8;
         add(topBar);
+
+        // 添加搜索框到topBar中
+        searchInput = new SearchBar(0, 50, Std.int(topBar.width * 0.3));
+        searchInput.onChange = function(oldText:String, newText:String) {
+            filterTimer = 0.75; // 延迟0.3秒过滤
+        };
+        searchInput.x = (topBar.width - searchInput.fieldWidth) / 2;
+        add(searchInput);
+
+        // 确保进入时焦点不在搜索框上
+        PsychUIInputText.focusOn = null;
+
+        modFolderText = new FlxText(10, 50, 0, "Mod: " + Mods.currentModDirectory, 24);
+        modFolderText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT);
+        add(modFolderText);
 
         missingTextBG = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
 		missingTextBG.alpha = 0.6;
@@ -232,8 +269,10 @@ class FreeplayState extends MusicBeatState
 		add(missingText);
 
         if(curSelected >= songs.length) curSelected = 0;
-        menuBg.color = songs[curSelected].color;
-        intendedColor = menuBg.color;
+        if (curSelected >= 0 && curSelected < songs.length) {
+            menuBg.color = songs[curSelected].color;
+            intendedColor = menuBg.color;
+        }
         lerpSelected = curSelected;
 
         curDifficulty = Math.round(Math.max(0, Difficulty.defaultList.indexOf(lastDifficultyName)));
@@ -282,6 +321,9 @@ class FreeplayState extends MusicBeatState
         updateCardsPosition();
 
         updateCardsRating();
+        
+        // 初始更新歌曲信息
+        updateSongInfoTexts();
         
         // 显示鼠标
         FlxG.mouse.visible = true;
@@ -462,17 +504,41 @@ class FreeplayState extends MusicBeatState
         {
             cards[curSelected].updateDifficultyInfo(
                 diffInfo.bpm,
-                diffInfo.formattedLength
+                diffInfo.formattedLength,
+                diffInfo.noteCount,
+                diffInfo.difficultyRating
             );
         }
         else
         {
-            cards[curSelected].updateDifficultyInfo(0, "0:00");
+            cards[curSelected].updateDifficultyInfo(0, "0:00", 0, 0.0);
+        }
+    }
+    
+    // 更新歌曲信息文本（note数量和难度评级）
+    function updateSongInfoTexts()
+    {
+        var currentSong = songs[curSelected];
+        var currentDiffName = Difficulty.getString(curDifficulty, false);
+        
+        var diffInfo = currentSong.difficultyInfo.get(currentDiffName);
+        
+        if (diffInfo != null)
+        {
+            noteCountText.text = 'NOTES: ${diffInfo.noteCount}';
+            difficultyRatingText.text = 'RATING: ${diffInfo.difficultyRating}';
+        }
+        else
+        {
+            noteCountText.text = 'NOTES: --';
+            difficultyRatingText.text = 'RATING: --';
         }
     }
     
     function togglePlaySong()
     {
+        if (curSelected < 0 || curSelected >= songs.length) return;
+
         if (musicPlayer.playingMusic)
         {
             musicPlayer.stopMusic();
@@ -576,6 +642,17 @@ class FreeplayState extends MusicBeatState
             updateTimer = 0;
         }
 
+        // 处理搜索过滤延迟
+        if (filterTimer > 0)
+        {
+            filterTimer -= elapsed;
+            if (filterTimer <= 0)
+            {
+                filterSongs(searchInput.text);
+                filterTimer = -1;
+            }
+        }
+
         if (!musicPlayer.playingMusic)
         {
             updateMouseInteraction();
@@ -605,7 +682,7 @@ class FreeplayState extends MusicBeatState
         var shiftMult:Int = 1;
         if(FlxG.keys.pressed.SHIFT && !musicPlayer.playingMusic) shiftMult = 3;
 
-        if (!musicPlayer.playingMusic && !musicPlayerLegacy.playingMusic)
+        if (!musicPlayer.playingMusic && !musicPlayerLegacy.playingMusic && PsychUIInputText.focusOn == null)
         {
 
             if(songs.length > 1)
@@ -694,21 +771,23 @@ class FreeplayState extends MusicBeatState
                 MusicBeatState.switchState(new MainMenuState());
             }
         }
-        else if(FlxG.keys.justPressed.CONTROL || FlxG.mouse.justPressedMiddle && !musicPlayer.playingMusic)
+        else if (PsychUIInputText.focusOn == null)
         {
-            persistentUpdate = false;
-            openSubState(new GameplayChangersSubstate());
-        }
-        else if (FlxG.keys.justPressed.ENTER && !musicPlayer.playingMusic)
-        {
-            selectSong();
-        }
-        else if (FlxG.keys.justPressed.SPACE && !ClientPrefs.data.legacymp)
-        {
-            togglePlaySong();
-        }
-        else if (FlxG.keys.justPressed.SPACE && ClientPrefs.data.legacymp)
-        {
+            if(FlxG.keys.justPressed.CONTROL || FlxG.mouse.justPressedMiddle && !musicPlayer.playingMusic)
+            {
+                persistentUpdate = false;
+                openSubState(new GameplayChangersSubstate());
+            }
+            else if (FlxG.keys.justPressed.ENTER && !musicPlayer.playingMusic)
+            {
+                selectSong();
+            }
+            else if (FlxG.keys.justPressed.SPACE && !ClientPrefs.data.legacymp)
+            {
+                togglePlaySong();
+            }
+            else if (FlxG.keys.justPressed.SPACE && ClientPrefs.data.legacymp)
+            {
 			if(instPlaying != curSelected && !musicPlayerLegacy.playingMusic)
 			{
 				destroyFreeplayVocals();
@@ -782,8 +861,9 @@ class FreeplayState extends MusicBeatState
 				musicPlayerLegacy.pauseOrResume(!musicPlayerLegacy.playingMusic);
 			}
         }
+        }
 
-        else if(controls.RESET && !musicPlayer.playingMusic)
+        if (PsychUIInputText.focusOn == null && controls.RESET && !musicPlayer.playingMusic)
         {
             persistentUpdate = false;
             openSubState(new ResetScoreSubState(songs[curSelected].songName, curDifficulty, songs[curSelected].songCharacter, -1, songs[curSelected].folder));
@@ -825,6 +905,8 @@ class FreeplayState extends MusicBeatState
     
     function selectSong()
     {
+        if (curSelected < 0 || curSelected >= songs.length) return;
+
         persistentUpdate = false;
         var songLowercase:String = Paths.formatToSongPath(songs[curSelected].songName);
         var poop:String = Highscore.formatSong(songLowercase, curDifficulty);
@@ -899,9 +981,9 @@ class FreeplayState extends MusicBeatState
 
     function changeDiff(change:Int = 0)
 {
-    if (musicPlayer.playingMusic)
-        return;
-
+    if (musicPlayer.playingMusic || curSelected < 0 || curSelected >= songs.length)
+        return; // 如果正在播放音乐或选择无效，直接返回
+    
     curDifficulty = FlxMath.wrap(curDifficulty + change, 0, Difficulty.list.length-1);
     
     // 关键修改：传入模组文件夹获取分数
@@ -923,12 +1005,15 @@ class FreeplayState extends MusicBeatState
     missingTextBG.visible = false;
 
     updateCardDifficultyInfo();
+    updateSongInfoTexts();
 }
 
     // 修复：完整的 changeSelection 函数
   function changeSelection(change:Int = 0, playSound:Bool = true)
 {
     var oldModDir = Mods.currentModDirectory;
+
+     difficultyRatingText.color = DifficultyCalculator.getRatingColor(0);
     
     Mods.currentModDirectory = songs[curSelected].folder;
     if (musicPlayer.playingMusic)
@@ -1030,6 +1115,9 @@ class FreeplayState extends MusicBeatState
 
     missingText.visible = false;
 	missingTextBG.visible = false;
+	
+	// 更新模组文件夹显示
+	modFolderText.text = "Mod: " + songs[curSelected].folder;
 }
 
     // 显示艺术图
@@ -1069,6 +1157,110 @@ class FreeplayState extends MusicBeatState
         if (characterArtDisplay != null)
             characterArtDisplay.destroy();
     }
+    
+    // 搜索歌曲功能
+    // 在 filterSongs 函数中，修改为：
+
+function filterSongs(searchText:String):Void
+{
+    searchText = searchText.toLowerCase();
+    searchText = StringTools.trim(searchText);
+    searchText = StringTools.replace(searchText, " ", "");
+    
+    if (searchText == null || searchText.length == 0)
+    {
+        // 恢复所有歌曲
+        songs = originalSongs.copy();
+        // 隐藏缺失提示
+        missingText.visible = false;
+        missingTextBG.visible = false;
+    }
+    else
+    {
+        // 过滤歌曲
+        songs = [];
+        for (song in originalSongs)
+        {
+            var songName = song.songName.toLowerCase();
+            songName = StringTools.replace(songName, " ", "");
+            if (songName.indexOf(searchText) != -1)
+            {
+                songs.push(song);
+            }
+        }
+        
+        // 如果搜索无结果，显示提示信息
+        if (songs.length == 0)
+        {
+            missingText.text = 'No songs found for:\n"' + searchInput.text + '"';
+            missingText.screenCenter(Y);
+            missingText.visible = true;
+            missingTextBG.visible = true;
+        }
+        else
+        {
+            missingText.visible = false;
+            missingTextBG.visible = false;
+        }
+    }
+    
+    // 重新创建卡片
+    for (card in cards)
+    {
+        remove(card);
+        card.destroy();
+    }
+    cards = [];
+    
+    for (i in 0...songs.length)
+    {
+        var oldModDir = Mods.currentModDirectory;
+        Mods.currentModDirectory = songs[i].folder;
+        
+        var card = new FreeplayCard(0, 0, songs[i].songName, songs[i].songCharacter, songs[i].color, songs[i].week);
+        card.targetY = i;
+        cards.push(card);
+        add(card);
+    }
+    
+    // 重置选择 - 处理无歌曲的情况
+    if (songs.length == 0) {
+        curSelected = -1;
+        lerpSelected = -1;
+        
+        // 隐藏或重置艺术图显示
+        if (songArtDisplay != null) songArtDisplay.visible = false;
+        if (characterArtDisplay != null) characterArtDisplay.visible = false;
+        
+        // 清空分数显示
+        scoreText.text = "";
+        diffText.text = "";
+        noteCountText.text = "";
+        difficultyRatingText.text = "";
+        
+        // 隐藏右下角发光
+        if (cornerGlow != null) cornerGlow.alpha = 0;
+        
+        return; // 直接返回，避免后续操作
+    }
+    
+    // 有歌曲时的正常处理
+    if (songArtDisplay != null) songArtDisplay.visible = true;
+    if (characterArtDisplay != null) characterArtDisplay.visible = true;
+    if (cornerGlow != null) cornerGlow.alpha = 0.7;
+    
+    curSelected = 0;
+    lerpSelected = 0;
+    menuBg.color = songs[curSelected].color;
+    intendedColor = menuBg.color;
+    
+    changeDiff();
+    showArtForIndex(curSelected, false);
+    showCharacterForIndex(curSelected, false);
+    updateCornerGlow();
+    updateCardsPosition();
+    updateCardsRating();
+}
 }
 
 class NewSongMetaData
@@ -1180,7 +1372,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         updateRatingSprite();
     }
     
-    public function updateDifficultyInfo(bpm:Float, formattedLength:String)
+    public function updateDifficultyInfo(bpm:Float, formattedLength:String, ?noteCount:Int = 0, ?difficultyRating:Float = 0.0)
     {
         if (bpm > 0)
             bpmText.text = 'BPM: ${Math.round(bpm)}';

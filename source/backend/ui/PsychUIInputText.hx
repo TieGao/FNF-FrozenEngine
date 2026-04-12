@@ -4,6 +4,7 @@ import flixel.FlxObject;
 import flixel.input.keyboard.FlxKey;
 import flixel.util.FlxDestroyUtil;
 import flash.events.KeyboardEvent;
+import flash.events.TextEvent;
 import lime.system.Clipboard;
 
 enum abstract AccentCode(Int) from Int from UInt to Int to UInt
@@ -86,6 +87,7 @@ class PsychUIInputText extends FlxSpriteGroup
 		this.text = text;
 
 		FlxG.stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
+		FlxG.stage.addEventListener(TextEvent.TEXT_INPUT, onTextInput);
 	}
 	
 	public var selectIndex:Int = -1;
@@ -94,6 +96,17 @@ class PsychUIInputText extends FlxSpriteGroup
 
 	var _nextAccent:AccentCode = NONE;
 	public var inInsertMode:Bool = false;
+	function onTextInput(e:TextEvent)
+	{
+		if(focusOn != this) return;
+
+		var inputText:String = e.text;
+		if(inputText != null && inputText.length > 0)
+		{
+			_typeText(inputText);
+		}
+	}
+
 	function onKeyDown(e:KeyboardEvent)
 	{
 		if(focusOn != this) return;
@@ -562,6 +575,7 @@ class PsychUIInputText extends FlxSpriteGroup
 		_boundaries = null;
 		if(focusOn == this) focusOn = null;
 		FlxG.stage.removeEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
+		FlxG.stage.removeEventListener(TextEvent.TEXT_INPUT, onTextInput);
 		super.destroy();
 	}
 
@@ -731,6 +745,29 @@ function calculateBoundaries(text:String)
 				text = text.substring(0, caretIndex) + letter + text.substring(caretIndex+1);
 
 			caretIndex += letter.length;
+			if(onChange != null) onChange(lastText, text);
+			if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
+		}
+		_caretTime = 0;
+	}
+
+	function _typeText(inputText:String)
+	{
+		if(inputText == null || inputText.length == 0) return;
+
+		if(selectIndex > -1 && selectIndex != caretIndex)
+			deleteSelection();
+
+		inputText = filter(inputText);
+		if(inputText.length > 0 && (maxLength == 0 || (text.length + inputText.length) <= maxLength))
+		{
+			var lastText = text;
+			if(!inInsertMode)
+				text = text.substring(0, caretIndex) + inputText + text.substring(caretIndex);
+			else
+				text = text.substring(0, caretIndex) + inputText + text.substring(caretIndex+1);
+
+			caretIndex += inputText.length;
 			if(onChange != null) onChange(lastText, text);
 			if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
 		}

@@ -1,12 +1,15 @@
 package substates;
 
+import backend.WeekData;
+
 import objects.Character;
 import flixel.FlxObject;
+import flixel.FlxSubState;
 import flixel.math.FlxPoint;
 
 import states.StoryMenuState;
-import states.OldFreeplayState;
 import states.FreeplayState;
+import states.OldFreeplayState;
 
 class GameOverSubstate extends MusicBeatSubstate
 {
@@ -152,9 +155,9 @@ class GameOverSubstate extends MusicBeatSubstate
 		{
 			if (controls.ACCEPT)
 			{
-			endBullshit();
+				endBullshit();
 			}
-			else if (controls.BACK || FlxG.mouse.justPressedRight)
+			else if (controls.BACK)
 			{
 				#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end
 				FlxG.camera.visible = false;
@@ -166,11 +169,10 @@ class GameOverSubstate extends MusicBeatSubstate
 				Mods.loadTopMod();
 				if (PlayState.isStoryMode)
 					MusicBeatState.switchState(new StoryMenuState());
-				else if (!ClientPrefs.data.oldFreeplay)
+				else if(!PlayState.isStoryMode && !ClientPrefs.data.oldFreeplay)
 					MusicBeatState.switchState(new FreeplayState());
-				else
-					MusicBeatState.switchState(new OldFreeplayState());
-
+				else MusicBeatState.switchState(new OldFreeplayState());
+	
 				FlxG.sound.playMusic(Paths.music('freakyMenu'));
 				PlayState.instance.callOnScripts('onGameOverConfirm', [false]);
 			}
