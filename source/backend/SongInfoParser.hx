@@ -76,7 +76,7 @@ class SongInfoParser
             difficultyMode = 'normal';
     }
     
-    trace('Preloading difficulties for song: $songName, Mode: $difficultyMode');
+//    trace('Preloading difficulties for song: $songName, Mode: $difficultyMode');
     
     for (diffName in difficulties)
     {
@@ -118,7 +118,7 @@ class SongInfoParser
                 var ratingText:String = DifficultyCalculator.getRatingText(calcResult.difficultyRating);
                 var ratingColor:FlxColor = DifficultyCalculator.getRatingColor(calcResult.difficultyRating);
                 
-                trace('Difficulty: $diffName, Notes: ${calcResult.noteCount}, Rating: ${calcResult.difficultyRating}');
+//                trace('Difficulty: $diffName, Notes: ${calcResult.noteCount}, Rating: ${calcResult.difficultyRating}');
                 
                 result.set(diffName, {
                     bpm: swagSong.bpm,

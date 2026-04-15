@@ -85,7 +85,6 @@ class ResultsScreen extends MusicBeatSubstate
             case REPLAY_PREVIEW:
                 text.text = "REPLAY PREVIEW";
                 text.color = FlxColor.CYAN;
-                loadReplayPreviewData();
                 
             case REPLAY_END:
                 text.text = "REPLAY FINISHED";
@@ -169,6 +168,7 @@ class ResultsScreen extends MusicBeatSubstate
             isPerfectClear: isPerfectClear
         };
         
+        if (mode == REPLAY_END) return;
         // ========== 保存统计数据到 ClientPrefs ==========
         saveGameStatsToClientPrefs();
     }
@@ -569,13 +569,31 @@ class ResultsScreen extends MusicBeatSubstate
         for (i in 0...rep.songNotes.length)
         {
             var obj = rep.songNotes[i];
-            var obj2 = rep.songJudgements[i];
-            
-            var diff = obj[3];
-            var judge = obj2;
-            var time = obj[0];
-            
-            if (obj[1] != -1) {
+            if (obj == null) continue;
+
+            // safe-get judgement
+            var obj2:Dynamic = "";
+            if (rep.songJudgements != null && i < rep.songJudgements.length) obj2 = rep.songJudgements[i];
+
+            // ensure types and defaults
+            var diff:Float = 0;
+            var time:Float = 0;
+            var judge:String = "";
+
+            try {
+                if (obj.length > 3 && obj[3] != null) diff = Std.parseFloat(Std.string(obj[3]));
+            } catch(e:Dynamic) { diff = 0; }
+
+            try {
+                if (obj.length > 0 && obj[0] != null) time = Std.parseFloat(Std.string(obj[0]));
+            } catch(e:Dynamic) { time = 0; }
+
+            if (obj2 != null) {
+                try { judge = Std.string(obj2); } catch(e:Dynamic) { judge = ""; }
+            }
+
+            // only add if note is not a special -1 sustain marker
+            if (obj.length > 1 && obj[1] != -1) {
                 graph.addToHistory(diff / playbackRate, judge, time / playbackRate);
             }
         }

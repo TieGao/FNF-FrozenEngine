@@ -15,6 +15,7 @@ typedef WeekBGData = {
     var background:String;
     var elements:Array<WeekBGElement>;
     var transitions:Array<WeekBGTransition>;
+    var ?exitTransitions:Array<WeekBGTransition>;
 }
 
 typedef WeekBGElement = {
@@ -243,6 +244,26 @@ class WeekBGConfig
                     delay: trans.delay != null ? Std.parseFloat(Std.string(trans.delay)) : 0
                 };
                 bgData.transitions.push(transition);
+            }
+        }
+        
+        // 解析退出过渡动画
+        if (data.exitTransitions != null && Std.is(data.exitTransitions, Array))
+        {
+            bgData.exitTransitions = [];
+            var exitTransitionsArray:Array<Dynamic> = data.exitTransitions;
+            for (trans in exitTransitionsArray)
+            {
+                var transition:WeekBGTransition = {
+                    elementName: trans.elementName,
+                    property: trans.property,
+                    fromValue: trans.fromValue != null ? Std.parseFloat(Std.string(trans.fromValue)) : 0,
+                    toValue: trans.toValue != null ? Std.parseFloat(Std.string(trans.toValue)) : 0,
+                    duration: trans.duration != null ? Std.parseFloat(Std.string(trans.duration)) : 0.5,
+                    ease: trans.ease != null ? Std.string(trans.ease) : "expoOut",
+                    delay: trans.delay != null ? Std.parseFloat(Std.string(trans.delay)) : 0
+                };
+                bgData.exitTransitions.push(transition);
             }
         }
         

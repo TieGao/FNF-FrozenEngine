@@ -336,27 +336,45 @@ class FreeplayState extends MusicBeatState
     {
         #if MODS_ALLOWED
         
+        // 避免重复预加载：按 mod:art 做唯一键，且按歌曲所在模组获取映射，避免配置跨模组污染
+        var loadedArt:Map<String, Bool> = new Map<String, Bool>();
+        var loadedChar:Map<String, Bool> = new Map<String, Bool>();
+
         for (song in songs)
         {
-            var artName:String = SongArtConfig.getArtForSong(song.songName);
+            var artName:String = SongArtConfig.getArtForSong(song.songName, song.folder);
             if (artName != null)
             {
-                Mods.currentModDirectory = song.folder;
-                try {
-                    Paths.image('songArt/$artName', null, true);
-                } catch (e:Dynamic) {}
+                var key = song.folder + ':' + artName;
+                if (loadedArt.get(key) == null)
+                {
+                    var oldModDir = Mods.currentModDirectory;
+                    Mods.currentModDirectory = song.folder;
+                    try {
+                        Paths.image('songArt/$artName', null, true);
+                    } catch (e:Dynamic) {}
+                    Mods.currentModDirectory = oldModDir;
+                    loadedArt.set(key, true);
+                }
             }
-            
-            var charArtName:String = SongArtConfig.getCharacterArtForSong(song.songName);
+
+            var charArtName:String = SongArtConfig.getCharacterArtForSong(song.songName, song.folder);
             if (charArtName != null)
             {
-                Mods.currentModDirectory = song.folder;
-                try {
-                    Paths.image('characterArt/$charArtName', null, true);
-                } catch (e:Dynamic) {}
+                var key2 = song.folder + ':' + charArtName;
+                if (loadedChar.get(key2) == null)
+                {
+                    var oldModDir2 = Mods.currentModDirectory;
+                    Mods.currentModDirectory = song.folder;
+                    try {
+                        Paths.image('characterArt/$charArtName', null, true);
+                    } catch (e:Dynamic) {}
+                    Mods.currentModDirectory = oldModDir2;
+                    loadedChar.set(key2, true);
+                }
             }
         }
-        
+
         #end
     }
 
@@ -743,6 +761,9 @@ class FreeplayState extends MusicBeatState
 
         if (controls.BACK || FlxG.mouse.justPressedRight)
         {
+            if (PsychUIInputText.focusOn != null)
+                return; // 当搜索条有焦点时，不处理BACK键退出
+            
             if (musicPlayer.playingMusic && !ClientPrefs.data.legacymp)
             {
                 musicPlayer.stopMusic();
@@ -945,6 +966,7 @@ class FreeplayState extends MusicBeatState
             Paths.freeGraphicsFromMemory();
         }
         LoadingState.prepareToSong();
+        FlxTransitionableState.skipNextTransOut = true; // 跳过退出渐变，直接进入LoadingState
         LoadingState.loadAndSwitchState(new PlayState());
         #if !SHOW_LOADING_SCREEN FlxG.sound.music.stop(); #end
         stopMusicPlay = true;
@@ -1011,6 +1033,8 @@ class FreeplayState extends MusicBeatState
     // 修复：完整的 changeSelection 函数
   function changeSelection(change:Int = 0, playSound:Bool = true)
 {
+    if (songs.length == 0) return; // 防止在无歌曲时崩溃
+    
     var oldModDir = Mods.currentModDirectory;
 
      difficultyRatingText.color = DifficultyCalculator.getRatingColor(0);

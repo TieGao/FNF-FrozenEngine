@@ -13,7 +13,9 @@ import haxe.Json;
 import backend.Song;
 import backend.Difficulty;
 import backend.ClientPrefs;
+import StringTools;
 import flixel.util.FlxTimer;
+import objects.SearchBar;
 
 // 卡片类 - 使用 FlxSpriteGroup
 class ReplayCard extends FlxSpriteGroup
@@ -270,26 +272,47 @@ class ReplayCard extends FlxSpriteGroup
     
     function formatDate(timestamp:Dynamic):String
     {
-        try
-        {
-            if (timestamp == null) return "Unknown";
-            var dateStr = Std.string(timestamp);
-            var datePattern = ~/(\d{4})-(\d{2})-(\d{2})/;
-            if (datePattern.match(dateStr))
-            {
-                return datePattern.matched(3) + "/" + datePattern.matched(2) + "/" + datePattern.matched(1);
-            }
-            if (Std.isOfType(timestamp, Date))
-            {
-                var date:Date = cast timestamp;
-                return '${date.getMonth()+1}/${date.getDate()}/${date.getFullYear()}';
-            }
-            return dateStr.length > 10 ? dateStr.substr(0, 10) : dateStr;
-        }
-        catch(e:Dynamic)
-        {
-            return "Unknown";
-        }
+                if (timestamp == null) return "Unknown";
+
+                // 如果已经是 Date 对象
+                var date:Date = null;
+                if (Std.isOfType(timestamp, Date))
+                {
+                    date = cast timestamp;
+                }
+                else
+                {
+                    // 尝试解析为数字（ms 或 s），或字符串可解析为数字/日期
+                    var raw = Std.string(timestamp);
+                    var num = Std.parseFloat(raw);
+                    if (!Math.isNaN(num))
+                    {
+                        // 如果看起来像秒（小于 1e11），转为毫秒
+                        if (num < 1e11) num = num * 1000;
+                        date = Date.fromTime(num);
+                    }
+                    else
+                    {
+                        // 尝试通过 Date 构造解析字符串
+                        try {
+                            date = Date.fromString(raw);
+                        } catch(e:Dynamic) {
+                            // 解析失败，返回原始短字符串（确保长度参数为 Int）
+                            return raw.substr(0, Std.int(Math.min(raw.length, 16)));
+                        }
+                    }
+                }
+
+                if (date == null) return "Unknown";
+
+                // 格式化为 YYYY/MM/DD HH:MM（补零）
+                var y = date.getFullYear();
+                var m = date.getMonth() + 1;
+                var d = date.getDate();
+                var hh = date.getHours();
+                var mm = date.getMinutes();
+                var sm = function(v:Int):String { return (v < 10 ? '0' + Std.string(v) : Std.string(v)); };
+                return Std.string(y) + '/' + sm(m) + '/' + sm(d) + ' ' + sm(hh) + ':' + sm(mm);
     }
     
     function formatNumber(num:Dynamic):String
@@ -327,7 +350,10 @@ class LoadReplayState extends MusicBeatState
 {
     var grpReplays:FlxTypedGroup<ReplayCard>;
     var replays:Array<String> = [];
+                
     var curSelected:Int = 0;
+    var replayJsons:Map<String, Dynamic> = new Map<String, Dynamic>();
+    var searchInput:objects.SearchBar;
     
     var bg:FlxSprite;
     var titleText:FlxText;
@@ -398,6 +424,16 @@ class LoadReplayState extends MusicBeatState
         titleText.borderSize = 3;
         add(titleText);
         
+        // 搜索框（复用 SearchBar）
+        searchInput = new objects.SearchBar(20, 70, Std.int(FlxG.width * 0.35));
+        searchInput.onChange = function(oldText:String, newText:String) {
+            currentPage = 0;
+            curSelected = 0;
+            loadReplays();
+            updateDisplay();
+        };
+        add(searchInput);
+        
         grpReplays = new FlxTypedGroup<ReplayCard>();
         add(grpReplays);
         
@@ -432,29 +468,6 @@ class LoadReplayState extends MusicBeatState
         FlxG.mouse.visible = true;
         lastMouseY = FlxG.mouse.screenY;
         
-		space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
-        space.antialiasing = ClientPrefs.data.antialiasing;
-        space.updateHitbox();
-        space.scrollFactor.set();
-        space.alpha = 0;
-        add(space);
-
-        starsBG = new FlxBackdrop(Paths.image('starBG'));
-        starsBG.setPosition(111.3, 67.95);
-        starsBG.antialiasing = true;
-        starsBG.updateHitbox();
-        starsBG.scrollFactor.set();
-        starsBG.alpha = 0;
-        add(starsBG);
-
-        starsFG = new FlxBackdrop(Paths.image('starFG'));
-        starsFG.setPosition(54.3, 59.45);
-        starsFG.updateHitbox();
-        starsFG.antialiasing = true;
-        starsFG.scrollFactor.set();
-        starsFG.alpha = 0;
-        add(starsFG);
-
         if (ClientPrefs.data.globalspace)
         {
             space.alpha = 1;
@@ -550,14 +563,21 @@ class LoadReplayState extends MusicBeatState
         var wheelDelta = FlxG.mouse.wheel;
         if (wheelDelta != 0)
         {
-            // 添加滚轮速度
-            scrollVelocity += wheelDelta * -15; // 负号使滚动方向自然
-            
-            // 立即应用一些滚动
-            scrollBy(wheelDelta * -50);
-            
-            // 播放滚动音效
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.2);
+            // 只在鼠标位于回放列表区域时响应滚轮（避免影响其他 UI）
+            var mouseY = FlxG.mouse.screenY;
+            var listTop = 120;
+            var listBottom = FlxG.height - 100;
+            if (mouseY >= listTop && mouseY <= listBottom)
+            {
+                // 添加滚轮速度
+                scrollVelocity += wheelDelta * -15; // 负号使滚动方向自然
+
+                // 立即应用一些滚动
+                scrollBy(wheelDelta * -50);
+
+                // 播放滚动音效
+                FlxG.sound.play(Paths.sound('scrollMenu'), 0.2);
+            }
         }
     }
     
@@ -690,29 +710,74 @@ class LoadReplayState extends MusicBeatState
     {
         #if sys
         replays = [];
-        
+        replayJsons.clear();
+
         var replayDir = "assets/replays/";
+        var entries:Array<Dynamic> = [];
         if (FileSystem.exists(replayDir)) {
             var files = FileSystem.readDirectory(replayDir);
-            files.sort(function(a:String, b:String):Int {
-                try {
-                    var aPath = replayDir + a;
-                    var bPath = replayDir + b;
-                    var aStat = FileSystem.stat(aPath);
-                    var bStat = FileSystem.stat(bPath);
-                    return Std.int(bStat.mtime.getTime() - aStat.mtime.getTime());
-                } catch(e:Dynamic) {
-                    return 0;
-                }
-            });
-            
             for (file in files) {
-                if (file.endsWith(".kadeReplay")) {
-                    replays.push(file);
+                if (!file.endsWith(".kadeReplay")) continue;
+                try {
+                    var filePath = replayDir + file;
+                    var fileContent = File.getContent(filePath);
+                    var json:Dynamic = Json.parse(fileContent);
+
+                    if (json == null) continue;
+                    if (json.songName == null) json.songName = "Unknown Song";
+                    if (json.difficultyName == null) json.difficultyName = (json.songDiff != null ? Difficulty.getString(Std.int(json.songDiff)) : "Normal");
+                    if (json.timestamp == null) json.timestamp = Date.now();
+                    if (json.modDirectory == null) json.modDirectory = "";
+
+                    // 解析 timestamp 为毫秒数
+                    var ts:Float = 0;
+                    try {
+                        if (Std.isOfType(json.timestamp, Date)) ts = (cast json.timestamp : Date).getTime();
+                        else {
+                            var s = Std.string(json.timestamp);
+                            var n = Std.parseFloat(s);
+                            if (!Math.isNaN(n)) {
+                                if (n < 1e11) n = n * 1000;
+                                ts = n;
+                            } else {
+                                try { var d:Date = Date.fromString(s); ts = d.getTime(); } catch(e:Dynamic) { ts = 0; }
+                            }
+                        }
+                    } catch(e:Dynamic) { ts = 0; }
+
+                    entries.push({ file: file, ts: ts, json: json });
+                } catch(e:Dynamic) {
+                    // skip malformed files
                 }
             }
+
+            // 按时间降序排序（最新在前）
+            entries.sort(function(a:Dynamic,b:Dynamic):Int { return Std.int(b.ts - a.ts); });
+
+            // 根据搜索过滤（如果有搜索框）并填充 replays & replayJsons
+            var searchStr:String = null;
+            if (searchInput != null && searchInput.text != null) {
+                searchStr = searchInput.text.toLowerCase();
+                searchStr = StringTools.trim(searchStr);
+            }
+
+            for (entry in entries) {
+                var file:String = entry.file;
+                var json:Dynamic = entry.json;
+
+                if (searchStr != null && searchStr.length > 0) {
+                    var match = false;
+                    if (file.toLowerCase().indexOf(searchStr) != -1) match = true;
+                    if (!match && json.songName != null && Std.string(json.songName).toLowerCase().indexOf(searchStr) != -1) match = true;
+                    if (!match && json.difficultyName != null && Std.string(json.difficultyName).toLowerCase().indexOf(searchStr) != -1) match = true;
+                    if (!match) continue;
+                }
+
+                replays.push(file);
+                replayJsons.set(file, json);
+            }
         }
-        
+
         totalPages = Math.ceil(replays.length / itemsPerPage);
         if (totalPages == 0) totalPages = 1;
         #end
@@ -752,23 +817,22 @@ class LoadReplayState extends MusicBeatState
             
             try
             {
-                var filePath = "assets/replays/" + filename;
-                var fileContent = File.getContent(filePath);
-                var json:Dynamic = Json.parse(fileContent);
-                
-                if (json.songName == null) json.songName = "Unknown Song";
-                if (json.difficultyName == null) {
-                    if (json.songDiff != null) {
-                        json.difficultyName = Difficulty.getString(Std.int(json.songDiff));
-                    } else {
-                        json.difficultyName = "Normal";
-                    }
+                var json:Dynamic = replayJsons.get(filename);
+                if (json == null) {
+                    // 回退到从磁盘读取（兼容旧文件）
+                    var filePath = "assets/replays/" + filename;
+                    var fileContent = File.getContent(filePath);
+                    json = Json.parse(fileContent);
                 }
+
+                if (json == null) continue;
+                if (json.songName == null) json.songName = "Unknown Song";
+                if (json.difficultyName == null) json.difficultyName = (json.songDiff != null ? Difficulty.getString(Std.int(json.songDiff)) : "Normal");
                 if (json.accuracy == null) json.accuracy = 0;
                 if (json.score == null) json.score = 0;
                 if (json.timestamp == null) json.timestamp = Date.now();
                 if (json.modDirectory == null) json.modDirectory = "";
-                
+
                 var card = new ReplayCard(
                     startX,
                     startY + i * (cardHeight + cardSpacing),

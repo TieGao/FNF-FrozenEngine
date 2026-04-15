@@ -519,6 +519,7 @@ class StoryMenuState extends MusicBeatState
 			LoadingState.prepareToSong();
 			new FlxTimer().start(1, function(tmr:FlxTimer)
 			{
+				FlxTransitionableState.skipNextTransOut = true; // 跳过退出渐变，直接进入LoadingState
 				#if !SHOW_LOADING_SCREEN FlxG.sound.music.stop(); #end
 				LoadingState.loadAndSwitchState(new PlayState(), true);
 				OldFreeplayState.destroyFreeplayVocals();
@@ -617,9 +618,9 @@ class StoryMenuState extends MusicBeatState
 		{
 			// 使用 fileName 作为唯一标识
 			var weekKey:String = leWeek.fileName;
-			trace('Showing week background for: ' + weekKey);
+			trace('Switching week background for: ' + weekKey);
 			var modFolder:String = Mods.currentModDirectory;
-			weekBGDisplay.showWeek(weekKey, modFolder, true);
+			weekBGDisplay.switchToWeek(weekKey, modFolder, true);
 		}
 
 		var newPos:Int = Difficulty.list.indexOf(lastDifficultyName);

@@ -164,8 +164,8 @@ class ModInfoBox extends FlxSpriteGroup
         bgBox.scrollFactor.set();
         add(bgBox);
         
-        // 使用新的SongArtConfig获取艺术图名称
-        var artName:String = SongArtConfig.getArtForSong(displaySongName);
+        // 使用新的SongArtConfig获取艺术图名称（优先使用提供的模组目录）
+        var artName:String = (modDirectory != null && modDirectory.length > 0) ? SongArtConfig.getArtForSong(displaySongName, modDirectory) : SongArtConfig.getArtForSong(displaySongName);
         
         if (artName != null)
         {

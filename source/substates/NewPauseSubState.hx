@@ -459,7 +459,7 @@ class NewPauseSubState extends MusicBeatSubstate
 			for (i in 0...difficultyChoices.length)
 			{
 				var textBg = difficultyBgs.get(difficultyChoices[i]);
-				if (textBg != null && FlxG.mouse.overlaps(textBg))
+				if (textBg != null && FlxG.mouse.overlaps(textBg, cameras[0]))
 				{
 					newMouseOver = i;
 					break;
@@ -472,7 +472,7 @@ class NewPauseSubState extends MusicBeatSubstate
 			for (i in 0...debugBgs.length)
 			{
 				var bg = debugBgs[i];
-				if (bg != null && FlxG.mouse.overlaps(bg))
+				if (bg != null && FlxG.mouse.overlaps(bg, cameras[0]))
 				{
 					newMouseOver = i;
 					break;
@@ -492,7 +492,7 @@ class NewPauseSubState extends MusicBeatSubstate
 					var originalY:Float = icon.y;
 					icon.x += clickHitboxOffsetX;
 					icon.y += clickHitboxOffsetY;
-					var overlaps:Bool = FlxG.mouse.overlaps(icon);
+					var overlaps:Bool = FlxG.mouse.overlaps(icon, cameras[0]);
 					icon.x = originalX;
 					icon.y = originalY;
 					
@@ -525,15 +525,15 @@ class NewPauseSubState extends MusicBeatSubstate
 		if (usingDebugPanel && debugPanelVisible && skipTimeIndex != -1 && skipTimeIndex < debugBgs.length)
 		{
 			var skipTimeBg = debugBgs[skipTimeIndex];
-			if (skipTimeBg != null && FlxG.mouse.overlaps(skipTimeBg))
+			if (skipTimeBg != null && FlxG.mouse.overlaps(skipTimeBg, cameras[0]))
 			{
 				isOverSkipTime = true;
 			}
 		}
 		
 		// 检测是否悬停在时间文本或进度条上
-		var isOverBar:Bool = skipTimeBar != null && skipTimeBar.visible && FlxG.mouse.overlaps(skipTimeBar);
-		var isOverText:Bool = skipTimeText != null && skipTimeText.visible && FlxG.mouse.overlaps(skipTimeText);
+		var isOverBar:Bool = skipTimeBar != null && skipTimeBar.visible && FlxG.mouse.overlaps(skipTimeBar, cameras[0]);
+		var isOverText:Bool = skipTimeText != null && skipTimeText.visible && FlxG.mouse.overlaps(skipTimeText, cameras[0]);
 		
 		// 只有鼠标悬停在Skip Time选项或相关UI上时才处理拖拽
 		var shouldHandle:Bool = isOverSkipTime || isOverBar || isOverText;

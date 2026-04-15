@@ -686,25 +686,17 @@ class PsychUIInputText extends FlxSpriteGroup
 // 新增的边界计算函数
 function calculateBoundaries(text:String)
 {
+    _boundaries = [];
     if(text.length == 0) return;
     
-    // 对于长文本，使用更高效的计算方式
-    if(text.length > 100) {
-        // 使用近似计算
-        var avgWidth = textObj.textField.textWidth / text.length;
-        for(i in 0...text.length) {
-            _boundaries[i] = (i + 1) * avgWidth;
-        }
-    } else {
-        // 对于短文本，使用精确计算
-        var tempText = "";
-        for(i in 0...text.length) {
-            tempText += text.charAt(i);
-            textObj.textField.text = tempText;
-            _boundaries[i] = textObj.textField.textWidth;
-        }
-        // 恢复原文本
-        textObj.textField.text = text;
+    // 使用 getCharBoundaries 进行精确计算
+    for(i in 0...text.length)
+    {
+        var rect = textObj.textField.getCharBoundaries(i);
+        if(rect != null)
+            _boundaries.push(rect.x + rect.width);
+        else
+            _boundaries.push(i > 0 ? _boundaries[i-1] : 0);
     }
 }
 

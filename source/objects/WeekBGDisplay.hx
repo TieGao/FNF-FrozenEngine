@@ -26,31 +26,32 @@ class WeekBGDisplay extends FlxTypedGroup<FlxSprite>
         visible = false;
     }
     
-    public function showWeek(weekKey:String, modFolder:String = "", animated:Bool = true):Void
+    public function switchToWeek(newWeekKey:String, modFolder:String = "", animated:Bool = true):Void
     {
-        if (weekKey == null || weekKey.length == 0 || (currentWeekKey == weekKey && currentModFolder == modFolder && visible))
+        if (newWeekKey == null || newWeekKey.length == 0 || (currentWeekKey == newWeekKey && currentModFolder == modFolder && visible))
             return;
         
         cancelAllTweens();
-        
-        currentWeekKey = weekKey;
-        currentModFolder = modFolder;
         
         var oldModDir = Mods.currentModDirectory;
         if (modFolder != null && modFolder.length > 0 && modFolder != "base")
             Mods.currentModDirectory = modFolder;
         
-        var config:WeekBGData = WeekBGConfig.getConfigForWeek(weekKey);
+        var newConfig:WeekBGData = WeekBGConfig.getConfigForWeek(newWeekKey);
+        var oldConfig:WeekBGData = WeekBGConfig.getConfigForWeek(currentWeekKey);
         
-        if (config == null)
+        // 如果新周目没有配置，隐藏
+        if (newConfig == null)
         {
             hide();
             Mods.currentModDirectory = oldModDir;
+            currentWeekKey = newWeekKey;
+            currentModFolder = modFolder;
             return;
         }
         
-        // 加载所有需要的图片（如果还没加载）
-        for (elem in config.elements)
+        // 加载新周目的元素
+        for (elem in newConfig.elements)
         {
             if (!elementSprites.exists(elem.name))
             {
@@ -58,21 +59,47 @@ class WeekBGDisplay extends FlxTypedGroup<FlxSprite>
             }
         }
         
-        // 动画移动所有元素到目标位置
         if (animated)
         {
-            for (elem in config.elements)
+            // 应用旧周目的退出动画
+            if (oldConfig != null && oldConfig.exitTransitions != null)
             {
-                var sprite = elementSprites.get(elem.name);
+                for (trans in oldConfig.exitTransitions)
+                {
+                    var sprite = elementSprites.get(trans.elementName);
+                    if (sprite != null)
+                    {
+                        animateTransition(sprite, trans);
+                    }
+                }
+            }
+            else
+            {
+                // 默认退出动画
+                for (sprite in elementSprites)
+                {
+                    FlxTween.tween(sprite, {
+                        x: DEFAULT_X,
+                        y: DEFAULT_Y,
+                        alpha: DEFAULT_ALPHA
+                    }, 0.5, { ease: FlxEase.expoOut });
+                }
+            }
+            
+            // 应用新周目的进入动画
+            for (trans in newConfig.transitions)
+            {
+                var sprite = elementSprites.get(trans.elementName);
                 if (sprite != null)
                 {
-                    animateElement(sprite, elem);
+                    animateTransition(sprite, trans);
                 }
             }
         }
         else
         {
-            for (elem in config.elements)
+            // 非动画模式，直接设置位置
+            for (elem in newConfig.elements)
             {
                 var sprite = elementSprites.get(elem.name);
                 if (sprite != null)
@@ -83,6 +110,8 @@ class WeekBGDisplay extends FlxTypedGroup<FlxSprite>
         }
         
         visible = true;
+        currentWeekKey = newWeekKey;
+        currentModFolder = modFolder;
         Mods.currentModDirectory = oldModDir;
     }
     
@@ -135,28 +164,19 @@ class WeekBGDisplay extends FlxTypedGroup<FlxSprite>
         elementConfigs.set(elem.name, elem);
     }
     
-    private function animateElement(sprite:FlxSprite, elem:WeekBGElement):Void
+    private function animateTransition(sprite:FlxSprite, trans:WeekBGTransition):Void
     {
-        var targetX:Float = elem.targetX != null ? elem.targetX : DEFAULT_X;
-        var targetY:Float = elem.targetY != null ? elem.targetY : DEFAULT_Y;
-        var targetAlpha:Float = elem.targetAlpha != null ? elem.targetAlpha : DEFAULT_ALPHA;
+        var easeFunc:Dynamic = WeekBGConfig.getEaseFunction(trans.ease);
+        var tweenOptions:Dynamic = { ease: easeFunc };
+        if (trans.delay > 0)
+        {
+            tweenOptions.startDelay = trans.delay;
+        }
         
-        // 使用 Reflect 动态获取，避免编译错误
-        var duration:Float = 0.5;
-        var ease:Dynamic = FlxEase.expoOut;
+        var tweenData:Dynamic = {};
+        Reflect.setField(tweenData, trans.property, trans.toValue);
         
-        if (Reflect.hasField(elem, "duration") && Reflect.field(elem, "duration") != null)
-            duration = Reflect.field(elem, "duration");
-        
-        if (Reflect.hasField(elem, "ease") && Reflect.field(elem, "ease") != null)
-            ease = WeekBGConfig.getEaseFunction(Reflect.field(elem, "ease"));
-        
-        var tween = FlxTween.tween(sprite, {
-            x: targetX,
-            y: targetY,
-            alpha: targetAlpha
-        }, duration, { ease: ease });
-        
+        var tween = FlxTween.tween(sprite, tweenData, trans.duration, tweenOptions);
         activeTweens.push(tween);
     }
 

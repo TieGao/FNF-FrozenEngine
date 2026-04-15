@@ -74,6 +74,12 @@ class LoadingState extends MusicBeatState
 	var fadeOutDuration:Float = 0.5; // 渐变持续时间（秒）
 	var fadeOutTimer:Float = 0;
 
+	// 渐变进入相关变量
+	var fadeInAlpha:Float = 0;
+	var isFadingIn:Bool = true;
+	var fadeInDuration:Float = 0.5; // 渐变进入持续时间（秒）
+	var fadeInTimer:Float = 0;
+
 	#if PSYCH_WATERMARKS
 	var logo:FlxSprite;
 	var pessy:FlxSprite;
@@ -185,8 +191,14 @@ class LoadingState extends MusicBeatState
 		addBehindBar(funkay);
 		#end
 		
-		// 设置所有元素初始透明度为1（完全不透明）
-		setAllAlpha(1.0);
+		// 设置所有元素初始透明度为0（完全透明），然后开始渐变进入
+		setAllAlpha(0.0);
+		isFadingIn = true;
+		fadeInTimer = 0;
+		fadeInAlpha = 0;
+		
+		// 进度条在渐变进入期间不可见
+		barGroup.alpha = 0;
 		
 		super.create();
 
@@ -251,6 +263,28 @@ class LoadingState extends MusicBeatState
 	{
 		super.update(elapsed);
 		if (dontUpdate) return;
+
+		// 处理渐变进入效果
+		if (isFadingIn)
+		{
+			fadeInTimer += elapsed;
+			fadeInAlpha = fadeInTimer / fadeInDuration;
+			
+			if (fadeInAlpha >= 1)
+			{
+				// 渐变进入完成
+				fadeInAlpha = 1;
+				isFadingIn = false;
+				setAllAlpha(1.0);
+				// 显示进度条
+				barGroup.alpha = 1;
+			}
+			else
+			{
+				setAllAlpha(fadeInAlpha);
+			}
+			return; // 在渐变进入期间不处理其他逻辑
+		}
 
 		if (!transitioning)
 		{
