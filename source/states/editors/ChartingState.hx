@@ -2288,6 +2288,31 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		//trace(gridBg.y, noteY);
 	}
 
+	// Mirror all notes in the currently loaded song (mirrors each player's columns)
+	public static function mirrorAllNotes():Void
+	{
+		if(PlayState.SONG == null) return;
+		var colsPerPlayer = GRID_COLUMNS_PER_PLAYER;
+		for (sec in PlayState.SONG.notes)
+		{
+			if(sec == null || sec.sectionNotes == null) continue;
+			for(i in 0...sec.sectionNotes.length)
+			{
+				var note = sec.sectionNotes[i];
+				if(note == null) continue;
+				// note is an Array where index 1 is the column/data
+				if(note[1] == null) continue;
+				var data:Int = Std.int(note[1]);
+				if(data < 0) continue;
+				var base = Math.floor(data / colsPerPlayer) * colsPerPlayer;
+				var col = data % colsPerPlayer;
+				note[1] = base + colsPerPlayer - col - 1;
+			}
+		}
+		// Notify user (sound)
+		FlxG.sound.play(Paths.sound('confirmMenu'));
+	}
+
 	var characterData:Dynamic = {};
 	function updateJsonData():Void
 	{

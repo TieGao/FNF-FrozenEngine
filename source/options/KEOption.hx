@@ -265,6 +265,15 @@ class KEOption
 				case "Adjust Delay and Combo":
 					MusicBeatState.switchState(new options.NoteOffsetState());
 					return false;
+				case "Mirror Notes":
+					// Mirror all notes in the currently loaded chart
+					try {
+						states.editors.ChartingState.mirrorAllNotes();
+						FlxG.sound.play(Paths.sound('confirmMenu'));
+					} catch(e:Dynamic) {
+						trace('Error mirroring notes: $e');
+					}
+					return true;
 			}
 			return true;
 		}
