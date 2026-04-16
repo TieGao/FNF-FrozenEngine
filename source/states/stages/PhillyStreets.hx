@@ -515,7 +515,7 @@ class PhillyStreets extends BaseStage
 				rainShaderEndIntensity = 0.4;
 		}
 		rainShader.intensity = rainShaderStartIntensity;
-		FlxG.camera.filters = [new ShaderFilter(rainShader)];
+		FlxG.camera.setFilters([new ShaderFilter(rainShader)]);
 	}
 	
 	var currentNeneState:NeneState = STATE_DEFAULT;
@@ -848,42 +848,41 @@ class PhillyStreets extends BaseStage
 	}
 
 	function createCasing()
-	{
-		if(ClientPrefs.data.lowQuality) return;
+    {
+        if(ClientPrefs.data.lowQuality) return;
+        if(casingGroup == null || casingFrames == null) return;
+        if(boyfriend == null) return;
 
-		var casing:FlxSprite = new FlxSprite(boyfriend.x + 250, boyfriend.y + 100);
-		casing.frames = casingFrames;
-		casing.animation.addByPrefix('pop', 'Pop0', 24, false);
-		casing.animation.addByPrefix('idle', 'Bullet0', 24, true);
-		casing.animation.play('pop', true);
-		
-		casing.animation.callback = function(name:String, frameNumber:Int, frameIndex:Int)
-		{
-			if (name == 'pop' && frameNumber == 40)
-			{
-				// Get the end position of the bullet dynamically.
-				casing.x = casing.x + casing.frame.offset.x - 1;
-				casing.y = casing.y + casing.frame.offset.y + 1;
-		
-				casing.angle = 125.1; // Copied from FLA
-		
-				// Okay this is the neat part, we can set the velocity and angular acceleration to make it roll without editing update().
-				var randomFactorA:Float = FlxG.random.float(3, 10);
-				var randomFactorB:Float = FlxG.random.float(1.0, 2.0);
-				casing.velocity.x = 20 * randomFactorB;
-				casing.drag.x = randomFactorA * randomFactorB;
-		
-		
-				casing.angularVelocity = 100;
-				// Calculated to ensure angular acceleration is maintained through the whole roll.
-				casing.angularDrag = (casing.drag.x / casing.velocity.x) * 100;
-		
-				casing.animation.play('idle');
-				casing.animation.callback = null; // Save performance.
-			}
-		};
-		casingGroup.add(casing);
-	}
+        var casing:FlxSprite = new FlxSprite(boyfriend.x + 250, boyfriend.y + 100);
+        casing.frames = casingFrames;
+        casing.animation.addByPrefix('pop', 'Pop0', 24, false);
+        casing.animation.addByPrefix('idle', 'Bullet0', 24, true);
+        casing.animation.play('pop', true);
+        
+        casing.animation.onFrameChange.add(function(name:String, frameNumber:Int, frameIndex:Int)
+        {
+            if (name == 'pop' && frameNumber == 40)
+            {
+                // Get the end position of the bullet dynamically.
+                casing.x = casing.x + casing.frame.offset.x - 1;
+                casing.y = casing.y + casing.frame.offset.y + 1;
+        
+                casing.angle = 125.1; // Copied from FLA
+        
+                var randomFactorA:Float = FlxG.random.float(3, 10);
+                var randomFactorB:Float = FlxG.random.float(1.0, 2.0);
+                casing.velocity.x = 20 * randomFactorB;
+                casing.drag.x = randomFactorA * randomFactorB;
+        
+                casing.angularVelocity = 100;
+                casing.angularDrag = (casing.drag.x / casing.velocity.x) * 100;
+        
+                casing.animation.play('idle');
+                casing.animation.onFrameChange.removeAll();
+            }
+        });
+        casingGroup.add(casing);
+    }
 
 	override function opponentNoteHit(note:Note)
 	{

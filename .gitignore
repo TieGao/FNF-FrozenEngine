@@ -8,8 +8,9 @@ art/buildScripts/test_x64-debug-officialrelease.bat
 ### VS Code
 export/*
 .vscode/*
-.haxelib/
+HaxeToolkit/
 #.github/
+
 *.code-workspace
 vs_Community.exe
 # Local history which shouldn't be shared.
