@@ -111,6 +111,53 @@ class Replay
         anaRecording = new Analysis();
     }
 
+    private function roundFloat(value:Dynamic, decimals:Int):Float
+    {
+        if (value == null) return 0.0;
+        var num:Float = Std.parseFloat(Std.string(value));
+        var factor:Float = Math.pow(10, decimals);
+        return Math.round(num * factor) / factor;
+    }
+
+    private function roundReplayNotes(notes:Array<Dynamic>, decimals:Int):Array<Dynamic>
+    {
+        var rounded:Array<Dynamic> = [];
+        for (note in notes)
+        {
+            if (note != null && note.length >= 4)
+            {
+                rounded.push([
+                    roundFloat(note[0], decimals),
+                    roundFloat(note[1], decimals),
+                    note[2],
+                    roundFloat(note[3], decimals)
+                ]);
+            }
+            else
+            {
+                rounded.push(note);
+            }
+        }
+        return rounded;
+    }
+
+    private function roundAnalysisData(ana:Analysis, decimals:Int):Analysis
+    {
+        var rounded:Analysis = new Analysis();
+        for (hit in ana.anaArray)
+        {
+            var roundedHit:Ana = new Ana(
+                roundFloat(hit.hitTime, decimals),
+                hit.nearestNote,
+                hit.hit,
+                hit.hitJudge,
+                hit.key
+            );
+            rounded.anaArray.push(roundedHit);
+        }
+        return rounded;
+    }
+
     public static function LoadReplay(path:String):Replay
     {
         var rep:Replay = new Replay(path);
@@ -166,6 +213,11 @@ class Replay
         ratingFC = PlayState.instance.ratingFC;
     }
     
+    var roundedNotes:Array<Dynamic> = roundReplayNotes(notearray, 2);
+    var roundedAccuracy:Float = roundFloat(accuracy, 2);
+    var roundedNoteSpeed:Float = roundFloat(PlayState.SONG != null ? PlayState.SONG.speed : 1.5, 2);
+    var roundedAna:Analysis = roundAnalysisData(ana, 2);
+
     var json = {
         "songName": PlayState.SONG != null ? PlayState.SONG.song : "Unknown",
         "songDiff": songDiff, // 使用整数难度
@@ -176,12 +228,12 @@ class Replay
         "timestamp": Date.now(),
         "replayGameVer": version,
         "sf": 10,
-        "noteSpeed": PlayState.SONG != null ? PlayState.SONG.speed : 1.5,
+        "noteSpeed": roundedNoteSpeed,
         "isDownscroll": ClientPrefs.data.downScroll,
-        "songNotes": notearray,
+        "songNotes": roundedNotes,
         "songJudgements": judge,
-        "ana": ana,
-        "accuracy": accuracy,
+        "ana": roundedAna,
+        "accuracy": roundedAccuracy,
         "score": PlayState.instance != null ? PlayState.instance.songScore : 0,
         "misses": missCount,
         "rating": rating,
@@ -238,7 +290,6 @@ class Replay
                 if (replay.songNotes == null) replay.songNotes = [];
                 if (replay.songJudgements == null) replay.songJudgements = [];
                 if (replay.ana == null) replay.ana = new Analysis();
-                if (replay.timestamp == null) replay.timestamp = Date.now();
                 if (replay.modDirectory == null) replay.modDirectory = "";
                 if (replay.songName == null) replay.songName = "Unknown";
                 if (replay.difficultyName == null) replay.difficultyName = "Normal";

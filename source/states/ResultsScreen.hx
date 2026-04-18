@@ -270,7 +270,7 @@ class ResultsScreen extends MusicBeatSubstate
                 contText = new FlxText(FlxG.width + 100, FlxG.height - 60, 400, 'Press ENTER to continue');
                 
             case REPLAY_PREVIEW:
-                contText = new FlxText(FlxG.width + 100, FlxG.height - 60, 400, 'Press ESC to back / Press ENTER to continue');
+                contText = new FlxText(FlxG.width + 100, FlxG.height - 60, 400, 'Press ESC/ENTER to back / Press F2 to play');
         }
         contText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
         contText.borderSize = 4;
@@ -674,7 +674,7 @@ class ResultsScreen extends MusicBeatSubstate
                     closeResults();
                 }
                 if (controls.ACCEPT || FlxG.mouse.justPressed) {
-                    playReplay();
+                    closeResults();
                 }
                 
             case NORMAL, REPLAY_END:

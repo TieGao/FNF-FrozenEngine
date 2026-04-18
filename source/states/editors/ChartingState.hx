@@ -4272,6 +4272,16 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		btnY++;
 		btnY += 20;
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Mirror All Notes', function()
+		{
+			mirrorAllNotes();
+			showOutput('All notes mirrored!');
+		}, btnWid);
+		btn.text.alignment = LEFT;
+		tab_group.add(btn);
+
+		btnY++;
+		btnY += 20;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Exit', function()
 		{
 			PlayState.chartingMode = false;
