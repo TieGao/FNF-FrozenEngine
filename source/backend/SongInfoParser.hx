@@ -11,7 +11,12 @@ typedef ParsedSongInfo = {
     length:Float,
     formattedLength:String,
     noteCount:Int,
+    playerNoteCount:Int,
+    opponentNoteCount:Int,
     difficultyRating:Float,
+    difficultyRatingPlayer:Float,
+    difficultyRatingOpponent:Float,
+    difficultyRatingCoop:Float,
     ratingText:String,
     ratingColor:FlxColor
 }
@@ -64,18 +69,8 @@ class SongInfoParser
     // 获取模式并正确映射
     var mode:String = ClientPrefs.getGameplaySetting('opponentplay');
     if (mode == null) mode = 'normal';
-    
-    var difficultyMode:String = 'normal';
-    switch(mode.toLowerCase())
-    {
-        case 'opponent', 'opponentplay':
-            difficultyMode = 'opponent';
-        case 'coop', 'both':
-            difficultyMode = 'coop';
-        default:
-            difficultyMode = 'normal';
-    }
-    
+    var difficultyMode:String = DifficultyCalculator.normalizeMode(mode);
+
 //    trace('Preloading difficulties for song: $songName, Mode: $difficultyMode');
     
     for (diffName in difficulties)
@@ -112,20 +107,33 @@ class SongInfoParser
                     songLength /= 1000;
                 }
                 
-                // 使用 DifficultyCalculator 计算
-                var calcResult = DifficultyCalculator.calculateDifficulty(swagSong, difficultyMode);
+                // 统计整首谱面的音符数量，并区分玩家/对手箭头
+                var sideCounts = countNoteSides(swagSong);
+                var totalNoteCount:Int = sideCounts.player + sideCounts.opponent;
+                var playerResult = DifficultyCalculator.calculateDifficulty(swagSong, 'normal');
+                var opponentResult = DifficultyCalculator.calculateDifficulty(swagSong, 'opponent');
+                var coopResult = DifficultyCalculator.calculateDifficulty(swagSong, 'coop');
+                var selectedResult = switch (difficultyMode)
+                {
+                    case 'opponent': opponentResult;
+                    case 'coop': coopResult;
+                    default: playerResult;
+                }
                 
-                var ratingText:String = DifficultyCalculator.getRatingText(calcResult.difficultyRating);
-                var ratingColor:FlxColor = DifficultyCalculator.getRatingColor(calcResult.difficultyRating);
-                
-//                trace('Difficulty: $diffName, Notes: ${calcResult.noteCount}, Rating: ${calcResult.difficultyRating}');
+                var ratingText:String = DifficultyCalculator.getRatingText(selectedResult.difficultyRating);
+                var ratingColor:FlxColor = DifficultyCalculator.getRatingColor(selectedResult.difficultyRating);
                 
                 result.set(diffName, {
                     bpm: swagSong.bpm,
                     length: songLength,
                     formattedLength: formatLength(songLength),
-                    noteCount: calcResult.noteCount,
-                    difficultyRating: calcResult.difficultyRating,
+                    noteCount: totalNoteCount,
+                    playerNoteCount: sideCounts.player,
+                    opponentNoteCount: sideCounts.opponent,
+                    difficultyRating: selectedResult.difficultyRating,
+                    difficultyRatingPlayer: playerResult.difficultyRating,
+                    difficultyRatingOpponent: opponentResult.difficultyRating,
+                    difficultyRatingCoop: coopResult.difficultyRating,
                     ratingText: ratingText,
                     ratingColor: ratingColor
                 });
@@ -249,6 +257,21 @@ class SongInfoParser
         return null;
     }
     
+    private static function countNotes(swagSong:SwagSong):Int
+    {
+        if (swagSong == null || swagSong.notes == null) return 0;
+        var count:Int = 0;
+        for (section in swagSong.notes)
+        {
+            if (section == null || section.sectionNotes == null) continue;
+            for (note in section.sectionNotes)
+            {
+                if (note != null && note.length > 0) count++;
+            }
+        }
+        return count;
+    }
+    
     private static function parseChartData(rawData:String, ?difficulty:String = null):ParsedSongInfo
     {
         var bpm:Float = 0;
@@ -257,6 +280,10 @@ class SongInfoParser
         var difficultyRating:Float = 0;
         var ratingText:String = "BEGINNER";
         var ratingColor:FlxColor = FlxColor.fromRGB(150, 150, 150);
+        var sideCounts:{player:Int, opponent:Int} = {player: 0, opponent: 0};
+        var playerResult:{noteCount:Int, difficultyRating:Float} = {noteCount: 0, difficultyRating: 0.0};
+        var opponentResult:{noteCount:Int, difficultyRating:Float} = {noteCount: 0, difficultyRating: 0.0};
+        var coopResult:{noteCount:Int, difficultyRating:Float} = {noteCount: 0, difficultyRating: 0.0};
         
         if (rawData == null || rawData.length == 0)
         {
@@ -292,22 +319,23 @@ class SongInfoParser
             // 获取当前游戏模式设置
             var gameplayMode:String = ClientPrefs.getGameplaySetting('opponentplay');
             if (gameplayMode == null) gameplayMode = 'normal';
+            var difficultyMode:String = DifficultyCalculator.normalizeMode(gameplayMode);
             
-            var difficultyMode:String = 'normal';
-            switch(gameplayMode.toLowerCase())
+            var playerResult = DifficultyCalculator.calculateDifficulty(swagSong, 'normal');
+            var opponentResult = DifficultyCalculator.calculateDifficulty(swagSong, 'opponent');
+            var coopResult = DifficultyCalculator.calculateDifficulty(swagSong, 'coop');
+            
+            sideCounts = countNoteSides(swagSong);
+            noteCount = sideCounts.player + sideCounts.opponent;
+            
+            var selectedResult = switch (difficultyMode)
             {
-                case 'opponent', 'opponentplay', 'opponentplaytrue':
-                    difficultyMode = 'opponent';
-                case 'coop', 'both', 'cooperative':
-                    difficultyMode = 'coop';
-                default:
-                    difficultyMode = 'normal';
+                case 'opponent': opponentResult;
+                case 'coop': coopResult;
+                default: playerResult;
             }
             
-            var calcResult = DifficultyCalculator.calculateDifficulty(swagSong, difficultyMode);
-            
-            noteCount = calcResult.noteCount;
-            difficultyRating = calcResult.difficultyRating;
+            difficultyRating = selectedResult.difficultyRating;
             ratingText = DifficultyCalculator.getRatingText(difficultyRating);
             ratingColor = DifficultyCalculator.getRatingColor(difficultyRating);
         }
@@ -321,10 +349,36 @@ class SongInfoParser
             length: songLength,
             formattedLength: formatLength(songLength),
             noteCount: noteCount,
+            playerNoteCount: sideCounts.player,
+            opponentNoteCount: sideCounts.opponent,
             difficultyRating: difficultyRating,
+            difficultyRatingPlayer: playerResult.difficultyRating,
+            difficultyRatingOpponent: opponentResult.difficultyRating,
+            difficultyRatingCoop: coopResult.difficultyRating,
             ratingText: ratingText,
             ratingColor: ratingColor
         };
+    }
+    
+    private static function countNoteSides(swagSong:SwagSong):{player:Int, opponent:Int}
+    {
+        var counts:{player:Int, opponent:Int} = {player: 0, opponent: 0};
+        if (swagSong == null || swagSong.notes == null) return counts;
+        for (section in swagSong.notes)
+        {
+            if (section == null || section.sectionNotes == null) continue;
+            for (note in section.sectionNotes)
+            {
+                if (note == null || note.length < 2) continue;
+                var noteData:Int = Std.int(Math.abs(note[1]));
+                // note[1] 已经被归一化为 0-3 表示玩家音符，4-7 表示对手音符。
+                if (noteData < 4)
+                    counts.player++;
+                else
+                    counts.opponent++;
+            }
+        }
+        return counts;
     }
     
     /**
@@ -348,7 +402,12 @@ class SongInfoParser
             length: 0,
             formattedLength: "0:00",
             noteCount: 0,
+            playerNoteCount: 0,
+            opponentNoteCount: 0,
             difficultyRating: 0,
+            difficultyRatingPlayer: 0,
+            difficultyRatingOpponent: 0,
+            difficultyRatingCoop: 0,
             ratingText: "BEGINNER",
             ratingColor: FlxColor.fromRGB(150, 150, 150)
         };

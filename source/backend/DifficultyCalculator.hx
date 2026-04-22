@@ -18,6 +18,22 @@ class DifficultyCalculator
     {
         cache.clear();
     }
+
+    public static function normalizeMode(mode:String):String
+    {
+        if (mode == null) return 'normal';
+        switch (mode.toLowerCase())
+        {
+            case 'player', 'normal':
+                return 'normal';
+            case 'opponent', 'opponentplay', 'opponentplaytrue':
+                return 'opponent';
+            case 'coop', 'both', 'cooperative':
+                return 'coop';
+            default:
+                return 'normal';
+        }
+    }
     
 /**
  * 计算歌曲难度评级和音符数量
@@ -31,6 +47,8 @@ public static function calculateDifficulty(songData:SwagSong, mode:String = 'nor
     {
         return {noteCount: 0, difficultyRating: 0.0};
     }
+
+    mode = normalizeMode(mode);
     
     // 根据模式提取音符
     var notes:Array<{strumTime:Float, noteData:Int, isPlayerNote:Bool}> = extractNotesByMode(songData, mode);
@@ -45,7 +63,7 @@ public static function calculateDifficulty(songData:SwagSong, mode:String = 'nor
     
     return {
         noteCount: noteCount,
-        difficultyRating: FlxMath.roundDecimal(difficultyRating, 2)
+        difficultyRating: FlxMath.roundDecimal(difficultyRating, 1)
     };
 }
 
@@ -83,17 +101,8 @@ private static function extractNotesByMode(songData:SwagSong, mode:String):Array
             var strumTime:Float = note[0];
             var rawNoteData:Int = Std.int(Math.abs(note[1]));
             
-            // 判断这是玩家还是对手的音符
-            var isPlayerNote:Bool;
-            if (mustHitSection)
-            {
-                isPlayerNote = (rawNoteData < 4);
-            }
-            else
-            {
-                isPlayerNote = (rawNoteData >= 4);
-            }
-            
+            // note[1] 已经被归一化为 0-3 表示玩家音符，4-7 表示对手音符。
+            var isPlayerNote:Bool = rawNoteData < 4;
             var normalizedData:Int = rawNoteData % 4;
             
             var shouldInclude:Bool = false;

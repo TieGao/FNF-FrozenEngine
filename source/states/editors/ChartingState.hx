@@ -28,6 +28,7 @@ import backend.Song;
 import backend.StageData;
 import backend.Highscore;
 import backend.Difficulty;
+import backend.Language;
 
 import objects.Character;
 import objects.HealthIcon;
@@ -497,7 +498,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		fullTipText.cameras = [camUI];
 		fullTipText.scrollFactor.set();
 		fullTipText.visible = fullTipText.active = false;
-		fullTipText.text = [
+		var defaultChartingHelp:String = [
 			"W/S/Mouse Wheel - Move Conductor's Time",
 			"A/D - Change Sections",
 			"Q/E - Decrease/Increase Note Sustain Length",
@@ -528,6 +529,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			"Ctrl + A - Select all in current Section",
 			"Ctrl + S - Quicksave",
 		].join('\n');
+		fullTipText.text = Language.getPhrase('charting_help_list', defaultChartingHelp);
 		fullTipText.screenCenter();
 		add(fullTipText);
 		super.create();

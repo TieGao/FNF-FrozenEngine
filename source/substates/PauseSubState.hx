@@ -280,15 +280,11 @@ class PauseSubState extends MusicBeatSubstate
 		if (controls.UI_UP_P)
 		{
 			changeSelection(-1);
-			allowMouse = false;
-			mouseOverItem = -1;
 			updateItemAlpha();
 		}
 		if (controls.UI_DOWN_P)
 		{
 			changeSelection(1);
-			allowMouse = false;
-			mouseOverItem = -1;
 			updateItemAlpha();
 		}
 

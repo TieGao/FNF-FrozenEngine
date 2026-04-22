@@ -42,6 +42,7 @@ class NewPauseSubState extends MusicBeatSubstate
 	var skipTimeText:FlxText;
 	var skipTimeBar:FlxSprite;
 	var skipTimeBarFill:FlxSprite;
+	var skipTimeHandle:FlxSprite;
 	var curTime:Float = 0;
 	var skipTimeVisible:Bool = false;
 	var skipDragging:Bool = false;
@@ -188,12 +189,12 @@ class NewPauseSubState extends MusicBeatSubstate
 		
 		levelInfo = createText(panelX + 20, textY, 310, PlayState.SONG.song, 28, FlxColor.WHITE);
 		levelDifficulty = createText(panelX + 20, textY + 40, 310, Difficulty.getString().toUpperCase(), 22, FlxColor.CYAN);
-		blueballedTxt = createText(panelX + 20, textY + 70, 310, "Blueballed: " + PlayState.deathCounter, 20, FlxColor.WHITE);
+		blueballedTxt = createText(panelX + 20, textY + 70, 310, Language.getPhrase("blueballed", "Blueballed: {1}", [PlayState.deathCounter]), 20, FlxColor.WHITE);
 		
-		practiceText = createText(panelX + 20, textY + 100, 310, "PRACTICE MODE", 18, FlxColor.YELLOW);
+		practiceText = createText(panelX + 20, textY + 100, 310, Language.getPhrase("Practice Mode", "Practice Mode").toUpperCase(), 18, FlxColor.YELLOW);
 		practiceText.visible = PlayState.instance.practiceMode;
 		
-		chartingText = createText(panelX + 20, textY + 130, 310, "CHARTING MODE", 18, FlxColor.RED);
+		chartingText = createText(panelX + 20, textY + 130, 310, Language.getPhrase("Charting Mode", "Charting Mode").toUpperCase(), 18, FlxColor.RED);
 		chartingText.visible = PlayState.chartingMode;
 	}
 	
@@ -220,7 +221,7 @@ class NewPauseSubState extends MusicBeatSubstate
 		var optionY:Float = panelY + 20;
 		var optionSpacing:Float = 35;
 		
-		var title = createText(panelX + 20, optionY, panelWidth - 40, "CHARTING PANEL", 22, FlxColor.YELLOW);
+		var title = createText(panelX + 20, optionY, panelWidth - 40, Language.getPhrase("charting_panel", "CHARTING PANEL"), 22, FlxColor.YELLOW);
 		debugTexts.push(title);
 		
 		for(i in 0...debugOptions.length)
@@ -234,12 +235,12 @@ class NewPauseSubState extends MusicBeatSubstate
 			add(optionBg);
 			debugBgs.push(optionBg);
 			
-			var optionText = createText(panelX + 30, yPos, panelWidth - 60, debugOptions[i], 20, FlxColor.WHITE);
+			var optionText = createText(panelX + 30, yPos, panelWidth - 60, getDebugOptionLabel(debugOptions[i]), 20, FlxColor.WHITE);
 			optionText.alpha = 0;
 			debugTexts.push(optionText);
 			
 			// 如果是Skip Time选项，保存其背景作为tracker，并创建时间文本
-			if(debugOptions[i] == 'Skip Time')
+			if(debugOptions[i] == 'pause_skip_time')
 			{
 				skipTimeTracker = optionBg;
 				createSkipTimeUI();
@@ -267,6 +268,13 @@ class NewPauseSubState extends MusicBeatSubstate
 		skipTimeBarFill.alpha = 0;
 		skipTimeBarFill.visible = false;
 		add(skipTimeBarFill);
+
+		skipTimeHandle = new FlxSprite(0, 0);
+		skipTimeHandle.makeGraphic(16, 16, 0xFFFFFFFF);
+		skipTimeHandle.scrollFactor.set();
+		skipTimeHandle.alpha = 0;
+		skipTimeHandle.visible = false;
+		add(skipTimeHandle);
 		
 		skipTimeText = new FlxText(0, 0, 0, '', 24);
 		skipTimeText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
@@ -283,24 +291,37 @@ class NewPauseSubState extends MusicBeatSubstate
 	{
 		if(PlayState.chartingMode)
 		{
-			debugOptions = ['Skip Time', 'Toggle Practice', 'Toggle Botplay', 'Leave Charting Mode', 'End Song'];
+			debugOptions = ['pause_skip_time', 'pause_toggle_practice_mode', 'pause_toggle_botplay', 'pause_leave_charting_mode', 'pause_end_song'];
 		}
 		else if(PlayState.instance.practiceMode || PlayState.instance.cpuControlled)
 		{
-			debugOptions = ['Skip Time'];
+			debugOptions = ['pause_skip_time'];
 			
 			if(PlayState.instance.practiceMode)
 			{
-				debugOptions = ['Toggle Practice', 'Skip Time'];
+				debugOptions = ['pause_toggle_practice_mode', 'pause_skip_time'];
 			}
 			if(PlayState.instance.cpuControlled)
 			{
-				debugOptions = ['Toggle Botplay', 'Skip Time'];
+				debugOptions = ['pause_toggle_botplay', 'pause_skip_time'];
 			}
 		}
 		else
 		{
 			debugOptions = [];
+		}
+	}
+
+	function getDebugOptionLabel(optionKey:String):String
+	{
+		switch(optionKey)
+		{
+			case 'pause_skip_time': return Language.getPhrase('pause_skip_time', 'Skip Time');
+			case 'pause_toggle_practice_mode': return Language.getPhrase('pause_toggle_practice_mode', 'Toggle Practice');
+			case 'pause_toggle_botplay': return Language.getPhrase('pause_toggle_botplay', 'Toggle Botplay');
+			case 'pause_leave_charting_mode': return Language.getPhrase('pause_leave_charting_mode', 'Leave Charting Mode');
+			case 'pause_end_song': return Language.getPhrase('pause_end_song', 'End Song');
+			default: return Language.getPhrase(optionKey, optionKey);
 		}
 	}
 	
@@ -516,12 +537,10 @@ class NewPauseSubState extends MusicBeatSubstate
 	// ========== Skip Time拖拽处理 ==========
 	function handleSkipTimeDrag(elapsed:Float)
 	{
-		if (!skipTimeVisible) return;
-		
-		// 检查是否悬停在Skip Time选项的背景上（Debug面板中）
+		if (!skipTimeVisible || skipTimeBar == null || skipTimeText == null || skipTimeHandle == null) return;
+
 		var isOverSkipTime:Bool = false;
 		var skipTimeIndex:Int = debugOptions.indexOf('Skip Time');
-		
 		if (usingDebugPanel && debugPanelVisible && skipTimeIndex != -1 && skipTimeIndex < debugBgs.length)
 		{
 			var skipTimeBg = debugBgs[skipTimeIndex];
@@ -530,45 +549,30 @@ class NewPauseSubState extends MusicBeatSubstate
 				isOverSkipTime = true;
 			}
 		}
+
+		var isOverBar:Bool = skipTimeBar.visible && FlxG.mouse.overlaps(skipTimeBar, cameras[0]);
+		var isOverHandle:Bool = skipTimeHandle.visible && FlxG.mouse.overlaps(skipTimeHandle, cameras[0]);
+		var isOverText:Bool = skipTimeText.visible && FlxG.mouse.overlaps(skipTimeText, cameras[0]);
 		
-		// 检测是否悬停在时间文本或进度条上
-		var isOverBar:Bool = skipTimeBar != null && skipTimeBar.visible && FlxG.mouse.overlaps(skipTimeBar, cameras[0]);
-		var isOverText:Bool = skipTimeText != null && skipTimeText.visible && FlxG.mouse.overlaps(skipTimeText, cameras[0]);
-		
-		// 只有鼠标悬停在Skip Time选项或相关UI上时才处理拖拽
-		var shouldHandle:Bool = isOverSkipTime || isOverBar || isOverText;
-		
+		var shouldHandle:Bool = isOverSkipTime || isOverBar || isOverHandle || isOverText || skipDragging;
+
+		if (FlxG.mouse.justReleased)
+		{
+			skipDragging = false;
+		}
+
 		if (shouldHandle)
 		{
-			// 鼠标拖动
-			if (FlxG.mouse.pressed)
+			if (FlxG.mouse.justPressed)
 			{
-				if (!skipDragging)
-				{
-					skipDragging = true;
-					lastMousePos.set(FlxG.mouse.screenX, FlxG.mouse.screenY);
-				}
-				
-				var deltaX:Float = FlxG.mouse.screenX - lastMousePos.x;
-				var deltaY:Float = FlxG.mouse.screenY - lastMousePos.y;
-				var dragSpeed:Float = (deltaX + deltaY) * 10;
-				
-				if (Math.abs(dragSpeed) > 0.5)
-				{
-					curTime += dragSpeed;
-					curTime = Math.max(0, Math.min(FlxG.sound.music.length, curTime));
-					updateSkipTimeText();
-					updateSkipTimeBarFill();
-				}
-				
-				lastMousePos.set(FlxG.mouse.screenX, FlxG.mouse.screenY);
+				skipDragging = true;
+				updateSkipTimeFromPointer();
 			}
-			else
+			else if (FlxG.mouse.pressed && skipDragging)
 			{
-				skipDragging = false;
+				updateSkipTimeFromPointer();
 			}
-			
-			// 滚轮微调
+
 			if (FlxG.mouse.wheel != 0)
 			{
 				curTime += FlxG.mouse.wheel * 1000;
@@ -578,12 +582,22 @@ class NewPauseSubState extends MusicBeatSubstate
 				FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 			}
 		}
-		else if (FlxG.mouse.justReleased)
-		{
-			skipDragging = false;
-		}
 	}
-	
+
+	function updateSkipTimeFromPointer()
+	{
+		if (skipTimeBar == null || FlxG.sound.music.length <= 0) return;
+
+		var pointerX:Float = FlxG.mouse.screenX;
+		var barLeft:Float = skipTimeBar.x;
+		var barWidth:Float = skipTimeBar.width;
+
+		curTime = ((pointerX - barLeft) / barWidth) * FlxG.sound.music.length;
+		curTime = Math.max(0, Math.min(FlxG.sound.music.length, curTime));
+		updateSkipTimeText();
+		updateSkipTimeBarFill();
+	}
+
 	// ========== 鼠标点击处理 ==========
 	function handleMouseClick()
 	{
@@ -906,31 +920,10 @@ class NewPauseSubState extends MusicBeatSubstate
 			skipTimeText.visible = skipTimeVisible;
 			skipTimeBar.visible = skipTimeVisible;
 			skipTimeBarFill.visible = skipTimeVisible;
+			skipTimeHandle.visible = skipTimeVisible;
 		}
 	}
-	
-	function showDebugPanel(visible:Bool)
-	{
-		debugPanelVisible = visible;
-		if(debugPanel != null) 
-		{
-			debugPanel.visible = visible;
-			debugPanel.alpha = visible ? 0.9 : 0;
-		}
-		for(text in debugTexts) 
-		{
-			text.visible = visible;
-			text.alpha = visible ? 1 : 0;
-		}
-		for(bg in debugBgs)
-		{
-			bg.visible = visible;
-			bg.alpha = visible ? 1 : 0;
-		}
-		
-		updateSkipTimeDisplay();
-	}
-	
+
 	function updateSkipTimeDisplay()
 	{
 		if(skipTimeText != null)
@@ -938,54 +931,93 @@ class NewPauseSubState extends MusicBeatSubstate
 			skipTimeText.visible = skipTimeVisible;
 			skipTimeBar.visible = skipTimeVisible;
 			skipTimeBarFill.visible = skipTimeVisible;
+			skipTimeHandle.visible = skipTimeVisible;
 		}
 		updateSkipTimePosition();
 	}
-	
+
+	function showDebugPanel(visible:Bool)
+	{
+		debugPanelVisible = visible;
+		if(debugPanel != null)
+		{
+			debugPanel.visible = visible;
+			debugPanel.alpha = visible ? 0.9 : 0;
+		}
+		for(text in debugTexts)
+		{
+			if(text != null)
+			{
+				text.visible = visible;
+				text.alpha = visible ? 1 : 0;
+			}
+		}
+		for(bg in debugBgs)
+		{
+			if(bg != null)
+			{
+				bg.visible = visible;
+				bg.alpha = visible ? 1 : 0;
+			}
+		}
+		updateSkipTimeDisplay();
+	}
+
 	function updateSkipTimePosition()
 	{
-		if(skipTimeText == null) return;
+		if(skipTimeText == null || skipTimeBar == null || skipTimeBarFill == null || skipTimeHandle == null) return;
 
-		// 查找Skip Time选项在Debug面板中的位置
-		var skipTimeIndex = debugOptions.indexOf('Skip Time');
+		var skipTimeIndex:Int = debugOptions.indexOf('Skip Time');
 		if (debugPanelVisible && skipTimeVisible && skipTimeIndex != -1 && skipTimeIndex < debugBgs.length)
 		{
 			var bg = debugBgs[skipTimeIndex];
 			if (bg != null && bg.visible)
 			{
-				// 获取Skip Time选项文字的位置
 				var skipTimeTextObj = debugTexts[skipTimeIndex + 1];
 				if (skipTimeTextObj != null)
 				{
-					// 时间文本显示在选项文字右侧
 					skipTimeText.x = skipTimeTextObj.x + skipTimeTextObj.width + 20;
 					skipTimeText.y = skipTimeTextObj.y;
-					
-					// 进度条显示在时间文本下方
+
 					skipTimeBar.x = skipTimeText.x;
 					skipTimeBar.y = skipTimeText.y + skipTimeText.height + 5;
 					skipTimeBarFill.x = skipTimeBar.x;
 					skipTimeBarFill.y = skipTimeBar.y;
-					
-					// 调整进度条宽度与时间文本匹配
+
 					skipTimeBar.width = Math.max(200, skipTimeText.width);
-					skipTimeBarFill.width = skipTimeBar.width;
 					skipTimeBar.makeGraphic(Std.int(skipTimeBar.width), 8, FlxColor.GRAY);
-					skipTimeBarFill.makeGraphic(Std.int(skipTimeBarFill.width), 8, FlxColor.CYAN);
+					skipTimeBarFill.makeGraphic(Std.int(skipTimeBar.width), 8, FlxColor.CYAN);
+					updateSkipTimeBarFill();
+
+					var percent = curTime / FlxG.sound.music.length;
+					if(percent > 1) percent = 1;
+					if(percent < 0) percent = 0;
+					skipTimeHandle.x = skipTimeBar.x + percent * skipTimeBar.width - skipTimeHandle.width / 2;
+					skipTimeHandle.y = skipTimeBar.y - (skipTimeHandle.height - skipTimeBar.height) / 2;
+					skipTimeHandle.visible = skipTimeVisible;
+					skipTimeHandle.updateHitbox();
 					return;
 				}
 			}
 		}
-		
-		// 备用位置：屏幕底部中央
+
 		skipTimeBar.x = (FlxG.width - skipTimeBar.width) / 2;
 		skipTimeBar.y = FlxG.height - 100;
 		skipTimeText.x = skipTimeBar.x;
 		skipTimeText.y = skipTimeBar.y - 40;
 		skipTimeBarFill.x = skipTimeBar.x;
 		skipTimeBarFill.y = skipTimeBar.y;
+		updateSkipTimeBarFill();
+
+		var percent = curTime / FlxG.sound.music.length;
+		if(percent > 1) percent = 1;
+		if(percent < 0) percent = 0;
+		skipTimeHandle.x = skipTimeBar.x + percent * skipTimeBar.width - skipTimeHandle.width / 2;
+		skipTimeHandle.y = skipTimeBar.y - (skipTimeHandle.height - skipTimeBar.height) / 2;
+		skipTimeHandle.visible = skipTimeVisible;
+		skipTimeHandle.updateHitbox();
 	}
-	
+
 	function updateSkipTimeBarFill()
 	{
 		if(skipTimeBarFill == null || skipTimeBar == null) return;
@@ -1228,19 +1260,19 @@ class NewPauseSubState extends MusicBeatSubstate
 		
 		switch(option)
 		{
-			case 'Skip Time':
+			case 'pause_skip_time':
 				handleSkipTimeAction();
 				
-			case 'Toggle Practice':
+			case 'pause_toggle_practice_mode':
 				togglePracticeMode();
 				
-			case 'Toggle Botplay':
+			case 'pause_toggle_botplay':
 				toggleBotplay();
 				
-			case 'Leave Charting Mode':
+			case 'pause_leave_charting_mode':
 				leaveChartingMode();
 				
-			case 'End Song':
+			case 'pause_end_song':
 				endSong();
 		}
 	}
