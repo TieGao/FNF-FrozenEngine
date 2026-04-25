@@ -3,7 +3,9 @@ package options;
 import backend.Language;
 
 import flixel.FlxG;
+import flixel.FlxSubState;
 import flixel.util.FlxColor;
+import options.KEConfirmMenu;
 
 class KEOption
 {
@@ -227,7 +229,22 @@ class KEOption
 			openSubMenu();
 			return false;
 		}
+
+		// 如果是可选字符串选项，打开新的选择子界面
+		if(type == "string" && options.length > 0) {
+			openStringSelectMenu();
+			return false;
+		}
 		
+		if(type == "color") {
+			openColorSelectMenu();
+			return false;
+		}
+		
+		if(type == "confirm") {
+			openConfirmMenu();
+			return false;
+		}
 		if(type == "bool") {
 			value = !value;
 			saveValue();
@@ -282,30 +299,69 @@ class KEOption
 		
 		// 创建一个子菜单状态
 		var subMenu = new KESubMenu(this);
-		KEOptionsMenu.instance.openSubState(subMenu);
+		openInCurrentSubState(subMenu);
+	}
+
+	public function openStringSelectMenu():Void
+	{
+		if (type != "string" || options.length == 0) return;
+		var stringMenu = new KEConfirmMenu(this);
+		if (subMenuParent != null) stringMenu.closeParentSubMenu = true;
+		openInCurrentSubState(stringMenu);
+	}
+
+	public function openColorSelectMenu():Void
+	{
+		if (type != "color") return;
+		var stringMenu = new KEConfirmMenu(this);
+		if (subMenuParent != null) stringMenu.closeParentSubMenu = true;
+		openInCurrentSubState(stringMenu);
+	}
+
+	public function openConfirmMenu():Void
+	{
+		if (type != "confirm") return;
+		var confirmMenu = new KEConfirmMenu(this);
+		if (subMenuParent != null) confirmMenu.closeParentSubMenu = true;
+		openInCurrentSubState(confirmMenu);
+	}
+
+	private function openInCurrentSubState(subState:FlxSubState):Void
+	{
+		if (FlxG.state != null && FlxG.state.subState != null) {
+			cast(FlxG.state.subState, FlxSubState).openSubState(subState);
+		} else {
+			KEOptionsMenu.instance.openSubState(subState);
+		}
 	}
 
 	// 执行警告确认后的操作
 	public function executeWarningAction():Void
 	{
-		if (!hasWarning || !canPress()) return;
+		if (!canPress()) return;
+
+		FlxG.sound.play(Paths.sound('confirmMenu'));
+
+		if (warningCallback != null) {
+			warningCallback();
+			return;
+		}
 
 		switch(name) {
 			case "Reset KeyBinds":
 				ClientPrefs.resetKeys();
 				ClientPrefs.saveSettings();
-				FlxG.sound.play(Paths.sound('confirmMenu'));
-				
+				return;
 			case "Reset Settings":
 				ClientPrefs.data = ClientPrefs.defaultData;
 				ClientPrefs.saveSettings();
 				ClientPrefs.loadPrefs();
-				FlxG.sound.play(Paths.sound('confirmMenu'));
-				
+				return;
 			case "Reset Scores":
 				#if desktop
 				// 重置分数逻辑
 				#end
+				return;
 		}
 	}
 
@@ -464,8 +520,8 @@ class KEOption
 					return "> " + displayName + " [!] <";
 				}
 				return "> " + displayName + " <";
-			case "keybind":
-				return displayName + ": < " + Language.getPhrase("Set Key", "Set Key") + " >";
+			case "confirm":
+                return "> " + displayName + " <";
 			default:
 				return displayName + ": < " + value + " >";
 		}
@@ -564,6 +620,11 @@ class KEOption
 			
 			applyImmediateChanges();
 		}
+	}
+
+	public function saveCurrentValue():Void
+	{
+		saveValue();
 	}
 
 	private function applyImmediateChanges()
@@ -715,6 +776,15 @@ class KEOption
 			if (type == "color") {
 				if (option.value == null) option.value = (defaultValue != null ? defaultValue : FlxColor.WHITE);
 				option.acceptValues = true;
+				option.curOption = 0;
+				for (i in 0...COLOR_PALETTE.length) {
+					if (COLOR_PALETTE[i] == option.value) {
+						option.curOption = i;
+						break;
+					}
+				}
+				if (option.curOption < 0) option.curOption = 0;
+				option.value = COLOR_PALETTE[option.curOption];
 			} else {
 				option.acceptValues = (type == "int" || type == "float" || type == "string" && option.options.length > 0);
 			}
@@ -773,19 +843,19 @@ class KEOption
 		
 		switch(resetType) {
 			case "keybinds":
-				option = create("Reset KeyBinds", "Reset all key bindings to default", "", "action");
+				option = create("Reset KeyBinds", "Reset all key bindings to default", "", "confirm");
 				option.setWarning("Are you sure you want to reset ALL key bindings to default?\nThis action cannot be undone!");
 				
 			case "settings":
-				option = create("Reset Settings", "Reset all settings to default", "", "action");
+				option = create("Reset Settings", "Reset all settings to default", "", "confirm");
 				option.setWarning("Are you sure you want to reset ALL settings to default?\nThis will reset graphics, gameplay, and other preferences!\nThis action cannot be undone!");
 				
 			case "scores":
-				option = create("Reset Scores", "Clear all high scores and ratings", "", "action");
+				option = create("Reset Scores", "Clear all high scores and ratings", "", "confirm");
 				option.setWarning("Are you sure you want to reset ALL high scores?\nThis will delete all your progress and ratings!\nThis action cannot be undone!");
 				
 			default:
-				option = create(name, "Reset option", "", "action");
+				option = create(name, "Reset option", "", "confirm");
 		}
 		
 		return option;

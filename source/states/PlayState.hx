@@ -2174,7 +2174,7 @@ public function reloadCounterColors()
 					{
 						if ((opponentMode == "opponent" && daNote.mustPress) || (opponentMode != "opponent" && !daNote.mustPress))
 							opponentNoteHit(daNote);
-						else if (opponentMode == "opponent" && !daNote.mustPress)
+						else if (opponentMode == "opponent" && !daNote.mustPress && daNote.wasGoodHit)
 							opponentNoteHit(daNote); // 在对手模式下，对手控制BF的note
 					}
 
@@ -3097,12 +3097,12 @@ public function proceedToNextState():Void
         }
     }
 
-	private function popUpScore(note:Note = null):Void 
+	private function popUpScore(note:Note = null, rawNoteDiff:Null<Float> = null):Void 
 		{
         if (combo >= highestCombo) highestCombo = combo;
         // 计算时间差
-        var rawNoteDiff:Float = note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
-        var noteDiff:Float = Math.abs(rawNoteDiff);
+var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+	var noteDiff:Float = Math.abs(effectiveNoteDiff);
         vocals.volume = 1;
         
         // 清理旧的显示（非combo stacking模式保持原有逻辑）
@@ -3217,7 +3217,7 @@ public function proceedToNextState():Void
             msText = new FlxText(0, 0, 0, "", 16);
             msText.setFormat(Paths.font('pixel-latin.ttf'), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
             
-            var msTiming:Float = Math.round(rawNoteDiff * 100) / 100;
+            var msTiming:Float = Math.round(effectiveNoteDiff * 100) / 100;
             msText.text = (msTiming >= 0 ? "+" : "") + msTiming + "ms";
             
             if (ClientPrefs.data.customColor)
@@ -4011,13 +4011,12 @@ public function proceedToNextState():Void
 		if (!note.isSustainNote) invalidateNote(note);
 	}
 
-	public function goodNoteHit(note:Note):Void
+	public function goodNoteHit(note:Note, replayRawNoteDiff:Null<Float> = null):Void
 	{
 		if(note.wasGoodHit) return;
 		if(cpuControlled && note.ignoreNote) return;
 
 		if (opponentMode == "coop" && songName != "tutorial") camZooming = true;
-	
 
 		var isSus:Bool = note.isSustainNote; //GET OUT OF MY HEAD, GET OUT OF MY HEAD, GET OUT OF MY HEAD
 		var leData:Int = Math.round(Math.abs(note.noteData));
@@ -4092,7 +4091,7 @@ public function proceedToNextState():Void
 			{
 				combo++;
 				if(combo > 9999) combo = 9999;
-				popUpScore(note);
+				popUpScore(note, replayRawNoteDiff);
 			}
 			var gainHealth:Bool = true; // prevent health gain, *if* sustains are treated as a singular note
 			if (guitarHeroSustains && note.isSustainNote) gainHealth = false;
@@ -4135,22 +4134,21 @@ public function proceedToNextState():Void
 
 		if(!note.isSustainNote) invalidateNote(note);
 
-		var diff = note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+		var rawNoteDiff:Float = (replayRawNoteDiff != null) ? replayRawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
 
 		if (ClientPrefs.data.hitErrorBarVisible) {
 		if (hitErrorBar != null && (!isSus )) {
-			var hitTime:Float = -diff;
+			var hitTime:Float = -rawNoteDiff;
 			hitErrorBar.registerHit(hitTime);
 		}
 		}	
 
 		if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
 		{
-			// 如果是长箭头，不记录 diff（或记录为0，后续在 HitGraph 中过滤）
-			var diffToRecord = diff;
+			// 记录真实击打时差，sustain note 也应保留实际偏移
+			var diffToRecord = rawNoteDiff;
 			if (isSus)
 			{
-				diffToRecord = 0; // 或者 -9999，表示长箭头
 				var judge = "";
 				rep.judgementRecording.push(judge);
 				rep.noteRecording.push([note.strumTime, note.sustainLength, note.noteData, diffToRecord]);
@@ -4158,7 +4156,7 @@ public function proceedToNextState():Void
 			
 			if (!isSus)
 			{
-				var absDiff = Math.abs(diff);
+				var absDiff = Math.abs(rawNoteDiff);
 				var judge = "marvelous";
 				var marvelousWindow:Float = ClientPrefs.data.marvelousWindow;
 				var sickWindow:Float = ClientPrefs.data.sickWindow;
@@ -4170,8 +4168,8 @@ public function proceedToNextState():Void
 				else if (absDiff <= badWindow) judge = "bad";
 				else judge = "shit";
 				
-				rep.judgementRecording.push(judge);			
-				rep.noteRecording.push([note.strumTime, note.sustainLength, note.noteData, diff]);
+				rep.judgementRecording.push(judge);
+				rep.noteRecording.push([note.strumTime, note.sustainLength, note.noteData, rawNoteDiff]);
 			}
 		}
 	}
@@ -4928,7 +4926,7 @@ private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):
     var sustainLength:Float = replayNote[1];
     var column:Int = replayNote[2];
     var diff:Float = replayNote[3];
-    var actualHitTime:Float = noteStrTime + diff;
+	var actualHitTime:Float = noteStrTime - diff;
 
     var strum:StrumNote = playerStrums.members[column];
     if (strum != null)
@@ -4942,15 +4940,12 @@ private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):
         var timeDiff:Float = currentTime - targetNote.strumTime;
         if (Math.abs(timeDiff) < Conductor.safeZoneOffset)
         {
-            goodNoteHit(targetNote);
-        }
-        else
-        {
-            goodNoteHit(targetNote);
-            targetNote.wasGoodHit = true;
-            targetNote.canBeHit = false;
-        }
-
+			goodNoteHit(targetNote, diff);
+		}
+		else
+		{
+			goodNoteHit(targetNote, diff);
+		}
         if (sustainLength > 0)
         {
             processSustainNotes(targetNote, replayNote);

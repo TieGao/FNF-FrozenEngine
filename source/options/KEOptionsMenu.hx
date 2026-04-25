@@ -81,6 +81,19 @@ class KEOptionsMenu extends MusicBeatState
 	public static var OPTION_ALPHA:Float = 0.6; // 选项透明度
 	public static var DESC_ALPHA:Float = 0.8; // 描述文本透明度
 
+	// 响应式布局更新函数
+	public static function updateLayout():Void
+	{
+		SCREEN_WIDTH = Std.int(FlxG.width);
+		SCREEN_HEIGHT = Std.int(FlxG.height);
+		MARGIN_TOP = Std.int(SCREEN_HEIGHT * 0.083);
+		MARGIN_BOTTOM = Std.int(SCREEN_HEIGHT * 0.14);
+		CATEGORY_WIDTH = Std.int(SCREEN_WIDTH / CATEGORY_COUNT);
+		CATEGORY_HEIGHT = Std.int(Math.max(40, Std.int(SCREEN_HEIGHT * 0.07)));
+		OPTION_LEFT_MARGIN = Std.int(Math.max(16, Std.int(SCREEN_WIDTH * 0.015)));
+		OPTION_WIDTH = Std.int(SCREEN_WIDTH * 0.43);
+	}
+
 	var beamShader:ParticleBeamShader = new ParticleBeamShader();
 
 
@@ -99,6 +112,9 @@ class KEOptionsMenu extends MusicBeatState
 	override function create()
 	{
 		super.create();
+		// 根据当前屏幕宽度/高度更新布局
+		updateLayout();
+
 		// 创建横向铺满的选项卡
 		options = [
 			new KEOptionCata(0, MARGIN_TOP, "Basics", getControlsOptions()),
@@ -1109,7 +1125,7 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Custom Color", "Color most things by opponent", "customColor", "bool"),
 			KEOption.create("Gradient TimeBar", "Gradient colored timebar", "gradientTimeBar", "bool"),
 			KEOption.create("Score Zoom", "Grow score text on hit", "scoreZoom", "bool"),
-			KEOption.create('Time Bar:',"What should the Time Bar display?","timeBarType","string",['Time Left', 'Time Elapsed', 'Song Name', 'Disabled']),
+			KEOption.create('Time Bar',"What should the Time Bar display?","timeBarType","string",['Time Left', 'Time Elapsed', 'Song Name', 'Disabled']),
 			KEOption.create("Pause Music", "Choose pause screen music", "pauseMusic", "string", pauseMusicList),
 			KEOption.create("Health Bar Alpha", "Health bar transparency", "healthBarAlpha", "float", 1, 0, 1, 0.1),
 			KEOption.create("Combo Stacking", "Stack combo numbers", "comboStacking", "bool"),
@@ -1122,7 +1138,7 @@ class KEOptionsMenu extends MusicBeatState
 			hitErrorSettings, // 命中误差条二级菜单
 			keyboardDisplayOptions,
 			charthelperOptions,
-			KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "globalspace", "bool"),
+			KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool"),
 			KEOption.create("Space Back Ground EveryWhere", "Show space background everywhere", "globalspace", "bool"),
 			KEOption.create("Impostor V3 Story Mode BG", "Use Impostor V3 Story Mode Background", "ImpStory", "bool")
 		];
@@ -1152,7 +1168,7 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Open Controls", "Customize key bindings", "", "action"),
 			KEOption.create("Open EZ KeyBinds", "Customize key bindings in KE Styled Menu", "", "action"),
 			KEOption.create("Adjust Delay and Combo", "Customize ingame experience", "", "action"),   
-			KEOption.create("Reset KeyBinds", "Reset to default keys", "", "action"),
+			KEOption.createResetOption("Reset KeyBinds", "keybinds"),
 		];
 	}
 
@@ -1183,8 +1199,8 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
 			KEOption.create("Old Freeplay Menu", "Use Psych Engine Default Freeplay Menu", "oldFreeplay", "bool"),
 			KEOption.create("Legacy Music Player", "Use Psych Engine Default Music Player", "legacymp", "bool"),
-			KEOption.create("Reset Settings", "Reset all settings to default [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
-			KEOption.create("Reset Scores", "Clear all high scores [DO NOT APPLY IT UNLESS YOU KNOW WHAT YOU ARE DOING]", "", "action"),
+			KEOption.createResetOption("Reset Settings", "settings"),
+			KEOption.createResetOption("Reset Scores", "scores"),
 			//KEOption.create("Mirror Notes", "Mirror all notes in current chart", "mirrorNotes", "action"),
 			optionsparticle,
 			KEOption.create("Use Default Mouse Cursor", "Use ur system's default mouse cursor in game", "useSystemCursor", "bool")

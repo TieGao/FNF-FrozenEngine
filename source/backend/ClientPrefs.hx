@@ -76,7 +76,7 @@ import states.TitleState;
 	public var healthText:Bool = true;
 	public var songText:Bool = true;
 	public var ImpStory:Bool = false;
-	public var freeplayspace:Bool = true;
+	public var freeplayspace:Bool = false;
 	public var globalspace:Bool = false;
 	public var scoreScreen:Bool = true;
 	public var keOptions:Bool = true;
