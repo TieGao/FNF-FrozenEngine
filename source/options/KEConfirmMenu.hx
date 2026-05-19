@@ -10,7 +10,6 @@ import flixel.text.FlxText;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
-import flixel.math.FlxRect;
 import flixel.util.FlxTimer;
 import backend.MouseMove;
 
@@ -111,7 +110,7 @@ class KEConfirmMenu extends MusicBeatSubstate
 		headerBack.scrollFactor.set();
 		add(headerBack);
 
-		var titles:String = isConfirmMode ? Language.getPhrase("Confirm action", "Confirm action") : Language.getPhrase("Select an option", "Select an option");
+		var titles:String = isConfirmMode ? Language.getPhrase("Confirm action", "Confirm action") : Language.getPhrase("Select an option", "SelectOption");
 		titleText = new FlxText(0, marginTop, screenWidth, titles);
 		titleText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		titleText.borderSize = 2;
