@@ -323,6 +323,7 @@ class PlayState extends MusicBeatState
     private var comboSpritePool:SpritePool;
     private var splashPool:SpritePool;
     private var notePool:SpritePool;
+	private var earlyLatePool:SpritePool; // early/late对象池
 
     private var maxPoolSize:Int = 15;
 
@@ -2007,7 +2008,7 @@ public function reloadCounterColors()
 
 	override public function update(elapsed:Float)
 	{
-		     if (inReplay && !paused && !endingSong && !startingSong && generatedMusic)
+	if (inReplay && !paused && !endingSong && !startingSong && generatedMusic)
     {
         processReplayNotes(elapsed);
     }
@@ -3055,53 +3056,58 @@ public function proceedToNextState():Void
 	public var uiGroup:FlxSpriteGroup;
 	// Stores Note Objects in a Group
 	public var noteGroup:FlxTypedGroup<FlxBasic>;
-	    private function cachePopUpScore() 
-	{
-        var uiFolder:String = getUIFolderInfo().folder;
+private function cachePopUpScore() 
+{
+    var uiFolder:String = getUIFolderInfo().folder;
+    
+    // 只有在combo stacking模式下才初始化对象池
+    if (ClientPrefs.data.comboStacking && ratingPool == null) {
+        initObjectPools();
+        precreatePoolObjects();
+    }
+    
+    // 缓存评级图片
+    for (rating in ratingsData)
+    {
+        Paths.image(uiFolder + rating.image + uiPostfix);
         
-        // 只有在combo stacking模式下才初始化对象池
-        if (ClientPrefs.data.comboStacking && ratingPool == null) {
-            initObjectPools();
-            precreatePoolObjects();
-        }
-        
-        // 缓存评级图片
-        for (rating in ratingsData)
+        // 如果是Forever皮肤，预缓存特殊版本
+        if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI.toLowerCase().contains("forever"))
         {
-            Paths.image(uiFolder + rating.image + uiPostfix);
-            
-            // 如果是Forever皮肤，预缓存特殊版本
-            if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI.toLowerCase().contains("forever"))
-            {
-                Paths.image(uiFolder + rating.image + "-e" + uiPostfix);
-                Paths.image(uiFolder + rating.image + "-l" + uiPostfix);
-                Paths.image(uiFolder + "marvelous" + uiPostfix);
-                Paths.image(uiFolder + "goldennum0" + uiPostfix);
-            }
-        }
-        
-        // 缓存数字图片
-        for (i in 0...10)
-        {
-            Paths.image(uiFolder + 'num' + i + uiPostfix);
-            if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI.toLowerCase().contains("forever"))
-            {
-                Paths.image(uiFolder + 'goldennum' + i + uiPostfix);
-            }
-        }
-        
-        // 缓存combo图片
-        if (Paths.fileExists('images/' + uiFolder + 'combo' + uiPostfix + '.png', IMAGE))
-        {
-            Paths.image(uiFolder + 'combo' + uiPostfix);
+            Paths.image(uiFolder + rating.image + "-e" + uiPostfix);
+            Paths.image(uiFolder + rating.image + "-l" + uiPostfix);
+            Paths.image(uiFolder + "marvelous" + uiPostfix);
+            Paths.image(uiFolder + "goldennum0" + uiPostfix);
         }
     }
-
+    
+	var el:String = 'ratings/';
+	if (isPixelStage) el = el + "pixelUI/";
+    // 缓存early和late图片
+    Paths.image(el + 'early' + uiPostfix);
+    Paths.image(el + 'late' + uiPostfix);
+    
+    // 缓存数字图片
+    for (i in 0...10)
+    {
+        Paths.image(uiFolder + 'num' + i + uiPostfix);
+        if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI.toLowerCase().contains("forever"))
+        {
+            Paths.image(uiFolder + 'goldennum' + i + uiPostfix);
+        }
+    }
+    
+    // 缓存combo图片
+    if (Paths.fileExists('images/' + uiFolder + 'combo' + uiPostfix + '.png', IMAGE))
+    {
+        Paths.image(uiFolder + 'combo' + uiPostfix);
+    }
+}
 	private function popUpScore(note:Note = null, rawNoteDiff:Null<Float> = null):Void 
-		{
+	{
         if (combo >= highestCombo) highestCombo = combo;
         // 计算时间差
-var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+	var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
 	var noteDiff:Float = Math.abs(effectiveNoteDiff);
         vocals.volume = 1;
         
@@ -3209,16 +3215,85 @@ var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTi
 			applyStageVelocity(rating);}
         rating.visible = (!ClientPrefs.data.hideHud && showRating);
         rating.antialiasing = antialias;
+
+		var earlyLateSpr:FlxSprite = null;
+		if (!ClientPrefs.data.hideHud && daRating.name != "marvelous" && daRating.name != "sick")
+		{
+			// 判断是early还是late
+			var isLate:Bool = effectiveNoteDiff > 0;
+			var earlyLateType:String = isLate ? "early" : "late";
+			var earlyLatePath:String = "ratings/" + earlyLateType + uiPostfix;
+			
+			if (isPixelStage) earlyLatePath = "ratings/" + uiPrefix + "UI/" + earlyLateType + uiPostfix;
+			else earlyLatePath = "ratings/" + earlyLateType + uiPostfix;
+
+			// 图片回退逻辑
+			if (!Paths.fileExists('images/' + earlyLatePath + '.png', IMAGE) && uiFolder != "")
+			{
+				var fallback:String = (stageUI != "normal") ? uiPrefix + "UI/" : "";
+				if (isPixelStage) earlyLatePath = fallback + "ratings/" + earlyLateType + uiPostfix;
+				else earlyLatePath = fallback + earlyLateType + uiPostfix;
+			}
+			
+			// 从对象池获取或创建新精灵
+			if (ClientPrefs.data.comboStacking) {
+				earlyLateSpr = cast(earlyLatePool.get(), FlxSprite);
+				if (earlyLateSpr == null) {
+					earlyLateSpr = new FlxSprite();
+				} else {
+					earlyLateSpr.setPosition(0, 0);
+					earlyLateSpr.alpha = 1;
+				}
+			} else {
+				earlyLateSpr = new FlxSprite();
+			}
+			
+			earlyLateSpr.loadGraphic(Paths.image(earlyLatePath));
+			earlyLateSpr.screenCenter();
+			earlyLateSpr.visible = ClientPrefs.data.showEarlyLate;
+			
+			// 设置位置（在评级旁边）
+			earlyLateSpr.x = placement + ClientPrefs.data.comboOffset[0] + 175;
+			earlyLateSpr.y -= 10 + ClientPrefs.data.comboOffset[1];
+			
+			if (ClientPrefs.data.comboStacking) {
+				earlyLateSpr.acceleration.y = 550 * playbackRate * playbackRate;
+				applyStageVelocity(earlyLateSpr);
+			}
+			
+			earlyLateSpr.visible = (!ClientPrefs.data.hideHud && showRating);
+			earlyLateSpr.antialiasing = antialias;
+			
+			// 调整大小
+			if (!PlayState.isPixelStage)
+			{
+				earlyLateSpr.setGraphicSize(Std.int(earlyLateSpr.width * 0.7));
+			}
+			else
+			{
+				earlyLateSpr.setGraphicSize(Std.int(earlyLateSpr.width * daPixelZoom * 0.85));
+			}
+			earlyLateSpr.updateHitbox();
+			
+			comboGroup.insert(comboGroup.length, earlyLateSpr);
+		}	
         
         // ========== 创建毫秒文本（不使用对象池） ==========
         var msText:FlxText = null;
-        if (!ClientPrefs.data.hideHud && ClientPrefs.data.showMS)
+        if (!ClientPrefs.data.hideHud && ClientPrefs.data.showMS && !ClientPrefs.data.msInErrorBar)
         {
             msText = new FlxText(0, 0, 0, "", 16);
-            msText.setFormat(Paths.font('pixel-latin.ttf'), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+			if (Language.getPhrase('ms', 'ms').contains('ms')) 
+			{
+				msText.setFormat(Paths.font('pixel-latin.ttf'), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+			}
+			else
+			{	
+				msText.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+			}
             
             var msTiming:Float = Math.round(effectiveNoteDiff * 100) / 100;
-            msText.text = (msTiming >= 0 ? "+" : "") + msTiming + "ms";
+            msText.text = (msTiming >= 0 ? "+" : "") + msTiming + Language.getPhrase('ms', 'ms');
             
             if (ClientPrefs.data.customColor)
             {
@@ -3270,8 +3345,8 @@ var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTi
         }
         
         comboGroup.insert(comboGroup.length,rating);
-        if (msText != null) comboGroup.insert(comboGroup.length,msText);
-        if (showCombo) comboGroup.insert(comboGroup.length,comboSpr);
+        if (msText != null && !ClientPrefs.data.msInErrorBar) comboGroup.insert(comboGroup.length,msText);
+		if (showCombo) comboGroup.insert(comboGroup.length,comboSpr);
 
         // 调整大小
         if (!PlayState.isPixelStage)
@@ -3415,14 +3490,30 @@ var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTi
 	
             }
             
-            
+              if (earlyLateSpr != null)
+			{
+				FlxTween.tween(earlyLateSpr, {alpha: 0}, 0.15 / playbackRate, {
+					onComplete: function(tween:FlxTween) {
+						if (comboGroup.members.contains(earlyLateSpr)) {
+							comboGroup.remove(earlyLateSpr);
+						}
+						if (ClientPrefs.data.comboStacking && earlyLatePool != null) {
+							earlyLatePool.put(earlyLateSpr);
+						} else {
+							earlyLateSpr.destroy();
+						}
+					},
+					startDelay: Conductor.crochet * 0.0015 / playbackRate
+				});
+			}
+
             if (msText != null)
             {
                 FlxTween.tween(msText, {alpha: 0}, 0.2 / playbackRate, {
                     onComplete: function(tween:FlxTween) {
                         if (comboGroup.members.contains(msText)) {
                             comboGroup.remove(msText);
-                        }
+						}
                         msText.destroy(); // 文本对象直接销毁
                     },
                     startDelay: Conductor.crochet * 0.002 / playbackRate
@@ -3556,7 +3647,30 @@ var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTi
         });
     }
 
-    
+	    if (earlyLateSpr != null) {
+        var earlyLateOriginalScaleX:Float = earlyLateSpr.scale.x;
+        var earlyLateOriginalScaleY:Float = earlyLateSpr.scale.y;
+        
+        // 先瞬间放大
+        earlyLateSpr.scale.x += 0.07;
+        earlyLateSpr.scale.y += 0.07;
+        
+        // 回缩动画
+        FlxTween.tween(earlyLateSpr.scale, {x: earlyLateOriginalScaleX}, 0.2 / playbackRate);
+        FlxTween.tween(earlyLateSpr.scale, {y: earlyLateOriginalScaleY}, 0.2 / playbackRate);
+        
+        // 淡出并销毁
+        FlxTween.tween(earlyLateSpr, {alpha: 0}, 0.2 / playbackRate, {
+            onComplete: function(tween:FlxTween) {
+                if (comboGroup.members.contains(earlyLateSpr)) {
+                    comboGroup.remove(earlyLateSpr);
+                }
+                earlyLateSpr.destroy();
+            },
+            startDelay: Conductor.crochet * 0.0015 / playbackRate
+        });
+    }
+
     // MS文本动画
     if (msText != null) {
         FlxTween.tween(msText, {alpha: 0}, 0.2 / playbackRate, {
@@ -3572,6 +3686,7 @@ var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTi
 
 	}
 	}
+
 
 	public var strumsBlocked:Array<Bool> = [];
 	private function onKeyPress(event:KeyboardEvent):Void
@@ -4926,7 +5041,7 @@ private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):
     var sustainLength:Float = replayNote[1];
     var column:Int = replayNote[2];
     var diff:Float = replayNote[3];
-	var actualHitTime:Float = noteStrTime - diff;
+var actualHitTime:Float = noteStrTime - diff;
 
     var strum:StrumNote = playerStrums.members[column];
     if (strum != null)
@@ -5178,6 +5293,7 @@ private function applyStageVelocity(sprite:FlxSprite, multiplier:Float = 1.0):Vo
         ratingPool = new SpritePool(maxPoolSize);
         comboNumPool = new SpritePool(maxPoolSize);
         comboSpritePool = new SpritePool(maxPoolSize);
+		earlyLatePool = new SpritePool(maxPoolSize); // 新增
     }
     
     // 清理对象池
@@ -5211,6 +5327,10 @@ private function applyStageVelocity(sprite:FlxSprite, multiplier:Float = 1.0):Vo
             var combo = new FlxSprite();
             comboSpritePool.put(combo);
         }
+		for (i in 0...maxPoolSize) {
+        var earlyLate = new FlxSprite();
+        earlyLatePool.put(earlyLate);
+    }
     }
 
 }

@@ -8,6 +8,9 @@ import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
 import flixel.math.FlxRect;
+import flixel.math.FlxMath;
+import objects.DraggableBar;
+import backend.MouseMove;
 
 class KESubMenu extends MusicBeatSubstate
 {
@@ -41,24 +44,29 @@ class KESubMenu extends MusicBeatSubstate
 	var optionClickCooldown:Float = 0;
 	var optionClickProtected:Bool = false;
 	
-	// 布局参数 - 继承自主菜单
+	// 鼠标拖拽滚动
+	var optionScroller:MouseMove;
+	public static var optionScrollPos:Float = 0;
+	var valueBar:DraggableBar;
+	var valueBarText:FlxText;
+	
+	// 布局参数
 	var screenWidth:Int;
 	var screenHeight:Int;
 	var marginTop:Int;
 	var marginBottom:Int;
-	var categoryHeight:Int;
-	var optionLeftMargin:Int;
-	var optionWidth:Int;
 	var bgAlpha:Float;
 	var optionAlpha:Float;
 	var descAlpha:Float;
-	
 	
 	public function new(parentOption:KEOption)
 	{
 		super();
 		this.parentOption = parentOption;
 		this.options = parentOption.subMenuOptions.copy();
+		
+		// 重置滚动位置
+		optionScrollPos = 0;
 		
 		// 从主菜单继承布局参数
 		inheritLayoutFromMainMenu();
@@ -68,31 +76,21 @@ class KESubMenu extends MusicBeatSubstate
 		this.options.unshift(backButton);
 	}
 	
-	// 从主菜单继承布局参数
 	function inheritLayoutFromMainMenu():Void
 	{
-		// 如果主菜单实例存在，从其继承参数
 		if (KEOptionsMenu.instance != null) {
-			// 使用主菜单的静态常量
 			screenWidth = KEOptionsMenu.SCREEN_WIDTH;
 			screenHeight = KEOptionsMenu.SCREEN_HEIGHT;
 			marginTop = KEOptionsMenu.MARGIN_TOP;
 			marginBottom = KEOptionsMenu.MARGIN_BOTTOM;
-			categoryHeight = KEOptionsMenu.CATEGORY_HEIGHT;
-			optionLeftMargin = KEOptionsMenu.OPTION_LEFT_MARGIN;
-			optionWidth = KEOptionsMenu.OPTION_WIDTH;
-			bgAlpha = KEOptionsMenu.TAB_ALPHA; // 使用TAB_ALPHA作为背景透明度
+			bgAlpha = KEOptionsMenu.TAB_ALPHA;
 			optionAlpha = KEOptionsMenu.OPTION_ALPHA;
 			descAlpha = KEOptionsMenu.DESC_ALPHA;
 		} else {
-			// 如果主菜单不存在，使用默认值（与主菜单保持一致）
 			screenWidth = 1280;
 			screenHeight = 720;
 			marginTop = 80;
 			marginBottom = 80;
-			categoryHeight = 40;
-			optionLeftMargin = 100;
-			optionWidth = 500;
 			bgAlpha = 0.7;
 			optionAlpha = 0.6;
 			descAlpha = 0.8;
@@ -105,7 +103,6 @@ class KESubMenu extends MusicBeatSubstate
 		
 		// 计算内容区域
 		var contentStartY:Int = marginTop;
-		var contentHeight:Int = screenHeight - marginTop - marginBottom;
 		
 		// 创建半透明背景 - 全屏
 		bg = new FlxSprite(0, 0).makeGraphic(screenWidth, screenHeight, FlxColor.BLACK);
@@ -142,10 +139,36 @@ class KESubMenu extends MusicBeatSubstate
 		
 		// 描述文本
 		descText = new FlxText(10, screenHeight - marginBottom + 5, screenWidth - 20);
-		descText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK); // 居中
+		descText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		descText.borderSize = 2;
 		descText.alpha = 1.0;
 		add(descText);
+
+	valueBar = new DraggableBar(0, screenHeight - marginBottom, 'healthBar', function() return getSelectedOptionValue(), 0, 1);
+	valueBar.scrollFactor.set();
+	valueBar.visible = false;
+	valueBar.cameras = [FlxG.camera];
+	valueBar.screenCenter(X);
+	valueBar.onValueChanged = function(percentValue:Float) {
+		if (selectedOption == null || !isNumericOption(selectedOption)) return;
+		var rawValue:Float = FlxMath.lerp(selectedOption.minValue, selectedOption.maxValue, percentValue / 100);
+		var newValue:Float = snapOptionValue(rawValue, selectedOption);
+		var currentValue:Float = Std.parseFloat(Std.string(selectedOption.value));
+		if (newValue != currentValue) {
+			selectedOption.value = newValue;
+			selectedOption.saveCurrentValue();
+			ClientPrefs.saveSettings();
+			updateDisplay();
+		}
+		valueBarText.text = selectedOption.getValue();
+	};
+	valueBarText = new FlxText(0, valueBar.y - 32, screenWidth, "");
+	valueBarText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+	valueBarText.borderSize = 2;
+	valueBarText.visible = false;
+	valueBarText.cameras = [FlxG.camera];
+	add(valueBar);
+	add(valueBarText);
 		
 		// 初始化选择
 		selectedOptionIndex = 0;
@@ -168,16 +191,76 @@ class KESubMenu extends MusicBeatSubstate
 		FlxTween.tween(descBack, {alpha: descAlpha}, tweenDuration, {ease: FlxEase.sineOut});
 		FlxTween.tween(descText, {alpha: 1}, tweenDuration, {ease: FlxEase.sineOut});
 		
-		// 所有选项同时渐变显示
 		for (i in 0...optionTexts.length) {
 			FlxTween.tween(optionTexts.members[i], {alpha: optionAlpha}, tweenDuration, {ease: FlxEase.sineOut});
 		}
+		
+		// 创建鼠标拖拽滚动器
+		setupMouseScroller();
 		
 		// 播放音效
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
 		
 		// 更新显示
 		updateDisplay();
+	}
+	
+	function setupMouseScroller():Void
+	{
+		var totalOptionsHeight:Float = options.length * 46;
+		var visibleHeight:Float = screenHeight - marginTop - marginBottom - 120;
+		var minScroll:Float = 0;
+		var maxScroll:Float = Math.max(0, totalOptionsHeight - visibleHeight);
+		
+		// 选项区域范围
+		var contentStartY:Float = marginTop + 80;
+		var contentHeight:Float = visibleHeight;
+		
+		optionScroller = new MouseMove(
+			KESubMenu,
+			'optionScrollPos',
+			[minScroll, maxScroll],
+			[
+				[0, screenWidth],
+				[contentStartY, contentStartY + contentHeight]
+			],
+			onScrollChange
+		);
+		optionScroller.useLerp = true;
+		optionScroller.lerpSmooth = 12;
+		optionScroller.dragSensitivity = 1.2;
+		optionScroller.deceleration = 0.94;
+		add(optionScroller);
+	}
+	
+	function onScrollChange():Void
+	{
+		// 根据滚动位置计算新的 scrollOffset
+		var newScrollOffset = Math.round(optionScrollPos / 46);
+		if (newScrollOffset != scrollOffset)
+		{
+			scrollOffset = newScrollOffset;
+			if (scrollOffset < 0) scrollOffset = 0;
+			if (scrollOffset > maxScrollOffset) scrollOffset = maxScrollOffset;
+			// 直接更新选项位置，不改变选中项
+			updateOptionPositions();
+		}
+	}
+	
+	function updateOptionPositions():Void
+	{
+		for (i in 0...optionTexts.length)
+		{
+			var optionText = optionTexts.members[i];
+			if (optionText == null) continue;
+			
+			var displayIndex = i - scrollOffset;
+			optionText.y = marginTop + 80 + (46 * displayIndex);
+			
+			// 判断是否在可见区域内
+			var isVisible = (displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS);
+			optionText.alpha = isVisible ? (i == selectedOptionIndex ? 1.0 : optionAlpha) : 0;
+		}
 	}
 	
 	override function update(elapsed:Float)
@@ -218,7 +301,7 @@ class KESubMenu extends MusicBeatSubstate
 			}
 		}
 		
-		// 更新悬停效果 - 文字居中时也需要调整
+		// 更新悬停效果
 		for (i in 0...optionTexts.length)
 		{
 			var optionText = optionTexts.members[i];
@@ -226,87 +309,31 @@ class KESubMenu extends MusicBeatSubstate
 			{
 				if (i == selectedOptionIndex)
 				{
-					// 当前选中项 - 完全不透明
 					optionText.alpha = 1.0;
 					optionText.color = FlxColor.WHITE;
 				}
 				else if (i == hoveredIndex)
 				{
-					// 鼠标悬停项 - 保持透明度，只改变颜色
 					optionText.color = FlxColor.YELLOW;
 					optionText.alpha = optionAlpha;
 				}
 				else
 				{
-					// 其他项
 					optionText.color = FlxColor.WHITE;
 					optionText.alpha = optionAlpha;
 				}
 			}
 		}
 		
-		// 鼠标滚轮支持
+		// 鼠标滚轮：只滚动列表，不改变选中项
 		if (FlxG.mouse.wheel != 0)
 		{
-			if (hoveredIndex >= 0 && hoveredIndex < options.length) {
-				var hoveredOption = options[hoveredIndex];
-				if (hoveredOption != backButton && hoveredOption.getAccept() && 
-					(hoveredOption.type == "int" || hoveredOption.type == "float" || hoveredOption.type == "string"))
-				{
-					// 鼠标在数值选项上：滚轮调整数值
-					FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-					
-					// 设置当前选中选项为悬停的选项
-					selectedOptionIndex = hoveredIndex;
-					selectedOption = hoveredOption;
-					
-					// 确保可见并更新显示
-					ensureOptionVisible();
-					updateDisplay();
-					
-					// 根据滚轮方向调整数值
-					if (FlxG.mouse.wheel < 0) {
-						// 向下滚动：减小值
-						selectedOption.left();
-					} else {
-						// 向上滚动：增加值
-						selectedOption.right();
-					}
-					
-					// 保存设置并更新显示
-					ClientPrefs.saveSettings();
-					updateDisplay();
-				}
-				else
-				{
-					// 鼠标不在数值选项上：滚轮滚动选项列表
-					if (FlxG.mouse.wheel < 0) {
-						// 向下滚动：向下移动选择
-						handleDownKey();
-					} else if (FlxG.mouse.wheel > 0) {
-						// 向上滚动：向上移动选择
-						handleUpKey();
-					}
-				}
-			}
-			else
-			{
-				// 鼠标不在任何选项上：滚轮滚动选项列表
-				if (FlxG.mouse.wheel < 0) {
-					// 向下滚动：向下移动选择
-					handleDownKey();
-				} else if (FlxG.mouse.wheel > 0) {
-					// 向上滚动：向上移动选择
-					handleUpKey();
-				}
-			}
+            var wheelDelta = - FlxG.mouse.wheel;  // 反转方向
+        	scrollOptions(wheelDelta, false);
 		}
-		
-		// 鼠标点击 - 添加防二次点击保护
-		if (FlxG.mouse.justPressed && !optionClickProtected)
+		// 鼠标点击
+		if (FlxG.mouse.justPressed && !optionClickProtected && (optionScroller == null || !optionScroller.isDragging))
 		{
-			var mousePos = FlxG.mouse.getScreenPosition(camera);
-			
 			for (i in 0...optionTexts.length)
 			{
 				var optionText = optionTexts.members[i];
@@ -315,58 +342,22 @@ class KESubMenu extends MusicBeatSubstate
 				if (FlxG.mouse.overlaps(optionText))
 				{
 					FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
-					
-					// 设置新选项
 					selectedOptionIndex = i;
 					selectedOption = options[i];
-					
-					// 确保可见并更新显示
 					ensureOptionVisible();
 					updateDisplay();
 					
-					// 对于返回按钮，直接关闭
 					if (i == 0) {
 						closeMenu();
 						return;
 					}
 					
-					// 检测是否点击了左右调整区域 - 对于居中的文字需要特殊处理
-					if (selectedOption.getAccept()) {
-						// 计算文字的左右区域
-						var textCenterX = screenWidth / 2;
-						var textWidth = optionText.fieldWidth;
-						var leftArea = new FlxRect(textCenterX - textWidth/2 - 40, optionText.y, 40, optionText.height);
-						var rightArea = new FlxRect(textCenterX + textWidth/2, optionText.y, 40, optionText.height);
-						
-						if (leftArea.containsPoint(mousePos)) {
-							selectedOption.left();
-							ClientPrefs.saveSettings();
-							updateDisplay();
-							
-							// 设置点击保护
-							optionClickProtected = true;
-							optionClickCooldown = 0.2;
-							break;
-						} else if (rightArea.containsPoint(mousePos)) {
-							selectedOption.right();
-							ClientPrefs.saveSettings();
-							updateDisplay();
-							
-							// 设置点击保护
-							optionClickProtected = true;
-							optionClickCooldown = 0.2;
-							break;
-						}
-					}
-					
-					// 点击文本中间
 					var shouldKeepState = selectedOption.press();
 					if (shouldKeepState) {
 						ClientPrefs.saveSettings();
 						updateDisplay();
 					}
 					
-					// 设置点击保护
 					optionClickProtected = true;
 					optionClickCooldown = 0.2;
 					break;
@@ -375,7 +366,7 @@ class KESubMenu extends MusicBeatSubstate
 		}
 		#end
 		
-		// 使用 Controls 获取输入状态
+		// 键盘控制
 		var accept = controls.ACCEPT;
 		var up = controls.UI_UP_P;
 		var down = controls.UI_DOWN_P;
@@ -386,12 +377,13 @@ class KESubMenu extends MusicBeatSubstate
 		var leftPressed = controls.UI_LEFT;
 		var rightPressed = controls.UI_RIGHT;
 		
-		// 处理长按上下滚动
+		// 长按上下滚动
 		if (upPressed) {
 			holdUpTime += elapsed;
-			if (holdUpTime > 0.3) { // 0.3秒后开始连续滚动
-				scrollHoldTime++;
-				if (scrollHoldTime % 3 == 0) { // 控制滚动速度
+			if (holdUpTime > 0.3) {
+				scrollHoldTime += elapsed;
+				if (scrollHoldTime >= 0.05) {
+					scrollHoldTime = 0;
 					handleUpKey();
 				}
 			}
@@ -401,9 +393,10 @@ class KESubMenu extends MusicBeatSubstate
 		
 		if (downPressed) {
 			holdDownTime += elapsed;
-			if (holdDownTime > 0.3) { // 0.3秒后开始连续滚动
-				scrollHoldTime++;
-				if (scrollHoldTime % 3 == 0) { // 控制滚动速度
+			if (holdDownTime > 0.3) {
+				scrollHoldTime += elapsed;
+				if (scrollHoldTime >= 0.05) {
+					scrollHoldTime = 0;
 					handleDownKey();
 				}
 			}
@@ -415,15 +408,11 @@ class KESubMenu extends MusicBeatSubstate
 			scrollHoldTime = 0;
 		}
 		
-		// 处理上下键 - 短按
-		if (up) {
-			handleUpKey();
-		}
-		if (down) {
-			handleDownKey();
-		}
+		// 短按上下键
+		if (up) handleUpKey();
+		if (down) handleDownKey();
 		
-		// 处理长按左右调整数值
+		// 长按左右调整数值
 		var optionChangedByHold = false;
 		if (selectedOption != null && selectedOption != backButton && selectedOption.getAccept()) {
 			optionChangedByHold = selectedOption.updateHold(elapsed, leftPressed, rightPressed);
@@ -433,21 +422,13 @@ class KESubMenu extends MusicBeatSubstate
 			}
 		}
 		
-		// 左右键逻辑 - 短按（长按在上面处理）
-		if (right && !optionChangedByHold)
-		{
-			handleRightKey();
-		}
-		else if (left && !optionChangedByHold)
-		{
-			handleLeftKey();
-		}
+		// 短按左右键
+		if (right && !optionChangedByHold) handleRightKey();
+		else if (left && !optionChangedByHold) handleLeftKey();
 		
 		// 回车键
-		if (accept)
-		{
+		if (accept) {
 			if (selectedOptionIndex == 0) {
-				// 返回按钮
 				closeMenu();
 			} else {
 				var shouldKeepState = selectedOption.press();
@@ -459,9 +440,29 @@ class KESubMenu extends MusicBeatSubstate
 		}
 	}
 	
-	function updateDisplay():Void
+	function scrollOptions(change:Int, isLongPress:Bool = false):Void
 	{
-		// 清除所有选项的 > 符号
+		var newOffset = scrollOffset - change; // 注意方向：正滚轮向下滚动
+		if (newOffset < 0) newOffset = 0;
+		if (newOffset > maxScrollOffset) newOffset = maxScrollOffset;
+		
+		if (newOffset == scrollOffset) return;
+		
+		scrollOffset = newOffset;
+		optionScrollPos = scrollOffset * 46;
+		if (optionScroller != null) {
+			optionScroller.target = optionScrollPos;
+		}
+		updateOptionPositions();
+		
+		if (!isLongPress) {
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
+		}
+	}
+	
+	public function updateDisplay():Void
+	{
+		// 更新所有选项文本
 		for (i in 0...optionTexts.length)
 		{
 			var optionText = optionTexts.members[i];
@@ -474,18 +475,6 @@ class KESubMenu extends MusicBeatSubstate
 				} else {
 					optionText.text = currentValue;
 				}
-				
-				// 设置位置 - 保持居中
-				var displayIndex = i - scrollOffset;
-				optionText.y = marginTop + 80 + (46 * displayIndex);
-				
-				// 判断是否在可见区域内
-				var isVisible = (displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS);
-				
-				// 透明度由 update() 中的悬停逻辑控制，这里只处理位置
-				if (!isVisible) {
-					optionText.alpha = 0;
-				}
 			}
 		}
 		
@@ -494,77 +483,108 @@ class KESubMenu extends MusicBeatSubstate
 		if (selectedText != null)
 		{
 			var currentValue = selectedOption.getValue();
-			// 检查是否已经包含 > 符号
 			if (!currentValue.startsWith("> ")) {
 				selectedText.text = "> " + currentValue;
-			} else {
-				selectedText.text = currentValue;
 			}
-			
-			// 更新描述
 			descText.text = selectedOption.getDescription();
-			selectedText.alpha = 1.0; // 确保选中项完全不透明
+			selectedText.alpha = 1.0;
 		}
-		
-		// 确保选中项可见
-		ensureOptionVisible();
+
+		updateValueBar();
+		// 更新位置和可见性
+		updateOptionPositions();
 	}
 	
-	function ensureOptionVisible():Void
+	function isNumericOption(option:KEOption):Bool
 	{
-		if (selectedOptionIndex < scrollOffset) {
-			// 选中项在滚动区域上方，向上滚动
-			scrollOffset = selectedOptionIndex;
-		} else if (selectedOptionIndex >= scrollOffset + VISIBLE_OPTIONS) {
-			// 选中项在滚动区域下方，向下滚动
-			scrollOffset = selectedOptionIndex - (VISIBLE_OPTIONS - 1);
-		}
-		
-		if (scrollOffset < 0) scrollOffset = 0;
-		if (scrollOffset > maxScrollOffset) scrollOffset = maxScrollOffset;
+		return option != null && (option.type == "int" || option.type == "float");
 	}
 	
-	function scrollOptions(change:Int):Void
+	function getSelectedOptionValue():Float
 	{
-		if (options.length <= VISIBLE_OPTIONS) return;
-		
-		var newOffset = scrollOffset + change;
-		if (newOffset < 0) newOffset = 0;
-		if (newOffset > maxScrollOffset) newOffset = maxScrollOffset;
-		
-		if (newOffset == scrollOffset) return;
-		
-		scrollOffset = newOffset;
-		
-		// 如果选中项不再可见，调整选中项索引
-		if (selectedOptionIndex < scrollOffset) {
-			selectedOptionIndex = scrollOffset;
-			selectedOption = options[selectedOptionIndex];
-		} else if (selectedOptionIndex >= scrollOffset + VISIBLE_OPTIONS) {
-			selectedOptionIndex = scrollOffset + (VISIBLE_OPTIONS - 1);
-			selectedOption = options[selectedOptionIndex];
-		}
-		
-		FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
-		updateDisplay();
+		if (!isNumericOption(selectedOption)) return 0;
+	return snapOptionValue(Std.parseFloat(Std.string(selectedOption.value)), selectedOption);
+}
+
+function updateValueBar():Void
+{
+	if (selectedOption != null && isNumericOption(selectedOption))
+	{
+		valueBar.visible = true;
+		valueBarText.visible = true;
+		valueBar.setBounds(selectedOption.minValue, selectedOption.maxValue);
+		var currentValue:Float = snapOptionValue(Std.parseFloat(Std.string(selectedOption.value)), selectedOption);
+		valueBar.setPercent(FlxMath.remapToRange(currentValue, selectedOption.minValue, selectedOption.maxValue, 0, 100), false);
+		valueBarText.text = selectedOption.getValue();
 	}
+	else
+	{
+		valueBar.visible = false;
+		valueBarText.visible = false;
+	}
+}
+
+function getStepDecimals(step:Float):Int
+{
+	var s:String = Std.string(step);
+	var index:Int = s.indexOf('.');
+	if (index == -1) return 0;
+	return s.length - index - 1;
+}
+
+function roundToDecimals(value:Float, decimals:Int):Float
+{
+	var factor:Float = Math.pow(10, decimals);
+	return Math.round(value * factor) / factor;
+}
+
+function snapOptionValue(value:Float, option:KEOption):Float
+{
+	if (option == null) return value;
+	var step:Float = option.changeValue;
+	if (step <= 0) return value;
+	var relative:Float = (value - option.minValue) / step;
+	var snapped:Float = option.minValue + Math.round(relative) * step;
+	if (option.type == "int") snapped = Math.round(snapped);
+	else snapped = roundToDecimals(snapped, getStepDecimals(step));
+	if (snapped < option.minValue) snapped = option.minValue;
+	if (snapped > option.maxValue) snapped = option.maxValue;
+	return snapped;
+	}
+
+function ensureOptionVisible():Void
+{
+	var oldOffset = scrollOffset;
+	
+	if (selectedOptionIndex < scrollOffset) {
+		scrollOffset = selectedOptionIndex;
+	} else if (selectedOptionIndex >= scrollOffset + VISIBLE_OPTIONS) {
+		scrollOffset = selectedOptionIndex - (VISIBLE_OPTIONS - 1);
+	}
+	
+	if (scrollOffset < 0) scrollOffset = 0;
+	if (scrollOffset > maxScrollOffset) scrollOffset = maxScrollOffset;
+	
+	if (oldOffset != scrollOffset) {
+		optionScrollPos = scrollOffset * 46;
+		if (optionScroller != null) {
+			optionScroller.target = optionScrollPos;
+		}
+		updateOptionPositions();
+	}
+}
+
 	
 	function handleUpKey():Void
 	{
 		if (selectedOptionIndex > 0) {
 			selectedOptionIndex--;
 			selectedOption = options[selectedOptionIndex];
-			
-			// 确保选中项可见
 			ensureOptionVisible();
-			
-			// 更新显示
 			updateDisplay();
-			
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
 		} else if (scrollOffset > 0) {
-			// 如果在顶部且需要滚动，向上滚动
-			scrollOptions(-1);
+			scrollOptions(1, true);
 		}
 	}
 	
@@ -573,25 +593,19 @@ class KESubMenu extends MusicBeatSubstate
 		if (selectedOptionIndex < options.length - 1) {
 			selectedOptionIndex++;
 			selectedOption = options[selectedOptionIndex];
-			
-			// 确保选中项可见
 			ensureOptionVisible();
-			
-			// 更新显示
 			updateDisplay();
-			
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
 		} else if (scrollOffset < maxScrollOffset) {
-			// 如果在底部且需要滚动，向下滚动
-			scrollOptions(1);
+			scrollOptions(-1, true);
 		}
 	}
 	
 	function handleRightKey():Void
 	{
-		if (selectedOptionIndex > 0 && selectedOption.getAccept()) // 不是返回按钮
+		if (selectedOptionIndex > 0 && selectedOption.getAccept())
 		{
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
 			selectedOption.right();
 			ClientPrefs.saveSettings();
 			updateDisplay();
@@ -600,9 +614,9 @@ class KESubMenu extends MusicBeatSubstate
 	
 	function handleLeftKey():Void
 	{
-		if (selectedOptionIndex > 0 && selectedOption.getAccept()) // 不是返回按钮
+		if (selectedOptionIndex > 0 && selectedOption.getAccept())
 		{
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
 			selectedOption.left();
 			ClientPrefs.saveSettings();
 			updateDisplay();
@@ -616,7 +630,6 @@ class KESubMenu extends MusicBeatSubstate
 		isClosing = true;
 		FlxG.sound.play(Paths.sound('cancelMenu'), 0.7);
 		
-		// 简单渐变消失动画
 		FlxTween.tween(bg, {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
 		FlxTween.tween(titleText, {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
 		FlxTween.tween(descBack, {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
@@ -628,7 +641,6 @@ class KESubMenu extends MusicBeatSubstate
 			}
 		}
 		
-		// 延迟关闭
 		new flixel.util.FlxTimer().start(tweenDuration + 0.1, function(tmr:flixel.util.FlxTimer) {
 			close();
 		});

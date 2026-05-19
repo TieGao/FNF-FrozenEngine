@@ -8,6 +8,7 @@ import objects.CheckboxThingie;
 import objects.AttachedText;
 import options.Option;
 import backend.InputFormatter;
+import backend.MouseMove;
 
 class BaseOptionsMenu extends MusicBeatSubstate
 {
@@ -31,6 +32,14 @@ class BaseOptionsMenu extends MusicBeatSubstate
 	private var allowMouse:Bool = true;
 	private var timeNotMoving:Float = 0;
 	private var mouseOverOption:Int = -1;
+
+	private var optionScrollPos:Float = 0;
+	private var optionScroller:MouseMove;
+	private var optionScrollSpacing:Float = 156;
+
+	var keyboardUsing:Bool = false; // 是否正在使用键盘控制
+	var shiftMult:Int = 1; // Shift 键的倍数（用于加速滚动）
+
 	
 	// 文字选项点击判定区域偏移量（可调试）
 	// 复选框不需要偏移，它们的位置已经是正确的
@@ -116,6 +125,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 
 		changeSelection(0);
 		reloadCheckboxes();
+		setupOptionScroller();
 	}
 
 	public function addOption(option:Option) {
@@ -198,7 +208,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			}
 			
 			// 如果没有点击复选框，检查选项文本（应用偏移量）
-			if (!checkboxClicked)
+			if (!checkboxClicked && (optionScroller == null || !optionScroller.isDragging))
 			{
 				if (mouseOverOption != -1 && mouseOverOption != curSelected)
 				{
@@ -220,6 +230,18 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		if (controls.UI_DOWN_P)
 		{
 			changeSelection(1);
+		}
+
+		if(controls.UI_DOWN || controls.UI_UP)
+		{
+			var checkLastHold:Int = Math.floor((holdTime - 0.5) * 10);
+			holdTime += elapsed;
+			var checkNewHold:Int = Math.floor((holdTime - 0.5) * 10);
+			if(holdTime != 0 && checkNewHold - checkLastHold > 0) keyboardUsing = true else keyboardUsing = false;
+			if(holdTime > 0.5 && checkNewHold - checkLastHold > 0)
+			{
+				changeSelection((checkNewHold - checkLastHold) * (controls.UI_UP ? -shiftMult : shiftMult));
+			}
 		}
 
 		if (controls.BACK || FlxG.mouse.justPressedRight) {
@@ -303,6 +325,35 @@ class BaseOptionsMenu extends MusicBeatSubstate
 				else text.alpha = 0.6;
 			}
 			timeNotMoving = 0;
+		}
+	}
+
+	function setupOptionScroller():Void
+	{
+		if (optionsArray == null || optionsArray.length <= 1) return;
+
+		var maxScroll:Float = Math.max(0, (optionsArray.length - 1) * optionScrollSpacing);
+		// Use the full window for drag input so scrolling does not interrupt when the cursor leaves the option list area.
+		optionScroller = new MouseMove(this, 'optionScrollPos', [0, maxScroll], [[0, FlxG.width], [0, FlxG.height]], onOptionScrollChange);
+		optionScroller.useLerp = true;
+		optionScroller.lerpSmooth = 12;
+		optionScroller.dragSensitivity = 1.6;
+		optionScroller.deceleration = 0.94;
+		optionScroller.mouseWheelSensitivity = -200.0;
+		add(optionScroller);
+
+		optionScrollPos = curSelected * optionScrollSpacing;
+	}
+
+	function onOptionScrollChange():Void
+	{
+		if (keyboardUsing) return; // 如果正在使用键盘控制，忽略鼠标滚动
+		var newIndex:Int = Std.int(Math.round(optionScrollPos / optionScrollSpacing));
+		if (newIndex < 0) newIndex = 0;
+		if (newIndex >= optionsArray.length) newIndex = optionsArray.length - 1;
+		if (newIndex != curSelected)
+		{
+			changeSelection(newIndex - curSelected);
 		}
 	}
 
@@ -641,7 +692,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 	function changeSelection(change:Int = 0)
 	{
 		curSelected = FlxMath.wrap(curSelected + change, 0, optionsArray.length - 1);
-
+	mouseOverOption = -1;
 		descText.text = optionsArray[curSelected].description;
 		descText.screenCenter(Y);
 		descText.y += 270;
@@ -659,7 +710,9 @@ class BaseOptionsMenu extends MusicBeatSubstate
 			else if(mouseOverOption == text.ID) text.alpha = 0.8;
 			else text.alpha = 0.6;
 		}
-
+		optionScrollPos = curSelected * optionScrollSpacing;
+		if (optionScroller != null)
+			optionScroller.tweenData = optionScrollPos;
 		descBox.setPosition(descText.x - 10, descText.y - 10);
 		descBox.setGraphicSize(Std.int(descText.width + 20), Std.int(descText.height + 25));
 		descBox.updateHitbox();

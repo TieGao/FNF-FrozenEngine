@@ -241,6 +241,22 @@ class MusicPlayerLegacy extends FlxGroup
 		}
 	}
 
+	public function stopMusic():Void
+	{
+		if (!playingMusic) return;
+
+		playingMusic = false;
+		pauseOrResume(false);
+		switchPlayMusic();
+
+		if (FlxG.sound.music != null && FlxG.sound.music.playing)
+			FlxG.sound.music.stop();
+		if (FreeplayState.vocals != null)
+			FreeplayState.vocals.stop();
+		if (FreeplayState.opponentVocals != null)
+			FreeplayState.opponentVocals.stop();
+	}
+
 	public function switchPlayMusic()
 	{
 		FlxG.autoPause = (!playingMusic && ClientPrefs.data.autoPause);

@@ -312,7 +312,7 @@ class HitGraph extends Sprite
     
     public function addToHistory(diff:Float, judge:String, time:Float)
     {
-        if (diff == 0 && judge == "") {
+        if (judge == "") {
             return;
         }
         

@@ -3,6 +3,7 @@ package states;
 import backend.WeekData;
 import backend.Highscore;
 import backend.Song;
+import backend.MouseMove;
 
 import flixel.group.FlxGroup;
 import flixel.graphics.FlxGraphic;
@@ -56,6 +57,13 @@ class StoryMenuState extends MusicBeatState
 	var mouseOverRightArrow:Bool = false;
 
 	var weekBGDisplay:WeekBGDisplay;
+	var weekScrollPos:Float = 0;
+	var weekScroller:MouseMove;
+	var weekItemSpacing:Float = 0;
+
+	var keyboardUsing:Bool = false; // 是否正在使用键盘控制
+	var holdTime:Float = 0; // 按键持续时间
+	var shiftMult:Int = 1; // 按住 Shift 时的加速倍率
 
 	override function create()
 	{
@@ -233,6 +241,7 @@ class StoryMenuState extends MusicBeatState
 		add(txtWeekTitle);
 
 		changeWeek();
+		setupWeekScroller();
 		changeDifficulty();
 		
 		// 显示鼠标
@@ -373,6 +382,17 @@ class StoryMenuState extends MusicBeatState
 				changeWeek(1);
 				FlxG.sound.play(Paths.sound('scrollMenu'));
 				changeDiff = true;
+			}
+			if(controls.UI_DOWN || controls.UI_UP)
+			{
+				var checkLastHold:Int = Math.floor((holdTime - 0.5) * 10);
+				holdTime += elapsed;
+				var checkNewHold:Int = Math.floor((holdTime - 0.5) * 10);
+				if(holdTime != 0 && checkNewHold - checkLastHold > 0) keyboardUsing = true else keyboardUsing = false;
+				if(holdTime > 0.5 && checkNewHold - checkLastHold > 0)
+				{
+					changeWeek((checkNewHold - checkLastHold) * (controls.UI_UP ? -shiftMult : shiftMult));
+				}
 			}
 
 			if (controls.UI_RIGHT)
@@ -573,6 +593,39 @@ class StoryMenuState extends MusicBeatState
 	var lerpScore:Int = 49324858;
 	var intendedScore:Int = 0;
 
+	function setupWeekScroller():Void
+	{
+		if (loadedWeeks.length <= 1) return;
+
+		if (grpWeekText.length > 1)
+			weekItemSpacing = grpWeekText.members[1].y - grpWeekText.members[0].y;
+		if (weekItemSpacing <= 0) weekItemSpacing = Math.max(grpWeekText.members[0].height, 110) + 10;
+
+		var maxScroll:Float = Math.max(0, (loadedWeeks.length - 1) * weekItemSpacing);
+		// Use the full screen pointer bounds to avoid dragging interruptions when the cursor leaves the week list area.
+		weekScroller = new MouseMove(this, 'weekScrollPos', [0, maxScroll], [[0, FlxG.width], [0, FlxG.height]], onWeekScrollChange);
+		weekScroller.useLerp = true;
+		weekScroller.lerpSmooth = 12;
+		weekScroller.dragSensitivity = 1.1;
+		weekScroller.deceleration = 0.94;
+		weekScroller.mouseWheelSensitivity = -0;
+		add(weekScroller);
+	}
+
+	function onWeekScrollChange():Void
+	{
+		if (weekItemSpacing <= 0) return;
+		if (keyboardUsing) return; // 如果正在使用键盘控制，忽略鼠标滚动
+		var newWeek:Int = Std.int(Math.round(weekScrollPos / weekItemSpacing));
+		if (newWeek < 0) newWeek = 0;
+		if (newWeek >= loadedWeeks.length) newWeek = loadedWeeks.length - 1;
+		if (newWeek != curWeek)
+		{
+			curWeek = newWeek;
+			changeWeek();
+		}
+	}
+
 	function changeWeek(change:Int = 0):Void
 	{
 		curWeek += change;
@@ -581,6 +634,13 @@ class StoryMenuState extends MusicBeatState
 			curWeek = 0;
 		if (curWeek < 0)
 			curWeek = loadedWeeks.length - 1;
+
+		/*if (weekItemSpacing > 0)
+		{
+			weekScrollPos = curWeek * weekItemSpacing;
+			if (weekScroller != null)
+				weekScroller.tweenData = weekScrollPos;
+		}*/
 
 		var leWeek:WeekData = loadedWeeks[curWeek];
 		WeekData.setDirectoryFromWeek(leWeek);

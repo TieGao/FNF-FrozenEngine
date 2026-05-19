@@ -1,6 +1,7 @@
 package states;
 
 import objects.AttachedSprite;
+import backend.MouseMove;
 import flixel.ui.FlxButton;
 import flixel.math.FlxPoint;
 
@@ -28,7 +29,12 @@ class CreditsState extends MusicBeatState
 	var lastMousePosition:FlxPoint = FlxPoint.get(0, 0);
 	var mouseScrollTimer:Float = 0;
 	var mouseWheelDelay:Float = 0; // 鼠标滚轮延迟
+	var creditScrollPos:Float = 0;
+	var creditsScroller:MouseMove;
+	var creditScrollSpacing:Float = 156;
+	var creditSelectableIndices:Array<Int> = [];
 	var selectedItemLastFrame:Alphabet = null; // 记录上一帧选中的项目，用于滚轮动画
+	var keyboardUsing:Bool = false; // 是否正在使用键盘控制
 
 	override function create()
 	{
@@ -132,6 +138,7 @@ class CreditsState extends MusicBeatState
 			// 为可选项目添加鼠标交互
 			if(isSelectable)
 			{
+				creditSelectableIndices.push(i);
 				optionText.antialiasing = ClientPrefs.data.antialiasing;
 				optionText.ID = i; // 使用ID存储索引
 			}
@@ -184,6 +191,7 @@ class CreditsState extends MusicBeatState
 		bg.color = CoolUtil.colorFromString(creditsStuff[curSelected][4]);
 		intendedColor = bg.color;
 		changeSelection();
+		setupCreditsScroller();
 		
 		// 初始化鼠标位置
 		lastMousePosition.set(FlxG.mouse.screenX, FlxG.mouse.screenY);
@@ -237,7 +245,7 @@ class CreditsState extends MusicBeatState
 					var checkLastHold:Int = Math.floor((holdTime - 0.5) * 10);
 					holdTime += elapsed;
 					var checkNewHold:Int = Math.floor((holdTime - 0.5) * 10);
-
+					if(holdTime != 0 && checkNewHold - checkLastHold > 0) keyboardUsing = true else keyboardUsing = false;
 					if(holdTime > 0.5 && checkNewHold - checkLastHold > 0)
 					{
 						changeSelection((checkNewHold - checkLastHold) * (controls.UI_UP ? -shiftMult : shiftMult));
@@ -314,9 +322,9 @@ class CreditsState extends MusicBeatState
 		{
 			mouseScrollTimer += elapsed;
 			if (mouseScrollTimer >= mouseWheelDelay)
-			{
-				var scrollAmount:Int = -Std.int(FlxG.mouse.wheel); // 反转方向使其更自然
-				changeSelection(scrollAmount);
+		{
+			var scrollAmount:Int = -Std.int(FlxG.mouse.wheel); // 反转方向使其更自然
+			changeSelection(scrollAmount);
 				mouseScrollTimer = 0;
 			}
 		}
@@ -393,6 +401,12 @@ class CreditsState extends MusicBeatState
 		}
 		while(unselectableCheck(curSelected));
 
+		if (creditsScroller != null && creditSelectableIndices.indexOf(curSelected) >= 0)
+		{
+			creditScrollPos = creditSelectableIndices.indexOf(curSelected) * creditScrollSpacing;
+			creditsScroller.tweenData = creditScrollPos;
+		}
+
 		var newColor:FlxColor = CoolUtil.colorFromString(creditsStuff[curSelected][4]);
 		//trace('The BG color is: $newColor');
 		if(newColor != intendedColor)
@@ -424,6 +438,35 @@ class CreditsState extends MusicBeatState
 		
 		// 重置鼠标悬停项目（避免悬停状态残留）
 		mouseOverItem = null;
+	}
+
+	function setupCreditsScroller():Void
+	{
+		if (creditSelectableIndices.length <= 1) return;
+
+		var maxScroll:Float = Math.max(0, (creditSelectableIndices.length - 1) * creditScrollSpacing);
+		// Use full-screen pointer bounds so drag continues while the cursor moves outside the visible credit text area.
+		creditsScroller = new MouseMove(this, 'creditScrollPos', [0, maxScroll], [[0, FlxG.width], [0, FlxG.height]], onCreditScrollChange);
+		creditsScroller.useLerp = true;
+		creditsScroller.lerpSmooth = 12;
+		creditsScroller.dragSensitivity = 1.6;
+		creditsScroller.deceleration = 0.94;
+		//creditsScroller.mouseWheelSensitivity = -200.0;
+		add(creditsScroller);
+	}
+
+	function onCreditScrollChange():Void
+	{
+		if (keyboardUsing) return;
+		var newIndex:Int = Std.int(Math.round(creditScrollPos / creditScrollSpacing));
+		if (newIndex < 0) newIndex = 0;
+		if (newIndex >= creditSelectableIndices.length) newIndex = creditSelectableIndices.length - 1;
+		var newSelected:Int = creditSelectableIndices[newIndex];
+		if (newSelected != curSelected)
+		{
+			curSelected = newSelected;
+			changeSelection(0);
+		}
 	}
 
 	#if MODS_ALLOWED

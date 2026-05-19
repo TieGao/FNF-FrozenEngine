@@ -1,5 +1,6 @@
 package options;
 
+import options.KEOption;
 import backend.Language;
 
 import flixel.FlxG;
@@ -11,6 +12,7 @@ import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
 import flixel.math.FlxRect;
 import flixel.util.FlxTimer;
+import backend.MouseMove;
 
 class KEConfirmMenu extends MusicBeatSubstate
 {
@@ -55,6 +57,10 @@ class KEConfirmMenu extends MusicBeatSubstate
 	var holdUpTime:Float = 0;
 	var holdDownTime:Float = 0;
 	var scrollHoldTime:Float = 0;
+	
+	// 鼠标拖拽滚动
+	var optionScroller:MouseMove;
+	public static var optionScrollPos:Float = 0;
 
 	public function new(parentOption:KEOption)
 	{
@@ -65,6 +71,8 @@ class KEConfirmMenu extends MusicBeatSubstate
 		this.availableOptions = this.isConfirmMode ? [] : (this.isColorMode ? KEOption.COLOR_NAMES.copy() : parentOption.options.copy());
 		this.selectedIndex = this.isConfirmMode ? 0 : Std.int(Math.max(0, parentOption.curOption));
 		this.originalIndex = this.selectedIndex;
+		
+		optionScrollPos = 0;
 	}
 
 	override function create()
@@ -164,7 +172,68 @@ class KEConfirmMenu extends MusicBeatSubstate
 		cancelText.borderSize = 2;
 		add(cancelText);
 
+		if (!isConfirmMode) {
+			setupMouseScroller();
+		}
+
 		updateDisplay();
+	}
+	
+	function setupMouseScroller():Void
+	{
+		var totalOptionsHeight:Float = availableOptions.length * 48;
+		var visibleHeight:Float = screenHeight - marginTop - marginBottom - 400;
+		var minScroll:Float = 0;
+		var maxScroll:Float = Math.max(0, totalOptionsHeight - visibleHeight);
+		
+		var contentStartY:Float = listStartY;
+		var contentHeight:Float = visibleHeight;
+		
+		optionScroller = new MouseMove(
+			KEConfirmMenu,
+			'optionScrollPos',
+			[minScroll, maxScroll],
+			[
+				[0, screenWidth],
+				[contentStartY, contentStartY + contentHeight]
+			],
+			onScrollChange
+		);
+		optionScroller.useLerp = true;
+		optionScroller.lerpSmooth = 12;
+		optionScroller.dragSensitivity = 1.2;
+		optionScroller.deceleration = 0.94;
+		add(optionScroller);
+	}
+	
+	function onScrollChange():Void
+	{
+		var newScrollOffset = Math.round(optionScrollPos / 48);
+		if (newScrollOffset != scrollOffset)
+		{
+			scrollOffset = newScrollOffset;
+			if (scrollOffset < 0) scrollOffset = 0;
+			if (scrollOffset > maxScrollOffset) scrollOffset = maxScrollOffset;
+			updateOptionPositions();
+		}
+	}
+	
+	function updateOptionPositions():Void
+	{
+		for (i in 0...optionTexts.length)
+		{
+			var optionText = optionTexts.members[i];
+			if (optionText == null) continue;
+			
+			var displayIndex = i - scrollOffset;
+			optionText.y = listStartY + (48 * displayIndex);
+			
+			var isVisible = (displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS);
+			optionText.alpha = isVisible ? 1 : 0;
+			if (isVisible && this.isColorMode) {
+				optionText.color = KEOption.COLOR_PALETTE[i];
+			}
+		}
 	}
 
 	override function update(elapsed:Float)
@@ -239,16 +308,14 @@ class KEConfirmMenu extends MusicBeatSubstate
 			cancelBack.color = FlxColor.fromRGB(180, 40, 40);
 		}
 
-		if (FlxG.mouse.wheel != 0)
+		// 鼠标滚轮：只滚动列表，不改变选中项
+		if (FlxG.mouse.wheel != 0 && !isConfirmMode)
 		{
-			if (hoveredIndex >= 0) {
-				moveSelection(FlxG.mouse.wheel < 0 ? 1 : -1);
-			} else {
-				moveSelection(FlxG.mouse.wheel < 0 ? 1 : -1);
-			}
+             var wheelDelta = -FlxG.mouse.wheel;  // 反转方向
+        	scrollOptions(wheelDelta, false);
 		}
-
-		if (FlxG.mouse.justPressed && !optionClickProtected)
+		// 鼠标点击
+		if (FlxG.mouse.justPressed && !optionClickProtected && (optionScroller == null || !optionScroller.isDragging))
 		{
 			var mousePos = FlxG.mouse.getScreenPosition(camera);
 
@@ -265,9 +332,10 @@ class KEConfirmMenu extends MusicBeatSubstate
 				return;
 			}
 
-			if (hoveredIndex >= 0) {
+			if (hoveredIndex >= 0 && !isConfirmMode) {
 				selectedIndex = hoveredIndex;
 				updateDisplay();
+				FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
 				optionClickProtected = true;
 				optionClickCooldown = 0.2;
 				return;
@@ -280,21 +348,27 @@ class KEConfirmMenu extends MusicBeatSubstate
 		var upPressed = controls.UI_UP;
 		var downPressed = controls.UI_DOWN;
 
-		if (upPressed) {
+		if (upPressed && !isConfirmMode) {
 			holdUpTime += elapsed;
 			if (holdUpTime > 0.3) {
-				scrollHoldTime++;
-				if (scrollHoldTime % 3 == 0) moveSelection(-1);
+				scrollHoldTime += elapsed;
+				if (scrollHoldTime >= 0.05) {
+					scrollHoldTime = 0;
+					moveSelection(-1);
+				}
 			}
 		} else {
 			holdUpTime = 0;
 		}
 
-		if (downPressed) {
+		if (downPressed && !isConfirmMode) {
 			holdDownTime += elapsed;
 			if (holdDownTime > 0.3) {
-				scrollHoldTime++;
-				if (scrollHoldTime % 3 == 0) moveSelection(1);
+				scrollHoldTime += elapsed;
+				if (scrollHoldTime >= 0.05) {
+					scrollHoldTime = 0;
+					moveSelection(1);
+				}
 			}
 		} else {
 			holdDownTime = 0;
@@ -302,10 +376,30 @@ class KEConfirmMenu extends MusicBeatSubstate
 
 		if (!upPressed && !downPressed) scrollHoldTime = 0;
 
-		if (up) moveSelection(-1);
-		if (down) moveSelection(1);
+		if (up && !isConfirmMode) moveSelection(-1);
+		if (down && !isConfirmMode) moveSelection(1);
 
 		if (accept) confirmSelection();
+	}
+	
+	function scrollOptions(change:Int, isLongPress:Bool = false):Void
+	{
+		var newOffset = scrollOffset - change; // 注意方向
+		if (newOffset < 0) newOffset = 0;
+		if (newOffset > maxScrollOffset) newOffset = maxScrollOffset;
+		
+		if (newOffset == scrollOffset) return;
+		
+		scrollOffset = newOffset;
+		optionScrollPos = scrollOffset * 48;
+		if (optionScroller != null) {
+			optionScroller.target = optionScrollPos;
+		}
+		updateOptionPositions();
+		
+		if (!isLongPress) {
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
+		}
 	}
 
 	function getSelectedName():String
@@ -330,20 +424,38 @@ class KEConfirmMenu extends MusicBeatSubstate
 
 	function moveSelection(change:Int):Void
 	{
+		if (isConfirmMode) return;
+		
 		selectedIndex += change;
 		if (selectedIndex < 0) selectedIndex = availableOptions.length - 1;
 		if (selectedIndex >= availableOptions.length) selectedIndex = 0;
 		ensureOptionVisible();
 		updateDisplay();
-		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+		FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
 	}
 
 	function ensureOptionVisible():Void
 	{
-		if (selectedIndex < scrollOffset) scrollOffset = selectedIndex;
-		else if (selectedIndex >= scrollOffset + VISIBLE_OPTIONS) scrollOffset = selectedIndex - (VISIBLE_OPTIONS - 1);
+		if (isConfirmMode) return;
+		
+		var oldOffset = scrollOffset;
+		
+		if (selectedIndex < scrollOffset) {
+			scrollOffset = selectedIndex;
+		} else if (selectedIndex >= scrollOffset + VISIBLE_OPTIONS) {
+			scrollOffset = selectedIndex - (VISIBLE_OPTIONS - 1);
+		}
+		
 		if (scrollOffset < 0) scrollOffset = 0;
 		if (scrollOffset > maxScrollOffset) scrollOffset = maxScrollOffset;
+		
+		if (oldOffset != scrollOffset) {
+			optionScrollPos = scrollOffset * 48;
+			if (optionScroller != null) {
+				optionScroller.target = optionScrollPos;
+			}
+			updateOptionPositions();
+		}
 	}
 
 	function updateDisplay():Void
@@ -352,18 +464,9 @@ class KEConfirmMenu extends MusicBeatSubstate
 		{
 			var optionText = optionTexts.members[i];
 			if (optionText == null) continue;
-
-			var displayIndex = i - scrollOffset;
-			optionText.y = listStartY + (48 * displayIndex);
 			optionText.text = resolveTranslation(availableOptions[i], availableOptions[i]);
-			if (this.isColorMode) {
-				optionText.color = KEOption.COLOR_PALETTE[i];
-			}
-
-			var visible = displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS;
-			optionText.alpha = visible ? 1 : 0;
 		}
-
+		updateOptionPositions();
 		valueText.text = getSelectedName();
 	}
 
@@ -384,6 +487,14 @@ class KEConfirmMenu extends MusicBeatSubstate
 		} else {
 			parentOption.value = availableOptions[selectedIndex];
 		}
+		KEOptionsMenu.instance.doSelectCurrentOption();
+
+		if (KEOptionsMenu.instance != null && KEOptionsMenu.instance.subState != null && Std.is(KEOptionsMenu.instance.subState, KESubMenu))
+		{
+			var subMenu:KESubMenu = cast(KEOptionsMenu.instance.subState, KESubMenu);
+			subMenu.updateDisplay();
+		}
+
 		parentOption.saveCurrentValue();
 		FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
 		closeMenu();

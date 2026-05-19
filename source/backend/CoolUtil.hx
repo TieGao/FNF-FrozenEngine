@@ -2,6 +2,8 @@ package backend;
 
 import openfl.utils.Assets;
 import lime.utils.Assets as LimeAssets;
+import flixel.FlxBasic;
+import flixel.FlxObject;
 
 class CoolUtil
 {
@@ -149,6 +151,33 @@ class CoolUtil
 		#end
 	}
 
+		@:access(flixel.group.FlxTypedGroup.resolveGroup)
+	inline public static function mouseOverlaps(objectOrGroup:FlxBasic, ?camera:FlxCamera):Bool
+	{
+		var result:Bool = false;
+
+		final group = FlxTypedGroup.resolveGroup(objectOrGroup);
+		if (group != null)
+		{
+			group.forEachExists(function(basic:FlxBasic)
+			{
+				if (mouseOverlaps(basic, camera))
+				{
+					result = true;
+					return;
+				}
+			});
+		}
+		else
+		{
+			final point = FlxG.mouse.getWorldPosition(camera, FlxPoint.weak());
+			final object:FlxObject = cast objectOrGroup;
+			result = object.overlapsPoint(point, true, camera);
+		}
+
+		return result;
+	}
+
 	/**
 		Helper Function to Fix Save Files for Flixel 5
 
@@ -182,5 +211,88 @@ class CoolUtil
 	}
 	public static function boundTo(value:Float, min:Float, max:Float):Float {
     return Math.max(min, Math.min(max, value));
-}
+	}
+
+	public static function getTweenEaseByString(?ease:String = '')
+	{
+		switch (ease.toLowerCase().trim())
+		{
+			case 'backin':
+				return FlxEase.backIn;
+			case 'backinout':
+				return FlxEase.backInOut;
+			case 'backout':
+				return FlxEase.backOut;
+			case 'bouncein':
+				return FlxEase.bounceIn;
+			case 'bounceinout':
+				return FlxEase.bounceInOut;
+			case 'bounceout':
+				return FlxEase.bounceOut;
+			case 'circin':
+				return FlxEase.circIn;
+			case 'circinout':
+				return FlxEase.circInOut;
+			case 'circout':
+				return FlxEase.circOut;
+			case 'cubein':
+				return FlxEase.cubeIn;
+			case 'cubeinout':
+				return FlxEase.cubeInOut;
+			case 'cubeout':
+				return FlxEase.cubeOut;
+			case 'elasticin':
+				return FlxEase.elasticIn;
+			case 'elasticinout':
+				return FlxEase.elasticInOut;
+			case 'elasticout':
+				return FlxEase.elasticOut;
+			case 'expoin':
+				return FlxEase.expoIn;
+			case 'expoinout':
+				return FlxEase.expoInOut;
+			case 'expoout':
+				return FlxEase.expoOut;
+			case 'quadin':
+				return FlxEase.quadIn;
+			case 'quadinout':
+				return FlxEase.quadInOut;
+			case 'quadout':
+				return FlxEase.quadOut;
+			case 'quartin':
+				return FlxEase.quartIn;
+			case 'quartinout':
+				return FlxEase.quartInOut;
+			case 'quartout':
+				return FlxEase.quartOut;
+			case 'quintin':
+				return FlxEase.quintIn;
+			case 'quintinout':
+				return FlxEase.quintInOut;
+			case 'quintout':
+				return FlxEase.quintOut;
+			case 'sinein':
+				return FlxEase.sineIn;
+			case 'sineinout':
+				return FlxEase.sineInOut;
+			case 'sineout':
+				return FlxEase.sineOut;
+			case 'smoothstepin':
+				return FlxEase.smoothStepIn;
+			case 'smoothstepinout':
+				return FlxEase.smoothStepInOut;
+			case 'smoothstepout':
+				return FlxEase.smoothStepInOut;
+			case 'smootherstepin':
+				return FlxEase.smootherStepIn;
+			case 'smootherstepinout':
+				return FlxEase.smootherStepInOut;
+			case 'smootherstepout':
+				return FlxEase.smootherStepOut;
+		}
+		return FlxEase.linear;
+	}
+
+
+
 }
