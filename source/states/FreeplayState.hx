@@ -1251,7 +1251,7 @@ public function nextSong():Void
             toolBar.update(elapsed);
         }
 
-        if (!musicPlayer.playingMusic)
+        if (!musicPlayer.playingMusic && toolBar != null)
         {
             toolBar.setNormalMode();
         }

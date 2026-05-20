@@ -7,7 +7,11 @@ import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import flixel.FlxG;
 import flixel.util.FlxDestroyUtil;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
 import flixel.ui.FlxButton;
+import flixel.math.FlxRect;
+import flixel.system.FlxSound;
 import flixel.util.FlxStringUtil;
 import backend.Paths;
 import options.GameplayChangersSubstate;
@@ -25,7 +29,7 @@ class ToolBar extends FlxSpriteGroup
     // 按钮相关
     public var buttons:Array<FlxButton> = [];
     public var buttonTexts:Array<String> = [];
-    public var buttonWidth:Int = 150;
+    public var buttonWidth:Int = 200;
     public var buttonSpacing:Int = 5;
     
     // 播放器控制相关
@@ -95,8 +99,8 @@ class ToolBar extends FlxSpriteGroup
         for (i in 0...buttonNames.length)
         {
             var btn = new FlxButton(startX + i * (buttonWidth + buttonSpacing), buttonY, buttonNames[i], buttonActions[i]);
-            btn.loadGraphic(createButtonGraphic(buttonWidth, 50, 0xFF333333));
-            btn.label.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER);
+            btn.loadGraphic(createButtonGraphic(buttonWidth, 100, 0xFF333333));
+            btn.label.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER);
             btn.label.fieldWidth = buttonWidth;
             btn.scrollFactor.set();
             add(btn);
