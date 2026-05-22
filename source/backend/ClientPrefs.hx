@@ -20,7 +20,6 @@ import states.TitleState;
 	public var vsync:Bool = false;
 	public var gameOverVibration:Bool = false;
 	public var fpsRework:Bool = false;
-	public var showOS:Bool = false; // show os in fps counter
 	//PE 1.0.4 OG
 	public var downScroll:Bool = false;
 	public var middleScroll:Bool = false;
@@ -182,6 +181,13 @@ import states.TitleState;
 	public var forceNoteSkins:Bool = false;
 	public var forceSplashSkins:Bool = false;
 	public var forceNoteRGB:Bool = false;
+
+	public  var renderResolution:Int = 0;
+
+	public var showOS:Bool = false; // show os in fps counter
+	public var showTPS:Bool = false;
+	public var showMEMPeak:Bool = false;
+	public var showApi:Bool = false;
 }
 
 class ClientPrefs {
@@ -294,41 +300,44 @@ class ClientPrefs {
 		}
 		#end
 
+		// 核心修改：正确区分设置 Update 和 Draw 帧率
 		if (data.fpsRework)
-			FlxG.stage.window.frameRate = data.framerate;
-		else if (!data.fpsRework && data.devideDrawAndUpdate)
 		{
-			var fps = Std.int(FlxMath.bound(data.framerate, 60, 480));
-			var tps = data.updaterate;
-			if (data.framerate > FlxG.drawFramerate)
+			// 使用 fpsRework 模式，可以完全分离 TPS 和 FPS
+			FlxG.stage.window.frameRate = data.framerate;  // 绘制帧率（屏幕刷新）
+			
+			if (data.devideDrawAndUpdate)
 			{
-				FlxG.drawFramerate = fps;
+				// 完全分离模式：更新速率和绘制速率可以完全不同
+				var drawFps = Std.int(FlxMath.bound(data.framerate, 30, 480));
+				var updateTps = Std.int(FlxMath.bound(data.updaterate, 30, 480));
+				
+				FlxG.drawFramerate = drawFps;
+				FlxG.updateFramerate = updateTps;
 			}
 			else
 			{
+				// 同步模式：更新速率跟随绘制速率（传统行为）
+				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
 				FlxG.drawFramerate = fps;
-			}
-			if (data.updaterate > FlxG.updateFramerate)
-			{
-				FlxG.updateFramerate = tps;
-			}
-			else
-			{
-				FlxG.updateFramerate = tps;
+				FlxG.updateFramerate = fps;
 			}
 		}
 		else
 		{
-			var fps = Std.int(FlxMath.bound(data.framerate, 60, 480));
-			if (fps > FlxG.drawFramerate)
+			// 传统模式（不使用 fpsRework）
+			if (data.devideDrawAndUpdate)
 			{
-				FlxG.updateFramerate = fps;
+				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
+				var tps = Std.int(FlxMath.bound(data.updaterate, 30, 480));
 				FlxG.drawFramerate = fps;
+				FlxG.updateFramerate = tps;
 			}
 			else
 			{
-				FlxG.drawFramerate = fps;
+				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
 				FlxG.updateFramerate = fps;
+				FlxG.drawFramerate = fps;
 			}
 		}
 

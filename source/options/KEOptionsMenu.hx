@@ -94,6 +94,22 @@ class KEOptionsMenu extends MusicBeatState
     
     var optionScroller:MouseMove;
 
+    var _lastResolution:Int = -1;
+    var _resolutionNames:Array<String> = [
+        "1280x720 (720p)",
+        "1600x900 (900p)",
+        "1920x1080 (1080p)",
+        "2560x1440 (1440p)",
+        "3840x2160 (4K)"
+    ];
+    var _resolutions:Array<Array<Int>> = [
+        [1280, 720],
+        [1600, 900],
+        [1920, 1080],
+        [2560, 1440],
+        [3840, 2160]
+    ];
+
 	// 响应式布局更新函数
 	public static function updateLayout():Void
 	{
@@ -105,6 +121,48 @@ class KEOptionsMenu extends MusicBeatState
 		CATEGORY_HEIGHT = Std.int(Math.max(40, Std.int(SCREEN_HEIGHT * 0.07)));
 		OPTION_LEFT_MARGIN = Std.int(Math.max(16, Std.int(SCREEN_WIDTH * 0.015)));
 		OPTION_WIDTH = Std.int(SCREEN_WIDTH * 0.43);
+	}
+
+	function getResolutionName(index:Int):String
+	{
+		if (index >= 0 && index < _resolutionNames.length) return _resolutionNames[index];
+		return "Unknown";
+	}
+
+	function refreshResolutionText():Void
+	{
+		if (selectedCat == null || selectedCat.optionObjects == null) return;
+		for (i in 0...selectedCat.options.length)
+		{
+			var opt = selectedCat.options[i];
+			if (opt != null && opt.variable == "renderResolution" && opt.type == "int")
+			{
+				var idx = Std.int(opt.value);
+				var text = "Resolution: < " + getResolutionName(idx) + " >";
+				var optionText = selectedCat.optionObjects.members[i];
+				if (optionText != null) optionText.text = text;
+			}
+		}
+	}
+
+	function applyRenderResolution(index:Int):Void
+	{
+		if (index < 0 || index >= _resolutions.length) return;
+		if (index == _lastResolution) return;
+		var w = _resolutions[index][0];
+		var h = _resolutions[index][1];
+		#if (cpp || hl)
+		try {
+			var window = openfl.Lib.current.stage.window;
+			window.resize(w, h);
+			var displayBounds = window.display.bounds;
+			window.x = Std.int(displayBounds.x + (displayBounds.width - w) / 2);
+			window.y = Std.int(displayBounds.y + (displayBounds.height - h) / 2);
+		} catch(e:Dynamic) {}
+		#end
+		flixel.FlxG.resizeGame(w, h);
+		flixel.FlxG.scaleMode = new flixel.system.scaleModes.RatioScaleMode(false);
+		_lastResolution = index;
 	}
 
 	var beamShader:ParticleBeamShader = new ParticleBeamShader();
@@ -479,6 +537,7 @@ class KEOptionsMenu extends MusicBeatState
     }
     
     updateOptionPositions();
+    refreshResolutionText();
     doSelectCurrentOption();
 }
 
@@ -511,7 +570,7 @@ class KEOptionsMenu extends MusicBeatState
 			descText.text = selectedOption.getDescription();
 			descText.color = FlxColor.WHITE;
 		}
-		
+		refreshResolutionText();
 		// 显示或隐藏数值拖拽条
 		updateValueBar();
 		
@@ -676,6 +735,8 @@ function scrollOptions(change:Int, isLongPress:Bool = false)
     if (starsFG.x < -starsFG.width) starsFG.x = 0;
 
     super.update(elapsed);
+    var curRes = ClientPrefs.data.renderResolution;
+    if (curRes != _lastResolution) applyRenderResolution(curRes);
     
     if (beamShader != null) 
     {
@@ -1257,19 +1318,31 @@ function onScrollChange()
 	// Appearance 选项
 	function getAppearanceOptions():Array<KEOption>
 	{
+		var fpsOptions = KEOption.createSubMenu(
+			"FPS Counter",
+			"Configure FPS counter settings",
+			[
+				KEOption.create("FPS Counter", "Show FPS counter", "showFPS", "bool"),
+				KEOption.create("Show OS", "Show operating system in FPS Counter", "showOS", "bool"),
+				KEOption.create("Show API", "Show graphics API in FPS Counter", "showApi", "bool"),
+				KEOption.create("Show TPS", "Show ticks per second in FPS Counter", "showTPS", "bool"),
+				KEOption.create("Show Memory Peak", "Show peak memory usage in FPS Counter", "showMEMPeak", "bool"),
+			],
+			"",
+			"FPS Counter Settings"
+		);
 		return [
+			fpsOptions, // FPS 计数器二级菜单
 			KEOption.create("Low Quality", "Reduce graphics for performance", "lowQuality", "bool"),
 			KEOption.create("Anti-Aliasing", "Smoother visuals", "antialiasing", "bool"),
+			KEOption.create("Resolution", "Change the game's render resolution.", "renderResolution", "int", 0, 0, 4, 1),
 			KEOption.create("Shaders", "Enable shader effects", "shaders", "bool"),
 			KEOption.create("GPU Caching", "Use GPU for texture caching", "cacheOnGPU", "bool"),
-			KEOption.create("FPS Counter", "Show FPS counter", "showFPS", "bool"),
-			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 480, 1),
-			KEOption.create("Unlimited FPS", "Remove framerate cap (also for update rate)", "unlimitedFPS", "bool"),
 			KEOption.create("Devide Draw And Update", "Draw and Update in separate threads", "devideDrawAndUpdate", "bool"),
+			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 480, 1),
 			KEOption.create("Update Rate", "Target update rate", "updaterate", "int", 60, 60, 480, 1),
-			KEOption.create("Show OS", "Show operating system in FPS Counter", "showOS", "bool"),
+			KEOption.create("Unlimited FPS", "Remove framerate cap (also for update rate)", "unlimitedFPS", "bool"),
 			KEOption.create("FPS Rework", "Make ur game more smooth", "fpsRework", "bool")
-			//KEOption.create("New Freeplay", "Enable New Freeplay", "newFreeplay", "bool"),
 		];
 	}
 

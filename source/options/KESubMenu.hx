@@ -288,7 +288,7 @@ class KESubMenu extends MusicBeatSubstate
 		}
 		
 		// 鼠标悬停检测
-		#if !mobile
+		
 		var hoveredIndex = -1;
 		
 		for (i in 0...optionTexts.length)
@@ -364,7 +364,7 @@ class KESubMenu extends MusicBeatSubstate
 				}
 			}
 		}
-		#end
+		
 		
 		// 键盘控制
 		var accept = controls.ACCEPT;

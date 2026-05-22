@@ -7,6 +7,8 @@ import openfl.text.TextField;
 import openfl.text.TextFormat;
 import openfl.system.System as OpenFlSystem;
 import lime.system.System as LimeSystem;
+import lime.graphics.RenderContext;
+import lime.graphics.RenderContextType;
 
 /**
 	The FPS class provides an easy-to-use monitor to display
@@ -27,39 +29,54 @@ class FPSCounter extends TextField
 		The current frame rate, expressed using frames-per-second
 	**/
 	public var currentFPS(default, null):Int;
+	public var currentTPS(default, null):Int;
 
 	/**
 		The current memory usage (WARNING: this is NOT your total program memory usage, rather it shows the garbage collector memory)
 	**/
 	public var memoryMegas(get, never):Float;
+	public var peakMemoryMegas(default, null):Float = 0;
 
 	@:noCompletion private var times:Array<Float>;
 	@:noCompletion private var lastFramerateUpdateTime:Float;
 	@:noCompletion private var updateTime:Int;
 	@:noCompletion private var framesCount:Int;
 	@:noCompletion private var prevTime:Int;
+	@:noCompletion private var lastTPSUpdateTime:Float;
+	@:noCompletion private var tpsUpdateTime:Int;
+	@:noCompletion private var tpsCount:Int;
+	@:noCompletion private var prevTPSTime:Int;
+	
+	// 用于 TPS 独立计时的变量
+	@:noCompletion private var lastTPSTickTime:Int;
+	@:noCompletion private var expectedUpdateDelta:Float;
 
 	public var os:String = '';
+	public var graphicsAPI:String = '';
 
 	public function new(x:Float = 10, y:Float = 10, color:Int = 0x000000)
 	{
 		super();
-		#if !officialBuild
+		
+		// 获取图形 API 信息
+		graphicsAPI = getGraphicsAPI();
+		
+		// 获取操作系统信息
 		if (ClientPrefs.data.showOS)
 		{
-		if (LimeSystem.platformName == LimeSystem.platformVersion || LimeSystem.platformVersion == null)
-			os = '\nOS: ${LimeSystem.platformName}' #if cpp + ' ${getArch() != 'Unknown' ? getArch() : ''}' #end;
-		else
-			os = '\nOS: ${LimeSystem.platformName}' #if cpp + ' ${getArch() != 'Unknown' ? getArch() : ''}' #end + ' - ${LimeSystem.platformVersion}';
+			if (LimeSystem.platformName == LimeSystem.platformVersion || LimeSystem.platformVersion == null)
+				os = LimeSystem.platformName #if cpp + (getArch() != 'Unknown' ? ' ${getArch()}' : '') #end;
+			else
+				os = LimeSystem.platformName #if cpp + (getArch() != 'Unknown' ? ' ${getArch()}' : '') #end + ' - ${LimeSystem.platformVersion}';
 		}
-		#end
 
 		positionFPS(x, y);
 
 		currentFPS = 0;
+		currentTPS = 0;
 		selectable = false;
 		mouseEnabled = false;
-		defaultTextFormat = new TextFormat("_sans", 14, color);
+		defaultTextFormat = new TextFormat("vcr.ttf", 14, color);
 		width = FlxG.width;
 		multiline = true;
 		text = "FPS: ";
@@ -68,19 +85,159 @@ class FPSCounter extends TextField
 		lastFramerateUpdateTime = Timer.stamp();
 		prevTime = Lib.getTimer();
 		updateTime = prevTime + 500;
+		
+		// TPS 计时
+		prevTPSTime = Lib.getTimer();
+		tpsUpdateTime = prevTPSTime + 500;
+		tpsCount = 0;
+		lastTPSTickTime = Lib.getTimer();
+		expectedUpdateDelta = 1000.0 / ClientPrefs.data.updaterate;
 	}
 
-
-	public dynamic function updateText():Void // so people can override it in hscript
+	/**
+		获取当前使用的图形 API
+	**/
+	private function getGraphicsAPI():String
 	{
-		text = 
-		'FPS: $currentFPS' + 
-		'\nMemory: ${flixel.util.FlxStringUtil.formatBytes(memoryMegas)}' +
-		os;
+		try
+		{
+			if (FlxG.stage != null && FlxG.stage.window != null)
+			{
+				#if (lime >= "8.0.0")
+				var contextType = FlxG.stage.window.context.type;
+				return getAPINameFromType(contextType);
+				#else
+				return detectGraphicsAPI();
+				#end
+			}
+			else
+			{
+				return detectGraphicsAPI();
+			}
+		}
+		catch (e:Dynamic)
+		{
+			return detectGraphicsAPI();
+		}
+	}
 
+	/**
+		从 RenderContextType 获取可读的 API 名称
+	**/
+	private function getAPINameFromType(type:RenderContextType):String
+	{
+		return switch (type)
+		{
+			case RenderContextType.OPENGL: "OpenGL";
+			case RenderContextType.OPENGLES: "OpenGL ES";
+			case RenderContextType.WEBGL: "WebGL";
+//			case RenderContextType.VULKAN: "Vulkan";
+			case RenderContextType.CAIRO: "Cairo";
+			case RenderContextType.CANVAS: "Canvas 2D";
+			case RenderContextType.DOM: "DOM";
+			case RenderContextType.FLASH: "Flash";
+			case RenderContextType.CUSTOM: "Custom";
+			default: "Unknown";
+		}
+	}
+
+	/**
+		当无法直接从 RenderContext 获取时的备用检测方法
+	**/
+	private function detectGraphicsAPI():String
+	{
+		#if (js && html5)
+		try
+		{
+			var canvas = cast(FlxG.stage.window.element, js.html.CanvasElement);
+			if (canvas != null)
+			{
+				var gl = canvas.getContext("webgl");
+				if (gl != null) return "WebGL";
+				gl = canvas.getContext("webgl2");
+				if (gl != null) return "WebGL 2";
+				var ctx = canvas.getContext("2d");
+				if (ctx != null) return "Canvas 2D";
+			}
+			return "HTML5";
+		}
+		catch (e:Dynamic)
+		{
+			return "HTML5";
+		}
+		#elseif (cpp && (linux || windows || mac))
+		#if (lime_opengl)
+		return "OpenGL";
+		#elseif (lime_vulkan)
+		return "Vulkan";
+		#else
+		return "OpenGL";
+		#end
+		#elseif android
+		#if (lime_opengles)
+		return "OpenGL ES";
+		#elseif (lime_vulkan)
+		return "Vulkan";
+		#else
+		return "OpenGL ES";
+		#end
+		#elseif ios
+		return "OpenGL ES (Metal)";
+		#elseif flash
+		return "Flash Stage3D";
+		#else
+		return "Unknown";
+		#end
+	}
+
+	public dynamic function updateText():Void
+	{
+		var lines:Array<String> = [];
+		
+		// 第一行：FPS | TPS（不带括号内数值）
+		var fpsTpsLine = 'FPS: $currentFPS';
+		if (ClientPrefs.data.showTPS)
+		{
+			fpsTpsLine += ' | TPS: $currentTPS';
+		}
+		lines.push(fpsTpsLine);
+		
+		// 第二行：内存信息
+		var memLine = 'Memory: ${flixel.util.FlxStringUtil.formatBytes(memoryMegas)}';
+		if (ClientPrefs.data.showMEMPeak)
+		{
+			updatePeakMemory();
+			memLine += ' (${flixel.util.FlxStringUtil.formatBytes(peakMemoryMegas)} Peak)';
+		}
+		lines.push(memLine);
+		
+		// 第三行：OS 和 Render（在同一行，用 | 分隔）
+		var infoParts:Array<String> = [];
+		if (ClientPrefs.data.showOS && os != '')
+		{
+			infoParts.push('OS: $os');
+		}
+		if (ClientPrefs.data.showApi && graphicsAPI != '')
+		{
+			infoParts.push('Render: $graphicsAPI');
+		}
+		if (infoParts.length > 0)
+		{
+			lines.push(infoParts.join(' | '));
+		}
+		
+		text = lines.join('\n');
+		
 		textColor = 0xFFFFFFFF;
 		if (currentFPS < FlxG.stage.window.frameRate * 0.5)
 			textColor = 0xFFFF0000;
+	}
+	
+	private function updatePeakMemory():Void
+	{
+		var currentMem = memoryMegas;
+		if (currentMem > peakMemoryMegas)
+			peakMemoryMegas = currentMem;
 	}
 
 	var deltaTimeout:Float = 0.0;
@@ -93,8 +250,9 @@ class FPSCounter extends TextField
 				FlxG.stage.window.frameRate = ClientPrefs.data.framerate;
 
 			var currentTime = openfl.Lib.getTimer();
+			
+			// FPS 统计 - 每帧都会触发
 			framesCount++;
-
 			if (currentTime >= updateTime)
 			{
 				var elapsed = currentTime - prevTime;
@@ -103,12 +261,46 @@ class FPSCounter extends TextField
 				prevTime = currentTime;
 				updateTime = currentTime + 500;
 			}
+			
+			// TPS 统计 - 基于实际的更新周期
+			// 检查是否应该计为一个更新 tick
+			var timeSinceLastTick = currentTime - lastTPSTickTime;
+			if (timeSinceLastTick >= expectedUpdateDelta - 1) // 允许 1ms 误差
+			{
+				tpsCount++;
+				lastTPSTickTime = currentTime;
+				
+				// 动态调整期望的更新间隔，使其更准确
+				expectedUpdateDelta = 1000.0 / ClientPrefs.data.updaterate;
+			}
+			
+			if (currentTime >= tpsUpdateTime)
+			{
+				var elapsedTPS = currentTime - prevTPSTime;
+				currentTPS = Math.ceil((tpsCount * 1000) / elapsedTPS);
+				tpsCount = 0;
+				prevTPSTime = currentTime;
+				tpsUpdateTime = currentTime + 500;
+			}
 
-			// Set Update and Draw framerate to the current FPS every 1.5 second to prevent "slowness" issue
-			if ((FlxG.updateFramerate >= currentFPS + 5 || FlxG.updateFramerate <= currentFPS - 5)
+			// 动态调整 FlxG 的更新帧率以匹配目标 TPS
+			if (FlxG.updateFramerate != ClientPrefs.data.updaterate)
+			{
+				FlxG.updateFramerate = ClientPrefs.data.updaterate;
+			}
+			
+			// 可选：根据实际 FPS 调整绘制帧率（如果启用自动调整）
+			if (ClientPrefs.data.devideDrawAndUpdate)
+			{
+				// 保持绘制帧率独立
+				if (FlxG.drawFramerate != ClientPrefs.data.framerate)
+					FlxG.drawFramerate = ClientPrefs.data.framerate;
+			}
+			else if ((FlxG.updateFramerate >= currentFPS + 5 || FlxG.updateFramerate <= currentFPS - 5)
 				&& haxe.Timer.stamp() - lastFramerateUpdateTime >= 1.5
 				&& currentFPS >= 30)
 			{
+				// 仅在未分离时同步更新和绘制帧率
 				FlxG.updateFramerate = FlxG.drawFramerate = currentFPS;
 				lastFramerateUpdateTime = haxe.Timer.stamp();
 			}
@@ -127,6 +319,8 @@ class FPSCounter extends TextField
 			}
 
 			currentFPS = times.length < FlxG.updateFramerate ? times.length : FlxG.updateFramerate;
+			// 在不使用 fpsRework 时，TPS 等于 FPS
+			currentTPS = currentFPS;
 			deltaTimeout = 0.0;
 		}
 

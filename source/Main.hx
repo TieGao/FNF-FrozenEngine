@@ -199,6 +199,42 @@ class Main extends Sprite
 		// 从 1.0.1 保留的 FlxGame 构造函数参数（包含 zoom）
 		addChild(new FlxGame(game.width, game.height, game.initialState, #if (flixel < "5.0.0") game.zoom, #end game.framerate, game.framerate, game.skipSplash, game.startFullscreen));
 
+		// 应用保存的渲染分辨率（如果设置）并尝试改善字体清晰度
+		#if (cpp || hl)
+		try {
+			var resIdx:Int = ClientPrefs.data.renderResolution;
+			var _resolutions = [
+				[1280, 720],
+				[1600, 900],
+				[1920, 1080],
+				[2560, 1440],
+				[3840, 2160]
+			];
+			if (resIdx >= 0 && resIdx < _resolutions.length) {
+				var w:Int = _resolutions[resIdx][0];
+				var h:Int = _resolutions[resIdx][1];
+				var window = Lib.current.stage.window;
+				window.resize(w, h);
+				var displayBounds = window.display.bounds;
+				window.x = Std.int(displayBounds.x + (displayBounds.width - w) / 2);
+				window.y = Std.int(displayBounds.y + (displayBounds.height - h) / 2);
+				flixel.FlxG.resizeGame(w, h);
+				flixel.FlxG.scaleMode = new flixel.system.scaleModes.RatioScaleMode(false);
+				// 提高舞台质量以减少字体缩放模糊
+				try { Lib.current.stage.quality = openfl.display.StageQuality.BEST; } catch(e:Dynamic) {}
+				// 刷新缓存以确保文本/精灵使用新的分辨率渲染更清晰
+				try {
+					if (flixel.FlxG.cameras != null) {
+						for (cam in flixel.FlxG.cameras.list) {
+							try { resetSpriteCache(cam.flashSprite); } catch(e:Dynamic) {}
+						}
+					}
+					try { resetSpriteCache(flixel.FlxG.game); } catch(e:Dynamic) {}
+				} catch(e:Dynamic) {}
+			}
+		} catch(e:Dynamic) {}
+		#end
+
 		#if !mobile
 		fpsVar = new FPSCounter(10, 3, 0xFFFFFF);
 		addChild(fpsVar);
