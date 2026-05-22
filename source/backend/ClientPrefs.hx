@@ -182,6 +182,8 @@ import states.TitleState;
 	public var forceNoteSkins:Bool = false;
 	public var forceSplashSkins:Bool = false;
 	public var forceNoteRGB:Bool = false;
+
+	public  var renderResolution:Int = 0;
 }
 
 class ClientPrefs {
