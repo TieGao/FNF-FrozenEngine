@@ -7,19 +7,19 @@ echo Makking the main haxelib and setuping folder in same time..
 mkdir ~/haxelib && haxelib setup ~/haxelib
 echo Installing dependencies...
 echo This might take a few moments depending on your internet speed.
-haxelib install flixel 5.9.0
-haxelib install flixel-addons 3.3.2
-haxelib install flixel-tools 1.5.1
-haxelib install hscript-iris 1.1.3
-haxelib install tjson 1.4.0
-haxelib install hxdiscord_rpc 1.2.4
+haxelib git flixel https://github.com/TieGao/flixel --skip-dependencies
+haxelib git flixel-addons https://github.com/TieGao/flixel-addons --skip-dependencies
+haxelib install flixel-tools 1.5.1 --skip-dependencies
+haxelib install hscript-iris 1.1.3 --skip-dependencies
+haxelib install tjson 1.4.0 --skip-dependencies
+haxelib install hxdiscord_rpc 1.2.4 --skip-dependencies
 haxelib install hxvlc 2.2.5 --skip-dependencies
-haxelib git lime https://github.com/TieGao/lime
-haxelib git openfl https://github.com/TieGao/openfl
-haxelib install format
-haxelib install hxp
-haxelib install moonchart 0.5.1
-haxelib git hxcpp https://github.com/TieGao/hxcpp.git 
+haxelib git lime https://github.com/TieGao/lime --skip-dependencies
+haxelib git openfl https://github.com/TieGao/openfl --skip-dependencies
+haxelib install format --skip-dependencies
+haxelib install hxp --skip-dependencies
+haxelib install moonchart 0.5.1 --skip-dependencies
+haxelib git hxcpp https://github.com/TieGao/hxcpp.git  
 haxelib git flxanimate https://github.com/Dot-Stuff/flxanimate 768740a56b26aa0c072720e0d1236b94afe68e3e
 haxelib git linc_luajit https://github.com/superpowers04/linc_luajit 1906c4a96f6bb6df66562b3f24c62f4c5bba14a7
 haxelib git funkin.vis https://github.com/FunkinCrew/funkVis 22b1ce089dd924f15cdc4632397ef3504d464e90
