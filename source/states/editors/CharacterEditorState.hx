@@ -23,7 +23,7 @@ class PointerGraphic extends openfl.display.BitmapData
 }
 
 
-class CharacterEditorState extends MusicBeatState implements PsychUIEventHandler.PsychUIEvent
+class CharacterEditorState extends EditorMusicState implements PsychUIEventHandler.PsychUIEvent
 {
 	var character:Character;
 	var ghost:FlxSprite;

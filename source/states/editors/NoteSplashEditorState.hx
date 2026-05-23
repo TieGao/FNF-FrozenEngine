@@ -13,7 +13,7 @@ import openfl.net.FileReference;
 import haxe.Json;
 
 @:access(objects.NoteSplash)
-class NoteSplashEditorState extends MusicBeatState
+class NoteSplashEditorState extends EditorMusicState
 {
     var strums:FlxTypedSpriteGroup<StrumNote> = new FlxTypedSpriteGroup();
     var splashes:FlxTypedSpriteGroup<NoteSplash> = new FlxTypedSpriteGroup();
@@ -71,7 +71,7 @@ class NoteSplashEditorState extends MusicBeatState
         shaderUI.y = UI.y + UI.height + 10;
         add(shaderUI);
 
-        var tipText:FlxText = new FlxText();
+        tipText = new FlxText();
         tipText.setFormat(null, 24);
         tipText.text = "Press F1 for Help";
         tipText.setPosition(properUI.x - properUI.width + 15, UI.y);
@@ -116,6 +116,9 @@ class NoteSplashEditorState extends MusicBeatState
         curText.y = FlxG.height - curText.height;
         curText.x += 5;
         add(curText);
+
+        // ==================== 初始化暂停音乐 ====================
+        initPauseMusic();
 
         super.create();
     }
@@ -199,6 +202,7 @@ class NoteSplashEditorState extends MusicBeatState
 
         setAnimDropDown();
 
+        templateButton = new PsychUIButton(20, 185, "Template");
         templateButton.onClick = function()
         {
             NoteSplash.configs.clear();
@@ -499,6 +503,9 @@ class NoteSplashEditorState extends MusicBeatState
     { 
         super.update(elapsed);
 
+        // 更新暂停音乐音量
+        updatePauseMusicVolume(elapsed);
+
         errorText.x = FlxG.width - errorText.width - 5;
 
         curText.text = 'Copied Offsets: ${Std.string(copiedOffset).replace(',', ', ')}\n';
@@ -591,7 +598,12 @@ class NoteSplashEditorState extends MusicBeatState
         if (!blockInput)
         {
             if (controls.BACK)
+            {
+                // 退出时淡出音乐
+                fadeOutAndStopPauseMusic();
+                FlxG.sound.playMusic(Paths.music('freakyMenu'));
                 MusicBeatState.switchState(new MasterEditorMenu());
+            }
             if (FlxG.keys.justPressed.F1)
                 openSubState(new NoteSplashEditorHelpSubState());
         }
@@ -851,6 +863,13 @@ class NoteSplashEditorState extends MusicBeatState
 
     override function destroy()
     {
+        // 销毁暂停音乐
+        if (pauseMusic != null) {
+            pauseMusic.stop();
+            pauseMusic.destroy();
+            pauseMusic = null;
+        }
+        
         NoteSplash.configs.clear();
         super.destroy();
 
@@ -978,7 +997,7 @@ class NoteSplashEditorHelpSubState extends MusicBeatSubstate
     {
         super.update(elapsed);
 
-        if (controls.BACK || FlxG.keys.justPressed.F1)
+        if (controls.BACK || FlxG.keys.justPressed.F1 || FlxG.mouse.justPressed)
             close();
     }
 }

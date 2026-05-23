@@ -736,7 +736,7 @@ function scrollOptions(change:Int, isLongPress:Bool = false)
 
     super.update(elapsed);
     var curRes = ClientPrefs.data.renderResolution;
-    if (curRes != _lastResolution) applyRenderResolution(curRes);
+    if (curRes != _lastResolution && !FlxG.save.data.fullscreen) applyRenderResolution(curRes);
     
     if (beamShader != null) 
     {

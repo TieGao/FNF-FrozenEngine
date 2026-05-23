@@ -7,7 +7,7 @@ import objects.Character;
 import states.MainMenuState;
 import states.OldFreeplayState;
 
-class MasterEditorMenu extends MusicBeatState
+class MasterEditorMenu extends EditorMusicState
 {
 	var options:Array<String> = [
 		'Chart Editor',

@@ -17,7 +17,7 @@ import objects.MenuItem;
 import states.editors.MasterEditorMenu;
 import states.editors.content.Prompt;
 
-class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.PsychUIEvent
+class WeekEditorState extends EditorMusicState implements PsychUIEventHandler.PsychUIEvent
 {
 	var txtWeekTitle:FlxText;
 	var bgSprite:FlxSprite;
@@ -540,7 +540,7 @@ class WeekEditorState extends MusicBeatState implements PsychUIEventHandler.Psyc
 	}
 }
 
-class WeekEditorFreeplayState extends MusicBeatState implements PsychUIEventHandler.PsychUIEvent
+class WeekEditorFreeplayState extends EditorMusicState implements PsychUIEventHandler.PsychUIEvent
 {
 	var weekFile:WeekFile = null;
 	public function new(weekFile:WeekFile = null)

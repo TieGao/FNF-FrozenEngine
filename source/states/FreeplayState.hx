@@ -123,6 +123,7 @@ class FreeplayState extends MusicBeatState
         PlayState.isStoryMode = false;
         WeekData.reloadWeekFiles(false);
         options.KEOptionsMenu.isFreeplay = true;
+        options.KEOptionsMenu.onPlayState = false;
 
         #if DISCORD_ALLOWED
         DiscordClient.changePresence("In the Freeplay Menu", null);
