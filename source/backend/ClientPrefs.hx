@@ -79,6 +79,7 @@ import states.TitleState;
 	public var songText:Bool = true;
 	public var ImpStory:Bool = false;
 	public var freeplayspace:Bool = false;
+	public var saveFreeplayCache:Bool = true;
 	public var globalspace:Bool = false;
 	public var scoreScreen:Bool = true;
 	public var keOptions:Bool = true;

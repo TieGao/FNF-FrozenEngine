@@ -121,6 +121,7 @@ class FreeplayState extends MusicBeatState
         
         persistentUpdate = true;
         PlayState.isStoryMode = false;
+        freeplaySongCache = loadFreeplaySongCache();
         WeekData.reloadWeekFiles(false);
         options.KEOptionsMenu.isFreeplay = true;
         options.KEOptionsMenu.onPlayState = false;
@@ -138,9 +139,6 @@ class FreeplayState extends MusicBeatState
 			function() MusicBeatState.switchState(new states.MainMenuState())));
             return;
         }
-
-        // 尝试从缓存加载 Freeplay 歌曲参数
-        freeplaySongCache = loadFreeplaySongCache();
 
         // 加载歌曲
         for (i in 0...WeekData.weeksList.length)
@@ -163,7 +161,7 @@ class FreeplayState extends MusicBeatState
         
         // 如果有新歌曲或未缓存的歌曲，保存缓存数据
         #if sys
-        if (freeplayCacheDirty)
+        if (ClientPrefs.data.saveFreeplayCache && freeplayCacheDirty)
             saveFreeplaySongCache();
         #end
 
@@ -526,9 +524,16 @@ class FreeplayState extends MusicBeatState
 
         // 尝试使用缓存条目加速加载
         var cachedEntry:Dynamic = freeplaySongCache.get(cacheKey);
-        if (cachedEntry != null && isSongCacheEntryValid(cachedEntry, difficulties))
+        if (cachedEntry != null)
         {
             song.difficultyInfo = buildSongInfoMapFromCache(cachedEntry, difficulties);
+            var missingDiffs:Array<String> = getMissingDifficulties(cachedEntry, difficulties);
+            if (missingDiffs.length == 0)
+            {
+                songs.push(song);
+                return;
+            }
+            difficultyPreloadQueue.push({ song: song, songName: songName, folder: song.folder, difficulties: missingDiffs, weekData: weekData, cacheKey: cacheKey });
             songs.push(song);
             return;
         }
@@ -565,6 +570,17 @@ class FreeplayState extends MusicBeatState
         return result;
     }
 
+    private function getMissingDifficulties(entry:Dynamic, difficulties:Array<String>):Array<String>
+    {
+        var missing:Array<String> = [];
+        for (diffName in difficulties)
+        {
+            if (Reflect.field(entry.data, diffName) == null)
+                missing.push(diffName);
+        }
+        return missing;
+    }
+
     private function buildFreeplayCacheEntry(infoMap:Map<String, ParsedSongInfo>):Dynamic
     {
         var entry:Dynamic = {};
@@ -579,6 +595,9 @@ class FreeplayState extends MusicBeatState
     private function loadFreeplaySongCache():Map<String, Dynamic>
     {
         var cache:Map<String, Dynamic> = new Map();
+        if (!ClientPrefs.data.saveFreeplayCache)
+            return cache;
+
         #if sys 
         var cachePath:String = 'freeplaySongCache.json';
         if (FileSystem.exists(cachePath))
@@ -604,6 +623,9 @@ class FreeplayState extends MusicBeatState
 
     private function saveFreeplaySongCache():Void
     {
+        if (!ClientPrefs.data.saveFreeplayCache)
+            return;
+
         #if sys 
         var cacheObj:Dynamic = {};
         for (key in freeplaySongCache.keys())
@@ -1034,8 +1056,11 @@ public function nextSong():Void
                 {
                     var info = SongInfoParser.preloadAllDifficulties(item.songName, item.folder, item.difficulties, item.weekData);
                     item.song.difficultyInfo = info;
-                    freeplaySongCache.set(item.cacheKey, buildFreeplayCacheEntry(info));
-                    freeplayCacheDirty = true;
+                    if (ClientPrefs.data.saveFreeplayCache)
+                    {
+                        freeplaySongCache.set(item.cacheKey, buildFreeplayCacheEntry(info));
+                        freeplayCacheDirty = true;
+                    }
                 }
                 catch(e:Dynamic)
                 {
@@ -1605,6 +1630,11 @@ function changeBackgroundWithFade(newGraphic:Dynamic)
 
     override function destroy():Void
     {
+        #if sys
+        if (ClientPrefs.data.saveFreeplayCache && freeplayCacheDirty)
+            saveFreeplaySongCache();
+        #end
+
         super.destroy();
 
         FlxG.autoPause = ClientPrefs.data.autoPause;

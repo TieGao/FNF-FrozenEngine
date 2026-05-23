@@ -1282,6 +1282,7 @@ function onScrollChange()
 			[
 				KEOption.create("Freeplay ToolBar", "Show tool bar in freeplay", "toolBar", "bool"),
 				KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool"),
+				KEOption.create("Save Freeplay Cache", "Save freeplay song metadata cache to disk", "saveFreeplayCache", "bool"),
 				KEOption.create("Space Back Ground EveryWhere", "Show space background everywhere", "globalspace", "bool"),
 			],
 			"",
