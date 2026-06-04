@@ -9,26 +9,34 @@ import states.PlayState;
 
 class StrumGuideLine extends FlxTypedSpriteGroup<FlxSprite>
 {
-    // 4个黑条，对应4列
+    // 4个黑条，对应4列（玩家侧）
     var playerLines:Array<FlxSprite> = [];
+    // 对手侧黑条（用于双人模式）
+    var opponentLines:Array<FlxSprite> = [];
     
     public function new()
     {
         super(0, 0);
         
-        // 创建4个黑条
+        // 创建玩家侧的4个黑条
         for (i in 0...4)
         {
             var line = new FlxSprite();
-            
-            // 设置黑条属性 - 竖条，铺满整个屏幕高度
-            line.makeGraphic(115, FlxG.height, FlxColor.BLACK); // 宽度30，高度铺满屏幕
+            line.makeGraphic(115, FlxG.height, FlxColor.BLACK);
             line.alpha = ClientPrefs.data.guideLineAlpha;
-            
-            // 默认隐藏，直到有strum时显示
             line.visible = false;
-            
             playerLines.push(line);
+            add(line);
+        }
+        
+        // 创建对手侧的4个黑条（预创建，根据需要显示）
+        for (i in 0...4)
+        {
+            var line = new FlxSprite();
+            line.makeGraphic(115, FlxG.height, FlxColor.BLACK);
+            line.alpha = ClientPrefs.data.guideLineAlpha;
+            line.visible = false;
+            opponentLines.push(line);
             add(line);
         }
     }
@@ -40,27 +48,56 @@ class StrumGuideLine extends FlxTypedSpriteGroup<FlxSprite>
         var playState = PlayState.instance;
         if (playState == null) return;
         
-        // 更新每个黑条的位置，跟随对应的静态音符
+        // 获取当前 opponentMode
+        var opponentMode = playState.opponentMode;
+        var isCoopMode:Bool = (opponentMode == "coop" || opponentMode == "coop_split");
+        var isOpponentMode:Bool = (opponentMode == "opponent");
+        
+        // 更新玩家侧黑条（始终显示，但对手模式下可能隐藏或不同行为）
         for (i in 0...playerLines.length)
         {
             var strum = playState.playerStrums.members[i];
-            if (strum != null && strum.visible)
+            var shouldShow:Bool = (strum != null && strum.visible);
+            
+            // 对手模式下，玩家侧轨道不显示（因为玩家控制对手侧）
+            if (isOpponentMode)
+                shouldShow = false;
+            
+            if (shouldShow)
             {
                 var line = playerLines[i];
-                
-                // 设置位置：X轴跟随strum，Y轴固定为屏幕顶部
-                line.x = strum.x + (strum.width / 2) - (line.width / 2); // 居中于strum
-                line.y = 0; // 从屏幕最顶部开始
-                
-                // 更新透明度（从ClientPrefs实时读取）
+                line.x = strum.x + (strum.width / 2) - (line.width / 2);
+                line.y = 0;
                 line.alpha = ClientPrefs.data.guideLineAlpha;
-                
-                // 显示黑条
                 line.visible = (line.alpha > 0);
             }
             else
             {
                 playerLines[i].visible = false;
+            }
+        }
+        
+        // 更新对手侧黑条（双人模式或对手模式下显示）
+        for (i in 0...opponentLines.length)
+        {
+            var strum = playState.opponentStrums.members[i];
+            var shouldShow:Bool = (strum != null && strum.visible);
+            
+            // 普通模式下，对手侧轨道不显示
+            if (!isCoopMode && !isOpponentMode)
+                shouldShow = false;
+            
+            if (shouldShow)
+            {
+                var line = opponentLines[i];
+                line.x = strum.x + (strum.width / 2) - (line.width / 2);
+                line.y = 0;
+                line.alpha = ClientPrefs.data.guideLineAlpha;
+                line.visible = (line.alpha > 0);
+            }
+            else
+            {
+                opponentLines[i].visible = false;
             }
         }
     }
@@ -75,11 +112,17 @@ class StrumGuideLine extends FlxTypedSpriteGroup<FlxSprite>
             line.alpha = ClientPrefs.data.guideLineAlpha;
             line.visible = (line.alpha > 0);
         }
+        for (line in opponentLines)
+        {
+            line.alpha = ClientPrefs.data.guideLineAlpha;
+            line.visible = (line.alpha > 0);
+        }
     }
     
     override public function destroy():Void
     {
         playerLines = null;
+        opponentLines = null;
         super.destroy();
     }
 }

@@ -57,7 +57,6 @@ typedef ReplayJSON =
     public var sm:Bool;
     public var ana:Analysis;
     public var opponentMode:String; // 新增：游戏模式 (player/opponent/coop)
-    // 已移除 playerName
     public var accuracy:Float;
     public var score:Int;
     public var misses:Int;
@@ -267,7 +266,7 @@ class Replay
     #end
 }
 
-    public function LoadFromJSON()
+   public function LoadFromJSON()
     {
         #if sys
         try
@@ -296,6 +295,29 @@ class Replay
                 if (replay.rating == null) replay.rating = "N/A";
                 if (replay.ratingFC == null) replay.ratingFC = "N/A";
                 
+                // 修复时间戳：确保 timestamp 是 Date 类型
+                if (replay.timestamp != null)
+                {
+                    // 如果 timestamp 是数字或字符串，转换为 Date
+                    if (Std.isOfType(replay.timestamp, Float) || Std.isOfType(replay.timestamp, Int))
+                    {
+                        var numTimestamp:Float = Std.parseFloat(Std.string(replay.timestamp));
+                        if (!Math.isNaN(numTimestamp))
+                        {
+                            replay.timestamp = Date.fromTime(numTimestamp);
+                        }
+                    }
+                    else if (Std.isOfType(replay.timestamp, String))
+                    {
+                        var strTimestamp:String = Std.string(replay.timestamp);
+                        var numTimestamp:Float = Std.parseFloat(strTimestamp);
+                        if (!Math.isNaN(numTimestamp))
+                        {
+                            replay.timestamp = Date.fromTime(numTimestamp);
+                        }
+                    }
+                }
+                
                 // 初始化播放索引
                 currentIndex = 0;
                 judgementIndex = 0;
@@ -306,6 +328,7 @@ class Replay
                 trace('  Mod Directory: ${repl.modDirectory}');
                 trace('  Accuracy: ${repl.accuracy}%');
                 trace('  Notes: ${repl.songNotes.length}');
+                trace('  Timestamp: ${replay.timestamp}');
             }
             else
             {

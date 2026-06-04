@@ -21,7 +21,14 @@ class HealthText extends FlxText {
 
     // 使用自定义方法名以避免覆盖 FlxText.update(elapsed)
     public function refresh():Void {
-        this.text = "Health: " + Math.floor(state.health * 50);
+        if(state.isSplitCoopMode())
+        {
+        this.text = "Health: " + Math.floor(state.opponentHealth * 50) + " / " + Math.floor(state.playerHealth * 50);
+        }
+        else
+        {
+            this.text = "Health: " + Math.floor(state.health * 50);
+        }
         var textWidth:Int = 300;
         if (ClientPrefs.data.downScroll) {
             this.x = FlxG.width / 2 - textWidth / 2;

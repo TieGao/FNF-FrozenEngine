@@ -562,7 +562,7 @@ class Note extends FlxSprite
 
 var allowHumanHit:Bool = mustPress;
 	if (PlayState.instance != null)
-		allowHumanHit = allowHumanHit || (PlayState.instance.opponentMode == "opponent" || PlayState.instance.opponentMode == "coop");
+		allowHumanHit = allowHumanHit || (PlayState.instance.opponentMode == "opponent" || PlayState.instance.opponentMode == "coop" || PlayState.instance.opponentMode == "coop_split");
 
 	if (allowHumanHit)
 	{

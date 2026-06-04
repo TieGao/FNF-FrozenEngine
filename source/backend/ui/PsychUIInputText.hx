@@ -692,11 +692,20 @@ function calculateBoundaries(text:String)
     // 使用 getCharBoundaries 进行精确计算
     for(i in 0...text.length)
     {
-        var rect = textObj.textField.getCharBoundaries(i);
-        if(rect != null)
-            _boundaries.push(rect.x + rect.width);
-        else
-            _boundaries.push(i > 0 ? _boundaries[i-1] : 0);
+			try
+			{
+				var rect = textObj.textField.getCharBoundaries(i);
+				if(rect != null)
+					_boundaries.push(rect.x + rect.width);
+				else
+					_boundaries.push(i > 0 ? _boundaries[i-1] : 0);
+			}
+			catch(e:Dynamic)
+			{
+				// 在某些 OpenFL/平台实现中 getCharBoundaries 可能抛出异常
+				// 回退到上一个边界或 0，保证不抛出导致 UI 崩溃
+				_boundaries.push(i > 0 ? _boundaries[i-1] : 0);
+			}
     }
 }
 

@@ -6,7 +6,13 @@ import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.group.FlxSpriteGroup;
+import flixel.math.FlxMath;
+import flixel.tweens.FlxTween;
+import flixel.addons.display.FlxBackdrop;
+import flixel.util.FlxTimer;
 import backend.Replay;
+import backend.HitGraph;
+import backend.OFLSprite;
 import sys.FileSystem;
 import sys.io.File;
 import haxe.Json;
@@ -14,47 +20,40 @@ import backend.Song;
 import backend.Difficulty;
 import backend.ClientPrefs;
 import StringTools;
-import flixel.util.FlxTimer;
 import objects.SearchBar;
+import openfl.display.Sprite;
 
-// 卡片类 - 使用 FlxSpriteGroup
+// ========== 回放卡片类 - 简洁竖向设计 ==========
 class ReplayCard extends FlxSpriteGroup
 {
     public var bg:FlxSprite;
-    public var topBorder:FlxSprite;
-    public var bottomBorder:FlxSprite;
-    public var leftBorder:FlxSprite;
-    public var rightBorder:FlxSprite;
     public var songText:FlxText;
     public var infoText:FlxText;
     public var scoreText:FlxText;
     public var accuracyFill:FlxSprite;
     public var accuracyBG:FlxSprite;
     public var modTag:FlxText;
+    public var ratingText:FlxText;
     
     public var replayData:Dynamic;
     public var filename:String;
     public var index:Int;
     public var selected:Bool = false;
-    public var hovered:Bool = false;
     
-    // 回调函数
+    // 回调
     public var onClick:Void->Void;
-    public var onRightClick:Void->Void;
-    public var onMiddleClick:Void->Void;
     public var onDoubleClick:Void->Void;
-    public var onMouseOver:Void->Void;
-    public var onMouseOut:Void->Void;
     
-    // 鼠标悬停计时
-    private var hoverTime:Float = 0;
-    private var doubleClickTimer:Float = 0;
+    private var cardWidth:Float;
+    private var cardHeight:Float;
     private var lastClickTime:Float = 0;
     private static var DOUBLE_CLICK_DELAY:Float = 0.3;
     
     public function new(x:Float, y:Float, width:Float, height:Float, data:Dynamic, fileName:String, idx:Int)
     {
         super(x, y);
+        this.cardWidth = width;
+        this.cardHeight = height;
         this.index = idx;
         this.replayData = data;
         this.filename = fileName;
@@ -62,122 +61,71 @@ class ReplayCard extends FlxSpriteGroup
         // 背景
         bg = new FlxSprite(0, 0).makeGraphic(Std.int(width), Std.int(height), FlxColor.BLACK);
         bg.alpha = 0.7;
+        bg.color = FlxColor.BLACK;
         add(bg);
-        
-        // 边框元素（初始隐藏）
-        topBorder = new FlxSprite(0, 0).makeGraphic(Std.int(width), 2, FlxColor.CYAN);
-        topBorder.visible = false;
-        add(topBorder);
-        
-        bottomBorder = new FlxSprite(0, Std.int(height) - 2).makeGraphic(Std.int(width), 2, FlxColor.CYAN);
-        bottomBorder.visible = false;
-        add(bottomBorder);
-        
-        leftBorder = new FlxSprite(0, 0).makeGraphic(2, Std.int(height), FlxColor.CYAN);
-        leftBorder.visible = false;
-        add(leftBorder);
-        
-        rightBorder = new FlxSprite(Std.int(width) - 2, 0).makeGraphic(2, Std.int(height), FlxColor.CYAN);
-        rightBorder.visible = false;
-        add(rightBorder);
         
         // 歌曲名
         var songName:String = data.songName != null ? data.songName : "Unknown Song";
-        songText = new FlxText(10, 10, width - 20, songName, 20);
-        songText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT);
+        songText = new FlxText(12, 8, width - 100, songName, 18);
+        songText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, LEFT);
         add(songText);
         
         // 难度和日期
         var diffColor = getDifficultyColor(data.difficultyName);
         var dateStr = formatDate(data.timestamp);
         
-        infoText = new FlxText(10, 35, width - 20, 
-            '${data.difficultyName} • ${dateStr}', 16);
-        infoText.setFormat(Paths.font("vcr.ttf"), 16, diffColor, LEFT);
+        infoText = new FlxText(12, 32, width - 100, 
+            '${data.difficultyName}  •  ${dateStr}', 12);
+        infoText.setFormat(Paths.font("vcr.ttf"), 12, diffColor, LEFT);
         add(infoText);
         
+        // 评分显示
+        var ratingStr:String = (data.rating != null) ? data.rating : "N/A";
+        var fcStr:String = (data.ratingFC != null && data.ratingFC != "N/A") ? data.ratingFC : "";
+        var ratingDisplay:String = fcStr != "" ? '$ratingStr ($fcStr)' : ratingStr;
+        
+        ratingText = new FlxText(width - 80, 8, 75, ratingDisplay, 14);
+        ratingText.setFormat(Paths.font("vcr.ttf"), 14, getRatingColor(ratingStr), RIGHT);
+        add(ratingText);
+        
         // 准确度背景条
-        accuracyBG = new FlxSprite(10, 55).makeGraphic(Std.int(width - 20), 6, FlxColor.GRAY);
+        accuracyBG = new FlxSprite(12, 52).makeGraphic(Std.int(width - 24), 4, FlxColor.GRAY);
+        accuracyBG.alpha = 0.8;
         add(accuracyBG);
         
         // 准确度填充条
         var accuracy:Float = data.accuracy != null ? data.accuracy : 0;
-        var fillWidth = Std.int((width - 20) * Math.min(accuracy, 100) / 100);
-        accuracyFill = new FlxSprite(10, 55).makeGraphic(fillWidth, 6, getAccuracyColor(accuracy));
+        var fillWidth = Std.int((width - 24) * Math.min(accuracy, 100) / 100);
+        accuracyFill = new FlxSprite(12, 52).makeGraphic(fillWidth, 4, getAccuracyColor(accuracy));
         add(accuracyFill);
         
         // 分数和准确度文本
         var scoreStr = formatNumber(data.score);
         var accuracyStr = formatAccuracy(accuracy);
-        scoreText = new FlxText(10, 65, width - 20, 
-            'Score: $scoreStr • Acc: $accuracyStr%', 16);
-        scoreText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT);
+        scoreText = new FlxText(12, 62, width - 24, 
+            'Score: $scoreStr  •  Acc: $accuracyStr%', 12);
+        scoreText.setFormat(Paths.font("vcr.ttf"), 12, FlxColor.WHITE, LEFT);
         add(scoreText);
         
         // 模组标记
         if (data.modDirectory != null && data.modDirectory.length > 0 && data.modDirectory != "")
         {
-            modTag = new FlxText(width - 100, 10, 90, "MOD", 14);
-            modTag.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.YELLOW, RIGHT);
+            modTag = new FlxText(width - 60, 32, 55, "MOD", 10);
+            modTag.setFormat(Paths.font("vcr.ttf"), 10, FlxColor.YELLOW, RIGHT);
             add(modTag);
         }
         
-        updateSelection(false);
-        updateHover(false);
+        updateSelected(false);
     }
     
     override function update(elapsed:Float)
     {
         super.update(elapsed);
         
-        // 更新双点计时器
-        if (doubleClickTimer > 0)
-        {
-            doubleClickTimer -= elapsed;
-        }
-        
-        // 更新悬停状态
-        if (hovered)
-        {
-            hoverTime += elapsed;
-        }
-        else
-        {
-            hoverTime = 0;
-        }
-        
-        // 处理鼠标交互
         if (FlxG.mouse.visible && FlxG.mouse.overlaps(this))
         {
-            if (!hovered)
-            {
-                hovered = true;
-                if (onMouseOver != null) onMouseOver();
-            }
-            
-            // 处理鼠标点击
             if (FlxG.mouse.justPressed)
-            {
                 handleClick();
-            }
-            
-            if (FlxG.mouse.justPressedRight)
-            {
-                if (onRightClick != null) onRightClick();
-            }
-            
-            if (FlxG.mouse.justPressedMiddle)
-            {
-                if (onMiddleClick != null) onMiddleClick();
-            }
-        }
-        else
-        {
-            if (hovered)
-            {
-                hovered = false;
-                if (onMouseOut != null) onMouseOut();
-            }
         }
     }
     
@@ -185,68 +133,30 @@ class ReplayCard extends FlxSpriteGroup
     {
         var currentTime = FlxG.game.ticks / 1000;
         
-        // 检查双点
         if (currentTime - lastClickTime <= DOUBLE_CLICK_DELAY)
         {
             if (onDoubleClick != null) onDoubleClick();
-            lastClickTime = 0; // 重置，避免三次点击触发两次双点
+            lastClickTime = 0;
         }
         else
         {
-            // 单点
             if (onClick != null) onClick();
             lastClickTime = currentTime;
         }
     }
     
-    public function updateSelection(isSelected:Bool)
+    public function updateSelected(isSelected:Bool)
     {
         this.selected = isSelected;
-        updateVisuals();
-    }
-    
-    public function updateHover(isHovered:Bool)
-    {
-        this.hovered = isHovered;
-        updateVisuals();
-    }
-    
-    function updateVisuals()
-    {
         if (selected)
         {
-            // 选中状态：深蓝色背景 + 青色边框
-            bg.color = FlxColor.fromRGB(60, 60, 100);
-            topBorder.visible = true;
-            bottomBorder.visible = true;
-            leftBorder.visible = true;
-            rightBorder.visible = true;
-            topBorder.color = FlxColor.CYAN;
-            bottomBorder.color = FlxColor.CYAN;
-            leftBorder.color = FlxColor.CYAN;
-            rightBorder.color = FlxColor.CYAN;
-        }
-        else if (hovered)
-        {
-            // 悬停状态：稍浅的蓝色背景 + 黄色边框
-            bg.color = FlxColor.fromRGB(80, 80, 120);
-            topBorder.visible = true;
-            bottomBorder.visible = true;
-            leftBorder.visible = true;
-            rightBorder.visible = true;
-            topBorder.color = FlxColor.YELLOW;
-            bottomBorder.color = FlxColor.YELLOW;
-            leftBorder.color = FlxColor.YELLOW;
-            rightBorder.color = FlxColor.YELLOW;
+            bg.color = FlxColor.fromRGB(50, 70, 110);
+            bg.alpha = 0.9;
         }
         else
         {
-            // 普通状态：黑色背景，无边框
             bg.color = FlxColor.BLACK;
-            topBorder.visible = false;
-            bottomBorder.visible = false;
-            leftBorder.visible = false;
-            rightBorder.visible = false;
+            bg.alpha = 0.7;
         }
     }
     
@@ -262,6 +172,18 @@ class ReplayCard extends FlxSpriteGroup
         return FlxColor.WHITE;
     }
     
+    function getRatingColor(rating:String):FlxColor
+    {
+        var r = rating.toLowerCase();
+        if (r == "p" || r == "marvelous") return FlxColor.fromRGB(255, 215, 0);
+        if (r == "gp" || r == "sick") return FlxColor.CYAN;
+        if (r == "ep" || r == "good") return FlxColor.LIME;
+        if (r == "e") return FlxColor.fromRGB(150, 255, 100);
+        if (r == "sg") return FlxColor.YELLOW;
+        if (r == "g") return FlxColor.ORANGE;
+        return FlxColor.WHITE;
+    }
+    
     function getAccuracyColor(acc:Float):FlxColor
     {
         if (acc >= 95) return FlxColor.LIME;
@@ -271,49 +193,10 @@ class ReplayCard extends FlxSpriteGroup
     }
     
     function formatDate(timestamp:Dynamic):String
-    {
-                if (timestamp == null) return "Unknown";
-
-                // 如果已经是 Date 对象
-                var date:Date = null;
-                if (Std.isOfType(timestamp, Date))
-                {
-                    date = cast timestamp;
-                }
-                else
-                {
-                    // 尝试解析为数字（ms 或 s），或字符串可解析为数字/日期
-                    var raw = Std.string(timestamp);
-                    var num = Std.parseFloat(raw);
-                    if (!Math.isNaN(num))
-                    {
-                        // 如果看起来像秒（小于 1e11），转为毫秒
-                        if (num < 1e11) num = num * 1000;
-                        date = Date.fromTime(num);
-                    }
-                    else
-                    {
-                        // 尝试通过 Date 构造解析字符串
-                        try {
-                            date = Date.fromString(raw);
-                        } catch(e:Dynamic) {
-                            // 解析失败，返回原始短字符串（确保长度参数为 Int）
-                            return raw.substr(0, Std.int(Math.min(raw.length, 16)));
-                        }
-                    }
-                }
-
-                if (date == null) return "Unknown";
-
-                // 格式化为 YYYY/MM/DD HH:MM（补零）
-                var y = date.getFullYear();
-                var m = date.getMonth() + 1;
-                var d = date.getDate();
-                var hh = date.getHours();
-                var mm = date.getMinutes();
-                var sm = function(v:Int):String { return (v < 10 ? '0' + Std.string(v) : Std.string(v)); };
-                return Std.string(y) + '/' + sm(m) + '/' + sm(d) + ' ' + sm(hh) + ':' + sm(mm);
-    }
+{
+    if (timestamp == null) return "Unknown";
+    return Std.string(timestamp);
+}
     
     function formatNumber(num:Dynamic):String
     {
@@ -328,145 +211,439 @@ class ReplayCard extends FlxSpriteGroup
     function formatAccuracy(acc:Float):String
     {
         if (Math.isNaN(acc)) return "0.00";
-        var rounded = Math.round(acc * 100) / 100;
-        var str = Std.string(rounded);
-        var dotIndex = str.indexOf(".");
-        if (dotIndex == -1) {
-            return str + ".00";
-        } else {
-            var decimalPlaces = str.length - dotIndex - 1;
-            if (decimalPlaces == 1) {
-                return str + "0";
-            } else if (decimalPlaces == 0) {
-                return str + ".00";
-            }
-        }
-        return str;
+        // 保留两位小数并转换为字符串
+        var rounded:Float = FlxMath.roundDecimal(acc, 2);
+        return Std.string(rounded);
     }
 }
 
-// 主状态类
+// ========== 右侧详情面板 ==========
+class ReplayDetailPanel extends FlxSpriteGroup
+{
+    public var bg:FlxSprite;
+    public var titleText:FlxText;
+    public var infoTexts:Array<FlxText> = [];
+    public var hitGraph:HitGraph;
+    public var hitGraphSprite:OFLSprite;
+    public var loadingText:FlxText;
+    
+    private var currentReplayData:Dynamic = null;
+    private var currentFilename:String = "";
+    
+    public function new(x:Float, y:Float, width:Float, height:Float)
+    {
+        super(x, y);
+        
+        bg = new FlxSprite(0, 0).makeGraphic(Std.int(width), Std.int(height), FlxColor.fromRGB(20, 20, 35));
+        bg.alpha = 0.85;
+        add(bg);
+        
+        titleText = new FlxText(10, 10, width - 20, "REPLAY DETAILS", 18);
+        titleText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.CYAN, CENTER);
+        add(titleText);
+        
+        // 创建信息文本区域
+        var infoY:Float = 45;
+        var infoLabels:Array<String> = [
+            "Song Name:",
+            "Difficulty:",
+            "Mod Folder:",
+            "Date:",
+            "Score:",
+            "Accuracy:",
+            "Misses:",
+            "Rating:",
+            "Max Combo:"
+        ];
+        
+        for (i in 0...infoLabels.length)
+        {
+            var label = new FlxText(12, infoY + i * 24, 130, infoLabels[i], 18);
+            label.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.GRAY, LEFT);
+            add(label);
+            
+            var value = new FlxText(140, infoY + i * 24, width - 130, "--", 18);
+            value.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, LEFT);
+            add(value);
+            infoTexts.push(value);
+        }
+        
+        var graphY:Int = 260; // 往下移动一点，给信息文本留空间
+        
+        // 创建 HitGraph
+        hitGraph = new HitGraph(12, graphY, Std.int(width - 24), 200);
+        hitGraph.alpha = 1;
+        
+        // 创建 OFLSprite 包装器
+        hitGraphSprite = new OFLSprite(12, graphY, Std.int(width - 24), 200, hitGraph);
+        hitGraphSprite.scrollFactor.set();
+        hitGraphSprite.visible = false;
+        add(hitGraphSprite);
+        
+        loadingText = new FlxText(12, graphY + 230, width - 24, "Select a replay to view hit graph", 14);
+        loadingText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.YELLOW, CENTER);
+        add(loadingText);
+    }
+    
+    public function updateWithReplay(filename:String, replayData:Dynamic)
+    {
+        this.currentFilename = filename;
+        this.currentReplayData = replayData;
+        
+        if (replayData == null)
+        {
+            clearInfo();
+            return;
+        }
+        
+        // 更新文本信息
+        var accuracyValue:String = (replayData.accuracy != null) ? formatAccuracyValue(replayData.accuracy) : "0";
+        var scoreValue:Float = (replayData.score != null) ? Std.parseFloat(Std.string(replayData.score)) : 0;
+        
+        var values:Array<String> = [
+            replayData.songName != null ? replayData.songName : "Unknown",
+            replayData.difficultyName != null ? replayData.difficultyName : "Unknown",
+            (replayData.modDirectory != null && replayData.modDirectory != "") ? replayData.modDirectory : "Base Game",
+            formatDate(replayData.timestamp),
+            formatNumberValue(scoreValue),
+            accuracyValue + "%",
+            replayData.misses != null ? Std.string(replayData.misses) : "0",
+            (replayData.rating != null ? replayData.rating : "N/A") + 
+                (replayData.ratingFC != null && replayData.ratingFC != "N/A" ? " (" + replayData.ratingFC + ")" : ""),
+            replayData.maxCombo != null ? Std.string(replayData.maxCombo) : "--"
+        ];
+        
+        for (i in 0...values.length)
+        {
+            if (i < infoTexts.length)
+                infoTexts[i].text = values[i];
+        }
+        
+        if (hitGraph != null)
+        {
+            hitGraph.history = [];
+            hitGraph.update();
+        }
+        if (hitGraphSprite != null)
+            hitGraphSprite.visible = false;
+        
+        loadHitGraphAsync();
+    }
+    
+// 修复 LoadReplayState.hx 中的 loadHitGraphAsync 函数
+// 修复 LoadReplayState.hx 中的 loadHitGraphAsync 函数
+
+private function loadHitGraphAsync()
+{
+    // 先检查 hitGraph 是否存在
+    if (hitGraph == null)
+    {
+        trace('HitGraph is null, cannot load hit data');
+        loadingText.text = "HitGraph not available";
+        loadingText.visible = true;
+        return;
+    }
+    
+    loadingText.visible = true;
+    loadingText.text = "Loading hit graph...";
+    
+    if (hitGraph != null)
+    {
+        hitGraph.history = [];
+        hitGraph.update();
+    }
+    if (hitGraphSprite != null)
+        hitGraphSprite.visible = false;
+    
+    new FlxTimer().start(0.05, function(tmr:FlxTimer)
+    {
+        try
+        {
+            var filePath = "assets/replays/" + currentFilename;
+            if (!FileSystem.exists(filePath))
+            {
+                loadingText.text = "Replay file not found";
+                return;
+            }
+
+            var rep:Replay = Replay.LoadReplay(currentFilename);
+            
+            if (rep == null || rep.replay == null)
+            {
+                loadingText.text = "Invalid replay data";
+                return;
+            }
+            
+            var hasHitData:Bool = false;
+            
+            // 确保 hitGraph 仍然存在
+            if (hitGraph == null)
+            {
+                trace('HitGraph became null during loading');
+                loadingText.text = "HitGraph unavailable";
+                return;
+            }
+            
+            // 方法1: 从 ana 数据获取
+            if (rep.replay.ana != null && rep.replay.ana.anaArray != null && rep.replay.ana.anaArray.length > 0)
+            {
+                hasHitData = true;
+                hitGraph.history = [];
+                
+                for (ana in rep.replay.ana.anaArray)
+                {
+                    if (ana == null) continue;
+                    
+                    var diff:Float = 0.0;
+                    var judge:String = "miss";
+                    var time:Float = 0.0;
+                    
+                    try {
+                        var hitTimeValue = Std.string(ana.hitTime);
+                        diff = Std.parseFloat(hitTimeValue);
+                        if (Math.isNaN(diff)) diff = 0.0;
+                    } catch(e:Dynamic) { diff = 0.0; }
+                    
+                    try {
+                        judge = ana.hitJudge != null ? Std.string(ana.hitJudge) : "miss";
+                        if (judge == null || judge == "") judge = "miss";
+                    } catch(e:Dynamic) { judge = "miss"; }
+                    
+                    time = diff;
+                    
+                    // 安全检查
+                    if (hitGraph != null && hitGraph.addToHistory != null)
+                    {
+                        hitGraph.addToHistory(diff, judge, time);
+                    }
+                }
+                trace('Loaded ${rep.replay.ana.anaArray.length} entries from ana data');
+            }
+            
+            // 方法2: 从 songJudgements 和 songNotes 重建
+            if (!hasHitData && rep.replay.songJudgements != null && rep.replay.songNotes != null)
+            {
+                var minLength:Int = Std.int(Math.min(rep.replay.songJudgements.length, rep.replay.songNotes.length));
+                
+                if (minLength > 0 && hitGraph != null)
+                {
+                    hasHitData = true;
+                    hitGraph.history = [];
+                    
+                    var validCount:Int = 0;
+                    
+                    for (i in 0...minLength)
+                    {
+                        var judge:String = null;
+                        try {
+                            judge = rep.replay.songJudgements[i] != null ? Std.string(rep.replay.songJudgements[i]) : null;
+                        } catch(e:Dynamic) { judge = null; }
+                        
+                        if (judge == null || judge == "") continue;
+                        
+                        var note:Array<Dynamic> = rep.replay.songNotes[i];
+                        if (note == null) continue;
+                        
+                        var diff:Float = 0.0;
+                        var time:Float = 0.0;
+                        
+                        // strumTime 通常在索引 0
+                        if (note.length > 0 && note[0] != null) {
+                            try {
+                                time = Std.parseFloat(Std.string(note[0]));
+                                if (Math.isNaN(time)) time = 0.0;
+                            } catch(e:Dynamic) { time = 0.0; }
+                        }
+                        
+                        // diff 通常在索引 3
+                        if (note.length > 3 && note[3] != null) {
+                            try {
+                                diff = Std.parseFloat(Std.string(note[3]));
+                                if (Math.isNaN(diff)) diff = 0.0;
+                            } catch(e:Dynamic) { diff = 0.0; }
+                        }
+                        
+                        // 过滤无效的 miss 标记
+                        if (diff != -10000 && !Math.isNaN(diff) && Math.abs(diff) < 500)
+                        {
+                            if (hitGraph != null)
+                            {
+                                try {
+                                    hitGraph.addToHistory(diff, judge, time);
+                                    validCount++;
+                                } catch(addErr:Dynamic) {
+                                    trace('Error adding to history: $addErr');
+                                }
+                            }
+                        }
+                    }
+                    trace('Reconstructed $validCount entries from judgements/notes');
+                }
+            }
+            
+            // 更新图表 - 添加更多安全检查
+            if (hasHitData && hitGraph != null)
+            {
+                try {
+                    hitGraph.update();
+                    
+                    if (hitGraphSprite != null)
+                    {
+                        hitGraphSprite.visible = true;
+                        hitGraphSprite.updateDisplay();
+                    }
+                    loadingText.visible = false;
+                    trace('HitGraph loaded successfully with ${hitGraph.history.length} entries');
+                } catch(updateErr:Dynamic) {
+                    trace('Error updating HitGraph: $updateErr');
+                    loadingText.text = "Error displaying hit graph";
+                    loadingText.color = FlxColor.RED;
+                }
+            }
+            else
+            {
+                loadingText.text = "No hit data available for this replay";
+                loadingText.color = FlxColor.YELLOW;
+                trace('No hit data found in replay');
+            }
+        }
+        catch(e:Dynamic)
+        {
+            trace('Error loading hit graph: ' + e);
+            if (loadingText != null)
+            {
+                loadingText.text = "Error loading hit data";
+                loadingText.color = FlxColor.RED;
+            }
+        }
+    });
+}
+
+    
+    private function clearInfo()
+    {
+        for (text in infoTexts)
+            text.text = "--";
+        
+        if (hitGraph != null)
+        {
+            hitGraph.history = [];
+            hitGraph.update();
+        }
+        if (hitGraphSprite != null)
+            hitGraphSprite.visible = false;
+
+        loadingText.text = "Select a replay to view details";
+        loadingText.visible = true;
+    }
+    
+    function formatDate(timestamp:Dynamic):String
+{
+    if (timestamp == null) return "Unknown";
+    return Std.string(timestamp);
+}
+    
+    private function formatNumberValue(num:Float):String
+    {
+        if (Math.isNaN(num)) return "0";
+        if (num >= 1000000) return Std.int(num / 1000000) + "M";
+        if (num >= 1000) return Std.int(num / 1000) + "K";
+        return Std.string(Std.int(num));
+    }
+    
+    private function formatAccuracyValue(acc:Dynamic):String
+    {
+        var value:Float = Std.parseFloat(Std.string(acc));
+        if (Math.isNaN(value)) return "0.00";
+        var rounded:Float = FlxMath.roundDecimal(value, 2);
+        return Std.string(rounded);
+    }
+    
+    override public function destroy()
+    {
+        if (hitGraphSprite != null)
+        {
+            remove(hitGraphSprite);
+            hitGraphSprite.destroy();
+            hitGraphSprite = null;
+        }
+        hitGraph = null;
+        super.destroy();
+    }
+}
+
+// ========== 主状态类 ==========
 class LoadReplayState extends MusicBeatState
 {
     var grpReplays:FlxTypedGroup<ReplayCard>;
     var replays:Array<String> = [];
-                
     var curSelected:Int = 0;
-    var replayJsons:Map<String, Dynamic> = new Map<String, Dynamic>();
-    var searchInput:objects.SearchBar;
+    var replayJsons:Map<String, Dynamic> = new Map();
+    var searchInput:SearchBar;
     
     var bg:FlxSprite;
+    var starsBG:FlxBackdrop;
+    var starsFG:FlxBackdrop;
+    var space:FlxSprite;
+    
     var titleText:FlxText;
     var noReplaysText:FlxText;
     var controlsText:FlxText;
     var statsText:FlxText;
-    var pageText:FlxText;
     
-    var currentPage:Int = 0;
-    var itemsPerPage:Int = 4;
-    var totalPages:Int = 1;
+    var detailPanel:ReplayDetailPanel;
+    
+    // 滚动相关
+    var cardScrollPos:Float = 0;
+    var cardScroller:backend.MouseMove;
+    var cardsContainer:FlxTypedGroup<ReplayCard>;
+    var visibleCards:Array<ReplayCard> = [];
+    var allCards:Array<ReplayCard> = [];
+    
+    static inline var CARD_WIDTH:Int = 380;
+    static inline var CARD_HEIGHT:Int = 85;
+    static inline var CARD_SPACING:Int = 10;
+    static inline var CARDS_PER_PAGE:Int = 6;
     
     var waitingForDeleteConfirm:Bool = false;
     var deleteConfirmText:FlxText;
     var replayToDelete:String = "";
     
-    // 滚动相关
-    var scrollVelocity:Float = 0;
-    var scrollDecay:Float = 0.95;
-    var minScrollSpeed:Float = 0.5;
-    var lastMouseY:Float = 0;
-    var isDragging:Bool = false;
-    var dragStartY:Float = 0;
-    var dragThreshold:Float = 10;
-
-    var space:FlxSprite;
-    var starsBG:FlxBackdrop;
-    var starsFG:FlxBackdrop;
-    
-    // 悬停相关
-    var hoveredCard:ReplayCard = null;
+    var filterTimer:Float = -1;
+    var originalReplays:Array<String> = [];
+    var originalJsons:Map<String, Dynamic> = new Map();
     
     override function create()
     {
+        // 背景
         bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
-        bg.color = 0xFF1A1A2E;
+        bg.color = 0xFF3E3EF3;
         bg.setGraphicSize(Std.int(bg.width * 1.1));
         bg.updateHitbox();
         bg.screenCenter();
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
-
+        
+        // 星空效果
         space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         space.antialiasing = ClientPrefs.data.antialiasing;
-        space.updateHitbox();
         space.scrollFactor.set();
         space.alpha = 0;
         add(space);
-
+        
         starsBG = new FlxBackdrop(Paths.image('starBG'));
         starsBG.setPosition(111.3, 67.95);
         starsBG.antialiasing = true;
-        starsBG.updateHitbox();
         starsBG.scrollFactor.set();
         starsBG.alpha = 0;
         add(starsBG);
-
+        
         starsFG = new FlxBackdrop(Paths.image('starFG'));
         starsFG.setPosition(54.3, 59.45);
-        starsFG.updateHitbox();
-        starsFG.antialiasing = true;
         starsFG.scrollFactor.set();
+        starsFG.antialiasing = true;
         starsFG.alpha = 0;
         add(starsFG);
-        
-        titleText = new FlxText(0, 20, FlxG.width, "REPLAY LIBRARY", 32);
-        titleText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-        titleText.borderSize = 3;
-        add(titleText);
-        
-        // 搜索框（复用 SearchBar）
-        searchInput = new objects.SearchBar(20, 70, Std.int(FlxG.width * 0.35));
-        searchInput.onChange = function(oldText:String, newText:String) {
-            currentPage = 0;
-            curSelected = 0;
-            loadReplays();
-            updateDisplay();
-        };
-        add(searchInput);
-        
-        grpReplays = new FlxTypedGroup<ReplayCard>();
-        add(grpReplays);
-        
-        statsText = new FlxText(20, 70, FlxG.width - 40, "", 18);
-        statsText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.CYAN, LEFT);
-        add(statsText);
-        
-        pageText = new FlxText(20, FlxG.height - 70, FlxG.width - 40, "", 18);
-        pageText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.YELLOW, LEFT);
-        add(pageText);
-        
-        controlsText = new FlxText(0, FlxG.height - 40, FlxG.width, 
-            "Click: Select/Load | Right Click: View Results | Double Click: Load | Middle Click: View | Drag: Scroll | F: Delete", 16);
-        controlsText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-        controlsText.borderSize = 2;
-        add(controlsText);
-        
-        noReplaysText = new FlxText(0, FlxG.height / 2 - 30, FlxG.width, 
-            "No Replays Found", 24);
-        noReplaysText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-        noReplaysText.borderSize = 2;
-        noReplaysText.visible = false;
-        add(noReplaysText);
-        
-        deleteConfirmText = new FlxText(0, FlxG.height / 2 - 20, FlxG.width, 
-            "", 24);
-        deleteConfirmText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
-        deleteConfirmText.borderSize = 2;
-        deleteConfirmText.visible = false;
-        add(deleteConfirmText);
-        
-        FlxG.mouse.visible = true;
-        lastMouseY = FlxG.mouse.screenY;
         
         if (ClientPrefs.data.globalspace)
         {
@@ -475,7 +652,71 @@ class LoadReplayState extends MusicBeatState
             starsFG.alpha = 1;
         }
         
+        // 标题
+        titleText = new FlxText(0, 15, FlxG.width, "REPLAY LIBRARY", 28);
+        titleText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        titleText.borderSize = 2;
+        add(titleText);
+        
+        // 搜索框
+        searchInput = new SearchBar(15, 55, 350);
+        searchInput.onChange = function(oldText:String, newText:String) {
+            filterTimer = 0.3;
+        };
+        add(searchInput);
+        
+        // 统计文本
+        statsText = new FlxText(15, 55, 300, "", 14);
+        statsText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.CYAN, LEFT);
+        statsText.visible = false;
+        add(statsText);
+        
+        // 卡片容器
+        cardsContainer = new FlxTypedGroup<ReplayCard>();
+        add(cardsContainer);
+        
+        // 详情面板
+        detailPanel = new ReplayDetailPanel(FlxG.width - 510, 50, 500, FlxG.height - 100);
+        add(detailPanel);
+        
+        // 底部控制文本
+        controlsText = new FlxText(0, FlxG.height - 28, FlxG.width, 
+            "↑/↓: Navigate | Enter/Double Click: Load | V: View Results | F: Delete | ESC: Back", 14);
+        controlsText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        controlsText.borderSize = 1;
+        add(controlsText);
+        
+        // 无回放提示
+        noReplaysText = new FlxText(0, FlxG.height / 2 - 30, FlxG.width - 420, 
+            "No Replays Found\n\nPlace .kadeReplay files in assets/replays/", 20);
+        noReplaysText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        noReplaysText.borderSize = 2;
+        noReplaysText.visible = false;
+        add(noReplaysText);
+        
+        // 删除确认文本
+        deleteConfirmText = new FlxText(0, FlxG.height / 2 - 20, FlxG.width, "", 22);
+        deleteConfirmText.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
+        deleteConfirmText.borderSize = 2;
+        deleteConfirmText.visible = false;
+        add(deleteConfirmText);
+        
+        FlxG.mouse.visible = true;
+        
         loadReplays();
+        
+        // 初始化滚动器
+        var maxScroll:Float = Math.max(0, (replays.length - CARDS_PER_PAGE) * (CARD_HEIGHT + CARD_SPACING));
+        cardScroller = new backend.MouseMove(this, 'cardScrollPos', [0, maxScroll], 
+            [[0, FlxG.width], [50, FlxG.height - 80]],  // 扩大拖拽区域到整个左侧区域
+            function() { updateCardsPosition(); });
+        cardScroller.useLerp = true;
+        cardScroller.lerpSmooth = 12;
+        cardScroller.dragSensitivity = 1.6;
+        cardScroller.deceleration = 0.94;
+        cardScroller.mouseWheelSensitivity = -200.0;
+        add(cardScroller);
+        
         updateDisplay();
         
         super.create();
@@ -483,13 +724,20 @@ class LoadReplayState extends MusicBeatState
     
     override function update(elapsed:Float)
     {
-    	starsBG.x -= 0.05;
+        starsBG.x -= 0.05;
         starsFG.x -= 0.15;
-        
         if (starsBG.x < -starsBG.width) starsBG.x = 0;
         if (starsFG.x < -starsFG.width) starsFG.x = 0;
-
+        
         super.update(elapsed);
+        
+        // 搜索过滤延迟
+        if (filterTimer > 0)
+        {
+            filterTimer -= elapsed;
+            if (filterTimer <= 0)
+                filterSongs();
+        }
         
         if (waitingForDeleteConfirm)
         {
@@ -497,213 +745,8 @@ class LoadReplayState extends MusicBeatState
             return;
         }
         
-        // 处理鼠标拖动滚动
-        handleMouseDrag(elapsed);
-        
-        // 处理鼠标滚轮
-        handleMouseWheel(elapsed);
-        
-        // 应用滚动速度
-        applyScrollVelocity(elapsed);
-        
-        // 处理键盘控制
         handleKeyboardControls();
-        
-        // 检查并处理悬停卡片
-        updateHoverState();
-    }
-    
-    function handleMouseDrag(elapsed:Float)
-    {
-        var currentMouseY = FlxG.mouse.screenY;
-        
-        if (FlxG.mouse.pressed)
-        {
-            if (!isDragging)
-            {
-                // 检查是否开始拖动（超过阈值）
-                if (Math.abs(currentMouseY - dragStartY) > dragThreshold)
-                {
-                    isDragging = true;
-                }
-            }
-            else
-            {
-                // 计算拖动速度
-                var deltaY = currentMouseY - lastMouseY;
-                if (Math.abs(deltaY) > 0)
-                {
-                    // 根据拖动方向添加滚动速度
-                    scrollVelocity += deltaY * 0.5;
-                    
-                    // 限制最大速度
-                    scrollVelocity = Math.max(-30, Math.min(30, scrollVelocity));
-                    
-                    // 实时应用滚动
-                    scrollBy(deltaY);
-                }
-            }
-            
-            dragStartY = currentMouseY;
-        }
-        else
-        {
-            if (isDragging)
-            {
-                isDragging = false;
-            }
-            dragStartY = currentMouseY;
-        }
-        
-        lastMouseY = currentMouseY;
-    }
-    
-    function handleMouseWheel(elapsed:Float)
-    {
-        var wheelDelta = FlxG.mouse.wheel;
-        if (wheelDelta != 0)
-        {
-            // 只在鼠标位于回放列表区域时响应滚轮（避免影响其他 UI）
-            var mouseY = FlxG.mouse.screenY;
-            var listTop = 120;
-            var listBottom = FlxG.height - 100;
-            if (mouseY >= listTop && mouseY <= listBottom)
-            {
-                // 添加滚轮速度
-                scrollVelocity += wheelDelta * -15; // 负号使滚动方向自然
-
-                // 立即应用一些滚动
-                scrollBy(wheelDelta * -50);
-
-                // 播放滚动音效
-                FlxG.sound.play(Paths.sound('scrollMenu'), 0.2);
-            }
-        }
-    }
-    
-    function applyScrollVelocity(elapsed:Float)
-    {
-        if (Math.abs(scrollVelocity) > minScrollSpeed)
-        {
-            scrollBy(scrollVelocity * elapsed * 60);
-            scrollVelocity *= scrollDecay;
-        }
-        else
-        {
-            scrollVelocity = 0;
-        }
-    }
-    
-    function scrollBy(amount:Float)
-    {
-        if (grpReplays.members.length == 0) return;
-        
-        // 获取第一张和最后一张卡片的位置
-        var firstCard = grpReplays.members[0];
-        var lastCard = grpReplays.members[grpReplays.members.length - 1];
-        
-        if (firstCard == null || lastCard == null) return;
-        
-        // 计算可滚动范围
-        var topBoundary = 120; // 顶部边界
-        var bottomBoundary = FlxG.height - 100; // 底部边界
-        
-        // 尝试移动所有卡片
-        var newY = firstCard.y + amount;
-        
-        // 检查是否超出边界
-        if (newY > topBoundary)
-        {
-            // 到达顶部，修正位置并停止速度
-            amount = topBoundary - firstCard.y;
-            scrollVelocity = 0;
-        }
-        else if (lastCard.y + lastCard.height < bottomBoundary)
-        {
-            // 到达底部，修正位置并停止速度
-            amount = bottomBoundary - (lastCard.y + lastCard.height);
-            scrollVelocity = 0;
-        }
-        
-        // 移动所有卡片
-        for (card in grpReplays.members)
-        {
-            if (card != null)
-            {
-                card.y += amount;
-            }
-        }
-        
-        // 更新分页基于最上面的卡片
-        updatePageBasedOnScroll();
-    }
-    
-    function updatePageBasedOnScroll()
-    {
-        if (grpReplays.members.length == 0) return;
-        
-        // 根据第一张卡片的位置计算当前页
-        var firstCard = grpReplays.members[0];
-        if (firstCard != null)
-        {
-            var cardHeight = 105; // 卡片高度 + 间距
-            var estimatedIndex = Math.floor((firstCard.y - 120) / cardHeight) * -1;
-            estimatedIndex = Math.floor(estimatedIndex / itemsPerPage) * itemsPerPage;
-            
-            var newPage = Math.floor(estimatedIndex / itemsPerPage);
-            if (newPage < 0) newPage = 0;
-            if (newPage >= totalPages) newPage = totalPages - 1;
-            
-            if (newPage != currentPage)
-            {
-                currentPage = newPage;
-                updatePageText();
-            }
-        }
-    }
-    
-    function updatePageText()
-    {
-        var startIndex = currentPage * itemsPerPage;
-        var endIndex = Math.min(startIndex + itemsPerPage, replays.length);
-        pageText.text = 'Page ${currentPage + 1}/${totalPages} (${startIndex + 1}-${endIndex})';
-    }
-    
-    function updateHoverState()
-    {
-        var newHoveredCard:ReplayCard = null;
-        
-        // 检查鼠标悬停在哪个卡片上
-        for (card in grpReplays.members)
-        {
-            if (card != null && FlxG.mouse.overlaps(card))
-            {
-                newHoveredCard = card;
-                break;
-            }
-        }
-        
-        // 更新悬停状态
-        if (newHoveredCard != hoveredCard)
-        {
-            if (hoveredCard != null)
-            {
-                hoveredCard.updateHover(false);
-            }
-            
-            hoveredCard = newHoveredCard;
-            
-            if (hoveredCard != null)
-            {
-                hoveredCard.updateHover(true);
-                
-                // 如果不处于拖动状态，自动选中悬停的卡片
-                if (!isDragging && hoveredCard.index != curSelected)
-                {
-                    changeSelectionTo(hoveredCard.index, false);
-                }
-            }
-        }
+        updateMouseSelection();
     }
     
     function loadReplays()
@@ -711,325 +754,308 @@ class LoadReplayState extends MusicBeatState
         #if sys
         replays = [];
         replayJsons.clear();
-
+        
         var replayDir = "assets/replays/";
-        var entries:Array<Dynamic> = [];
-        if (FileSystem.exists(replayDir)) {
+        var entries:Array<{file:String, ts:Float, json:Dynamic}> = [];
+        
+        if (FileSystem.exists(replayDir))
+        {
             var files = FileSystem.readDirectory(replayDir);
-            for (file in files) {
+            for (file in files)
+            {
                 if (!file.endsWith(".kadeReplay")) continue;
-                try {
+                
+                try
+                {
                     var filePath = replayDir + file;
                     var fileContent = File.getContent(filePath);
                     var json:Dynamic = Json.parse(fileContent);
-
+                    
                     if (json == null) continue;
                     if (json.songName == null) json.songName = "Unknown Song";
-                    if (json.difficultyName == null) json.difficultyName = (json.songDiff != null ? Difficulty.getString(Std.int(json.songDiff)) : "Normal");
+                    if (json.difficultyName == null) json.difficultyName = 
+                        (json.songDiff != null ? Difficulty.getString(Std.int(json.songDiff)) : "Normal");
                     if (json.timestamp == null) json.timestamp = Date.now();
                     if (json.modDirectory == null) json.modDirectory = "";
-
-                    // 解析 timestamp 为毫秒数
+                    if (json.rating == null) json.rating = "N/A";
+                    if (json.ratingFC == null) json.ratingFC = "N/A";
+                    if (json.maxCombo == null) json.maxCombo = 0;
+                    
                     var ts:Float = 0;
-                    try {
-                        if (Std.isOfType(json.timestamp, Date)) ts = (cast json.timestamp : Date).getTime();
-                        else {
-                            var s = Std.string(json.timestamp);
-                            var n = Std.parseFloat(s);
-                            if (!Math.isNaN(n)) {
-                                if (n < 1e11) n = n * 1000;
-                                ts = n;
-                            } else {
-                                try { var d:Date = Date.fromString(s); ts = d.getTime(); } catch(e:Dynamic) { ts = 0; }
-                            }
+                   try {
+                        if (json.timestamp == null) {
+                            json.timestamp = Date.now().toString();
                         }
+                        // 直接使用字符串，不做转换
+                        var ts:Float = 0;
+                        try {
+                            // 简单排序：用文件名中的时间戳或当前时间
+                            ts = Date.now().getTime();
+                        } catch(e:Dynamic) { ts = 0; }
                     } catch(e:Dynamic) { ts = 0; }
-
+                    
                     entries.push({ file: file, ts: ts, json: json });
-                } catch(e:Dynamic) {
-                    // skip malformed files
                 }
+                catch(e:Dynamic) { trace('Error parsing replay: $e'); }
             }
-
-            // 按时间降序排序（最新在前）
-            entries.sort(function(a:Dynamic,b:Dynamic):Int { return Std.int(b.ts - a.ts); });
-
-            // 根据搜索过滤（如果有搜索框）并填充 replays & replayJsons
-            var searchStr:String = null;
-            if (searchInput != null && searchInput.text != null) {
-                searchStr = searchInput.text.toLowerCase();
-                searchStr = StringTools.trim(searchStr);
-            }
-
-            for (entry in entries) {
-                var file:String = entry.file;
-                var json:Dynamic = entry.json;
-
-                if (searchStr != null && searchStr.length > 0) {
-                    var match = false;
-                    if (file.toLowerCase().indexOf(searchStr) != -1) match = true;
-                    if (!match && json.songName != null && Std.string(json.songName).toLowerCase().indexOf(searchStr) != -1) match = true;
-                    if (!match && json.difficultyName != null && Std.string(json.difficultyName).toLowerCase().indexOf(searchStr) != -1) match = true;
-                    if (!match) continue;
-                }
-
-                replays.push(file);
-                replayJsons.set(file, json);
+            
+            entries.sort(function(a,b):Int { return Std.int(b.ts - a.ts); });
+            
+            for (entry in entries)
+            {
+                replays.push(entry.file);
+                replayJsons.set(entry.file, entry.json);
             }
         }
-
-        totalPages = Math.ceil(replays.length / itemsPerPage);
-        if (totalPages == 0) totalPages = 1;
+        
+        originalReplays = replays.copy();
+        originalJsons = new Map();
+        for (key in replayJsons.keys())
+            originalJsons.set(key, replayJsons.get(key));
         #end
+    }
+    
+    function filterSongs()
+    {
+        var searchText:String = (searchInput != null && searchInput.text != null) ? searchInput.text : "";
+        searchText = StringTools.trim(searchText.toLowerCase());
+        
+        if (searchText.length == 0)
+        {
+            replays = originalReplays.copy();
+            replayJsons.clear();
+            for (key in originalJsons.keys())
+                replayJsons.set(key, originalJsons.get(key));
+        }
+        else
+        {
+            replays = [];
+            replayJsons.clear();
+            
+            for (file in originalReplays)
+            {
+                var json = originalJsons.get(file);
+                if (json == null) continue;
+                
+                var match = false;
+                if (file.toLowerCase().indexOf(searchText) != -1) match = true;
+                if (!match && json.songName != null && 
+                    Std.string(json.songName).toLowerCase().indexOf(searchText) != -1) match = true;
+                if (!match && json.difficultyName != null && 
+                    Std.string(json.difficultyName).toLowerCase().indexOf(searchText) != -1) match = true;
+                
+                if (match)
+                {
+                    replays.push(file);
+                    replayJsons.set(file, json);
+                }
+            }
+        }
+        
+        curSelected = 0;
+        cardScrollPos = 0;
+        if (cardScroller != null)
+        {
+            var maxScroll = Math.max(0, (replays.length - CARDS_PER_PAGE) * (CARD_HEIGHT + CARD_SPACING));
+            cardScroller.moveLimit = [0, maxScroll];
+            cardScroller.tweenData = 0;
+        }
+        
+        updateDisplay();
     }
     
     function updateDisplay()
     {
-        grpReplays.clear();
-        hoveredCard = null;
+        cardsContainer.clear();
+        allCards = [];
         
         if (replays.length == 0)
         {
             noReplaysText.visible = true;
-            statsText.text = "No replays found in assets/replays/";
-            pageText.text = "";
+            detailPanel.updateWithReplay("", null);
             return;
         }
         
         noReplaysText.visible = false;
+        statsText.text = 'Total: ${replays.length} replays';
         
-        var startIndex:Int = currentPage * itemsPerPage;
-        var endIndex:Int = Math.floor(Math.min(startIndex + itemsPerPage, replays.length));
+        var startX:Float = 15;
+        var startY:Float = 95;
         
-        statsText.text = 'Total Replays: ${replays.length}';
-        pageText.text = 'Page ${currentPage + 1}/${totalPages} (${startIndex + 1}-${endIndex})';
-        
-        var cardWidth:Int = Std.int(FlxG.width * 0.9);
-        var cardHeight:Int = 90;
-        var cardSpacing:Int = 15;
-        var startX:Int = Std.int((FlxG.width - cardWidth) / 2);
-        var startY:Int = 120;
-        
-        for (i in 0...(endIndex - startIndex))
+        for (i in 0...replays.length)
         {
-            var replayIndex:Int = startIndex + i;
-            var filename = replays[replayIndex];
+            var filename = replays[i];
+            var json = replayJsons.get(filename);
             
-            try
-            {
-                var json:Dynamic = replayJsons.get(filename);
-                if (json == null) {
-                    // 回退到从磁盘读取（兼容旧文件）
-                    var filePath = "assets/replays/" + filename;
-                    var fileContent = File.getContent(filePath);
-                    json = Json.parse(fileContent);
-                }
-
-                if (json == null) continue;
-                if (json.songName == null) json.songName = "Unknown Song";
-                if (json.difficultyName == null) json.difficultyName = (json.songDiff != null ? Difficulty.getString(Std.int(json.songDiff)) : "Normal");
-                if (json.accuracy == null) json.accuracy = 0;
-                if (json.score == null) json.score = 0;
-                if (json.timestamp == null) json.timestamp = Date.now();
-                if (json.modDirectory == null) json.modDirectory = "";
-
-                var card = new ReplayCard(
-                    startX,
-                    startY + i * (cardHeight + cardSpacing),
-                    cardWidth,
-                    cardHeight,
-                    json,
-                    filename,
-                    replayIndex
-                );
-                
-                // 设置回调函数
-                card.onClick = function() {
-                    if (card.index == curSelected) {
-                        // 如果已经选中，点击就加载
-                        loadReplay(card.filename);
-                    } else {
-                        // 否则只选中
-                        changeSelectionTo(card.index, true);
-                    }
-                };
-                
-                card.onDoubleClick = function() {
-                    changeSelectionTo(card.index, false);
+            if (json == null) continue;
+            
+            var card = new ReplayCard(
+                startX,
+                startY + i * (CARD_HEIGHT + CARD_SPACING),
+                CARD_WIDTH,
+                CARD_HEIGHT,
+                json,
+                filename,
+                i
+            );
+            
+            card.onClick = function() {
+                if (card.index == curSelected)
                     loadReplay(card.filename);
-                };
-                
-                card.onRightClick = function() {
-                    changeSelectionTo(card.index, true);
-                    viewReplayResults(card.filename);
-                };
-                
-                card.onMiddleClick = function() {
-                    changeSelectionTo(card.index, true);
-                    viewReplayResults(card.filename);
-                };
-                
-                card.onMouseOver = function() {
-                    // 鼠标悬停处理已经在updateHoverState中处理
-                };
-                
-                card.onMouseOut = function() {
-                    // 鼠标离开处理已经在updateHoverState中处理
-                };
-                
-                card.updateSelection(replayIndex == curSelected);
-                grpReplays.add(card);
-            }
-            catch(e:Dynamic)
+                else
+                    changeSelection(card.index);
+            };
+            
+            card.onDoubleClick = function() {
+                changeSelection(card.index);
+                loadReplay(card.filename);
+            };
+            
+            card.updateSelected(i == curSelected);
+            cardsContainer.add(card);
+            allCards.push(card);
+        }
+        
+        updateCardsPosition();
+        
+        // 更新详情面板
+        if (curSelected >= 0 && curSelected < replays.length)
+        {
+            var selectedJson = replayJsons.get(replays[curSelected]);
+            detailPanel.updateWithReplay(replays[curSelected], selectedJson);
+        }
+    }
+    
+    function updateCardsPosition()
+    {
+        var cardIndex:Float = cardScrollPos / (CARD_HEIGHT + CARD_SPACING);
+        
+        for (i in 0...allCards.length)
+        {
+            var card = allCards[i];
+            var distance = i - cardIndex;
+            var visible = Math.abs(distance) <= CARDS_PER_PAGE + 2;
+            
+            if (visible)
             {
-                trace('Error loading replay ${filename}: $e');
+                card.visible = true;
+                card.active = true;
+                var targetY:Float = 95 + (i * (CARD_HEIGHT + CARD_SPACING)) - cardScrollPos;
+                card.y = targetY;
+            }
+            else
+            {
+                card.visible = false;
+                card.active = false;
             }
         }
     }
     
+    function updateMouseSelection()
+    {
+        if (waitingForDeleteConfirm) return;
+        
+        for (card in allCards)
+        {
+            if (card != null && card.visible && FlxG.mouse.overlaps(card))
+            {
+                if (card.index != curSelected)
+                {
+                    changeSelection(card.index);
+                    FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
+                }
+                
+                if (FlxG.mouse.justPressed)
+                {
+                    if (card.index == curSelected)
+                        loadReplay(card.filename);
+                }
+                break;
+            }
+        }
+    }
+    
+    function changeSelection(index:Int, playSound:Bool = true)
+    {
+        if (index < 0) index = 0;
+        if (index >= replays.length) index = replays.length - 1;
+        
+        var oldSelected = curSelected;
+        curSelected = index;
+        
+        // 更新卡片选中状态
+        for (card in allCards)
+        {
+            if (card != null)
+                card.updateSelected(card.index == curSelected);
+        }
+        
+        // 更新详情面板
+        if (curSelected >= 0 && curSelected < replays.length)
+        {
+            var selectedJson = replayJsons.get(replays[curSelected]);
+            detailPanel.updateWithReplay(replays[curSelected], selectedJson);
+        }
+        
+        if (playSound && oldSelected != curSelected)
+            FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+    }
+    
     function handleKeyboardControls()
     {
-        if (controls.BACK || FlxG.mouse.justPressedRight) // 右键也作为返回
+        if (controls.BACK || FlxG.keys.justPressed.ESCAPE)
         {
             FlxG.sound.play(Paths.sound('cancelMenu'));
             MusicBeatState.switchState(new FreeplayState());
             return;
         }
         
-        if (replays.length > 0)
+        if (replays.length == 0) return;
+        
+        if (controls.UI_UP_P)
+            changeSelection(curSelected - 1);
+        
+        if (controls.UI_DOWN_P)
+            changeSelection(curSelected + 1);
+        
+        // 使用普通按键模拟翻页 (PageUp/PageDown 键)
+        if (FlxG.keys.justPressed.PAGEUP)
+            changeSelection(curSelected - CARDS_PER_PAGE);
+        
+        if (FlxG.keys.justPressed.PAGEDOWN)
+            changeSelection(curSelected + CARDS_PER_PAGE);
+        
+        if (controls.ACCEPT)
         {
-            if (controls.UI_UP_P)
-            {
-                changeSelection(-1, true);
-            }
-            
-            if (controls.UI_DOWN_P)
-            {
-                changeSelection(1, true);
-            }
-            
-            if (controls.UI_LEFT_P)
-            {
-                changePage(-1);
-            }
-            
-            if (controls.UI_RIGHT_P)
-            {
-                changePage(1);
-            }
-            
-            if (controls.ACCEPT)
-            {
-                if (curSelected >= 0 && curSelected < replays.length)
-                {
-                    loadReplay(replays[curSelected]);
-                }
-            }
-            
-            if (FlxG.keys.justPressed.V)
-            {
-                if (curSelected >= 0 && curSelected < replays.length)
-                {
-                    viewReplayResults(replays[curSelected]);
-                }
-            }
-            
-            if (FlxG.keys.justPressed.F)
-            {
-                if (curSelected >= 0 && curSelected < replays.length)
-                {
-                    var selectedFile = replays[curSelected];
-                    promptDelete(selectedFile);
-                }
-            }
+            if (curSelected >= 0 && curSelected < replays.length)
+                loadReplay(replays[curSelected]);
         }
+        
+        if (FlxG.keys.justPressed.V)
+        {
+            if (curSelected >= 0 && curSelected < replays.length)
+                viewReplayResults(replays[curSelected]);
+        }
+        
+        if (FlxG.keys.justPressed.F)
+        {
+            if (curSelected >= 0 && curSelected < replays.length)
+                promptDelete(replays[curSelected]);
+        }
+        
+        // Home/End 快速导航
+        if (FlxG.keys.justPressed.HOME)
+            changeSelection(0);
+        if (FlxG.keys.justPressed.END)
+            changeSelection(replays.length - 1);
     }
     
     function handleDeleteConfirmation()
     {
         if (FlxG.keys.justPressed.Y)
-        {
             confirmDelete();
-        }
         else if (FlxG.keys.justPressed.N || FlxG.keys.justPressed.ESCAPE)
-        {
             cancelDelete();
-        }
-    }
-    
-    function changeSelectionTo(index:Int, playSound:Bool = true)
-    {
-        if (index < 0) index = 0;
-        if (index >= replays.length) index = replays.length - 1;
-        
-        var change = index - curSelected;
-        if (change != 0) {
-            changeSelection(change, playSound);
-        }
-    }
-    
-    function changeSelection(change:Int, playSound:Bool = true)
-    {
-        if (replays.length == 0) return;
-        
-        var oldSelected = curSelected;
-        curSelected += change;
-        
-        if (curSelected < 0)
-            curSelected = replays.length - 1;
-        if (curSelected >= replays.length)
-            curSelected = 0;
-        
-        var startIndex = currentPage * itemsPerPage;
-        var endIndex = Math.min(startIndex + itemsPerPage, replays.length);
-        
-        if (curSelected < startIndex)
-        {
-            currentPage = Math.floor(curSelected / itemsPerPage);
-            updateDisplay();
-            if (playSound) FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-        }
-        else if (curSelected >= endIndex)
-        {
-            currentPage = Math.floor(curSelected / itemsPerPage);
-            updateDisplay();
-            if (playSound) FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-        }
-        else
-        {
-            // 更新选中状态
-            for (card in grpReplays)
-            {
-                if (card.index == oldSelected)
-                {
-                    card.updateSelection(false);
-                }
-                if (card.index == curSelected)
-                {
-                    card.updateSelection(true);
-                }
-            }
-            if (playSound) FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-        }
-    }
-    
-    function changePage(change:Int)
-    {
-        if (totalPages <= 1) return;
-        
-        var oldPage = currentPage;
-        currentPage += change;
-        
-        if (currentPage < 0)
-            currentPage = totalPages - 1;
-        if (currentPage >= totalPages)
-            currentPage = 0;
-            
-        if (currentPage != oldPage)
-        {
-            updateDisplay();
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-        }
     }
     
     public function loadReplay(filename:String):Void
@@ -1047,40 +1073,28 @@ class LoadReplayState extends MusicBeatState
         
         #if MODS_ALLOWED
         if (rep.replay.modDirectory != null && rep.replay.modDirectory.length > 0)
-        {
             Mods.currentModDirectory = rep.replay.modDirectory;
-            trace('Set mod directory to: ${rep.replay.modDirectory}');
-        }
         #end
         
         PlayState.rep = rep;
         PlayState.loadRep = true;
         PlayState.inReplay = true;
         PlayState.replayFileName = filename;
-        trace('Set replayFileName to: $filename');
         
         var difficultyID:Int = 1;
-        
         if (rep.replay.difficultyName != null)
         {
             var diffLower = rep.replay.difficultyName.toLowerCase();
-            
-            if (diffLower.indexOf('easy') >= 0)
-                difficultyID = 0;
-            else if (diffLower.indexOf('normal') >= 0 || diffLower.indexOf('standard') >= 0)
-                difficultyID = 1;
-            else if (diffLower.indexOf('hard') >= 0)
-                difficultyID = 2;
-            else
-                difficultyID = rep.replay.songDiff;
+            if (diffLower.indexOf('easy') >= 0) difficultyID = 0;
+            else if (diffLower.indexOf('normal') >= 0 || diffLower.indexOf('standard') >= 0) difficultyID = 1;
+            else if (diffLower.indexOf('hard') >= 0) difficultyID = 2;
+            else difficultyID = rep.replay.songDiff;
         }
         else
-        {
             difficultyID = rep.replay.songDiff;
-        }
         
         PlayState.storyDifficulty = difficultyID;
-        trace('Setting storyDifficulty to: $difficultyID (${Difficulty.getString(difficultyID)})');
+        PlayState.storyWeek = 0;
         
         var songName:String = rep.replay.songName;
         var difficultyName:String = rep.replay.difficultyName;
@@ -1091,9 +1105,7 @@ class LoadReplayState extends MusicBeatState
             if (difficultyName != null)
             {
                 var lowerDiff = difficultyName.toLowerCase();
-                if (lowerDiff == 'normal' || lowerDiff == 'standard')
-                    diffSuffix = '';
-                else
+                if (lowerDiff != 'normal' && lowerDiff != 'standard')
                     diffSuffix = '-' + lowerDiff;
             }
             
@@ -1103,11 +1115,8 @@ class LoadReplayState extends MusicBeatState
             PlayState.SONG = Song.loadFromJson(jsonToLoad, songName);
             
             if (PlayState.SONG == null)
-            {
                 throw 'Failed to load song';
-            }
             
-            PlayState.storyDifficulty = difficultyID;
             PlayState.isStoryMode = false;
             ClientPrefs.data.downScroll = rep.replay.isDownscroll;
             
@@ -1128,13 +1137,6 @@ class LoadReplayState extends MusicBeatState
         
         try
         {
-            var filePath = "assets/replays/" + filename;
-            if (!FileSystem.exists(filePath)) {
-                FlxG.sound.play(Paths.sound('cancelMenu'));
-                showError("Replay file not found!");
-                return;
-            }
-            
             var rep:Replay = Replay.LoadReplay(filename);
             if (rep == null || !rep.isValid())
             {
@@ -1144,10 +1146,9 @@ class LoadReplayState extends MusicBeatState
             }
             
             PlayState.rep = rep;
-            
-            var resultsScreen = new ResultsScreen(REPLAY_PREVIEW, filename);
-            
-            openSubState(resultsScreen);
+            // 注意: ResultsScreen 需要根据你的项目实际情况调整
+            // var resultsScreen = new ResultsScreen(REPLAY_PREVIEW, filename);
+            // openSubState(resultsScreen);
             FlxG.sound.play(Paths.sound('confirmMenu'));
         }
         catch(e:Dynamic)
@@ -1160,9 +1161,8 @@ class LoadReplayState extends MusicBeatState
     
     function showError(message:String):Void
     {
-        var errorMsg:FlxText = new FlxText(0, FlxG.height / 2 - 30, FlxG.width, 
-            message, 20);
-        errorMsg.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
+        var errorMsg:FlxText = new FlxText(0, FlxG.height / 2 - 30, FlxG.width, message, 18);
+        errorMsg.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
         errorMsg.borderSize = 2;
         errorMsg.screenCenter(X);
         add(errorMsg);
@@ -1179,14 +1179,12 @@ class LoadReplayState extends MusicBeatState
         waitingForDeleteConfirm = true;
         
         var displayName = filename;
-        if (displayName.length > 30) {
-            displayName = displayName.substr(0, 27) + "...";
-        }
+        if (displayName.length > 40)
+            displayName = displayName.substr(0, 37) + "...";
         
         deleteConfirmText.text = 'Delete "${displayName}"? (Y/N)';
         deleteConfirmText.screenCenter(X);
         deleteConfirmText.visible = true;
-        
         FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
     }
     
@@ -1200,8 +1198,9 @@ class LoadReplayState extends MusicBeatState
             trace('Deleted replay: $replayToDelete');
             
             loadReplays();
+            filterSongs();
             curSelected = 0;
-            currentPage = 0;
+            cardScrollPos = 0;
             updateDisplay();
             
             FlxG.sound.play(Paths.sound('cancelMenu'));
@@ -1217,5 +1216,11 @@ class LoadReplayState extends MusicBeatState
         replayToDelete = "";
         deleteConfirmText.visible = false;
         FlxG.sound.play(Paths.sound('cancelMenu'));
+    }
+    
+    override function destroy()
+    {
+        if (detailPanel != null) detailPanel.destroy();
+        super.destroy();
     }
 }

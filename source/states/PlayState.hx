@@ -182,11 +182,18 @@ class PlayState extends MusicBeatState
 	private var curSong:String = "";
 
 	public var gfSpeed:Int = 1;
-	public var health(default, set):Float = 1;
+	private var _health:Float = 1;
+	public var playerHealth:Float = 1;
+	public var opponentHealth:Float = 1;
+	public var playerDead:Bool = false;
+	public var opponentDead:Bool = false;
+	@:isVar public var health(get, set):Float;
 	public var combo:Int = 0;
 	public var highestCombo:Int = 0;
 
 	public var healthBar:Bar;
+	public var healthBarP1:Bar;
+	public var healthBarP2:Bar;
 	public var timeBar:Bar;
 	var songPercent:Float = 0;
 
@@ -211,52 +218,22 @@ class PlayState extends MusicBeatState
 	public static var lastKeyBindIndex:Int = 0;
 	public var pressMissDamage:Float = 0.05;
 
-	private function noteIsHuman(note:Note, keyBindIndex:Int = -1):Bool
-	{
-		switch(opponentMode)
-		{
-			case "opponent":
-				return !note.mustPress;
-			case "coop":
-				if (keyBindIndex < 0) return true;
-				return keyBindIndex == 0 ? note.mustPress : !note.mustPress;
-			default:
-				return note.mustPress;
-		}
-	}
+	public var judgementCounterPlayer:objects.JudgementCounter;
+	public var judgementCounterOpponent:objects.JudgementCounter;
+	public var hitErrorBarPlayer:HitErrorBar;
+	public var hitErrorBarOpponent:HitErrorBar;
 
-	private function noteShouldUseOpponentSide(note:Note):Bool
-	{
-		return !note.mustPress;
-	}
+	public var playerCombo:Int = 0;
+	public var opponentCombo:Int = 0;
+	public var playerHighestCombo:Int = 0;
+	public var opponentHighestCombo:Int = 0;
+	public var playerSongHits:Int = 0;
+	public var opponentSongHits:Int = 0;
+	public var playerRatingsData:Array<Rating> = Rating.loadDefault();
+	public var opponentRatingsData:Array<Rating> = Rating.loadDefault();
+	public var playerSongMisses:Int = 0;
+	public var opponentSongMisses:Int = 0;
 
-	private function shouldFireOpponentEvents(note:Note):Bool
-	{
-		return !note.mustPress && (opponentMode == "opponent" || opponentMode == "coop");
-	}
-
-	private function triggerOpponentEventsForHumanHit(note:Note):Void
-	{
-		var result:Dynamic = callOnLuas('opponentNoteHitPre', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
-		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll)
-			result = callOnHScript('opponentNoteHitPre', [note]);
-
-		if(result == LuaUtils.Function_Stop) return;
-
-		note.hitByOpponent = true;
-		if (note.isSustainNote && noteHoldCover != null)
-		{
-			if (noteShouldUseOpponentSide(note))
-				noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
-			else
-				noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
-		}
-
-		stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
-		var result2:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
-		if(result2 != LuaUtils.Function_Stop && result2 != LuaUtils.Function_StopHScript && result2 != LuaUtils.Function_StopAll)
-			callOnHScript('opponentNoteHit', [note]);
-	}
 
 	private function getStrumGroup(note:Note):FlxTypedGroup<StrumNote>
 	{
@@ -267,7 +244,7 @@ class PlayState extends MusicBeatState
 
 	private function getStrumForKey(key:Int, keyBindIndex:Int = 0):StrumNote
 	{
-		if (opponentMode == "coop" && keyBindIndex > 0)
+		if (isCoopMode() && keyBindIndex > 0)
 			return opponentStrums.members[key];
 		if (opponentMode == "opponent")
 			return opponentStrums.members[key];
@@ -405,7 +382,7 @@ class PlayState extends MusicBeatState
         else
             opponentMode = "player"; // 向后兼容
         
-        keys = (opponentMode == "coop") ? 8 : 4; // 根据游戏模式设置键位数量
+        keys = isCoopMode() ? 8 : 4; // 根据游戏模式设置键位数量
         trace('Opponent mode set to: ' + opponentMode);
         
         // 设置回放模式标志
@@ -460,7 +437,7 @@ class PlayState extends MusicBeatState
 		practiceMode = ClientPrefs.getGameplaySetting('practice');
 		cpuControlled = ClientPrefs.getGameplaySetting('botplay');
 		opponentMode = ClientPrefs.getGameplaySetting('opponentplay');
-		keys = (opponentMode == "coop") ? 8 : 4; // 根据游戏模式设置键位数量
+		keys = isCoopMode() ? 8 : 4; // 根据游戏模式设置键位数量
 		guitarHeroSustains = ClientPrefs.data.guitarHeroSustains;
 
 		// var gameCam:FlxCamera = FlxG.camera;
@@ -696,26 +673,60 @@ class PlayState extends MusicBeatState
 		FlxG.worldBounds.set(0, 0, FlxG.width, FlxG.height);
 		moveCameraSection();
 
+		if (isSplitCoopMode())
+		{
+			playerHealth = 0.5;
+			opponentHealth = 0.5;
+			playerDead = false;
+			opponentDead = false;
+
+			var healthY:Float = FlxG.height * (!ClientPrefs.data.downScroll ? 0.79 : 0.21);
+			healthBarP1 = new Bar(0, healthY, 'healthBar', function() return playerHealth, 0, 1);
+			healthBarP1.x = FlxG.width - 20 - healthBarP1.width;
+			healthBarP1.leftToRight = false;
+			healthBarP1.scrollFactor.set();
+			healthBarP1.visible = !ClientPrefs.data.hideHud;
+			healthBarP1.alpha = ClientPrefs.data.healthBarAlpha;
+			uiGroup.add(healthBarP1);
+
+			healthBarP2 = new Bar(20, healthY, 'healthBar', function() return opponentHealth, 0, 1);
+			healthBarP2.leftToRight = true;
+			healthBarP2.scrollFactor.set();
+			healthBarP2.visible = !ClientPrefs.data.hideHud;
+			healthBarP2.alpha = ClientPrefs.data.healthBarAlpha;
+			uiGroup.add(healthBarP2);
+
+			healthBar = new Bar(0, FlxG.height * (!ClientPrefs.data.downScroll ? 0.89 : 0.11), 'healthBar', function() return health, 0, 2);
+			healthBar.visible = false;
+
+			reloadHealthBarColors();
+		}
+		else
+		{
 		healthBar = new Bar(0, FlxG.height * (!ClientPrefs.data.downScroll ? 0.89 : 0.11), 'healthBar', function() return health, 0, 2);
 		healthBar.screenCenter(X);
-		healthBar.leftToRight = false;
+		if (opponentMode == 'opponent') healthBar.leftToRight = true;
+		 else healthBar.leftToRight = false;
 		healthBar.scrollFactor.set();
 		healthBar.visible = !ClientPrefs.data.hideHud;
 		healthBar.alpha = ClientPrefs.data.healthBarAlpha;
 		reloadHealthBarColors();
 		uiGroup.add(healthBar);
+		}
 
 		iconP1 = new HealthIcon(boyfriend.healthIcon, true);
-		iconP1.y = healthBar.y - 75;
+		iconP1.y = (isSplitCoopMode() ? healthBarP1.y - 7 : healthBar.y) - 75;
 		iconP1.visible = !ClientPrefs.data.hideHud;
 		iconP1.alpha = ClientPrefs.data.healthBarAlpha;
 		uiGroup.add(iconP1);
 
 		iconP2 = new HealthIcon(dad.healthIcon, false);
-		iconP2.y = healthBar.y - 75;
+		iconP2.y = (isSplitCoopMode() ? healthBarP2.y - 7 : healthBar.y) - 75;
 		iconP2.visible = !ClientPrefs.data.hideHud;
 		iconP2.alpha = ClientPrefs.data.healthBarAlpha;
 		uiGroup.add(iconP2);
+
+		refreshSplitCoopIconFrames();
 
 		scoreTxt = new FlxText(0, healthBar.y + 40, FlxG.width, "", 20);
 		scoreTxt.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
@@ -740,8 +751,13 @@ class PlayState extends MusicBeatState
 
 		// Instantiate modular UI objects (migrated to objects/)
 		healthTextObj = new objects.HealthText(this);
-		judgementCounterObj = new objects.JudgementCounter(this);
 		songInfoTextObj = new objects.SongInfoText(this);
+		if (isSplitCoopMode())
+		{
+			judgementCounterPlayer = new objects.JudgementCounter(this, "player");
+			judgementCounterOpponent = new objects.JudgementCounter(this, "opponent");
+		}
+
 
 		keyboardViewer = new KeyboardViewer(FlxG.width/2 + ClientPrefs.data.kbOffsetX, FlxG.height - 150 + ClientPrefs.data.kbOffsetY, keys);
 		keyboardViewer.antialiasing = ClientPrefs.data.antialiasing;
@@ -749,21 +765,38 @@ class PlayState extends MusicBeatState
 		if (ClientPrefs.data.kb) add(keyboardViewer);
 		if (ClientPrefs.data.hitErrorBarVisible)
 		{
-			hitErrorBar = new HitErrorBar();
-			hitErrorBar.screenCenter();
-			hitErrorBar.x -= 250 + ClientPrefs.data.hitErrorBarOffsetX;
-			hitErrorBar.y = FlxG.height * 0.3 + ClientPrefs.data.hitErrorBarOffsetY; // 顶部10%位置
-			if (ClientPrefs.data.downScroll) {
-       		 hitErrorBar.y = FlxG.height - 100 + ClientPrefs.data.hitErrorBarOffsetY;
-    		}
-			uiGroup.add(hitErrorBar);
-		}
+			if (isSplitCoopMode())
+			{
+				hitErrorBarPlayer = new HitErrorBar();
+				hitErrorBarPlayer.screenCenter();
+				hitErrorBarPlayer.x = FlxG.width / 2 - 325;
+				hitErrorBarPlayer.y = FlxG.height * 0.27 + ClientPrefs.data.hitErrorBarOffsetY;
+				if (ClientPrefs.data.downScroll)
+					hitErrorBarPlayer.y = FlxG.height - 100 + ClientPrefs.data.hitErrorBarOffsetY;
+				uiGroup.add(hitErrorBarPlayer);
 
+				hitErrorBarOpponent = new HitErrorBar();
+				hitErrorBarOpponent.screenCenter();
+				hitErrorBarOpponent.x = FlxG.width / 2 - hitErrorBarOpponent.width - 175;
+				hitErrorBarOpponent.y = hitErrorBarPlayer.y;
+				uiGroup.add(hitErrorBarOpponent);
+			}
+			else
+			{
+				hitErrorBar = new HitErrorBar();
+				hitErrorBar.screenCenter();
+				hitErrorBar.x -= 250 + ClientPrefs.data.hitErrorBarOffsetX;
+				hitErrorBar.y = FlxG.height * 0.3 + ClientPrefs.data.hitErrorBarOffsetY; // 顶部10%位置
+				if (ClientPrefs.data.downScroll)
+        		 hitErrorBar.y = FlxG.height - 100 + ClientPrefs.data.hitErrorBarOffsetY;
+				uiGroup.add(hitErrorBar);
+			}
+		}
 		createModInfoBox();
 
 		if(ClientPrefs.data.downScroll)
 			botplayTxt.y = healthBar.y + 70;
-
+		
 		videoGroup.cameras = [camHUD];
 		uiGroup.cameras = [camHUD];
 		noteGroup.cameras = [camHUD];
@@ -850,7 +883,7 @@ class PlayState extends MusicBeatState
 		rep = new Replay("");
 
 		// 使用新的 JudgementCounter 模块替代旧的 createCounterUI
-		if (judgementCounterObj == null) judgementCounterObj = new objects.JudgementCounter(this);
+		if (judgementCounterObj == null && !isSplitCoopMode()) judgementCounterObj = new objects.JudgementCounter(this);
 
 		Paths.clearUnusedMemory();
 
@@ -897,12 +930,13 @@ class PlayState extends MusicBeatState
 		Conductor.offset = Reflect.hasField(PlayState.SONG, 'offset') ? (PlayState.SONG.offset / value) : 0;
 		Conductor.safeZoneOffset = (ClientPrefs.data.safeFrames / 60) * 1000 * value;
 		#if VIDEOS_ALLOWED
-		if(videoCutscene != null && videoCutscene.videoSprite != null) videoCutscene.videoSprite.bitmap.rate = value;
+		if(videoCutscene != null && videoCutscene.videoSprite != null)
+			videoCutscene.videoSprite.bitmap.rate = value;
 		#end
 		setOnScripts('playbackRate', playbackRate);
-		#else
+	#else
 		playbackRate = 1.0; // ensuring -Crow
-		#end
+	#end
 		return playbackRate;
 	}
 
@@ -925,9 +959,18 @@ class PlayState extends MusicBeatState
 	#end
 
 	public function reloadHealthBarColors() {
-		healthBar.setColors(FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]),
-			FlxColor.fromRGB(boyfriend.healthColorArray[0], boyfriend.healthColorArray[1], boyfriend.healthColorArray[2]));
-			}
+		if (isSplitCoopMode() && healthBarP1 != null && healthBarP2 != null) {
+			healthBarP1.setColors(FlxColor.WHITE , FlxColor.fromRGB(boyfriend.healthColorArray[0], boyfriend.healthColorArray[1], boyfriend.healthColorArray[2]));
+			healthBarP2.setColors(FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]),FlxColor.WHITE);
+			return;
+		}
+		else{
+		healthBar.setColors(
+			FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]),
+			FlxColor.fromRGB(boyfriend.healthColorArray[0], boyfriend.healthColorArray[1], boyfriend.healthColorArray[2])
+		);
+		}
+	}
 
 	public function reloadTimeBarAndTextColors() {
     if(ClientPrefs.data.customColor){
@@ -1450,7 +1493,12 @@ class PlayState extends MusicBeatState
 public function reloadCounterColors()
 	{
 		// Delegate counter/health/song color refresh to modules
-		if (judgementCounterObj != null) judgementCounterObj.update();
+		if (isSplitCoopMode())
+		{
+			if (judgementCounterPlayer != null) judgementCounterPlayer.update();
+			if (judgementCounterOpponent != null) judgementCounterOpponent.update();
+		}
+		else if (judgementCounterObj != null) judgementCounterObj.update();
 		if (healthTextObj != null) healthTextObj.refresh();
 		if (songInfoTextObj != null) songInfoTextObj.refresh();
 	}
@@ -2219,7 +2267,12 @@ public function reloadCounterColors()
 		#end
 	
 		if (healthTextObj != null) healthTextObj.refresh();
-		if (judgementCounterObj != null) judgementCounterObj.update();
+		if (isSplitCoopMode())
+		{
+			if (judgementCounterPlayer != null) judgementCounterPlayer.update();
+			if (judgementCounterOpponent != null) judgementCounterOpponent.update();
+		}
+		else if (judgementCounterObj != null) judgementCounterObj.update();
 
 		recycleDeadSplashes();
 		setOnScripts('botPlay', cpuControlled);
@@ -2254,29 +2307,20 @@ public function reloadCounterColors()
 	public dynamic function updateIconsPosition()
 	{
 		var iconOffset:Int = 26;
+		if(!isSplitCoopMode())
+		{
 		iconP1.x = healthBar.barCenter + (150 * iconP1.scale.x - 150) / 2 - iconOffset;
 		iconP2.x = healthBar.barCenter - (150 * iconP2.scale.x) / 2 - iconOffset * 2;
+		}
+		else
+		{
+			iconP1.x = (150 * iconP1.scale.x) / 2 + iconOffset + 1000;
+			iconP2.x = (150 * iconP2.scale.x) / 2 - iconOffset * 2;
+		}
+		
 	}
 
 	var iconsAnimations:Bool = true;
-	function set_health(value:Float):Float // You can alter how icon animations work here
-	{
-		value = FlxMath.roundDecimal(value, 5); //Fix Float imprecision
-		if(!iconsAnimations || healthBar == null || !healthBar.enabled || healthBar.valueFunction == null)
-		{
-			health = value;
-			return health;
-		}
-
-		// update health bar
-		health = value;
-		var newPercent:Null<Float> = FlxMath.remapToRange(FlxMath.bound(healthBar.valueFunction(), healthBar.bounds.min, healthBar.bounds.max), healthBar.bounds.min, healthBar.bounds.max, 0, 100);
-		healthBar.percent = (newPercent != null ? newPercent : 0);
-
-		iconP1.animation.curAnim.curFrame = (healthBar.percent < 20) ? 1 : 0; //If health is under 20%, change player icon to frame 1 (losing icon), otherwise, frame 0 (normal)
-		iconP2.animation.curAnim.curFrame = (healthBar.percent > 80) ? 1 : 0; //If health is over 80%, change opponent icon to frame 1 (losing icon), otherwise, frame 0 (normal)
-		return health;
-	}
 
 	function openPauseMenu()
 	{
@@ -2357,7 +2401,13 @@ public function reloadCounterColors()
 	public var isDead:Bool = false; //Don't mess with this on Lua!!!
 	public var gameOverTimer:FlxTimer;
 	function doDeathCheck(?skipHealthCheck:Bool = false) {
-		if (((skipHealthCheck && instakillOnMiss) || health <= 0) && !practiceMode && !isDead && gameOverTimer == null && !ClientPrefs.data.skipDeath)
+		var shouldDie:Bool = false;
+	if (!isSplitCoopMode())
+		shouldDie = ((skipHealthCheck && instakillOnMiss) || health <= 0);
+	else
+		shouldDie = ((skipHealthCheck && instakillOnMiss) || (playerHealth <= 0 && opponentHealth <= 0));
+
+	if (shouldDie && !practiceMode && !isDead && gameOverTimer == null && !ClientPrefs.data.skipDeath)
 		{
 			var ret:Dynamic = callOnScripts('onGameOver', null, true);
 			if(ret != LuaUtils.Function_Stop)
@@ -2856,6 +2906,7 @@ public function reloadCounterColors()
 		if (ClientPrefs.data.scoreScreen)
 		{
 			if (vocals != null) vocals.stop();
+			if (opponentVocals != null) opponentVocals.stop();
 			if (FlxG.sound.music != null) FlxG.sound.music.stop();
 			
 			paused = true;
@@ -2937,6 +2988,7 @@ public function proceedToNextState():Void
 {
 	// 确保游戏音乐已经停止
 	if (vocals != null) vocals.stop();
+	if (opponentVocals != null) opponentVocals.stop();
 	if (FlxG.sound.music != null) FlxG.sound.music.stop();
 	
 	// 清理回放相关变量
@@ -3103,13 +3155,18 @@ private function cachePopUpScore()
         Paths.image(uiFolder + 'combo' + uiPostfix);
     }
 }
-	private function popUpScore(note:Note = null, rawNoteDiff:Null<Float> = null):Void 
+	private function popUpScore(note:Note = null, rawNoteDiff:Null<Float> = null, ?side:String):Void 
 	{
         if (combo >= highestCombo) highestCombo = combo;
-        // 计算时间差
-	var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+        var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
 	var noteDiff:Float = Math.abs(effectiveNoteDiff);
         vocals.volume = 1;
+		if(opponentMode != 'player' && opponentVocals != null)
+			opponentVocals.volume = 1;
+		if (isSplitCoopMode() && side == null)
+			side = getSideFromNote(note);
+		if (side == null) side = "player";
+		var displayCombo:Int = if (isSplitCoopMode()) getSideCombo(side) else combo;
         
         // 清理旧的显示（非combo stacking模式保持原有逻辑）
         var shouldCleanupManually:Bool = false;
@@ -3137,8 +3194,14 @@ private function cachePopUpScore()
         }
         
         // 判定评级
-        var placement:Float = FlxG.width * 0.35;
-        var daRating:Rating = Conductor.judgeNote(ratingsData, noteDiff / playbackRate);
+		var placement:Float = (side == "player" && isSplitCoopMode()) ? FlxG.width * 0.8 : FlxG.width * 0.35;
+		var daRating:Rating = Conductor.judgeNote(ratingsData, noteDiff / playbackRate);
+		if (!note.ratingDisabled)
+		{
+			var sideRatings:Array<Rating> = getSideRatingsData(side);
+			var sideRatingIndex:Int = getRatingIndexByName(daRating.name, sideRatings);
+			if (sideRatingIndex >= 0) sideRatings[sideRatingIndex].hits++;
+		}
         
         totalNotesHit += daRating.ratingMod;
         note.ratingMod = daRating.ratingMod;
@@ -3340,7 +3403,7 @@ private function cachePopUpScore()
             comboSpr.velocity.y -= FlxG.random.int(140, 160) * playbackRate;
             comboSpr.velocity.x += FlxG.random.int(1, 10) * playbackRate;
 			}
-            comboSpr.visible = (!ClientPrefs.data.hideHud && showCombo && combo >9);
+            comboSpr.visible = (!ClientPrefs.data.hideHud && showCombo && displayCombo > 9);
             comboSpr.antialiasing = antialias;
         }
         
@@ -3363,7 +3426,7 @@ private function cachePopUpScore()
         rating.updateHitbox();
         
         // ========== 创建或复用数字精灵 ==========
-        var separatedScore:String = Std.string(combo).lpad('0', 3);
+        var separatedScore:String = Std.string(displayCombo).lpad('0', 3);
         var xThing:Float = 0;
         var createdNumbers:Array<FlxSprite> = [];
         
@@ -3714,7 +3777,7 @@ private function cachePopUpScore()
 
 		if (keyboardViewer != null) {
 			var displayKey = key;
-			if (opponentMode == "coop" && keyBindIndex == 1) displayKey += 4;
+			if (isCoopMode() && keyBindIndex == 1) displayKey += 4;
 			keyboardViewer.pressed(displayKey);
 		}
 
@@ -3798,7 +3861,7 @@ private function cachePopUpScore()
 
 		if (keyboardViewer != null) {
 			var displayKey = key;
-			if (opponentMode == "coop" && keyBindIndex == 1) displayKey += 4;
+			if (isCoopMode() && keyBindIndex == 1) displayKey += 4;
 			keyboardViewer.released(displayKey);
 		}
 		var ret:Dynamic = callOnScripts('onKeyReleasePre', [key]);
@@ -3874,7 +3937,7 @@ private function cachePopUpScore()
 
 					if (canHit && n.isSustainNote) {
 						var released:Bool = true;
-						if (opponentMode == "coop")
+						if (isCoopMode())
 							released = !((n.mustPress ? holdArray[n.noteData] : holdArrayAlt[n.noteData]));
 						else
 							released = !(holdArray[n.noteData] || holdArrayAlt[n.noteData]);
@@ -4017,15 +4080,29 @@ private function cachePopUpScore()
 
 		if(instakillOnMiss)
 		{
-			vocals.volume = 0;
-			opponentVocals.volume = 0;
+			muteVoiceForSide(note);
 			doDeathCheck(true);
 		}
 
 		var lastCombo:Int = combo;
 		combo = 0;
 
-		health -= subtract * healthLoss;
+		var healthLossAmount:Float = subtract * healthLoss;
+		if (isSplitCoopMode())
+		{
+			var damageSide:String = "player";
+			if (note != null && noteShouldUseOpponentSide(note)) damageSide = "opponent";
+			addSideHealth(damageSide, -healthLossAmount);
+			if (!endingSong)
+			{
+				if (damageSide == "opponent") opponentSongMisses++;
+				else playerSongMisses++;
+			}
+		}
+		else
+		{
+			health -= healthLossAmount;
+		}
 		songScore -= 10;
 		if(!endingSong) songMisses++;
 		totalPlayed++;
@@ -4051,7 +4128,7 @@ private function cachePopUpScore()
 
 			// Set character to gray color on miss
 			var originalColor:FlxColor = char.color;
-			char.color = FlxColor.GRAY;
+			if(!char.hasMissAnimations) char.color = FlxColor.GRAY;
 			new FlxTimer().start(0.5, function(tmr:FlxTimer) {
 				char.color = originalColor;
 			});
@@ -4062,7 +4139,7 @@ private function cachePopUpScore()
 				gf.specialAnim = true;
 			}
 		}
-		vocals.volume = 0;
+		muteVoiceForSide(note);
 	}
 
 	function opponentNoteHit(note:Note):Void
@@ -4108,6 +4185,7 @@ private function cachePopUpScore()
 		}
 
 		if(opponentVocals.length <= 0) vocals.volume = 1;
+		if(opponentMode != "player" && opponentVocals != null) opponentVocals.volume = 1;
 		var isDadStrum:Bool = !(opponentMode == "opponent" && note.mustPress);
 		strumPlayAnim(isDadStrum, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
 		note.hitByOpponent = true;
@@ -4131,7 +4209,7 @@ private function cachePopUpScore()
 		if(note.wasGoodHit) return;
 		if(cpuControlled && note.ignoreNote) return;
 
-		if (opponentMode == "coop" && songName != "tutorial") camZooming = true;
+		if (isCoopMode() && songName != "tutorial") camZooming = true;
 
 		var isSus:Bool = note.isSustainNote; //GET OUT OF MY HEAD, GET OUT OF MY HEAD, GET OUT OF MY HEAD
 		var leData:Int = Math.round(Math.abs(note.noteData));
@@ -4200,17 +4278,50 @@ private function cachePopUpScore()
 				if(spr != null) spr.playAnim('confirm', true);
 			}
 			else strumPlayAnim(!note.mustPress, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
-			vocals.volume = 1;
+			restoreVoiceForSide(note);
 
 			if (!note.isSustainNote)
 			{
+				var hitSide:String = "player";
+				if (isSplitCoopMode())
+				{
+					hitSide = getSideFromNote(note);
+					if (hitSide == "opponent")
+					{
+						opponentCombo++;
+						if(opponentCombo > opponentHighestCombo) opponentHighestCombo = opponentCombo;
+						if(opponentCombo > 9999) opponentCombo = 9999;
+					}
+					else
+					{
+						playerCombo++;
+						if(playerCombo > playerHighestCombo) playerHighestCombo = playerCombo;
+						if(playerCombo > 9999) playerCombo = 9999;
+					}
+					if(!note.ratingDisabled)
+					{
+						if(hitSide == "opponent") opponentSongHits++;
+						else playerSongHits++;
+					}
+				}
 				combo++;
 				if(combo > 9999) combo = 9999;
-				popUpScore(note, replayRawNoteDiff);
+				popUpScore(note, replayRawNoteDiff, hitSide);
 			}
 			var gainHealth:Bool = true; // prevent health gain, *if* sustains are treated as a singular note
 			if (guitarHeroSustains && note.isSustainNote) gainHealth = false;
-			if (gainHealth) health += note.hitHealth * healthGain;
+			if (gainHealth)
+			{
+				if (isSplitCoopMode())
+				{
+					var gainSide:String = noteShouldUseOpponentSide(note) ? "opponent" : "player";
+					addSideHealth(gainSide, note.hitHealth * healthGain);
+				}
+				else
+				{
+					health += note.hitHealth * healthGain;
+				}
+			}
 
 		}
 		else //Notes that count as a miss if you hit them (Hurt notes for example)
@@ -4252,12 +4363,12 @@ private function cachePopUpScore()
 		var rawNoteDiff:Float = (replayRawNoteDiff != null) ? replayRawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
 
 		if (ClientPrefs.data.hitErrorBarVisible) {
-		if (hitErrorBar != null && (!isSus )) {
-			var hitTime:Float = -rawNoteDiff;
-			hitErrorBar.registerHit(hitTime);
+			var targetHitErrorBar:HitErrorBar = getSideHitErrorBar(note);
+			if (targetHitErrorBar != null && (!isSus)) {
+				var hitTime:Float = -rawNoteDiff;
+				targetHitErrorBar.registerHit(hitTime);
+			}
 		}
-		}	
-
 		if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
 		{
 			// 记录真实击打时差，sustain note 也应保留实际偏移
@@ -5332,5 +5443,225 @@ private function applyStageVelocity(sprite:FlxSprite, multiplier:Float = 1.0):Vo
         earlyLatePool.put(earlyLate);
     }
     }
+
+		private function isCoopMode():Bool
+	{
+		return opponentMode == "coop" || opponentMode == "coop_split";
+	}
+
+	public function isSplitCoopMode():Bool
+	{
+		return opponentMode == "coop_split";
+	}
+
+	private function get_health():Float
+	{
+		return isSplitCoopMode() ? Math.min(playerHealth, opponentHealth) : _health;
+	}
+
+	private function set_health(value:Float):Float
+	{
+		value = FlxMath.roundDecimal(value, 5);
+		if (!isSplitCoopMode())
+		{
+			_health = value;
+		if(!iconsAnimations || healthBar == null || !healthBar.enabled || healthBar.valueFunction == null)
+		{
+			health = value;
+			return health;
+		}
+
+		// update health bar
+		health = value;
+		var newPercent:Null<Float> = FlxMath.remapToRange(FlxMath.bound(healthBar.valueFunction(), healthBar.bounds.min, healthBar.bounds.max), healthBar.bounds.min, healthBar.bounds.max, 0, 100);
+		healthBar.percent = (newPercent != null ? newPercent : 0);
+		if (opponentMode == 'opponent')
+		{
+			iconP1.animation.curAnim.curFrame = (healthBar.percent > 80) ? 1 : 0; //If health is under 20%, change player icon to frame 1 (losing icon), otherwise, frame 0 (normal)
+			iconP2.animation.curAnim.curFrame = (healthBar.percent < 20) ? 1 : 0; //If health is over 80%, change opponent icon to frame 1 (losing icon), otherwise, frame 0 (normal)
+		}
+		else
+		{
+			iconP1.animation.curAnim.curFrame = (healthBar.percent < 20) ? 1 : 0; //If health is under 20%, change player icon to frame 1 (losing icon), otherwise, frame 0 (normal)
+			iconP2.animation.curAnim.curFrame = (healthBar.percent > 80) ? 1 : 0; //If health is over 80%, change opponent icon to frame 1 (losing icon), otherwise, frame 0 (normal)
+		}
+			return _health;
+		}
+
+
+		var delta:Float = value - _health;
+		if (delta < 0)
+		{
+			addSideHealth("player", delta);
+			addSideHealth("opponent", delta);
+		}
+		else if (delta > 0)
+		{
+			addSideHealth("player", delta);
+			addSideHealth("opponent", delta);
+		}
+		_health = value;
+		return _health;
+	}
+
+	private function addSideHealth(side:String, amount:Float):Void
+	{
+		if (side == "player")
+		{
+			if (playerDead && amount > 0) return;
+			playerHealth = FlxMath.bound(playerHealth + amount, 0, 1);
+			if (playerHealth <= 0) playerDead = true;
+			var newPercent:Null<Float> = FlxMath.remapToRange(FlxMath.bound(healthBarP1.valueFunction(), healthBarP1.bounds.min, healthBarP1.bounds.max), healthBarP1.bounds.min, healthBarP1.bounds.max, 0, 100);
+			healthBarP1.percent = (newPercent != null ? newPercent : 0);
+		}
+		else
+		{
+			if (opponentDead && amount > 0) return;
+			opponentHealth = FlxMath.bound(opponentHealth + amount, 0, 1);
+			if (opponentHealth <= 0) opponentDead = true;
+			var newPercent:Null<Float> = FlxMath.remapToRange(FlxMath.bound(healthBarP2.valueFunction(), healthBarP2.bounds.min, healthBarP2.bounds.max), healthBarP2.bounds.min, healthBarP2.bounds.max, 0, 100);
+			healthBarP2.percent = (newPercent != null ? newPercent : 0);
+		}
+
+		refreshSplitCoopIconFrames();
+	}
+
+	private function refreshSplitCoopIconFrames():Void
+	{
+		if (iconP1 != null && iconP2 != null && healthBarP1 != null && healthBarP2 != null)
+		{
+			iconP1.animation.curAnim.curFrame = (healthBarP1.percent < 20) ? 1 : 0;
+			iconP2.animation.curAnim.curFrame = (healthBarP2.percent < 20) ? 1 : 0;
+		}
+	}
+
+	private function getSideHealthColor(side:String):FlxColor
+	{
+		return (side == "opponent") ? getOpponentHealthColor() : FlxColor.fromRGB(boyfriend.healthColorArray[0], boyfriend.healthColorArray[1], boyfriend.healthColorArray[2]);
+	}
+
+	private function getSideCombo(side:String):Int
+	{
+		return (side == "opponent") ? opponentCombo : playerCombo;
+	}
+
+	private function getSideHighestCombo(side:String):Int
+	{
+		return (side == "opponent") ? opponentHighestCombo : playerHighestCombo;
+	}
+
+	private function getSideTotalHits(side:String):Int
+	{
+		return (side == "opponent") ? opponentSongHits : playerSongHits;
+	}
+
+	private function getSideMisses(side:String):Int
+	{
+		return (side == "opponent") ? opponentSongMisses : playerSongMisses;
+	}
+
+	private function getSideRatingsData(side:String):Array<Rating>
+	{
+		return (side == "opponent") ? opponentRatingsData : playerRatingsData;
+	}
+
+	private function noteIsHuman(note:Note, keyBindIndex:Int = -1):Bool
+	{
+		switch(opponentMode)
+		{
+			case "opponent":
+				return !note.mustPress;
+			case "coop", "coop_split":
+				if (keyBindIndex < 0) return true;
+				return keyBindIndex == 0 ? note.mustPress : !note.mustPress;
+			default:
+				return note.mustPress;
+		}
+	}
+
+	private function noteShouldUseOpponentSide(note:Note):Bool
+	{
+		return !note.mustPress;
+	}
+
+	private function getMissedSide(note:Note):String
+	{
+		if (note == null)
+			return "player";
+		return getSideFromNote(note);
+	}
+
+	private function muteVoiceForSide(note:Note):Void
+	{
+		var side:String = getMissedSide(note);
+		if (side == "player")
+		{
+			if (vocals != null) vocals.volume = 0;
+		}
+		else
+		{
+			if (opponentVocals != null) opponentVocals.volume = 0;
+		}
+	}
+
+	private function restoreVoiceForSide(note:Note):Void
+	{
+		var side:String = getMissedSide(note);
+		if (side == "player")
+		{
+			if (vocals != null) vocals.volume = 1;
+		}
+		else
+		{
+			if (opponentVocals != null) opponentVocals.volume = 1;
+		}
+	}
+
+	private function getSideFromNote(note:Note):String
+	{
+		return noteShouldUseOpponentSide(note) ? "opponent" : "player";
+	}
+
+	private function getSideHitErrorBar(note:Note):HitErrorBar
+	{
+		if (!isSplitCoopMode()) return hitErrorBar;
+		return noteShouldUseOpponentSide(note) ? (hitErrorBarOpponent != null ? hitErrorBarOpponent : hitErrorBar) : (hitErrorBarPlayer != null ? hitErrorBarPlayer : hitErrorBar);
+	}
+
+	private function getRatingIndexByName(name:String, ratings:Array<Rating>):Int
+	{
+		for (i in 0...ratings.length)
+			if (ratings[i].name == name)
+				return i;
+		return -1;
+	}
+
+	private function shouldFireOpponentEvents(note:Note):Bool
+	{
+		return !note.mustPress && (opponentMode == "opponent" || isCoopMode());
+	}
+
+	private function triggerOpponentEventsForHumanHit(note:Note):Void
+	{
+		var result:Dynamic = callOnLuas('opponentNoteHitPre', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
+		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll)
+			result = callOnHScript('opponentNoteHitPre', [note]);
+
+		if(result == LuaUtils.Function_Stop) return;
+
+		note.hitByOpponent = true;
+		if (note.isSustainNote && noteHoldCover != null)
+		{
+			if (noteShouldUseOpponentSide(note))
+				noteHoldCover.onOpponentNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+			else
+				noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
+		}
+
+		stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
+		var result2:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
+		if(result2 != LuaUtils.Function_Stop && result2 != LuaUtils.Function_StopHScript && result2 != LuaUtils.Function_StopAll)
+			callOnHScript('opponentNoteHit', [note]);
+	}
 
 }

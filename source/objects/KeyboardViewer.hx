@@ -58,14 +58,16 @@ class KeyboardViewer extends FlxSpriteGroup
 		// 创建键位按钮
 		for (i in 0...keys)
 		{
-			var obj:KeyButton = new KeyButton(X + centerOffset + (KeyButton.size + 4) * i, Y, KeyButton.size, KeyButton.size);
+			var buttonX:Float = getButtonX(i);
+			var obj:KeyButton = new KeyButton(buttonX, Y, KeyButton.size, KeyButton.size);
 			add(obj);
 		}
 
 		// 创建高亮按钮
 		for (i in 0...keys)
 		{
-			var obj:KeyButtonAlpha = new KeyButtonAlpha(X + centerOffset + (KeyButton.size + 4) * i, Y);
+			var alphaX:Float = getButtonX(i);
+			var obj:KeyButtonAlpha = new KeyButtonAlpha(alphaX, Y);
 			keyAlphas.push(obj);
 			add(obj);
 		}
@@ -74,9 +76,10 @@ class KeyboardViewer extends FlxSpriteGroup
 		var textArray:Array<String> = createArray();
 		for (i in 0...keys)
 		{
-			var obj:FlxText = new FlxText(X + centerOffset + (KeyButton.size + 4) * i, Y, KeyButton.size, textArray[i], 16);
+			var textX:Float = getButtonX(i);
+			var obj:FlxText = new FlxText(textX, Y, KeyButton.size, textArray[i], 16);
 			obj.setFormat("assets/fonts/vcr.ttf", 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-			obj.x = X + centerOffset + (KeyButton.size + 4) * i + (KeyButton.size - obj.width) / 2;
+			obj.x = textX + (KeyButton.size - obj.width) / 2;
 			obj.y = Y + (KeyButton.size - obj.height) / 2;
 			obj.color = ClientPrefs.data.keyboardTextColor;
 			obj.alpha = ClientPrefs.data.keyboardAlpha;
@@ -134,6 +137,17 @@ class KeyboardViewer extends FlxSpriteGroup
 		DisBitmap.addCache();
 	}
 
+	private function getButtonX(index:Int):Float
+	{
+		var mappedIndex:Int = index;
+		var isCoop:Bool = PlayState.instance != null && (PlayState.instance.opponentMode == "coop" || PlayState.instance.opponentMode == "coop_split");
+		if (isCoop && keys == 8)
+		{
+			mappedIndex = if (index < 4) index + 4 else index - 4;
+		}
+		return _x + centerOffset + (KeyButton.size + 4) * mappedIndex;
+	}
+
 	public function pressed(key:Int)
 	{
 		if(key < keyAlphas.length) {
@@ -148,7 +162,7 @@ class KeyboardViewer extends FlxSpriteGroup
 		if (!ClientPrefs.data.keyboardTimeDisplay)
 			return;
 
-		var obj:TimeDis = new TimeDis(key, Conductor.songPosition, _x + centerOffset, _y);
+		var obj:TimeDis = new TimeDis(key, Conductor.songPosition, getButtonX(key), _y);
 		add(obj);
 
 		if(key < noteArrays.length) {
@@ -189,7 +203,7 @@ class KeyboardViewer extends FlxSpriteGroup
 		for (i in 0...keys)
 		{
 			var keyIndex = i % 4;
-			var bindIndex:Int = (mode == "coop" && i >= 4) ? 1 : 0;
+			var bindIndex:Int = (mode == "coop" || mode == "coop_split") && i >= 4 ? 1 : 0;
 			var keyList:Array<FlxKey> = Controls.instance.keyboardBinds[keyNames[keyIndex]];
 			var keyCode:FlxKey = 0;
 			if (keyList != null && keyList.length > 0)
@@ -307,7 +321,7 @@ class KeyButtonAlpha extends FlxSprite
 	public function new(Line:Int, Time:Float, X:Float, Y:Float)
 	{
 		this.line = Line;
-		super(X + Line * (KeyButton.size + 4), Y - 4 - DisBitmap.Height);
+		super(X, Y - 4 - DisBitmap.Height);
 		this.startTime = Time;
 		frames = Cache.getFrame('keyboardViewer');
 		_frame.frame.height = 1;
