@@ -457,7 +457,7 @@ class CreditsState extends MusicBeatState
 
 	function onCreditScrollChange():Void
 	{
-		if (keyboardUsing) return;
+		 if (creditsScroller == null || !creditsScroller.isDragging) return;
 		var newIndex:Int = Std.int(Math.round(creditScrollPos / creditScrollSpacing));
 		if (newIndex < 0) newIndex = 0;
 		if (newIndex >= creditSelectableIndices.length) newIndex = creditSelectableIndices.length - 1;

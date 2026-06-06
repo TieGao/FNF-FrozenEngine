@@ -21,6 +21,7 @@ import backend.Difficulty;
 import backend.ClientPrefs;
 import StringTools;
 import objects.SearchBar;
+import objects.Bar;
 import openfl.display.Sprite;
 
 // ========== 回放卡片类 - 简洁竖向设计 ==========
@@ -193,10 +194,10 @@ class ReplayCard extends FlxSpriteGroup
     }
     
     function formatDate(timestamp:Dynamic):String
-{
-    if (timestamp == null) return "Unknown";
-    return Std.string(timestamp);
-}
+    {
+        if (timestamp == null) return "Unknown";
+        return Std.string(timestamp);
+    }
     
     function formatNumber(num:Dynamic):String
     {
@@ -211,39 +212,73 @@ class ReplayCard extends FlxSpriteGroup
     function formatAccuracy(acc:Float):String
     {
         if (Math.isNaN(acc)) return "0.00";
-        // 保留两位小数并转换为字符串
         var rounded:Float = FlxMath.roundDecimal(acc, 2);
         return Std.string(rounded);
     }
 }
 
-// ========== 右侧详情面板 ==========
+// ========== 右侧详情面板 - 使用 ResultsScreen 的 HitGraph 逻辑 ==========
+// ========== 右侧详情面板 - 使用 ResultsScreen 的 HitGraph 逻辑 ==========
 class ReplayDetailPanel extends FlxSpriteGroup
 {
     public var bg:FlxSprite;
-    public var titleText:FlxText;
+    
+    // 左侧信息区域 (中间1/3)
+    public var infoBg:FlxSprite;
     public var infoTexts:Array<FlxText> = [];
+    
+    // 右侧图表区域 (右侧1/3)
+    public var graphBg:FlxSprite;
     public var hitGraph:HitGraph;
     public var hitGraphSprite:OFLSprite;
     public var loadingText:FlxText;
     
+    // 判定进度条区域 - 使用简单的 FlxSprite
+    public var ratingBarsBg:FlxSprite;
+    public var ratingBars:Map<String, FlxSprite> = new Map();
+    public var ratingBarsBgMap:Map<String, FlxSprite> = new Map(); // 背景条
+    public var ratingLabels:Map<String, FlxText> = new Map();
+    public var ratingPercentTexts:Map<String, FlxText> = new Map();
+    
     private var currentReplayData:Dynamic = null;
     private var currentFilename:String = "";
+    private var panelWidth:Float;
+    private var panelHeight:Float;
+    
+    // 判定颜色映射
+    private var ratingColors:Map<String, FlxColor> = [
+        "Marvelous" => FlxColor.fromRGB(255, 215, 0),
+        "Sick" => FlxColor.CYAN,
+        "Good" => FlxColor.LIME,
+        "Bad" => FlxColor.fromRGB(255, 100, 100),
+        "Shit" => FlxColor.RED,
+        "Miss" => FlxColor.fromRGB(100, 0, 0)
+    ];
     
     public function new(x:Float, y:Float, width:Float, height:Float)
     {
         super(x, y);
+        this.panelWidth = width;
+        this.panelHeight = height;
         
+        // 主背景
         bg = new FlxSprite(0, 0).makeGraphic(Std.int(width), Std.int(height), FlxColor.fromRGB(20, 20, 35));
-        bg.alpha = 0.85;
+        bg.alpha = 0.6;
         add(bg);
         
-        titleText = new FlxText(10, 10, width - 20, "REPLAY DETAILS", 18);
-        titleText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.CYAN, CENTER);
-        add(titleText);
+        var sectionWidth:Float = width / 2; // 中间和右边各占一半
+        
+        // ========== 左侧信息区域 (sectionWidth 宽度) ==========
+        infoBg = new FlxSprite(0, 0).makeGraphic(Std.int(sectionWidth), Std.int(height), FlxColor.fromRGB(15, 15, 25));
+        infoBg.alpha = 0.6;
+        add(infoBg);
+        
+        var infoTitle = new FlxText(10, 10, sectionWidth - 20, "REPLAY INFO", 18);
+        infoTitle.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.CYAN, CENTER);
+        add(infoTitle);
         
         // 创建信息文本区域
-        var infoY:Float = 45;
+        var infoY:Float = 50;
         var infoLabels:Array<String> = [
             "Song Name:",
             "Difficulty:",
@@ -258,31 +293,87 @@ class ReplayDetailPanel extends FlxSpriteGroup
         
         for (i in 0...infoLabels.length)
         {
-            var label = new FlxText(12, infoY + i * 24, 130, infoLabels[i], 18);
-            label.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.GRAY, LEFT);
+            var label = new FlxText(12, infoY + i * 26, 120, infoLabels[i], 16);
+            label.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.GRAY, LEFT);
             add(label);
             
-            var value = new FlxText(140, infoY + i * 24, width - 130, "--", 18);
-            value.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, LEFT);
+            var value = new FlxText(130, infoY + i * 26, sectionWidth - 120, "--", 16);
+            value.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT);
             add(value);
             infoTexts.push(value);
         }
         
-        var graphY:Int = 260; // 往下移动一点，给信息文本留空间
+        // ========== 右侧图表区域 (sectionWidth 宽度) ==========
+        graphBg = new FlxSprite(sectionWidth, 0).makeGraphic(Std.int(sectionWidth), Std.int(height), FlxColor.fromRGB(15, 15, 25));
+        graphBg.alpha = 0.6;
+        add(graphBg);
         
-        // 创建 HitGraph
-        hitGraph = new HitGraph(12, graphY, Std.int(width - 24), 200);
+        var graphTitle = new FlxText(sectionWidth + 10, 10, sectionWidth - 20, "HIT GRAPH", 18);
+        graphTitle.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.CYAN, CENTER);
+        add(graphTitle);
+        
+        // HitGraph 区域 (上方 40%)
+        var graphAreaHeight:Float = height * 0.4;
+        var graphY:Float = 55;
+        var graphWidth:Float = sectionWidth - 24;
+        
+        hitGraph = new HitGraph(Std.int(sectionWidth + 12), Std.int(graphY), Std.int(graphWidth), Std.int(graphAreaHeight - 10));
         hitGraph.alpha = 1;
         
-        // 创建 OFLSprite 包装器
-        hitGraphSprite = new OFLSprite(12, graphY, Std.int(width - 24), 200, hitGraph);
+        hitGraphSprite = new OFLSprite(sectionWidth + 12, graphY, Std.int(graphWidth), Std.int(graphAreaHeight - 10), hitGraph);
         hitGraphSprite.scrollFactor.set();
         hitGraphSprite.visible = false;
         add(hitGraphSprite);
         
-        loadingText = new FlxText(12, graphY + 230, width - 24, "Select a replay to view hit graph", 14);
+        // 加载提示文本
+        loadingText = new FlxText(sectionWidth + 12, graphY + graphAreaHeight / 2 - 20, graphWidth, "Select a replay to view hit graph", 14);
         loadingText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.YELLOW, CENTER);
         add(loadingText);
+        
+        // ========== 判定进度条区域 (下方区域，间距更大) ==========
+        var barsY:Float = graphY + graphAreaHeight + 20; // 增加顶部间距
+        var barsHeight:Float = height - barsY - 20;
+        var barsWidth:Float = sectionWidth - 24;
+
+        var barsTitle = new FlxText(sectionWidth + 12, barsY - 8, barsWidth, "JUDGEMENT BREAKDOWN", 16);
+        barsTitle.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER);
+        add(barsTitle);
+
+        // 创建6个判定进度条 (Marvelous, Sick, Good, Bad, Shit, Miss)
+        var ratingNames:Array<String> = ["Marvelous", "Sick", "Good", "Bad", "Shit", "Miss"];
+        var barYPos:Float = barsY + 15;
+        var barHeight:Int = 16;      // 进度条更高
+        var barSpacing:Int = 34;     // 间距更大
+
+        for (i in 0...ratingNames.length)
+        {
+            var ratingName = ratingNames[i];
+            var color = ratingColors.get(ratingName);
+            if (color == null) color = FlxColor.WHITE;
+            
+            // 标签
+            var label = new FlxText(sectionWidth , barYPos + i * barSpacing, 125, ratingName + ":", 16);
+            label.setFormat(Paths.font("vcr.ttf"), 16, color, LEFT);
+            add(label);
+            ratingLabels.set(ratingName, label);
+            
+            // 百分比文本
+            var percentText = new FlxText(sectionWidth + barsWidth - 60, barYPos + i * barSpacing, 64, "0%", 16);
+            percentText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT);
+            add(percentText);
+            ratingPercentTexts.set(ratingName, percentText);
+            
+            // 进度条背景（灰色底）
+            var barBg = new FlxSprite(sectionWidth + 95, barYPos + i * barSpacing + 1).makeGraphic(Std.int(barsWidth - 155), barHeight, FlxColor.GRAY);
+            barBg.alpha = 0.5;
+            add(barBg);
+            ratingBarsBgMap.set(ratingName, barBg);
+            
+            // 进度条填充（初始宽度为0）
+            var barFill = new FlxSprite(sectionWidth + 95, barYPos + i * barSpacing + 1).makeGraphic(0, barHeight, color);
+            add(barFill);
+            ratingBars.set(ratingName, barFill);
+        }
     }
     
     public function updateWithReplay(filename:String, replayData:Dynamic)
@@ -319,6 +410,7 @@ class ReplayDetailPanel extends FlxSpriteGroup
                 infoTexts[i].text = values[i];
         }
         
+        // 清除之前的图表数据
         if (hitGraph != null)
         {
             hitGraph.history = [];
@@ -327,198 +419,192 @@ class ReplayDetailPanel extends FlxSpriteGroup
         if (hitGraphSprite != null)
             hitGraphSprite.visible = false;
         
-        loadHitGraphAsync();
+        // 加载命中图表数据和判定统计
+        loadReplayData();
     }
     
-// 修复 LoadReplayState.hx 中的 loadHitGraphAsync 函数
-// 修复 LoadReplayState.hx 中的 loadHitGraphAsync 函数
-
-private function loadHitGraphAsync()
-{
-    // 先检查 hitGraph 是否存在
-    if (hitGraph == null)
+    function loadReplayData():Void
     {
-        trace('HitGraph is null, cannot load hit data');
-        loadingText.text = "HitGraph not available";
-        loadingText.visible = true;
-        return;
-    }
-    
-    loadingText.visible = true;
-    loadingText.text = "Loading hit graph...";
-    
-    if (hitGraph != null)
-    {
-        hitGraph.history = [];
-        hitGraph.update();
-    }
-    if (hitGraphSprite != null)
-        hitGraphSprite.visible = false;
-    
-    new FlxTimer().start(0.05, function(tmr:FlxTimer)
-    {
-        try
+        if (hitGraph == null || currentFilename == null || currentFilename == "")
         {
-            var filePath = "assets/replays/" + currentFilename;
-            if (!FileSystem.exists(filePath))
-            {
-                loadingText.text = "Replay file not found";
-                return;
-            }
-
-            var rep:Replay = Replay.LoadReplay(currentFilename);
-            
-            if (rep == null || rep.replay == null)
-            {
-                loadingText.text = "Invalid replay data";
-                return;
-            }
-            
-            var hasHitData:Bool = false;
-            
-            // 确保 hitGraph 仍然存在
-            if (hitGraph == null)
-            {
-                trace('HitGraph became null during loading');
-                loadingText.text = "HitGraph unavailable";
-                return;
-            }
-            
-            // 方法1: 从 ana 数据获取
-            if (rep.replay.ana != null && rep.replay.ana.anaArray != null && rep.replay.ana.anaArray.length > 0)
-            {
-                hasHitData = true;
-                hitGraph.history = [];
-                
-                for (ana in rep.replay.ana.anaArray)
-                {
-                    if (ana == null) continue;
-                    
-                    var diff:Float = 0.0;
-                    var judge:String = "miss";
-                    var time:Float = 0.0;
-                    
-                    try {
-                        var hitTimeValue = Std.string(ana.hitTime);
-                        diff = Std.parseFloat(hitTimeValue);
-                        if (Math.isNaN(diff)) diff = 0.0;
-                    } catch(e:Dynamic) { diff = 0.0; }
-                    
-                    try {
-                        judge = ana.hitJudge != null ? Std.string(ana.hitJudge) : "miss";
-                        if (judge == null || judge == "") judge = "miss";
-                    } catch(e:Dynamic) { judge = "miss"; }
-                    
-                    time = diff;
-                    
-                    // 安全检查
-                    if (hitGraph != null && hitGraph.addToHistory != null)
-                    {
-                        hitGraph.addToHistory(diff, judge, time);
-                    }
-                }
-                trace('Loaded ${rep.replay.ana.anaArray.length} entries from ana data');
-            }
-            
-            // 方法2: 从 songJudgements 和 songNotes 重建
-            if (!hasHitData && rep.replay.songJudgements != null && rep.replay.songNotes != null)
-            {
-                var minLength:Int = Std.int(Math.min(rep.replay.songJudgements.length, rep.replay.songNotes.length));
-                
-                if (minLength > 0 && hitGraph != null)
-                {
-                    hasHitData = true;
-                    hitGraph.history = [];
-                    
-                    var validCount:Int = 0;
-                    
-                    for (i in 0...minLength)
-                    {
-                        var judge:String = null;
-                        try {
-                            judge = rep.replay.songJudgements[i] != null ? Std.string(rep.replay.songJudgements[i]) : null;
-                        } catch(e:Dynamic) { judge = null; }
-                        
-                        if (judge == null || judge == "") continue;
-                        
-                        var note:Array<Dynamic> = rep.replay.songNotes[i];
-                        if (note == null) continue;
-                        
-                        var diff:Float = 0.0;
-                        var time:Float = 0.0;
-                        
-                        // strumTime 通常在索引 0
-                        if (note.length > 0 && note[0] != null) {
-                            try {
-                                time = Std.parseFloat(Std.string(note[0]));
-                                if (Math.isNaN(time)) time = 0.0;
-                            } catch(e:Dynamic) { time = 0.0; }
-                        }
-                        
-                        // diff 通常在索引 3
-                        if (note.length > 3 && note[3] != null) {
-                            try {
-                                diff = Std.parseFloat(Std.string(note[3]));
-                                if (Math.isNaN(diff)) diff = 0.0;
-                            } catch(e:Dynamic) { diff = 0.0; }
-                        }
-                        
-                        // 过滤无效的 miss 标记
-                        if (diff != -10000 && !Math.isNaN(diff) && Math.abs(diff) < 500)
-                        {
-                            if (hitGraph != null)
-                            {
-                                try {
-                                    hitGraph.addToHistory(diff, judge, time);
-                                    validCount++;
-                                } catch(addErr:Dynamic) {
-                                    trace('Error adding to history: $addErr');
-                                }
-                            }
-                        }
-                    }
-                    trace('Reconstructed $validCount entries from judgements/notes');
-                }
-            }
-            
-            // 更新图表 - 添加更多安全检查
-            if (hasHitData && hitGraph != null)
-            {
-                try {
-                    hitGraph.update();
-                    
-                    if (hitGraphSprite != null)
-                    {
-                        hitGraphSprite.visible = true;
-                        hitGraphSprite.updateDisplay();
-                    }
-                    loadingText.visible = false;
-                    trace('HitGraph loaded successfully with ${hitGraph.history.length} entries');
-                } catch(updateErr:Dynamic) {
-                    trace('Error updating HitGraph: $updateErr');
-                    loadingText.text = "Error displaying hit graph";
-                    loadingText.color = FlxColor.RED;
-                }
-            }
-            else
-            {
-                loadingText.text = "No hit data available for this replay";
-                loadingText.color = FlxColor.YELLOW;
-                trace('No hit data found in replay');
-            }
-        }
-        catch(e:Dynamic)
-        {
-            trace('Error loading hit graph: ' + e);
             if (loadingText != null)
             {
-                loadingText.text = "Error loading hit data";
-                loadingText.color = FlxColor.RED;
+                loadingText.text = "No replay selected";
+                loadingText.visible = true;
             }
+            return;
         }
-    });
-}
-
+        
+        loadingText.visible = true;
+        loadingText.text = "Loading replay data...";
+        loadingText.color = FlxColor.YELLOW;
+        
+        var currentHitGraph = hitGraph;
+        var currentHitGraphSprite = hitGraphSprite;
+        var currentLoadingText = loadingText;
+        var currentFilename_safe = currentFilename;
+        var currentRatingBars = ratingBars;
+        var currentRatingBarsBg = ratingBarsBgMap;
+        var currentRatingPercentTexts = ratingPercentTexts;
+        
+        new FlxTimer().start(0.05, function(tmr:FlxTimer)
+        {
+            if (currentHitGraph == null)
+            {
+                trace('HitGraph is null, cannot load hit data');
+                if (currentLoadingText != null) currentLoadingText.text = "HitGraph not available";
+                return;
+            }
+            
+            try
+            {
+                var rep:Replay = Replay.LoadReplay(currentFilename_safe);
+                if (rep == null || rep.replay == null)
+                {
+                    if (currentLoadingText != null)
+                    {
+                        currentLoadingText.text = "Failed to load replay data";
+                        currentLoadingText.color = FlxColor.RED;
+                    }
+                    return;
+                }
+                
+                var playbackRate:Float = 1.0;
+                
+                // 清空历史数据
+                currentHitGraph.history = [];
+                
+                // 统计判定数量
+                var ratingCounts:Map<String, Int> = new Map();
+                for (rating in ratingColors.keys())
+                    ratingCounts.set(rating, 0);
+                
+                // 加载命中数据
+                var songNotes = rep.replay.songNotes;
+                var songJudgements = rep.replay.songJudgements;
+                
+                if (songNotes != null && songNotes.length > 0)
+                {
+                    var addedCount:Int = 0;
+                    
+                    for (i in 0...songNotes.length)
+                    {
+                        var obj = songNotes[i];
+                        if (obj == null) continue;
+                        
+                        var obj2:Dynamic = "";
+                        if (songJudgements != null && i < songJudgements.length) obj2 = songJudgements[i];
+                        
+                        var diff:Float = 0;
+                        var time:Float = 0;
+                        var judge:String = "";
+                        
+                        try {
+                            if (obj.length > 3 && obj[3] != null) diff = Std.parseFloat(Std.string(obj[3]));
+                        } catch(e:Dynamic) { diff = 0; }
+                        
+                        try {
+                            if (obj.length > 0 && obj[0] != null) time = Std.parseFloat(Std.string(obj[0]));
+                        } catch(e:Dynamic) { time = 0; }
+                        
+                        if (obj2 != null) {
+                            try { judge = Std.string(obj2); } catch(e:Dynamic) { judge = ""; }
+                        }
+                        
+                        // 统计判定
+                        if (judge != null && judge != "")
+                        {
+                            var normalizedJudge = judge.toLowerCase();
+                            if (normalizedJudge.indexOf("marvelous") >= 0)
+                                ratingCounts.set("Marvelous", ratingCounts.get("Marvelous") + 1);
+                            else if (normalizedJudge.indexOf("sick") >= 0)
+                                ratingCounts.set("Sick", ratingCounts.get("Sick") + 1);
+                            else if (normalizedJudge.indexOf("good") >= 0)
+                                ratingCounts.set("Good", ratingCounts.get("Good") + 1);
+                            else if (normalizedJudge.indexOf("bad") >= 0)
+                                ratingCounts.set("Bad", ratingCounts.get("Bad") + 1);
+                            else if (normalizedJudge.indexOf("shit") >= 0)
+                                ratingCounts.set("Shit", ratingCounts.get("Shit") + 1);
+                            else if (normalizedJudge.indexOf("miss") >= 0)
+                                ratingCounts.set("Miss", ratingCounts.get("Miss") + 1);
+                        }
+                        
+                        if (obj.length > 1 && obj[1] != -1 && judge != null && judge != "")
+                        {
+                            currentHitGraph.addToHistory(diff / playbackRate, judge, time / playbackRate);
+                            addedCount++;
+                        }
+                    }
+                    
+                    trace('Loaded $addedCount entries from replay');
+                }
+                
+                // 计算总数并更新进度条
+                var totalNotes:Int = 0;
+                for (count in ratingCounts)
+                    totalNotes += count;
+                
+                if (totalNotes > 0)
+                {
+                    for (ratingName in ratingColors.keys())
+                    {
+                        var count = ratingCounts.get(ratingName);
+                        var percent:Float = (count / totalNotes) * 100;
+                        
+                        // 获取背景条宽度来计算填充宽度
+                        var barBg = currentRatingBarsBg.get(ratingName);
+                        var barFill = currentRatingBars.get(ratingName);
+                        
+                        if (barBg != null && barFill != null)
+                        {
+                            var maxWidth = barBg.width;
+                            var fillWidth = Std.int(maxWidth * percent / 100);
+                            
+                            // 重新生成填充条图形
+                            barFill.makeGraphic(fillWidth, Std.int(barBg.height), ratingColors.get(ratingName));
+                            barFill.x = barBg.x;
+                            barFill.y = barBg.y;
+                        }
+                        
+                        var percentText = currentRatingPercentTexts.get(ratingName);
+                        if (percentText != null)
+                        {
+                            percentText.text = Math.round(percent) + "% (" + count + ")";
+                        }
+                    }
+                }
+                
+                if (currentHitGraph.history.length > 0)
+                {
+                    currentHitGraph.update();
+                    if (currentHitGraphSprite != null)
+                    {
+                        currentHitGraphSprite.visible = true;
+                        currentHitGraphSprite.updateDisplay();
+                    }
+                    if (currentLoadingText != null)
+                        currentLoadingText.visible = false;
+                }
+                else
+                {
+                    if (currentLoadingText != null)
+                    {
+                        currentLoadingText.text = "No valid hit data found";
+                        currentLoadingText.color = FlxColor.YELLOW;
+                    }
+                }
+            }
+            catch(e:Dynamic)
+            {
+                trace('Error loading replay data: ' + e);
+                if (currentLoadingText != null)
+                {
+                    currentLoadingText.text = "Error loading data";
+                    currentLoadingText.color = FlxColor.RED;
+                }
+            }
+        });
+    }
     
     private function clearInfo()
     {
@@ -532,16 +618,32 @@ private function loadHitGraphAsync()
         }
         if (hitGraphSprite != null)
             hitGraphSprite.visible = false;
-
-        loadingText.text = "Select a replay to view details";
-        loadingText.visible = true;
+        
+        // 重置进度条
+        for (barFill in ratingBars)
+        {
+            if (barFill != null)
+                barFill.makeGraphic(0, 0, FlxColor.TRANSPARENT);
+        }
+        for (text in ratingPercentTexts)
+        {
+            if (text != null)
+                text.text = "0%";
+        }
+        
+        if (loadingText != null)
+        {
+            loadingText.text = "Select a replay to view details";
+            loadingText.visible = true;
+            loadingText.color = FlxColor.YELLOW;
+        }
     }
     
     function formatDate(timestamp:Dynamic):String
-{
-    if (timestamp == null) return "Unknown";
-    return Std.string(timestamp);
-}
+    {
+        if (timestamp == null) return "Unknown";
+        return Std.string(timestamp);
+    }
     
     private function formatNumberValue(num:Float):String
     {
@@ -568,6 +670,19 @@ private function loadHitGraphAsync()
             hitGraphSprite = null;
         }
         hitGraph = null;
+        
+        for (bar in ratingBars)
+        {
+            if (bar != null) bar.destroy();
+        }
+        ratingBars.clear();
+        
+        for (barBg in ratingBarsBgMap)
+        {
+            if (barBg != null) barBg.destroy();
+        }
+        ratingBarsBgMap.clear();
+        
         super.destroy();
     }
 }
@@ -586,6 +701,9 @@ class LoadReplayState extends MusicBeatState
     var starsFG:FlxBackdrop;
     var space:FlxSprite;
     
+    var topBlackBar:FlxSprite;
+    var bottomBlackBar:FlxSprite;
+    
     var titleText:FlxText;
     var noReplaysText:FlxText;
     var controlsText:FlxText;
@@ -600,7 +718,7 @@ class LoadReplayState extends MusicBeatState
     var visibleCards:Array<ReplayCard> = [];
     var allCards:Array<ReplayCard> = [];
     
-    static inline var CARD_WIDTH:Int = 380;
+    static inline var CARD_WIDTH:Int = 400;
     static inline var CARD_HEIGHT:Int = 85;
     static inline var CARD_SPACING:Int = 10;
     static inline var CARDS_PER_PAGE:Int = 6;
@@ -652,44 +770,56 @@ class LoadReplayState extends MusicBeatState
             starsFG.alpha = 1;
         }
         
+        // 顶部黑框
+        var barHeight:Int = Std.int(FlxG.height * 0.1);
+        topBlackBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, barHeight, FlxColor.BLACK);
+        topBlackBar.alpha = 0.7;
+        topBlackBar.scrollFactor.set();
+        add(topBlackBar);
+        
+        // 底部黑框
+        bottomBlackBar = new FlxSprite(0, FlxG.height - barHeight).makeGraphic(FlxG.width, barHeight, FlxColor.BLACK);
+        bottomBlackBar.alpha = 0.7;
+        bottomBlackBar.scrollFactor.set();
+        add(bottomBlackBar);
+        
         // 标题
         titleText = new FlxText(0, 15, FlxG.width, "REPLAY LIBRARY", 28);
         titleText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         titleText.borderSize = 2;
         add(titleText);
         
-        // 搜索框
-        searchInput = new SearchBar(15, 55, 350);
+        // 搜索框 - 放在左侧区域
+        searchInput = new SearchBar(15, 60, 280);
         searchInput.onChange = function(oldText:String, newText:String) {
             filterTimer = 0.3;
         };
         add(searchInput);
         
         // 统计文本
-        statsText = new FlxText(15, 55, 300, "", 14);
-        statsText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.CYAN, LEFT);
+        statsText = new FlxText(15, 95, 200, "", 14);
+        statsText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.CYAN, LEFT);
         statsText.visible = false;
         add(statsText);
         
-        // 卡片容器
-        cardsContainer = new FlxTypedGroup<ReplayCard>();
-        add(cardsContainer);
+        // 卡片容器 - 左侧1/3区域 (大约 1/3 宽度)
+        var leftPanelWidth:Int = Std.int(FlxG.width / 3);
         
-        // 详情面板
-        detailPanel = new ReplayDetailPanel(FlxG.width - 510, 50, 500, FlxG.height - 100);
+        // 详情面板 - 右侧2/3区域
+        detailPanel = new ReplayDetailPanel(leftPanelWidth, barHeight, FlxG.width - leftPanelWidth, FlxG.height - barHeight * 2);
         add(detailPanel);
         
         // 底部控制文本
-        controlsText = new FlxText(0, FlxG.height - 28, FlxG.width, 
-            "↑/↓: Navigate | Enter/Double Click: Load | V: View Results | F: Delete | ESC: Back", 14);
-        controlsText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        controlsText = new FlxText(0, FlxG.height - barHeight + 8, FlxG.width, 
+            "↑/↓: Navigate | Enter/Double Click: Load | F: Delete | ESC: Back", 16);
+        controlsText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         controlsText.borderSize = 1;
         add(controlsText);
         
         // 无回放提示
-        noReplaysText = new FlxText(0, FlxG.height / 2 - 30, FlxG.width - 420, 
-            "No Replays Found\n\nPlace .kadeReplay files in assets/replays/", 20);
-        noReplaysText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        noReplaysText = new FlxText(0, FlxG.height / 2 - 30, leftPanelWidth - 30, 
+            "No Replays Found\n\nPlace .kadeReplay files in assets/replays/", 16);
+        noReplaysText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         noReplaysText.borderSize = 2;
         noReplaysText.visible = false;
         add(noReplaysText);
@@ -703,12 +833,17 @@ class LoadReplayState extends MusicBeatState
         
         FlxG.mouse.visible = true;
         
+        cardsContainer = new FlxTypedGroup<ReplayCard>();
+        add(cardsContainer);
+
         loadReplays();
+                
+        updateDisplay();
         
-        // 初始化滚动器
+        // 初始化滚动器 - 限制在左侧区域
         var maxScroll:Float = Math.max(0, (replays.length - CARDS_PER_PAGE) * (CARD_HEIGHT + CARD_SPACING));
         cardScroller = new backend.MouseMove(this, 'cardScrollPos', [0, maxScroll], 
-            [[0, FlxG.width], [50, FlxG.height - 80]],  // 扩大拖拽区域到整个左侧区域
+            [[0, FlxG.width], [barHeight + 10, FlxG.height - barHeight - 20]],
             function() { updateCardsPosition(); });
         cardScroller.useLerp = true;
         cardScroller.lerpSmooth = 12;
@@ -716,8 +851,6 @@ class LoadReplayState extends MusicBeatState
         cardScroller.deceleration = 0.94;
         cardScroller.mouseWheelSensitivity = -200.0;
         add(cardScroller);
-        
-        updateDisplay();
         
         super.create();
     }
@@ -731,7 +864,6 @@ class LoadReplayState extends MusicBeatState
         
         super.update(elapsed);
         
-        // 搜索过滤延迟
         if (filterTimer > 0)
         {
             filterTimer -= elapsed;
@@ -782,16 +914,8 @@ class LoadReplayState extends MusicBeatState
                     if (json.maxCombo == null) json.maxCombo = 0;
                     
                     var ts:Float = 0;
-                   try {
-                        if (json.timestamp == null) {
-                            json.timestamp = Date.now().toString();
-                        }
-                        // 直接使用字符串，不做转换
-                        var ts:Float = 0;
-                        try {
-                            // 简单排序：用文件名中的时间戳或当前时间
-                            ts = Date.now().getTime();
-                        } catch(e:Dynamic) { ts = 0; }
+                    try {
+                        ts = Date.now().getTime();
                     } catch(e:Dynamic) { ts = 0; }
                     
                     entries.push({ file: file, ts: ts, json: json });
@@ -878,9 +1002,10 @@ class LoadReplayState extends MusicBeatState
         
         noReplaysText.visible = false;
         statsText.text = 'Total: ${replays.length} replays';
+        statsText.visible = true;
         
         var startX:Float = 15;
-        var startY:Float = 95;
+        var startY:Float = 130;
         
         for (i in 0...replays.length)
         {
@@ -918,7 +1043,6 @@ class LoadReplayState extends MusicBeatState
         
         updateCardsPosition();
         
-        // 更新详情面板
         if (curSelected >= 0 && curSelected < replays.length)
         {
             var selectedJson = replayJsons.get(replays[curSelected]);
@@ -940,7 +1064,7 @@ class LoadReplayState extends MusicBeatState
             {
                 card.visible = true;
                 card.active = true;
-                var targetY:Float = 95 + (i * (CARD_HEIGHT + CARD_SPACING)) - cardScrollPos;
+                var targetY:Float = 130 + (i * (CARD_HEIGHT + CARD_SPACING)) - cardScrollPos;
                 card.y = targetY;
             }
             else
@@ -983,14 +1107,12 @@ class LoadReplayState extends MusicBeatState
         var oldSelected = curSelected;
         curSelected = index;
         
-        // 更新卡片选中状态
         for (card in allCards)
         {
             if (card != null)
                 card.updateSelected(card.index == curSelected);
         }
         
-        // 更新详情面板
         if (curSelected >= 0 && curSelected < replays.length)
         {
             var selectedJson = replayJsons.get(replays[curSelected]);
@@ -1018,7 +1140,6 @@ class LoadReplayState extends MusicBeatState
         if (controls.UI_DOWN_P)
             changeSelection(curSelected + 1);
         
-        // 使用普通按键模拟翻页 (PageUp/PageDown 键)
         if (FlxG.keys.justPressed.PAGEUP)
             changeSelection(curSelected - CARDS_PER_PAGE);
         
@@ -1031,19 +1152,12 @@ class LoadReplayState extends MusicBeatState
                 loadReplay(replays[curSelected]);
         }
         
-        if (FlxG.keys.justPressed.V)
-        {
-            if (curSelected >= 0 && curSelected < replays.length)
-                viewReplayResults(replays[curSelected]);
-        }
-        
         if (FlxG.keys.justPressed.F)
         {
             if (curSelected >= 0 && curSelected < replays.length)
                 promptDelete(replays[curSelected]);
         }
         
-        // Home/End 快速导航
         if (FlxG.keys.justPressed.HOME)
             changeSelection(0);
         if (FlxG.keys.justPressed.END)
@@ -1128,34 +1242,6 @@ class LoadReplayState extends MusicBeatState
             trace('Error loading song: $e');
             FlxG.sound.play(Paths.sound('cancelMenu'));
             showError("Failed to load song!\nMissing: ${songName + diffSuffix}.json");
-        }
-    }
-    
-    function viewReplayResults(filename:String):Void
-    {
-        trace('Viewing replay results: $filename');
-        
-        try
-        {
-            var rep:Replay = Replay.LoadReplay(filename);
-            if (rep == null || !rep.isValid())
-            {
-                FlxG.sound.play(Paths.sound('cancelMenu'));
-                showError("Invalid replay file!");
-                return;
-            }
-            
-            PlayState.rep = rep;
-            // 注意: ResultsScreen 需要根据你的项目实际情况调整
-            // var resultsScreen = new ResultsScreen(REPLAY_PREVIEW, filename);
-            // openSubState(resultsScreen);
-            FlxG.sound.play(Paths.sound('confirmMenu'));
-        }
-        catch(e:Dynamic)
-        {
-            trace('Error viewing replay: $e');
-            FlxG.sound.play(Paths.sound('cancelMenu'));
-            showError("Error loading replay: " + e);
         }
     }
     

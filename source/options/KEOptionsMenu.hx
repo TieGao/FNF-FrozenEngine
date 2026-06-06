@@ -1375,6 +1375,7 @@ function onScrollChange()
 
 		return [
 			KEOption.create("Check Updates", "Check for game updates", "checkForUpdates", "bool"),
+			KEOption.create("Beta Updates", "Change the channel to beta", "betaUpdates", "bool"),
 			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
 			KEOption.create("Enable LUA Debug Printer", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
 			KEOption.create("Discord RPC", "Enable Discord Rich Presence", "discordRPC", "bool"),

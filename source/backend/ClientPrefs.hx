@@ -189,6 +189,8 @@ import states.TitleState;
 	public var showTPS:Bool = false;
 	public var showMEMPeak:Bool = false;
 	public var showApi:Bool = false;
+
+	public var betaUpdates:Bool = false;
 }
 
 class ClientPrefs {

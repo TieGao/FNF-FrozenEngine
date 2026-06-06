@@ -347,7 +347,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 
 	function onOptionScrollChange():Void
 	{
-		if (keyboardUsing) return; // 如果正在使用键盘控制，忽略鼠标滚动
+		 if (optionScroller == null || !optionScroller.isDragging) return;
 		var newIndex:Int = Std.int(Math.round(optionScrollPos / optionScrollSpacing));
 		if (newIndex < 0) newIndex = 0;
 		if (newIndex >= optionsArray.length) newIndex = optionsArray.length - 1;

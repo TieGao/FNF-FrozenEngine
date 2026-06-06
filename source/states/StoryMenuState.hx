@@ -61,7 +61,6 @@ class StoryMenuState extends MusicBeatState
 	var weekScroller:MouseMove;
 	var weekItemSpacing:Float = 0;
 
-	var keyboardUsing:Bool = false; // 是否正在使用键盘控制
 	var holdTime:Float = 0; // 按键持续时间
 	var shiftMult:Int = 1; // 按住 Shift 时的加速倍率
 
@@ -388,7 +387,6 @@ class StoryMenuState extends MusicBeatState
 				var checkLastHold:Int = Math.floor((holdTime - 0.5) * 10);
 				holdTime += elapsed;
 				var checkNewHold:Int = Math.floor((holdTime - 0.5) * 10);
-				if(holdTime != 0 && checkNewHold - checkLastHold > 0) keyboardUsing = true else keyboardUsing = false;
 				if(holdTime > 0.5 && checkNewHold - checkLastHold > 0)
 				{
 					changeWeek((checkNewHold - checkLastHold) * (controls.UI_UP ? -shiftMult : shiftMult));
@@ -615,7 +613,10 @@ class StoryMenuState extends MusicBeatState
 	function onWeekScrollChange():Void
 	{
 		if (weekItemSpacing <= 0) return;
-		if (keyboardUsing) return; // 如果正在使用键盘控制，忽略鼠标滚动
+		
+		// 关键修改：只在鼠标真正交互时才响应，而不是监听所有变化
+		if (weekScroller == null || !weekScroller.isDragging) return;
+		
 		var newWeek:Int = Std.int(Math.round(weekScrollPos / weekItemSpacing));
 		if (newWeek < 0) newWeek = 0;
 		if (newWeek >= loadedWeeks.length) newWeek = loadedWeeks.length - 1;
