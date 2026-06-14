@@ -34,7 +34,6 @@ class CreditsState extends MusicBeatState
 	var creditScrollSpacing:Float = 156;
 	var creditSelectableIndices:Array<Int> = [];
 	var selectedItemLastFrame:Alphabet = null; // 记录上一帧选中的项目，用于滚轮动画
-	var keyboardUsing:Bool = false; // 是否正在使用键盘控制
 
 	override function create()
 	{
@@ -245,7 +244,6 @@ class CreditsState extends MusicBeatState
 					var checkLastHold:Int = Math.floor((holdTime - 0.5) * 10);
 					holdTime += elapsed;
 					var checkNewHold:Int = Math.floor((holdTime - 0.5) * 10);
-					if(holdTime != 0 && checkNewHold - checkLastHold > 0) keyboardUsing = true else keyboardUsing = false;
 					if(holdTime > 0.5 && checkNewHold - checkLastHold > 0)
 					{
 						changeSelection((checkNewHold - checkLastHold) * (controls.UI_UP ? -shiftMult : shiftMult));

@@ -1278,6 +1278,8 @@ function onScrollChange()
 			"Freeplay",
 			"Configure Freeplay settings",
 			[
+				KEOption.create("Old Freeplay Menu", "Use Psych Engine Default Freeplay Menu", "oldFreeplay", "bool"),
+				//KEOption.create("Legacy Music Player", "Use Psych Engine Default Music Player", "legacymp", "bool"),
 				KEOption.create("Freeplay ToolBar", "Show tool bar in freeplay", "toolBar", "bool"),
 				KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool"),
 				KEOption.create("Save Freeplay Cache", "Save freeplay song metadata cache to disk", "saveFreeplayCache", "bool"),
@@ -1310,7 +1312,7 @@ function onScrollChange()
 			KEOption.create("Score Screen", "Show Kade-style results", "scoreScreen", "bool"),
 			KEOption.create("Judgements Counter", "Show judgments counter", "Counter", "bool"),
 			KEOption.create("Charm Bar Pause", "Modern Pause Sub State", "charmPause", "bool"),
-			KEOption.create("Impostor V3 Story Mode BG", "Use Impostor V3 Story Mode Background", "ImpStory", "bool")
+			//KEOption.create("Impostor V3 Story Mode BG", "Use Impostor V3 Story Mode Background", "ImpStory", "bool")
 		];
 	}
 
@@ -1351,8 +1353,9 @@ function onScrollChange()
 		return [
 			KEOption.create("Open Note Colors", "Customize note colors", "", "action"),
 			KEOption.create("Open Controls", "Customize key bindings", "", "action"),
-			KEOption.create("Open EZ KeyBinds", "Customize key bindings in KE Styled Menu", "", "action"),
-			KEOption.create("Adjust Delay and Combo", "Customize ingame experience", "", "action"),   
+			//KEOption.create("Open EZ KeyBinds", "Customize key bindings in KE Styled Menu", "", "action"),
+			KEOption.create("Adjust Delay and Combo", "Customize ingame experience", "", "action"),
+			KEOption.create("Language", "Change the game's language", "language", "string", ['en-US', 'pt-BR', 'zh-CN', 'zh-TW']),
 			KEOption.createResetOption("Reset KeyBinds", "keybinds"),
 		];
 	}
@@ -1379,15 +1382,11 @@ function onScrollChange()
 			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
 			KEOption.create("Enable LUA Debug Printer", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
 			KEOption.create("Discord RPC", "Enable Discord Rich Presence", "discordRPC", "bool"),
-			KEOption.create("Language", "Change the game's language", "language", "string", ['en-US', 'pt-BR', 'zh-CN', 'zh-TW']),
 			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
 			KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
 			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
-			KEOption.create("Old Freeplay Menu", "Use Psych Engine Default Freeplay Menu", "oldFreeplay", "bool"),
-			KEOption.create("Legacy Music Player", "Use Psych Engine Default Music Player", "legacymp", "bool"),
 			KEOption.createResetOption("Reset Settings", "settings"),
 			KEOption.createResetOption("Reset Scores", "scores"),
-			//KEOption.create("Mirror Notes", "Mirror all notes in current chart", "mirrorNotes", "action"),
 			optionsparticle,
 			KEOption.create("Use Default Mouse Cursor", "Use ur system's default mouse cursor in game", "useSystemCursor", "bool")
 		];

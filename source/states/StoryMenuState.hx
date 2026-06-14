@@ -134,7 +134,7 @@ class StoryMenuState extends MusicBeatState
 		txtWeekTitle.alpha = 0.7;
 
 		var ui_tex = Paths.getSparrowAtlas('campaign_menu_UI_assets');
-		//var bgYellow:FlxSprite = new FlxSprite(0, 56).makeGraphic(FlxG.width, 386, 0xFFF9CF51);
+		var bgYellow:FlxSprite = new FlxSprite(0, 56).makeGraphic(FlxG.width, 386, 0xFFF9CF51);
 		bgSprite = new FlxSprite(0, 56);
 
 		grpWeekText = new FlxTypedGroup<MenuItem>();
@@ -222,7 +222,7 @@ class StoryMenuState extends MusicBeatState
 		rightArrow.animation.play('idle');
 		difficultySelectors.add(rightArrow);
 
-		//add(bgYellow);
+		add(bgYellow);
 		add(bgSprite);
 		add(grpWeekCharacters);
 
@@ -636,12 +636,12 @@ class StoryMenuState extends MusicBeatState
 		if (curWeek < 0)
 			curWeek = loadedWeeks.length - 1;
 
-		/*if (weekItemSpacing > 0)
+		if (weekItemSpacing > 0)
 		{
 			weekScrollPos = curWeek * weekItemSpacing;
 			if (weekScroller != null)
 				weekScroller.tweenData = weekScrollPos;
-		}*/
+		}
 
 		var leWeek:WeekData = loadedWeeks[curWeek];
 		WeekData.setDirectoryFromWeek(leWeek);

@@ -1,5 +1,9 @@
 name: Main + Release
-on: workflow_dispatch
+on: 
+  push:
+  branches: [ main, experimental ]
+
+  workflow_dispatch:
 
 permissions:
   contents: write

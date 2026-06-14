@@ -171,16 +171,10 @@ class HScript extends Iris
 		set('Note', objects.Note);
 		set('CustomSubstate', CustomSubstate);
 		#if (!flash && sys)
-		if (ClientPrefs.data.shaders)
-		{
 		set('FlxRuntimeShader', flixel.addons.display.FlxRuntimeShader);
 		set('ErrorHandledRuntimeShader', shaders.ErrorHandledShader.ErrorHandledRuntimeShader);
-		}
 		#end
-		if (ClientPrefs.data.shaders)
-		{
-			set('ShaderFilter', openfl.filters.ShaderFilter);
-		}
+		set('ShaderFilter', openfl.filters.ShaderFilter);
 		set('StringTools', StringTools);
 		#if flxanimate
 		set('FlxAnimate', FlxAnimate);
@@ -464,7 +458,6 @@ class HScript extends Iris
 		}
 		return null;
     }
-    
 
 	override public function destroy()
 	{

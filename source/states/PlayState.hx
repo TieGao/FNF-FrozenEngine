@@ -396,10 +396,10 @@ class PlayState extends MusicBeatState
         trace('Replay mode activated with ${replayNoteQueue.length} notes');
     }
 
-	if (inReplay)
-{
-    createReplayUI();
-}
+		if (inReplay)
+	{
+		createReplayUI();
+	}
 
 		//trace('Playback Rate: ' + playbackRate);
 		_lastLoadedModDirectory = Mods.currentModDirectory;
@@ -1588,7 +1588,7 @@ public function reloadCounterColors()
 		@:privateAccess
 		FlxG.sound.playMusic(inst._sound, 1, false);
 		#if FLX_PITCH FlxG.sound.music.pitch = playbackRate; #end
-		FlxG.sound.music.onComplete = finishSong.bind();
+		if (finishSong != null) FlxG.sound.music.onComplete = finishSong.bind();
 		vocals.play();
 		opponentVocals.play();
 
