@@ -81,6 +81,8 @@ import states.TitleState;
 	public var freeplayspace:Bool = false;
 	public var saveFreeplayCache:Bool = true;
 	public var globalspace:Bool = false;
+	public var cardGlow:Bool = true; // 新增：在 Freeplay 卡片下显示呼吸发光
+	public var freeplayModFolder:Bool = true; // 使用模组文件夹管理器隔离歌曲
 	public var scoreScreen:Bool = true;
 	public var keOptions:Bool = true;
 	public var gradientTimeBar:Bool = true;

@@ -7,7 +7,6 @@ import states.editors.MasterEditorMenu;
 import options.OptionsState;
 import options.KEOptionsMenu;
 import backend.Highscore;
-import states.StatsState;
 
 enum MainMenuColumn {
 	LEFT;
@@ -17,7 +16,7 @@ enum MainMenuColumn {
 
 class MainMenuState extends MusicBeatState
 {
-	public static var frozenEngineVersion:String = '0.4.11 V2';
+	public static var frozenEngineVersion:String = '0.4.12';
 	public static var psychEngineVersion:String = '1.0.4'; // This is also used for Discord RPC
 	public static var curSelected:Int = 0;
 	public static var curColumn:MainMenuColumn = CENTER;

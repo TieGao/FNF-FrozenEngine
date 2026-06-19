@@ -20,7 +20,6 @@ import backend.Song;
 import backend.Difficulty;
 import backend.ClientPrefs;
 import StringTools;
-import objects.SearchBar;
 import objects.Bar;
 import openfl.display.Sprite;
 
@@ -694,7 +693,6 @@ class LoadReplayState extends MusicBeatState
     var replays:Array<String> = [];
     var curSelected:Int = 0;
     var replayJsons:Map<String, Dynamic> = new Map();
-    var searchInput:SearchBar;
     
     var bg:FlxSprite;
     var starsBG:FlxBackdrop;
@@ -726,10 +724,6 @@ class LoadReplayState extends MusicBeatState
     var waitingForDeleteConfirm:Bool = false;
     var deleteConfirmText:FlxText;
     var replayToDelete:String = "";
-    
-    var filterTimer:Float = -1;
-    var originalReplays:Array<String> = [];
-    var originalJsons:Map<String, Dynamic> = new Map();
     
     override function create()
     {
@@ -788,13 +782,6 @@ class LoadReplayState extends MusicBeatState
         titleText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         titleText.borderSize = 2;
         add(titleText);
-        
-        // 搜索框 - 放在左侧区域
-        searchInput = new SearchBar(15, 60, 280);
-        searchInput.onChange = function(oldText:String, newText:String) {
-            filterTimer = 0.3;
-        };
-        add(searchInput);
         
         // 统计文本
         statsText = new FlxText(15, 95, 200, "", 14);
@@ -864,13 +851,6 @@ class LoadReplayState extends MusicBeatState
         
         super.update(elapsed);
         
-        if (filterTimer > 0)
-        {
-            filterTimer -= elapsed;
-            if (filterTimer <= 0)
-                filterSongs();
-        }
-        
         if (waitingForDeleteConfirm)
         {
             handleDeleteConfirmation();
@@ -932,62 +912,9 @@ class LoadReplayState extends MusicBeatState
             }
         }
         
-        originalReplays = replays.copy();
-        originalJsons = new Map();
-        for (key in replayJsons.keys())
-            originalJsons.set(key, replayJsons.get(key));
         #end
     }
-    
-    function filterSongs()
-    {
-        var searchText:String = (searchInput != null && searchInput.text != null) ? searchInput.text : "";
-        searchText = StringTools.trim(searchText.toLowerCase());
-        
-        if (searchText.length == 0)
-        {
-            replays = originalReplays.copy();
-            replayJsons.clear();
-            for (key in originalJsons.keys())
-                replayJsons.set(key, originalJsons.get(key));
-        }
-        else
-        {
-            replays = [];
-            replayJsons.clear();
-            
-            for (file in originalReplays)
-            {
-                var json = originalJsons.get(file);
-                if (json == null) continue;
-                
-                var match = false;
-                if (file.toLowerCase().indexOf(searchText) != -1) match = true;
-                if (!match && json.songName != null && 
-                    Std.string(json.songName).toLowerCase().indexOf(searchText) != -1) match = true;
-                if (!match && json.difficultyName != null && 
-                    Std.string(json.difficultyName).toLowerCase().indexOf(searchText) != -1) match = true;
-                
-                if (match)
-                {
-                    replays.push(file);
-                    replayJsons.set(file, json);
-                }
-            }
-        }
-        
-        curSelected = 0;
-        cardScrollPos = 0;
-        if (cardScroller != null)
-        {
-            var maxScroll = Math.max(0, (replays.length - CARDS_PER_PAGE) * (CARD_HEIGHT + CARD_SPACING));
-            cardScroller.moveLimit = [0, maxScroll];
-            cardScroller.tweenData = 0;
-        }
-        
-        updateDisplay();
-    }
-    
+
     function updateDisplay()
     {
         cardsContainer.clear();
@@ -1284,7 +1211,6 @@ class LoadReplayState extends MusicBeatState
             trace('Deleted replay: $replayToDelete');
             
             loadReplays();
-            filterSongs();
             curSelected = 0;
             cardScrollPos = 0;
             updateDisplay();

@@ -1,13 +1,19 @@
 package states;
 
+import backend.WeekData;
 import backend.Mods;
 
+import flixel.FlxBasic;
 import flixel.graphics.FlxGraphic;
+import flash.geom.Rectangle;
+import haxe.Json;
 
 import flixel.util.FlxSpriteUtil;
+import objects.AttachedSprite;
 import options.ModSettingsSubState;
 
 import openfl.display.BitmapData;
+import lime.utils.Assets;
 
 class ModsMenuState extends MusicBeatState
 {
@@ -70,36 +76,6 @@ class ModsMenuState extends MusicBeatState
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		add(bg);
 		bg.screenCenter();
-
-		space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
-        space.antialiasing = ClientPrefs.data.antialiasing;
-        space.updateHitbox();
-        space.scrollFactor.set();
-        space.alpha = 0;
-        add(space);
-
-        starsBG = new FlxBackdrop(Paths.image('starBG'));
-        starsBG.setPosition(111.3, 67.95);
-        starsBG.antialiasing = true;
-        starsBG.updateHitbox();
-        starsBG.scrollFactor.set();
-        starsBG.alpha = 0;
-        add(starsBG);
-
-        starsFG = new FlxBackdrop(Paths.image('starFG'));
-        starsFG.setPosition(54.3, 59.45);
-        starsFG.updateHitbox();
-        starsFG.antialiasing = true;
-        starsFG.scrollFactor.set();
-        starsFG.alpha = 0;
-        add(starsFG);
-
-		if (ClientPrefs.data.globalspace)
-        {
-            space.alpha = 1;
-            starsBG.alpha = 1;
-            starsFG.alpha = 1;
-        }
 
 		bgList = FlxSpriteUtil.drawRoundRect(new FlxSprite(40, 40).makeGraphic(340, 440, FlxColor.TRANSPARENT), 0, 0, 340, 440, 15, 15, FlxColor.BLACK);
 		bgList.alpha = 0.6;
@@ -335,12 +311,6 @@ class ModsMenuState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
-		starsBG.x -= 0.05;
-        starsFG.x -= 0.15;
-        
-        if (starsBG.x < -starsBG.width) starsBG.x = 0;
-        if (starsFG.x < -starsFG.width) starsFG.x = 0;
-		
 		if(controls.BACK && hoveringOnMods)
 		{
 			saveTxt();

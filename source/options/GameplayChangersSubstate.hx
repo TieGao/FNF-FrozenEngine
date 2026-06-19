@@ -144,9 +144,6 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 
 		changeSelection();
 		reloadCheckboxes();
-		
-		// 初始隐藏鼠标
-		FlxG.mouse.visible = false;
 	}
 
 	var nextAccept:Int = 5;

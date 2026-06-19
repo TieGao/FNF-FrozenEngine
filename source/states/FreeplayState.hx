@@ -11,11 +11,11 @@ import objects.HealthIcon;
 import objects.MusicPlayerLegacy;
 import objects.CharacterArtDisplay;
 import objects.SongArtDisplay;
-import objects.SearchBar;
 import objects.ToolBar;
 
 import options.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
+import substates.ModFolderSubstate;
 
 import flixel.math.FlxMath;
 import flixel.util.FlxDestroyUtil;
@@ -31,6 +31,8 @@ import haxe.Json;
 
 import flixel.addons.display.FlxBackdrop;
 
+import objects.BreathGlow;
+
 #if sys
 import sys.io.File;
 #end
@@ -40,6 +42,11 @@ class FreeplayState extends MusicBeatState
     public var songs:Array<NewSongMetaData> = [];
     var cards:Array<FreeplayCard> = [];
     var allCards:Array<FreeplayCard> = [];
+    
+    // 用于模组文件夹管理
+    var allSongs:Array<NewSongMetaData> = []; // 所有歌曲
+    var songsByFolder:Map<String, Array<NewSongMetaData>> = new Map(); // 按模组分类的歌曲
+    var currentFolderFilter:String = null; // 当前模组过滤器（null 表示显示全部）
 
     var selector:FlxText;
 	public static var curSelected:Int = 0;
@@ -103,16 +110,15 @@ class FreeplayState extends MusicBeatState
 
     var replayButton:FlxSprite;
     
-    var searchInput:SearchBar;
-    var originalSongs:Array<NewSongMetaData> = [];
     var freeplaySongCache:Map<String, Dynamic> = new Map<String, Dynamic>();
     var freeplayCacheDirty:Bool = false;
     var difficultyPreloadQueue:Array<Dynamic> = [];
     var menuBgGraphicCache:Map<String, Dynamic> = new Map<String, Dynamic>();
-    var filterTimer:Float = -1; // -1表示不需要过滤
         
     var updateTimer:Float = 0;
     var updateInterval:Float = 0.0033;
+
+    public var inModFolderSelector:Bool = false; // 当前是否在模组文件夹选择器中
 
     override function create()
     {
@@ -159,14 +165,27 @@ class FreeplayState extends MusicBeatState
             }
         }
         
+        // 如果启用了模组文件夹管理器，则初始化过滤器
+        if (ClientPrefs.data.freeplayModFolder)
+        {
+            // 保存所有歌曲用于过滤
+            allSongs = songs.copy();
+            
+            // 按模组分类歌曲
+            for (song in allSongs)
+            {
+                var folder = (song.folder == null || song.folder.length == 0) ? "base" : song.folder;
+                if (!songsByFolder.exists(folder))
+                    songsByFolder.set(folder, []);
+                songsByFolder.get(folder).push(song);
+            }
+        }
+        
         // 如果有新歌曲或未缓存的歌曲，保存缓存数据
         #if sys
         if (ClientPrefs.data.saveFreeplayCache && freeplayCacheDirty)
             saveFreeplaySongCache();
         #end
-
-        // 保存原始歌曲列表用于搜索
-        originalSongs = songs.copy();
         
         Mods.loadTopMod();
 
@@ -311,18 +330,18 @@ class FreeplayState extends MusicBeatState
         add(topBar);
         }
 
-        // 添加搜索框到topBar中
-        searchInput = new SearchBar(0, 50, Std.int(topBar.width * 0.3));
-        searchInput.onChange = function(oldText:String, newText:String) {
-            filterTimer = 0.3; // 延迟0.3秒过滤
-        };
-        searchInput.x = (topBar.width - searchInput.fieldWidth) / 2;
-        add(searchInput);
-
-        // 确保进入时焦点不在搜索框上
-        PsychUIInputText.focusOn = null;
-
-        modFolderText = new FlxText(10, 50, 0, "Mod: " + Mods.currentModDirectory, 24);
+        // 模组文件夹文本 - 如果启用了模组文件夹管理器，点击可打开选择器
+        var modDisplayText:String = "Mod: ";
+        if (ClientPrefs.data.freeplayModFolder)
+        {
+            modDisplayText += (Mods.currentModDirectory == null ? "ALL" : Mods.currentModDirectory);
+        }
+        else
+        {
+            modDisplayText += Mods.currentModDirectory;
+        }
+        
+        modFolderText = new FlxText(10, 50, 0, modDisplayText, 24);
         modFolderText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT);
         add(modFolderText);
 
@@ -703,6 +722,7 @@ class FreeplayState extends MusicBeatState
 
     inline function computeVisibleCardRange():Void
     {
+        if (inModFolderSelector) return;
         if (cards.length == 0)
         {
             visibleCardMin = 0;
@@ -726,34 +746,39 @@ class FreeplayState extends MusicBeatState
     function updateCardsPosition()
     {
         if (cards.length == 0) return;
+        if (inModFolderSelector) return;
 
         var oldMin = visibleCardMin;
         var oldMax = visibleCardMax;
         computeVisibleCardRange();
 
+        if (visibleCardMin < 0) visibleCardMin = 0;
+        if (visibleCardMax >= cards.length) visibleCardMax = cards.length - 1;
+        if (visibleCardMin > visibleCardMax) return;
+
         if (oldMax < 0)
         {
             for (i in 0...visibleCardMin)
-                cards[i].updatePosition(lerpSelected, curSelected, false);
+                if (i >= 0 && i < cards.length) cards[i].updatePosition(lerpSelected, curSelected, false);
             for (i in visibleCardMax + 1...cards.length)
-                cards[i].updatePosition(lerpSelected, curSelected, false);
+                if (i >= 0 && i < cards.length) cards[i].updatePosition(lerpSelected, curSelected, false);
         }
         else
         {
             if (visibleCardMin > oldMin)
             {
                 for (i in oldMin...visibleCardMin)
-                    cards[i].updatePosition(lerpSelected, curSelected, false);
+                    if (i >= 0 && i < cards.length) cards[i].updatePosition(lerpSelected, curSelected, false);
             }
             if (visibleCardMax < oldMax)
             {
                 for (i in visibleCardMax + 1...oldMax + 1)
-                    cards[i].updatePosition(lerpSelected, curSelected, false);
+                    if (i >= 0 && i < cards.length) cards[i].updatePosition(lerpSelected, curSelected, false);
             }
         }
 
         for (i in visibleCardMin...visibleCardMax + 1)
-            cards[i].updatePosition(lerpSelected, curSelected, true);
+            if (i >= 0 && i < cards.length) cards[i].updatePosition(lerpSelected, curSelected, true);
     }
 
     function updateTexts()
@@ -1042,9 +1067,17 @@ public function nextSong():Void
         if (Math.abs(lerpRating - intendedRating) <= 0.01)
             lerpRating = intendedRating;
 
-        // lerpSelected 不再自动跟随 curSelected；它跟随 cardScrollPos（以索引为单位）
         var desiredIndex:Float = cardScrollPos / CARD_SPACING;
         lerpSelected = FlxMath.lerp(desiredIndex, lerpSelected, Math.exp(-elapsed * 9.6));
+
+        // 修复边界问题：当在边界时直接精确设置
+        if (desiredIndex == 0) {
+            lerpSelected = 0;
+        } else if (desiredIndex == (songs.length - 1)) {
+            lerpSelected = songs.length - 1;
+        } else if (Math.abs(lerpSelected - desiredIndex) < 0.0001) {
+            lerpSelected = desiredIndex;
+        }
         
         updateTimer += elapsed;
         if (updateTimer >= elapsed)
@@ -1052,104 +1085,6 @@ public function nextSong():Void
             updateCardsPosition();
             updateTexts();
             updateTimer = 0;
-        }
-
-        // 处理搜索过滤延迟
-        if (filterTimer > 0)
-        {
-            filterTimer -= elapsed;
-            if (filterTimer <= 0)
-            {
-                // 捕获过滤时的异常，避免搜索导致程序崩溃
-                try
-                {
-                    filterSongs((searchInput != null ? searchInput.text : ""));
-                }
-                catch(e:Dynamic)
-                {
-                    var searchStr = (searchInput != null ? searchInput.text : "");
-                    var origCount = (originalSongs != null ? originalSongs.length : 0);
-                    var beforeCount = (songs != null ? songs.length : 0);
-                    var errMsg = Std.string(e);
-                    // 尝试读取堆栈信息（如果可用）
-                    var stackInfo:String = "";
-                    try { if (e != null && Reflect.field(e, 'stack') != null) stackInfo = Reflect.field(e, 'stack'); } catch(_){ }
-                    try { if (stackInfo == "" && e != null && Reflect.field(e, 'stackTrace') != null) stackInfo = Reflect.field(e, 'stackTrace'); } catch(_){ }
-
-                    trace('Error while filtering songs: ' + errMsg + ' search="' + searchStr + '" originalSongs=' + origCount + ' songsBefore=' + beforeCount + ' stack=' + stackInfo);
-                    // 回退到完整歌曲列表以保持可用性
-                    if (originalSongs != null)
-                        songs = originalSongs.copy();
-
-                    // 重新构建卡片映射，确保 UI 与数据一致
-                    var cardMap:Map<String, FreeplayCard> = new Map<String, FreeplayCard>();
-                    for (card in allCards)
-                        cardMap.set(card.folder + '|' + card.songName, card);
-
-                    // 隐藏所有卡片，之后只激活匹配项
-                    cards = [];
-                    for (card in allCards)
-                    {
-                        card.visible = false;
-                        card.active = false;
-                    }
-
-                    if (songs != null)
-                    {
-                        for (i in 0...songs.length)
-                        {
-                            var key2:String = songs[i].folder + '|' + songs[i].songName;
-                            var c:FreeplayCard = cardMap.get(key2);
-                            if (c != null)
-                            {
-                                c.targetY = i;
-                                c.visible = true;
-                                c.active = true;
-                                cards.push(c);
-                            }
-                        }
-                    }
-
-                    // 复位选择与 UI
-                    if (songs == null || songs.length == 0)
-                    {
-                        curSelected = -1;
-                        lerpSelected = -1;
-                        if (songArtDisplay != null) songArtDisplay.visible = false;
-                        if (characterArtDisplay != null) characterArtDisplay.visible = false;
-                        scoreText.text = "";
-                        diffText.text = "";
-                        noteCountText.text = "";
-                        difficultyRatingText.text = "";
-                        if (cornerGlow != null) cornerGlow.alpha = 0;
-                    }
-                    else
-                    {
-                        curSelected = 0;
-                        lerpSelected = 0;
-                        cardScrollPos = 0;
-                        if (cardScroller != null)
-                        {
-                            cardScroller.moveLimit = [0, Math.max(0, (songs.length - 1) * CARD_SPACING)];
-                            cardScroller.tweenData = 0;
-                        }
-                        menuBg.color = songs[curSelected].color;
-                        intendedColor = menuBg.color;
-                        changeDiff();
-                        showArtForIndex(curSelected, false);
-                        showCharacterForIndex(curSelected, false);
-                        updateCornerGlow();
-                        updateCardsPosition();
-                        updateCardsRating();
-                    }
-
-                    missingText.text = 'Search error';
-                    missingText.screenCenter(Y);
-                    missingText.visible = true;
-                    missingTextBG.visible = true;
-                }
-                filterTimer = -1;
-            }
         }
 
         // 按帧处理歌曲难度预加载队列，避免一次性导致卡顿（每帧处理最多1项）
@@ -1203,6 +1138,12 @@ public function nextSong():Void
             MusicBeatState.switchState(new LoadReplayState()); // 切换回放菜单
         }
 
+        // 点击模组文件夹文本打开模组选择器
+        if (ClientPrefs.data.freeplayModFolder && FlxG.mouse.justPressed && FlxG.mouse.overlaps(modFolderText) && !musicPlayer.playingMusic && !inModFolderSelector)
+        {
+            openModFolderSelector();
+        }
+
         // 点击 Personal Best 区域切换难度（等同于 RIGHT 控制）
         if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(diffText))
         {
@@ -1216,9 +1157,9 @@ public function nextSong():Void
         var shiftMult:Int = 1;
         if(FlxG.keys.pressed.SHIFT && !musicPlayer.playingMusic) shiftMult = 3;
 
-        if (!musicPlayer.playingMusic && PsychUIInputText.focusOn == null)
+        if (!musicPlayer.playingMusic && PsychUIInputText.focusOn == null && !inModFolderSelector)
         {
-
+            
             if(songs.length > 1)
 			{
 				if(FlxG.keys.justPressed.HOME)
@@ -1416,12 +1357,23 @@ public function nextSong():Void
 
 
         super.update(elapsed);
+
+         for (card in cards)
+        {
+            if (card != null)
+            {
+                // 判断是否为选中的卡片
+                var isSelected:Bool = (cards.indexOf(card) == curSelected);
+                card.updateSelection(isSelected);
+                card.updateGlow(elapsed);
+            }
+        }
     }
     
     function updateMouseInteraction()
     {
         if (cards.length == 0) return;
-
+        if (inModFolderSelector) return;
         computeVisibleCardRange();
         var newMouseOverCard:Int = -1;
         for (i in visibleCardMin...visibleCardMax + 1)
@@ -1580,7 +1532,7 @@ public function nextSong():Void
     
     curSelected = FlxMath.wrap(curSelected + change, 0, songs.length-1);
     cardScrollPos = curSelected * CARD_SPACING;
-    if (cardScroller != null)
+    if (cardScroller != null && !inModFolderSelector)
         cardScroller.tweenData = cardScrollPos;
     Mods.currentModDirectory = songs[curSelected].folder;
     if (musicPlayer.playingMusic)
@@ -1692,6 +1644,12 @@ public function nextSong():Void
 	
 	// 更新模组文件夹显示
 	modFolderText.text = "Mod: " + songs[curSelected].folder;
+
+    for (i in 0...cards.length)
+    {
+         var isSelected:Bool = (i == curSelected);
+        cards[i].updateSelection(isSelected);
+    }
 }
 
 function changeBackgroundWithFade(newGraphic:Dynamic)
@@ -1760,6 +1718,102 @@ function changeBackgroundWithFade(newGraphic:Dynamic)
         }
     }
 
+    /**
+     * 打开模组文件夹选择器
+     */
+    function openModFolderSelector()
+    {
+        var modFolder = new ModFolderSubstate(this);
+        inModFolderSelector = true;
+        openSubState(modFolder);
+    }
+
+    /**
+     * 当模组文件夹改变时调用的回调
+     */
+    public function onModFolderChanged()
+    {
+        // 根据当前的模组文件夹重新过滤歌曲
+        if (ClientPrefs.data.freeplayModFolder)
+        {
+            var folder:String = Mods.currentModDirectory;
+            if (folder == null || folder.length == 0)
+            {
+                songs = allSongs.copy();
+            }
+            else
+            {
+                if (songsByFolder.exists(folder))
+                    songs = songsByFolder.get(folder).copy();
+                else
+                    songs = [];
+            }
+        }
+
+        // 重置选择
+        if (songs.length == 0)
+        {
+            curSelected = 0;
+            return;
+        }
+
+        curSelected = 0;
+        cardScrollPos = 0;
+        lerpSelected = 0;
+
+        // 重新创建卡片
+        for (card in cards)
+        {
+            remove(card);
+            card.destroy();
+        }
+        cards = [];
+        allCards = [];
+
+        for (i in 0...songs.length)
+        {
+            var oldModDir = Mods.currentModDirectory;
+            Mods.currentModDirectory = songs[i].folder;
+            
+            var card = new FreeplayCard(0, 0, songs[i].songName, songs[i].songCharacter, songs[i].color, songs[i].week);
+            card.targetY = i;
+            cards.push(card);
+            allCards.push(card);
+            add(card);
+
+            Mods.currentModDirectory = oldModDir;
+        }
+
+        // 更新模组文件夹显示文本
+        var modDisplayText:String = "Mod: ";
+        if (ClientPrefs.data.freeplayModFolder)
+        {
+            modDisplayText += (Mods.currentModDirectory == null || Mods.currentModDirectory.length == 0 ? "ALL" : Mods.currentModDirectory);
+        }
+        else
+        {
+            modDisplayText += (Mods.currentModDirectory == null ? "" : Mods.currentModDirectory);
+        }
+        modFolderText.text = modDisplayText;
+
+        // 更新选择信息
+        if (curSelected >= 0 && curSelected < songs.length)
+        {
+            menuBg.color = songs[curSelected].color;
+            intendedColor = menuBg.color;
+        }
+
+        // 更新所有UI
+        updateCornerGlow();
+        updateCardsPosition();
+        updateCardsRating();
+        updateSongInfoTexts();
+        changeDiff();
+        showArtForIndex(curSelected, false);
+        showCharacterForIndex(curSelected, false);
+        inModFolderSelector = false;
+    }
+
     override function destroy():Void
     {
         #if sys
@@ -1779,199 +1833,7 @@ function changeBackgroundWithFade(newGraphic:Dynamic)
         if (characterArtDisplay != null)
             characterArtDisplay.destroy();
     }
-    
-    // 搜索歌曲功能
-    // 在 filterSongs 函数中，修改为：
-
-function filterSongs(searchText:String):Void
-{
-    var originalQuery:String = searchText == null ? "" : searchText;
-    if (searchText == null) searchText = "";
-    searchText = searchText.toLowerCase();
-    searchText = StringTools.trim(searchText);
-    searchText = StringTools.replace(searchText, " ", "");
-    
-    if (searchText == null || searchText.length == 0)
-    {
-        // 恢复所有歌曲
-        songs = originalSongs.copy();
-        // 隐藏缺失提示
-        missingText.visible = false;
-        missingTextBG.visible = false;
-    }
-    else
-    {
-        // 过滤歌曲
-        songs = [];
-
-                // 防御性：确保 originalSongs 有效
-        if (originalSongs == null) originalSongs = new Array<NewSongMetaData>();
-
-        var idx:Int = 0;
-        for (song in originalSongs)
-        {
-            // 防御性检查：跳过空条目或缺少名称的条目
-            if (song == null)
-            {
-                trace('filterSongs: skipped null song at index ' + idx);
-                idx++;
-                continue;
-            }
-
-            // 使用 Std.string 将任意类型安全转换为字符串，避免对非字符串调用 toLowerCase 导致异常
-            var snameDyn:Dynamic = song.songName;
-            if (snameDyn == null)
-            {
-                trace('filterSongs: skipped song with null name (folder=' + song.folder + ') at index ' + idx);
-                idx++;
-                continue;
-            }
-            var sname:String = Std.string(snameDyn);
-            var songName = sname.toLowerCase();
-            songName = StringTools.replace(songName, " ", "");
-            // 防御性：确保 songName 有效后再查找
-            if (songName != null && songName.indexOf(searchText) != -1)
-            {
-                songs.push(song);
-            }
-            idx++;
-        }
-        
-        // 如果搜索无结果，显示提示信息
-        if (songs.length == 0)
-        {
-            missingText.text = 'No songs found for:\n"' + originalQuery + '"';
-            missingText.screenCenter(Y);
-            missingText.visible = true;
-            missingTextBG.visible = true;
-        }
-        else
-        {
-            missingText.visible = false;
-            missingTextBG.visible = false;
-        }
-    }
-    
-    // 复用卡片对象，避免每次搜索都销毁重建
-    var cardMap:Map<String, FreeplayCard> = new Map<String, FreeplayCard>();
-
-    // 建立从 key -> card 的映射（防御性处理 null）
-    for (j in 0...allCards.length)
-    {
-        var acard:FreeplayCard = allCards[j];
-        if (acard == null)
-        {
-            trace('filterSongs: allCards[' + j + '] is null');
-            continue;
-        }
-        var af:String = acard.folder == null ? '' : Std.string(acard.folder);
-        var an:String = acard.songName == null ? '' : Std.string(acard.songName);
-        try {
-            cardMap.set(af + '|' + an, acard);
-        } catch(e:Dynamic) {
-            trace('filterSongs: failed to set cardMap for key=' + af + '|' + an + ' err=' + Std.string(e));
-        }
-    }
-
-    // 隐藏所有卡片，稍后激活匹配项
-    cards = [];
-    for (j in 0...allCards.length)
-    {
-        var ctmp:FreeplayCard = allCards[j];
-        if (ctmp == null) continue;
-        ctmp.visible = false;
-        ctmp.active = false;
-    }
-
-    // 将匹配到的卡片按顺序激活并放入 cards 中
-    for (i in 0...songs.length)
-    {
-        var sEntry:NewSongMetaData = songs[i];
-        if (sEntry == null)
-        {
-            trace('filterSongs: songs[' + i + '] is null');
-            continue;
-        }
-
-        var sf:String = sEntry.folder == null ? '' : Std.string(sEntry.folder);
-        var sn:String = sEntry.songName == null ? '' : Std.string(sEntry.songName);
-        var key:String = sf + '|' + sn;
-        var card:FreeplayCard = cardMap.get(key);
-
-        // 如果精确 key 未命中，尝试降级匹配（按 songName 不区分 folder）
-        if (card == null)
-        {
-            for (c in allCards)
-            {
-                if (c == null) continue;
-                var cname:String = c.songName == null ? '' : Std.string(c.songName);
-                if (Std.string(cname).toLowerCase() == Std.string(sn).toLowerCase())
-                {
-                    card = c;
-                    trace('filterSongs: fallback matched songs[' + i + ']("' + sn + '") to card("' + cname + '")');
-                    break;
-                }
-            }
-        }
-
-        if (card != null)
-        {
-            card.targetY = i;
-            card.visible = true;
-            card.active = true;
-            cards.push(card);
-        }
-        else
-        {
-            trace('filterSongs: no card found for songs[' + i + '] key="' + key + '"');
-        }
-    }
-    
-    // 重置选择 - 处理无歌曲的情况
-    if (songs.length == 0) {
-        curSelected = -1;
-        lerpSelected = -1;
-        
-        // 隐藏或重置艺术图显示
-        if (songArtDisplay != null) songArtDisplay.visible = false;
-        if (characterArtDisplay != null) characterArtDisplay.visible = false;
-        
-        // 清空分数显示
-        scoreText.text = "";
-        diffText.text = "";
-        noteCountText.text = "";
-        difficultyRatingText.text = "";
-        
-        // 隐藏右下角发光
-        if (cornerGlow != null) cornerGlow.alpha = 0;
-        
-        return; // 直接返回，避免后续操作
-    }
-    
-    // 有歌曲时的正常处理
-    if (songArtDisplay != null) songArtDisplay.visible = true;
-    if (characterArtDisplay != null) characterArtDisplay.visible = true;
-    if (cornerGlow != null) cornerGlow.alpha = 0.7;
-    
-    curSelected = 0;
-    lerpSelected = 0;
-    cardScrollPos = 0;
-    if (cardScroller != null)
-    {
-        cardScroller.moveLimit = [0, Math.max(0, (songs.length - 1) * CARD_SPACING)];
-        cardScroller.tweenData = 0;
-    }
-    menuBg.color = songs[curSelected].color;
-    intendedColor = menuBg.color;
-    
-    changeDiff();
-    showArtForIndex(curSelected, false);
-    showCharacterForIndex(curSelected, false);
-    updateCornerGlow();
-    updateCardsPosition();
-    updateCardsRating();
-}
-}
+}   
 
 class NewSongMetaData
 {
@@ -2014,6 +1876,9 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
     public var bpmText:FlxText;
     public var lengthText:FlxText;
 
+    public var breathGlow:BreathGlow;
+    public var isCardSelected:Bool = false;
+
     public function new(x:Float, y:Float, songName:String, songCharacter:String, coloring:Int, week:Int)
     {
         super();
@@ -2029,6 +1894,16 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         bgSprite.makeGraphic(450, 75, 0xFF4A4A4A);
         bgSprite.alpha = 0.67;
         bgSprite.scrollFactor.set();
+        
+        // 创建发光纹理并放在 bgSprite 之前（使其在卡片下面）
+        breathGlow = new BreathGlow(bgSprite.width +275, bgSprite.height -30, coloring);
+        breathGlow.alpha = 0; // 默认隐藏
+        breathGlow.glowIntensity = 0.6;
+        breathGlow.pulseSpeed = 1.0;
+        breathGlow.x = bgSprite.x + 160; // 发光比卡片大40px（每边20px）
+        breathGlow.y = bgSprite.y - 30;
+        add(breathGlow);
+
         add(bgSprite);
         
         textSprite = new FlxText(x + 60, y + 10, 380, songName, 20);
@@ -2082,6 +1957,45 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         updateRatingSprite();
     }
     
+      /**
+     * 更新卡片的选中状态
+     */
+    public function updateSelection(isSelected:Bool):Void
+    {
+        isCardSelected = isSelected;
+        
+        if (isSelected)
+        {
+            // 显示发光并开始呼吸（受选项控制）
+            if (ClientPrefs.data.cardGlow)
+            {
+                breathGlow.alpha = 1;
+                breathGlow.setColor(coloring);
+            }
+            else
+            {
+                breathGlow.alpha = 0;
+            }
+        }
+        else
+        {
+            // 隐藏发光
+            breathGlow.alpha = 0;
+        }
+    }
+    
+    /**
+     * 更新呼吸动画（在主循环中调用）
+     */
+    public function updateGlow(elapsed:Float):Void
+    {
+        if (isCardSelected && breathGlow.alpha > 0)
+        {
+            breathGlow.updatePulse(elapsed *0.5);
+        }
+    }
+    
+
     public function updateDifficultyInfo(bpm:Float, formattedLength:String, ?noteCount:Int = 0, ?difficultyRating:Float = 0.0)
     {
         if (bpm > 0)
@@ -2209,6 +2123,19 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
             ratingSprite.x = rhombusBg.x + rhombusBg.width - 100;
             ratingSprite.y = rhombusBg.y + (rhombusBg.height - ratingSprite.height) / 2;
         }
+
+        if (breathGlow != null)
+        {
+            breathGlow.x = bgSprite.x - 70;  // 因为发光比卡片大40px（每边20px）
+            breathGlow.y = bgSprite.y - 5;
+            
+            // 调试：打印位置看看
+            // trace('Glow position: ${breathGlow.x}, ${breathGlow.y}');
+        }
+        
+        // 更新选中状态
+        var isSelected:Bool = (targetY == selectedIndex);
+        updateSelection(isSelected);
         
         var isSelected:Bool = targetY == selectedIndex;
         var alpha = if (isSelected) 1.0 else 0.6;

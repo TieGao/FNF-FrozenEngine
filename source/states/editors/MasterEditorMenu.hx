@@ -110,7 +110,7 @@ class MasterEditorMenu extends MusicBeatState
 			// 鼠标右键返回
 			if (FlxG.mouse.justPressedRight)
 			{
-				FlxG.mouse.visible = false;
+				FlxG.mouse.visible = true;
 				lastMousePos.put();
 				MusicBeatState.switchState(new MainMenuState());
 			}
@@ -152,7 +152,7 @@ class MasterEditorMenu extends MusicBeatState
 
 		if (controls.BACK || FlxG.mouse.justPressedRight)
 		{
-			FlxG.mouse.visible = false;
+			FlxG.mouse.visible = true;
 			lastMousePos.put();
 			MusicBeatState.switchState(new MainMenuState());
 		}
@@ -313,7 +313,7 @@ class MasterEditorMenu extends MusicBeatState
 				MusicBeatState.switchState(new NoteSplashEditorState());
 		}
 		
-		FlxG.mouse.visible = false;
+		FlxG.mouse.visible = true;
 		FlxG.sound.music.volume = 0;
 		OldFreeplayState.destroyFreeplayVocals();
 	}
@@ -323,6 +323,6 @@ class MasterEditorMenu extends MusicBeatState
 		super.destroy();
 		if (lastMousePos != null)
 			lastMousePos.put();
-		FlxG.mouse.visible = false;
+		FlxG.mouse.visible = true;
 	}
 }

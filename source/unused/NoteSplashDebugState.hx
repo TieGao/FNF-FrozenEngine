@@ -177,7 +177,7 @@ class NoteSplashDebugState extends MusicBeatState implements PsychUIEventHandler
 		{
 			MusicBeatState.switchState(new MasterEditorMenu());
 			FlxG.sound.playMusic(Paths.music('freakyMenu'));
-			FlxG.mouse.visible = false;
+			FlxG.mouse.visible = true;
 		}
 		super.update(elapsed);
 

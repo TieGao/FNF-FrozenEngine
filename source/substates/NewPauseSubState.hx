@@ -38,15 +38,11 @@ class NewPauseSubState extends MusicBeatSubstate
 	var isAnimating:Bool = true;
 	var cantUnpause:Float = 0.1;
 	
-	// ========== Skip Time功能 ==========
+	// ========== Skip Time功能（完全按照旧PauseSubState） ==========
 	var skipTimeText:FlxText;
-	var skipTimeBar:FlxSprite;
-	var skipTimeBarFill:FlxSprite;
-	var skipTimeHandle:FlxSprite;
-	var curTime:Float = 0;
 	var skipTimeVisible:Bool = false;
-	var skipDragging:Bool = false;
-	var skipTimeTracker:FlxSprite; // 用于检测悬停的图标引用（Debug面板中的Skip Time选项背景）
+	var curTime:Float = 0;
+	var holdTime:Float = 0;  // 长按计时
 	
 	// ========== 难度选择 ==========
 	var difficultyChoices:Array<String> = [];
@@ -63,14 +59,13 @@ class NewPauseSubState extends MusicBeatSubstate
 	var curDebugOption:Int = 0;
 	var debugPanelVisible:Bool = false;
 	
-	// ========== 鼠标控制变量（参考MainMenuState）==========
+	// ========== 鼠标控制变量 ==========
 	var usingDebugPanel:Bool = false;
 	var timeNotMoving:Float = 0;
 	var mouseOverItem:Int = -1;
 	var lastMousePos:FlxPoint;
 	
-	// 点击判定区域偏移量（与PauseSubState保持一致）
-	// 正数向下/向右偏移，负数向上/向左偏移
+	// 点击判定区域偏移量
 	var clickHitboxOffsetX:Float = 0;
 	var clickHitboxOffsetY:Float = 0;
 	
@@ -97,7 +92,7 @@ class NewPauseSubState extends MusicBeatSubstate
 		createCharmUI();
 		createDebugPanel();
 		
-		// 初始化curTime
+		// 初始化curTime（与旧PauseSubState一致）
 		curTime = Math.max(0, Conductor.songPosition);
 		updateSkipTimeVisibility();
 		
@@ -107,8 +102,6 @@ class NewPauseSubState extends MusicBeatSubstate
 	function initMenuItems()
 	{
 		menuItems = ['Resume', 'Restart Song', 'Change Difficulty', 'Options', 'Exit to menu'];
-		
-		//if(Difficulty.list.length >= 2) menuItems.insert(menuItems.length - 2,'Change Difficulty');
 
 		if(PlayState.chartingMode || PlayState.instance.practiceMode || PlayState.instance.cpuControlled)
 		{
@@ -239,10 +232,9 @@ class NewPauseSubState extends MusicBeatSubstate
 			optionText.alpha = 0;
 			debugTexts.push(optionText);
 			
-			// 如果是Skip Time选项，保存其背景作为tracker，并创建时间文本
+			// 如果是Skip Time选项，创建时间文本
 			if(debugOptions[i] == 'pause_skip_time')
 			{
-				skipTimeTracker = optionBg;
 				createSkipTimeUI();
 			}
 		}
@@ -253,29 +245,9 @@ class NewPauseSubState extends MusicBeatSubstate
 		for(bg in debugBgs) if(bg != null) bg.visible = false;
 	}
 	
+	// ========== Skip Time UI（仅文本，与旧PauseSubState一致） ==========
 	function createSkipTimeUI()
 	{
-		skipTimeBar = new FlxSprite(0, 0);
-		skipTimeBar.makeGraphic(300, 8, FlxColor.GRAY);
-		skipTimeBar.scrollFactor.set();
-		skipTimeBar.alpha = 0;
-		skipTimeBar.visible = false;
-		add(skipTimeBar);
-		
-		skipTimeBarFill = new FlxSprite(0, 0);
-		skipTimeBarFill.makeGraphic(300, 8, FlxColor.CYAN);
-		skipTimeBarFill.scrollFactor.set();
-		skipTimeBarFill.alpha = 0;
-		skipTimeBarFill.visible = false;
-		add(skipTimeBarFill);
-
-		skipTimeHandle = new FlxSprite(0, 0);
-		skipTimeHandle.makeGraphic(16, 16, 0xFFFFFFFF);
-		skipTimeHandle.scrollFactor.set();
-		skipTimeHandle.alpha = 0;
-		skipTimeHandle.visible = false;
-		add(skipTimeHandle);
-		
 		skipTimeText = new FlxText(0, 0, 0, '', 24);
 		skipTimeText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		skipTimeText.scrollFactor.set();
@@ -469,14 +441,13 @@ class NewPauseSubState extends MusicBeatSubstate
 		}
 	}
 	
-	// ========== 鼠标悬停检测（参考MainMenuState + PauseSubState）==========
+	// ========== 鼠标悬停检测 ==========
 	function updateMouseOver()
 	{
 		var newMouseOver:Int = -1;
 		
 		if (inDifficultyMode)
 		{
-			// 难度选择模式：检测难度选项
 			for (i in 0...difficultyChoices.length)
 			{
 				var textBg = difficultyBgs.get(difficultyChoices[i]);
@@ -489,7 +460,6 @@ class NewPauseSubState extends MusicBeatSubstate
 		}
 		else if (usingDebugPanel && debugPanelVisible)
 		{
-			// 调试面板模式：检测调试选项（不对文本应用偏移）
 			for (i in 0...debugBgs.length)
 			{
 				var bg = debugBgs[i];
@@ -502,13 +472,11 @@ class NewPauseSubState extends MusicBeatSubstate
 		}
 		else
 		{
-			// 正常模式：检测图标（应用偏移量，与PauseSubState一致）
 			for (i in 0...menuItems.length)
 			{
 				var icon = menuIcons.get(menuItems[i]);
 				if (icon != null && icon.visible)
 				{
-					// 应用偏移量检测悬停
 					var originalX:Float = icon.x;
 					var originalY:Float = icon.y;
 					icon.x += clickHitboxOffsetX;
@@ -526,7 +494,6 @@ class NewPauseSubState extends MusicBeatSubstate
 			}
 		}
 		
-		// 悬停项改变时更新高亮
 		if (newMouseOver != mouseOverItem)
 		{
 			mouseOverItem = newMouseOver;
@@ -534,70 +501,6 @@ class NewPauseSubState extends MusicBeatSubstate
 		}
 	}
 	
-	// ========== Skip Time拖拽处理 ==========
-	function handleSkipTimeDrag(elapsed:Float)
-	{
-		if (!skipTimeVisible || skipTimeBar == null || skipTimeText == null || skipTimeHandle == null) return;
-
-		var isOverSkipTime:Bool = false;
-		var skipTimeIndex:Int = debugOptions.indexOf('Skip Time');
-		if (usingDebugPanel && debugPanelVisible && skipTimeIndex != -1 && skipTimeIndex < debugBgs.length)
-		{
-			var skipTimeBg = debugBgs[skipTimeIndex];
-			if (skipTimeBg != null && FlxG.mouse.overlaps(skipTimeBg, cameras[0]))
-			{
-				isOverSkipTime = true;
-			}
-		}
-
-		var isOverBar:Bool = skipTimeBar.visible && FlxG.mouse.overlaps(skipTimeBar, cameras[0]);
-		var isOverHandle:Bool = skipTimeHandle.visible && FlxG.mouse.overlaps(skipTimeHandle, cameras[0]);
-		var isOverText:Bool = skipTimeText.visible && FlxG.mouse.overlaps(skipTimeText, cameras[0]);
-		
-		var shouldHandle:Bool = isOverSkipTime || isOverBar || isOverHandle || isOverText || skipDragging;
-
-		if (FlxG.mouse.justReleased)
-		{
-			skipDragging = false;
-		}
-
-		if (shouldHandle)
-		{
-			if (FlxG.mouse.justPressed)
-			{
-				skipDragging = true;
-				updateSkipTimeFromPointer();
-			}
-			else if (FlxG.mouse.pressed && skipDragging)
-			{
-				updateSkipTimeFromPointer();
-			}
-
-			if (FlxG.mouse.wheel != 0)
-			{
-				curTime += FlxG.mouse.wheel * 1000;
-				curTime = Math.max(0, Math.min(FlxG.sound.music.length, curTime));
-				updateSkipTimeText();
-				updateSkipTimeBarFill();
-				FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-			}
-		}
-	}
-
-	function updateSkipTimeFromPointer()
-	{
-		if (skipTimeBar == null || FlxG.sound.music.length <= 0) return;
-
-		var pointerX:Float = FlxG.mouse.screenX;
-		var barLeft:Float = skipTimeBar.x;
-		var barWidth:Float = skipTimeBar.width;
-
-		curTime = ((pointerX - barLeft) / barWidth) * FlxG.sound.music.length;
-		curTime = Math.max(0, Math.min(FlxG.sound.music.length, curTime));
-		updateSkipTimeText();
-		updateSkipTimeBarFill();
-	}
-
 	// ========== 鼠标点击处理 ==========
 	function handleMouseClick()
 	{
@@ -638,7 +541,7 @@ class NewPauseSubState extends MusicBeatSubstate
 		}
 	}
 	
-	// ========== 更新选择视觉（增强版，支持悬停高亮）==========
+	// ========== 更新选择视觉 ==========
 	function updateSelectionVisual()
 	{
 		if (inDifficultyMode)
@@ -763,7 +666,6 @@ class NewPauseSubState extends MusicBeatSubstate
 	function updateDebugSelection()
 	{
 		updateSelectionVisual();
-		// 更新Skip Time显示位置（当选择改变时）
 		updateSkipTimePosition();
 	}
 	
@@ -777,7 +679,7 @@ class NewPauseSubState extends MusicBeatSubstate
 			FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 	}
 	
-	// ========== 主更新函数（整合鼠标控制）==========
+	// ========== 主更新函数 ==========
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
@@ -787,11 +689,10 @@ class NewPauseSubState extends MusicBeatSubstate
 			pauseMusic.volume += 0.01 * elapsed;
 		
 		updateSkipTimePosition();
-		updateSkipTimeBarFill();
 		
 		if(isAnimating || cantUnpause > 0) return;
 		
-		// ===== 鼠标控制（参考MainMenuState + PauseSubState）=====
+		// ===== 鼠标控制 ======
 		if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
 		{
 			timeNotMoving = 0;
@@ -836,10 +737,51 @@ class NewPauseSubState extends MusicBeatSubstate
 			handleMouseClick();
 		}
 		
-		// Skip Time拖拽处理
-		handleSkipTimeDrag(elapsed);
+		// ===== Skip Time 控制（完全按照旧PauseSubState） =====
+		if (skipTimeVisible)
+		{
+			var isSkipTimeSelected:Bool = false;
+			var skipTimeIndex:Int = debugOptions.indexOf('pause_skip_time');
+			if (usingDebugPanel && debugPanelVisible && skipTimeIndex != -1)
+			{
+				isSkipTimeSelected = (curDebugOption == skipTimeIndex);
+			}
+			
+			if (isSkipTimeSelected)
+			{
+				// 左右键步进1000ms
+				if (controls.UI_LEFT_P)
+				{
+					FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+					curTime -= 1000;
+					holdTime = 0;
+					curTime = Math.max(0, Math.min(FlxG.sound.music.length, curTime));
+					updateSkipTimeText();
+				}
+				if (controls.UI_RIGHT_P)
+				{
+					FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+					curTime += 1000;
+					holdTime = 0;
+					curTime = Math.max(0, Math.min(FlxG.sound.music.length, curTime));
+					updateSkipTimeText();
+				}
+				
+				// 长按连续滚动（按住0.5秒后加速）
+				if (controls.UI_LEFT || controls.UI_RIGHT)
+				{
+					holdTime += elapsed;
+					if (holdTime > 0.5)
+					{
+						curTime += 45000 * elapsed * (controls.UI_LEFT ? -1 : 1);
+						curTime = Math.max(0, Math.min(FlxG.sound.music.length, curTime));
+						updateSkipTimeText();
+					}
+				}
+			}
+		}
 		
-		// 键盘控制（按下任意键时禁用鼠标模式，与MainMenuState一致）
+		// 键盘控制（按下任意键时禁用鼠标模式）
 		if (FlxG.keys.justPressed.ANY && !FlxG.keys.pressed.LEFT && !FlxG.keys.pressed.RIGHT && 
 			!FlxG.keys.pressed.UP && !FlxG.keys.pressed.DOWN)
 		{
@@ -881,7 +823,7 @@ class NewPauseSubState extends MusicBeatSubstate
 		}
 	}
 	
-	// ========== 键盘控制（分离出来保持清晰）==========
+	// ========== 键盘控制 ==========
 	function updateNormalModeKeyboard()
 	{
 		if(controls.UI_UP_P) changeSelection(-1);
@@ -910,32 +852,79 @@ class NewPauseSubState extends MusicBeatSubstate
 		if(controls.BACK) exitDifficultyMode();
 	}
 	
-	// ========== Skip Time系统 ==========
+	// ========== Skip Time系统（完全按照旧PauseSubState） ==========
 	function updateSkipTimeVisibility()
 	{
 		skipTimeVisible = !PlayState.instance.startingSong && (PlayState.chartingMode || PlayState.instance.practiceMode || PlayState.instance.cpuControlled);
 		
+		// 检查调试选项中是否有Skip Time
+		var hasSkipTime = debugOptions.indexOf('pause_skip_time') != -1;
+		skipTimeVisible = skipTimeVisible && hasSkipTime;
+		
 		if(skipTimeText != null)
 		{
 			skipTimeText.visible = skipTimeVisible;
-			skipTimeBar.visible = skipTimeVisible;
-			skipTimeBarFill.visible = skipTimeVisible;
-			skipTimeHandle.visible = skipTimeVisible;
 		}
 	}
-
-	function updateSkipTimeDisplay()
+	
+	function updateSkipTimePosition()
+	{
+		if(skipTimeText == null) return;
+		
+		var skipTimeIndex:Int = debugOptions.indexOf('pause_skip_time');
+		if (debugPanelVisible && skipTimeVisible && skipTimeIndex != -1 && skipTimeIndex < debugBgs.length)
+		{
+			var bg = debugBgs[skipTimeIndex];
+			if (bg != null && bg.visible)
+			{
+				var skipTimeTextObj = debugTexts[skipTimeIndex + 1];
+				if (skipTimeTextObj != null)
+				{
+					// 时间文本显示在选项文字右侧（与旧PauseSubState的Alphabet右侧显示一致）
+					skipTimeText.x = skipTimeTextObj.x + skipTimeTextObj.width + 20;
+					skipTimeText.y = skipTimeTextObj.y;
+					skipTimeText.visible = skipTimeVisible;
+					return;
+				}
+			}
+		}
+		
+		// 默认位置
+		skipTimeText.x = FlxG.width - 200;
+		skipTimeText.y = FlxG.height - 100;
+		skipTimeText.visible = skipTimeVisible;
+	}
+	
+	function updateSkipTimeText()
 	{
 		if(skipTimeText != null)
 		{
-			skipTimeText.visible = skipTimeVisible;
-			skipTimeBar.visible = skipTimeVisible;
-			skipTimeBarFill.visible = skipTimeVisible;
-			skipTimeHandle.visible = skipTimeVisible;
+			var current = FlxStringUtil.formatTime(Math.max(0, Math.floor(curTime / 1000)), false);
+			var total = FlxStringUtil.formatTime(Math.max(0, Math.floor(FlxG.sound.music.length / 1000)), false);
+			skipTimeText.text = current + ' / ' + total;
+			skipTimeText.updateHitbox();
 		}
-		updateSkipTimePosition();
 	}
-
+	
+	// ========== 执行Skip Time（完全按照旧PauseSubState） ==========
+	function handleSkipTimeAction()
+	{
+		if (curTime < Conductor.songPosition)
+		{
+			PlayState.startOnTime = curTime;
+			restartSong(true);
+		}
+		else
+		{
+			if (curTime != Conductor.songPosition)
+			{
+				PlayState.instance.clearNotesBefore(curTime);
+				PlayState.instance.setSongTime(curTime);
+			}
+			closeMenu();
+		}
+	}
+	
 	function showDebugPanel(visible:Bool)
 	{
 		debugPanelVisible = visible;
@@ -960,85 +949,7 @@ class NewPauseSubState extends MusicBeatSubstate
 				bg.alpha = visible ? 1 : 0;
 			}
 		}
-		updateSkipTimeDisplay();
-	}
-
-	function updateSkipTimePosition()
-	{
-		if(skipTimeText == null || skipTimeBar == null || skipTimeBarFill == null || skipTimeHandle == null) return;
-
-		var skipTimeIndex:Int = debugOptions.indexOf('Skip Time');
-		if (debugPanelVisible && skipTimeVisible && skipTimeIndex != -1 && skipTimeIndex < debugBgs.length)
-		{
-			var bg = debugBgs[skipTimeIndex];
-			if (bg != null && bg.visible)
-			{
-				var skipTimeTextObj = debugTexts[skipTimeIndex + 1];
-				if (skipTimeTextObj != null)
-				{
-					skipTimeText.x = skipTimeTextObj.x + skipTimeTextObj.width + 20;
-					skipTimeText.y = skipTimeTextObj.y;
-
-					skipTimeBar.x = skipTimeText.x;
-					skipTimeBar.y = skipTimeText.y + skipTimeText.height + 5;
-					skipTimeBarFill.x = skipTimeBar.x;
-					skipTimeBarFill.y = skipTimeBar.y;
-
-					skipTimeBar.width = Math.max(200, skipTimeText.width);
-					skipTimeBar.makeGraphic(Std.int(skipTimeBar.width), 8, FlxColor.GRAY);
-					skipTimeBarFill.makeGraphic(Std.int(skipTimeBar.width), 8, FlxColor.CYAN);
-					updateSkipTimeBarFill();
-
-					var percent = curTime / FlxG.sound.music.length;
-					if(percent > 1) percent = 1;
-					if(percent < 0) percent = 0;
-					skipTimeHandle.x = skipTimeBar.x + percent * skipTimeBar.width - skipTimeHandle.width / 2;
-					skipTimeHandle.y = skipTimeBar.y - (skipTimeHandle.height - skipTimeBar.height) / 2;
-					skipTimeHandle.visible = skipTimeVisible;
-					skipTimeHandle.updateHitbox();
-					return;
-				}
-			}
-		}
-
-		skipTimeBar.x = (FlxG.width - skipTimeBar.width) / 2;
-		skipTimeBar.y = FlxG.height - 100;
-		skipTimeText.x = skipTimeBar.x;
-		skipTimeText.y = skipTimeBar.y - 40;
-		skipTimeBarFill.x = skipTimeBar.x;
-		skipTimeBarFill.y = skipTimeBar.y;
-		updateSkipTimeBarFill();
-
-		var percent = curTime / FlxG.sound.music.length;
-		if(percent > 1) percent = 1;
-		if(percent < 0) percent = 0;
-		skipTimeHandle.x = skipTimeBar.x + percent * skipTimeBar.width - skipTimeHandle.width / 2;
-		skipTimeHandle.y = skipTimeBar.y - (skipTimeHandle.height - skipTimeBar.height) / 2;
-		skipTimeHandle.visible = skipTimeVisible;
-		skipTimeHandle.updateHitbox();
-	}
-
-	function updateSkipTimeBarFill()
-	{
-		if(skipTimeBarFill == null || skipTimeBar == null) return;
-		
-		var percent = curTime / FlxG.sound.music.length;
-		if(percent > 1) percent = 1;
-		if(percent < 0) percent = 0;
-		
-		skipTimeBarFill.scale.x = percent;
-		skipTimeBarFill.updateHitbox();
-	}
-	
-	function updateSkipTimeText()
-	{
-		if(skipTimeText != null)
-		{
-			var current = FlxStringUtil.formatTime(Math.max(0, Math.floor(curTime / 1000)), false);
-			var total = FlxStringUtil.formatTime(Math.max(0, Math.floor(FlxG.sound.music.length / 1000)), false);
-			skipTimeText.text = current + ' / ' + total;
-			skipTimeText.updateHitbox();
-		}
+		updateSkipTimePosition();
 	}
 	
 	// ========== 难度选择系统 ==========
@@ -1067,8 +978,6 @@ class NewPauseSubState extends MusicBeatSubstate
 		if(skipTimeText != null)
 		{
 			skipTimeText.visible = false;
-			skipTimeBar.visible = false;
-			skipTimeBarFill.visible = false;
 		}
 		
 		var panelY:Float = FlxG.height - 220;
@@ -1142,7 +1051,7 @@ class NewPauseSubState extends MusicBeatSubstate
 			}
 		}
 		
-		updateSkipTimeDisplay();
+		updateSkipTimePosition();
 		
 		curSelected = 0;
 		updateSelectionVisual();
@@ -1292,26 +1201,6 @@ class NewPauseSubState extends MusicBeatSubstate
 	}
 	
 	// ========== 具体功能实现 ==========
-	function handleSkipTimeAction()
-	{
-		if(skipDragging) return;
-		
-		if(curTime < Conductor.songPosition)
-		{
-			PlayState.startOnTime = curTime;
-			restartSong(true);
-		}
-		else
-		{
-			if(curTime != Conductor.songPosition)
-			{
-				PlayState.instance.clearNotesBefore(curTime);
-				PlayState.instance.setSongTime(curTime);
-			}
-			closeMenu();
-		}
-	}
-	
 	function leaveChartingMode()
 	{
 		PlayState.chartingMode = false;
@@ -1444,11 +1333,6 @@ class NewPauseSubState extends MusicBeatSubstate
 	{
 		if(isAnimating) return;
 		
-		if(skipDragging && Math.abs(curTime - Conductor.songPosition) > 500)
-		{
-			handleSkipTimeAction();
-		}
-		
 		isAnimating = true;
 		FlxG.sound.play(Paths.sound('cancelMenu'));
 		
@@ -1461,7 +1345,7 @@ class NewPauseSubState extends MusicBeatSubstate
 			startDelay: menuItems.length * ICON_STAGGER,
 			onComplete: function(twn:FlxTween)
 			{
-				FlxG.mouse.visible = false;
+				FlxG.mouse.visible = true;
 				close();
 			}
 		});
@@ -1473,8 +1357,6 @@ class NewPauseSubState extends MusicBeatSubstate
 		if(backdrop != null) FlxTween.tween(backdrop, {alpha: 0}, FADE_TIME, {ease: FlxEase.quadOut});
 		
 		if(skipTimeText != null) FlxTween.tween(skipTimeText, {alpha: 0}, FADE_TIME * 0.8, {ease: FlxEase.quadOut});
-		if(skipTimeBar != null) FlxTween.tween(skipTimeBar, {alpha: 0}, FADE_TIME * 0.8, {ease: FlxEase.quadOut});
-		if(skipTimeBarFill != null) FlxTween.tween(skipTimeBarFill, {alpha: 0}, FADE_TIME * 0.8, {ease: FlxEase.quadOut});
 		
 		var infoElements = [infoPanelBg, levelInfo, levelDifficulty, blueballedTxt, practiceText, chartingText];
 		for(element in infoElements) if(element != null) fadeOutElement(element);
@@ -1579,7 +1461,7 @@ class NewPauseSubState extends MusicBeatSubstate
 		}
 		
 		if (lastMousePos != null) lastMousePos.put();
-		FlxG.mouse.visible = false;
+		FlxG.mouse.visible = true;
 		
 		super.destroy();
 	}

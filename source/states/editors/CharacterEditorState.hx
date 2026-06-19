@@ -1067,7 +1067,7 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 			}
 			else
 			{
-				FlxG.mouse.visible = false;
+				FlxG.mouse.visible = true;
 				MusicBeatState.switchState(new PlayState());
 			}
 			return;

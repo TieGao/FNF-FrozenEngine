@@ -17,15 +17,14 @@ class ResetScoreSubState extends MusicBeatSubstate
 	var song:String;
 	var difficulty:Int;
 	var week:Int;
-	var modFolder:String; // 新增：模组文件夹
+	var modFolder:String;
 
-	// Week -1 = Freeplay
 	public function new(song:String, difficulty:Int, character:String, week:Int = -1, ?modFolder:String = null)
 	{
 		this.song = song;
 		this.difficulty = difficulty;
 		this.week = week;
-		this.modFolder = modFolder; // 保存模组文件夹
+		this.modFolder = modFolder;
 
 		super();
 
@@ -40,7 +39,7 @@ class ResetScoreSubState extends MusicBeatSubstate
 		bg.scrollFactor.set();
 		add(bg);
 
-		var tooLong:Float = (name.length > 18) ? 0.8 : 1; //Fucking Winter Horrorland
+		var tooLong:Float = (name.length > 18) ? 0.8 : 1;
 		var text:Alphabet = new Alphabet(0, 180, Language.getPhrase('reset_score', 'Reset the score of'), true);
 		text.screenCenter(X);
 		alphabetArray.push(text);
@@ -54,7 +53,6 @@ class ResetScoreSubState extends MusicBeatSubstate
 		text.alpha = 0;
 		add(text);
 		if(week == -1) {
-			// 关键修改：传入模组文件夹
 			icon = new HealthIcon(character, false, true, modFolder);
 			icon.setGraphicSize(Std.int(icon.width * tooLong));
 			icon.updateHitbox();
@@ -66,10 +64,12 @@ class ResetScoreSubState extends MusicBeatSubstate
 		yesText = new Alphabet(0, text.y + 150, Language.getPhrase('Yes'), true);
 		yesText.screenCenter(X);
 		yesText.x -= 200;
+		yesText.ID = 0; // 用于识别
 		add(yesText);
 		noText = new Alphabet(0, text.y + 150, Language.getPhrase('No'), true);
 		noText.screenCenter(X);
 		noText.x += 200;
+		noText.ID = 1; // 用于识别
 		add(noText);
 		
 		for(letter in yesText.letters) letter.color = FlxColor.RED;
@@ -87,27 +87,62 @@ class ResetScoreSubState extends MusicBeatSubstate
 		}
 		if(week == -1) icon.alpha += elapsed * 2.5;
 
+		// ---- 鼠标控制 ----
+		#if FLX_MOUSE
+		var mouseX:Float = FlxG.mouse.x;
+		var mouseY:Float = FlxG.mouse.y;
+
+		// 检测鼠标悬停到 Yes/No 文本
+		var hoveringYes:Bool = FlxG.mouse.overlaps(yesText, camera);
+		var hoveringNo:Bool = FlxG.mouse.overlaps(noText, camera);
+
+		if (hoveringYes && !onYes) {
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
+			onYes = true;
+			updateOptions();
+		} else if (hoveringNo && onYes) {
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
+			onYes = false;
+			updateOptions();
+		}
+
+		// 点击确认
+		if (FlxG.mouse.justPressed) {
+			if (hoveringYes) {
+				executeConfirm();
+			} else if (hoveringNo) {
+				FlxG.sound.play(Paths.sound('cancelMenu'), 1);
+				close();
+			}
+		}
+		#end
+
+		// ---- 键盘控制 ----
 		if(controls.UI_LEFT_P || controls.UI_RIGHT_P) {
 			FlxG.sound.play(Paths.sound('scrollMenu'), 1);
 			onYes = !onYes;
 			updateOptions();
 		}
-		if(controls.BACK) {
+		if(controls.BACK || FlxG.mouse.justPressedRight) {
 			FlxG.sound.play(Paths.sound('cancelMenu'), 1);
 			close();
 		} else if(controls.ACCEPT) {
-			if(onYes) {
-				if(week == -1) {
-					// 关键修改：传入模组文件夹重置分数
-					Highscore.resetSong(song, difficulty, modFolder);
-				} else {
-					Highscore.resetWeek(WeekData.weeksList[week], difficulty, modFolder);
-				}
-			}
-			FlxG.sound.play(Paths.sound('cancelMenu'), 1);
-			close();
+			executeConfirm();
 		}
 		super.update(elapsed);
+	}
+
+	function executeConfirm():Void
+	{
+		if(onYes) {
+			if(week == -1) {
+				Highscore.resetSong(song, difficulty, modFolder);
+			} else {
+				Highscore.resetWeek(WeekData.weeksList[week], difficulty, modFolder);
+			}
+		}
+		FlxG.sound.play(Paths.sound('cancelMenu'), 1);
+		close();
 	}
 
 	function updateOptions() {

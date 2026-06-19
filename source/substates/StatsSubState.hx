@@ -1,5 +1,5 @@
 // substates/StatsSubState.hx
-package states;
+package substates;
 
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
@@ -12,7 +12,7 @@ import flixel.group.FlxGroup;
         var value:String;
     }
 
-class StatsSubState extends MusicBeatState
+class StatsSubState extends MusicBeatSubstate
 {
     var leftState:Bool = false;
     var bg:FlxSprite;
@@ -185,7 +185,7 @@ class StatsSubState extends MusicBeatState
             if (controls.BACK || FlxG.mouse.justPressedRight)
             {
                 leftState = true;
-                FlxG.sound.play(Paths.sound('cancelMenu'));
+                //FlxG.sound.play(Paths.sound('cancelMenu'));
                 
                 FlxTween.tween(bg, { alpha: 0.0 }, 0.6, { ease: FlxEase.sineOut });
                 
@@ -198,6 +198,7 @@ class StatsSubState extends MusicBeatState
                     ease: FlxEase.sineOut,
                     onComplete: function(twn:FlxTween) {
                         FlxG.state.persistentUpdate = true;
+                        close();
                     }
                 });
             }

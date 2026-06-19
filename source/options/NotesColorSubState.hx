@@ -183,7 +183,7 @@ class NotesColorSubState extends MusicBeatSubstate
 
 	override function update(elapsed:Float) {
 		if (controls.BACK) {
-			FlxG.mouse.visible = false;
+			FlxG.mouse.visible = true;
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 			close();
 			return;

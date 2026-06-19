@@ -396,6 +396,8 @@ class PlayState extends MusicBeatState
         trace('Replay mode activated with ${replayNoteQueue.length} notes');
     }
 
+	FlxG.mouse.visible = false;
+	
 		if (inReplay)
 	{
 		createReplayUI();
@@ -3155,7 +3157,7 @@ private function cachePopUpScore()
         Paths.image(uiFolder + 'combo' + uiPostfix);
     }
 }
-	private function popUpScore(note:Note = null, rawNoteDiff:Null<Float> = null, ?side:String):Void 
+        	private function popUpScore(note:Note = null, rawNoteDiff:Null<Float> = null, ?side:String):Void 
 	{
         if (combo >= highestCombo) highestCombo = combo;
         var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;

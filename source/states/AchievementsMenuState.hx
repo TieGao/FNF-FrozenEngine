@@ -1,9 +1,16 @@
+// states/AchievementsMenuState.hx
 package states;
 
 import flixel.FlxObject;
 import flixel.util.FlxSort;
 import flixel.math.FlxMath;
 import objects.Bar;
+import flixel.text.FlxText;
+import flixel.group.FlxSpriteGroup;
+import flixel.tweens.FlxTween;
+import flixel.tweens.FlxEase;
+import flixel.input.mouse.FlxMouseEvent;
+import substates.StatsSubState;
 
 #if ACHIEVEMENTS_ALLOWED
 class AchievementsMenuState extends MusicBeatState
@@ -24,6 +31,9 @@ class AchievementsMenuState extends MusicBeatState
 	var camFollow:FlxObject;
 
 	var MAX_PER_ROW:Int = 4;
+
+	// 统计按钮
+	var statsButton:FlxText;
 
 
 	override function create()
@@ -155,6 +165,23 @@ class AchievementsMenuState extends MusicBeatState
 		add(progressTxt);
 		add(descText);
 		add(nameText);
+
+		// --- 添加统计按钮（右上角） ---
+		statsButton = new FlxText(0, 15, 0, "View Game Stats", 24);
+		statsButton.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.CYAN, RIGHT);
+		statsButton.scrollFactor.set();
+		statsButton.x = FlxG.width - statsButton.width - 20;
+		statsButton.y = 15;
+		add(statsButton);
+
+		// 添加小指示图标（可选：在文字旁边加个小星星）
+		var starIcon:FlxSprite = new FlxSprite(statsButton.x - 30, statsButton.y + 2);
+		starIcon.loadGraphic(Paths.image('achievements/starIcon')); // 你需要添加这个图片资源，或者用其他方式
+		starIcon.scale.set(0.6, 0.6);
+		starIcon.updateHitbox();
+		starIcon.scrollFactor.set();
+		// 如果没有这个图片资源可以注释掉
+		// add(starIcon);
 		
 		_changeSelection();
 		super.create();
@@ -191,6 +218,16 @@ class AchievementsMenuState extends MusicBeatState
         
         if (starsBG.x < -starsBG.width) starsBG.x = 0;
         if (starsFG.x < -starsFG.width) starsFG.x = 0;
+
+		// 鼠标点击统计按钮打开统计界面
+		if (FlxG.mouse.justPressed && statsButton != null)
+		{
+			if (FlxG.mouse.overlaps(statsButton))
+			{
+				FlxG.sound.play(Paths.sound('confirmMenu'));
+				openSubState(new StatsSubState());
+			}
+		}
 
 		if(!goingBack && options.length > 0)
 		{
@@ -260,17 +297,14 @@ class AchievementsMenuState extends MusicBeatState
 					{
 						var diff:Int = curSelected - (Math.floor(curSelected / MAX_PER_ROW) * MAX_PER_ROW);
 						curSelected += add * MAX_PER_ROW;
-						//trace('Before correction: $curSelected');
 						if(curSelected < 0)
 						{
 							curSelected += Math.ceil(options.length / MAX_PER_ROW) * MAX_PER_ROW;
 							if(curSelected >= options.length) curSelected -= MAX_PER_ROW;
-							//trace('Pass 1: $curSelected');
 						}
 						if(curSelected >= options.length)
 						{
 							curSelected = diff;
-							//trace('Pass 2: $curSelected');
 						}
 
 						_changeSelection();
@@ -304,7 +338,7 @@ class AchievementsMenuState extends MusicBeatState
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 			MusicBeatState.switchState(new MainMenuState());
 			goingBack = true;
-			FlxG.mouse.visible = false;
+			FlxG.mouse.visible = true;
 		}
 		
 		// 鼠标点击确认（模拟键盘确认）
@@ -475,7 +509,7 @@ class ResetAchievementSubstate extends MusicBeatSubstate
 				FlxG.sound.play(Paths.sound('cancelMenu'));
 			}
 			close();
-			FlxG.mouse.visible = false;
+			FlxG.mouse.visible = true;
 			return;
 		}
 	}

@@ -554,7 +554,7 @@ class PauseSubState extends MusicBeatSubstate
 	{
 		pauseMusic.destroy();
 		if (lastMousePos != null) lastMousePos.put();
-		FlxG.mouse.visible = false;
+		FlxG.mouse.visible = true;
 		super.destroy();
 	}
 

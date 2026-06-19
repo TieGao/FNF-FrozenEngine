@@ -455,7 +455,7 @@ class NoteOffsetState extends MusicBeatState
 					FlxG.sound.music.volume = 0;
 			}
 			else FlxG.sound.playMusic(Paths.music('freakyMenu'));
-			FlxG.mouse.visible = false;
+			FlxG.mouse.visible = true;
 		}
 
 		Conductor.songPosition = FlxG.sound.music.time;
@@ -578,7 +578,7 @@ class NoteOffsetState extends MusicBeatState
 		beatText.visible = !onComboMenu;
 
 		controllerPointer.visible = false;
-		FlxG.mouse.visible = false;
+		FlxG.mouse.visible = true;
 		if(onComboMenu)
 		{
 			FlxG.mouse.visible = !controls.controllerMode;
