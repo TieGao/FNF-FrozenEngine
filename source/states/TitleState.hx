@@ -120,6 +120,7 @@ class TitleState extends MusicBeatState
 		persistentUpdate = true;
 		if (!initialized && FlxG.sound.music == null)
 			FlxG.sound.playMusic(Paths.music('freakyMenu'), 0);
+			FlxG.sound.music.persist = true;
 
 		loadJsonData();
 		#if TITLE_SCREEN_EASTER_EGG easterEggData(); #end
