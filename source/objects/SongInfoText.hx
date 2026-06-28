@@ -25,6 +25,7 @@ class SongInfoText extends FlxText {
         var playtime:Float = ClientPrefs.data.totalPlaytime;
         this.text = PlayState.SONG.song + ' - ' + Difficulty.getString() + ' | FE - ' + version /*' | Playtime: ' + Std.string(Math.round(playtime)) + 's'*/;
         this.y = FlxG.height - 18 ; // keep near bottom by default
+        this.borderSize = 1.1;
         if (ClientPrefs.data.downScroll) this.y = - FlxG.height + 18;
         if (ClientPrefs.data.customColor) {
             this.color = FlxColor.fromRGB(state.dad.healthColorArray[0], state.dad.healthColorArray[1], state.dad.healthColorArray[2]);

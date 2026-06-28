@@ -4897,7 +4897,7 @@ private function cachePopUpScore()
 		#end
 	}
 
-	public function initLuaShader(name:String, ?glslVersion:Int = 120)
+	public function initLuaShader(name:String, ?glslon:Int = 120)
 	{
 		if(!ClientPrefs.data.shaders) return false;
 

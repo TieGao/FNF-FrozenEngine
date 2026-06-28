@@ -29,7 +29,6 @@ import backend.StageData;
 import backend.Highscore;
 import backend.Difficulty;
 import backend.Language;
-import backend.MouseMove;
 
 import objects.Character;
 import objects.HealthIcon;
@@ -151,8 +150,6 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	var nextGridBg:ChartingGridSprite;
 	var waveformSprite:FlxSprite;
 	var scrollY:Float = 0;
-	var songScrollPos:Float = 0;
-	var chartScroller:MouseMove;
 	
 	var zoomList:Array<Float> = [
 		0.25,
@@ -459,27 +456,6 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		reloadNotes();
 		updateGridVisibility();
-
-		songScrollPos = Conductor.songPosition;
-		var maxSongTime:Float = 0;
-		if(FlxG.sound.music != null) maxSongTime = Math.max(0, FlxG.sound.music.length - 1);
-		/*chartScroller = new MouseMove(this, 'songScrollPos', [0, maxSongTime], [[0, FlxG.width], [0, FlxG.height]], function()
-		{
-			if(chartScroller != null && chartScroller.isDragging)
-				setSongPlaying(false);
-			Conductor.songPosition = songScrollPos;
-			if(FlxG.sound.music != null)
-			{
-				FlxG.sound.music.time = Math.max(0, Math.min(FlxG.sound.music.length - 1, Conductor.songPosition - Conductor.offset));
-				vocals.time = opponentVocals.time = Conductor.songPosition - Conductor.offset;
-			}
-			updateScrollY();
-		});
-		chartScroller.useLerp = false;
-		chartScroller.dragSensitivity = 1.0;
-		chartScroller.deceleration = 0.94;
-		chartScroller.enableMouseWheel = false;
-		add(chartScroller);*/
 
 		// CHARACTERS FOR THE DROP DOWNS
 		var gameOverCharacters:Array<String> = loadFileList('characters/', 'data/characterList.txt');
@@ -982,11 +958,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			}
 
 			if(!songFinished) Conductor.songPosition = FlxMath.bound(FlxG.sound.music.time + Conductor.offset, 0, FlxG.sound.music.length - 1);
-			if(chartScroller != null && !chartScroller.isDragging)
-			{
-				chartScroller.target = Conductor.songPosition;
-				songScrollPos = Conductor.songPosition;
-			}
+			updateScrollY();
 		}
 
 		super.update(elapsed);
@@ -4317,7 +4289,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			PlayState.chartingMode = false;
 			MusicBeatState.switchState(new states.editors.MasterEditorMenu());
 			FlxG.sound.playMusic(Paths.music('freakyMenu'));
-			FlxG.mouse.visible = true;
+			FlxG.mouse.visible = false;
 		}, btnWid);
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -5092,7 +5064,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	function goToPlayState()
 	{
 		persistentUpdate = false;
-		FlxG.mouse.visible = true;
+		FlxG.mouse.visible = false;
 		chartEditorSave.flush();
 
 		setSongPlaying(false);

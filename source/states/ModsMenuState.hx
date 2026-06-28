@@ -24,10 +24,6 @@ class ModsMenuState extends MusicBeatState
 	var modRestartText:FlxText;
 	var modsList:ModsList = null;
 
-	var space:FlxSprite;
-    var starsBG:FlxBackdrop;
-    var starsFG:FlxBackdrop;
-
 	var bgList:FlxSprite;
 	var buttonReload:MenuButton;
 	//var buttonModFolder:MenuButton;
@@ -167,7 +163,7 @@ class ModsMenuState extends MusicBeatState
 			var myX = bgList.x + bgList.width + 20;
 			noModsTxt = new FlxText(myX, 0, FlxG.width - myX - 20, Language.getPhrase('no_mods_installed', 'NO MODS INSTALLED\nPRESS BACK TO EXIT OR INSTALL A MOD'), 48);
 			if(FlxG.random.bool(0.1)) noModsTxt.text += '\nBITCH.'; //meanie
-			noModsTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+			noModsTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 			noModsTxt.borderSize = 2;
 			add(noModsTxt);
 			noModsTxt.screenCenter(Y);
@@ -220,13 +216,13 @@ class ModsMenuState extends MusicBeatState
 		button.icon.animation.play('icon', true);
 		add(button);
 		buttons.push(button);
-		
+
 		var button = new MenuButton(buttonsX + 100, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod - 1), 54, 54); //Move up
 		button.icon.animation.add('icon', [1]);
 		button.icon.animation.play('icon', true);
 		add(button);
 		buttons.push(button);
-		
+
 		var button = new MenuButton(buttonsX + 200, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod + 1), 54, 54); //Move down
 		button.icon.animation.add('icon', [2]);
 		button.icon.animation.play('icon', true);
@@ -322,10 +318,10 @@ class ModsMenuState extends MusicBeatState
 				TitleState.initialized = false;
 				TitleState.closedState = false;
 				FlxG.sound.music.fadeOut(0.3);
-				if(OldFreeplayState.vocals != null)
+				if(FreeplayState.vocals != null)
 				{
-					OldFreeplayState.vocals.fadeOut(0.3);
-					OldFreeplayState.vocals = null;
+					FreeplayState.vocals.fadeOut(0.3);
+					FreeplayState.vocals = null;
 				}
 				FlxG.camera.fade(FlxColor.BLACK, 0.5, false, FlxG.resetGame, false);
 			}
@@ -480,7 +476,7 @@ class ModsMenuState extends MusicBeatState
 				}
 				else 
 				{
-					if(controls.BACK || FlxG.mouse.justPressedRight)
+					if(controls.BACK)
 					{
 						hoveringOnMods = true;
 						var button = getButton();
@@ -850,7 +846,7 @@ class ModItem extends FlxSpriteGroup
 		add(icon);
 
 		text = new FlxText(95, 38, 230, "", 16);
-		text.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+		text.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		text.borderSize = 2;
 		text.y -= Std.int(text.height / 2);
 		add(text);
@@ -964,9 +960,9 @@ class MenuButton extends FlxSpriteGroup
 			return;
 		}
 
-		if(!ignoreCheck && !Controls.instance.controllerMode && (FlxG.mouse.justPressed || FlxG.mouse.justMoved) && FlxG.mouse.visible)
+		if(!ignoreCheck && !Controls.instance.controllerMode && FlxG.mouse.justMoved && FlxG.mouse.visible)
 			onFocus = FlxG.mouse.overlaps(this);
-		
+
 		if(onFocus && onClick != null && FlxG.mouse.justPressed)
 			onClick();
 

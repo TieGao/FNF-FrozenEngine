@@ -185,6 +185,12 @@ import states.TitleState;
 	public var forceSplashSkins:Bool = false;
 	public var forceNoteRGB:Bool = false;
 
+	public var relaxAudioNumber:Int = 16;
+	public var relaxAudioDisplayQuality:Int = 4;
+	public var audioDisplayUpdate:Float = 33.0;
+	public var audioGain:Float = 1.5;
+	public var transitionType:String = "fade";
+	
 	public  var renderResolution:Int = 0;
 
 	public var showOS:Bool = false; // show os in fps counter

@@ -196,13 +196,13 @@ class MusicPlayerLegacy extends FlxGroup
 			if(FreeplayState.opponentVocals != null)
 				FreeplayState.opponentVocals.volume = (FreeplayState.opponentVocals.length > FlxG.sound.music.time) ? 0.8 : 0;
 
-			if((FreeplayState.vocals != null && FreeplayState.vocals.length > FlxG.sound.music.time && Math.abs(FlxG.sound.music.time - FreeplayState.vocals.time) >= 25) ||
+			/*if((FreeplayState.vocals != null && FreeplayState.vocals.length > FlxG.sound.music.time && Math.abs(FlxG.sound.music.time - FreeplayState.vocals.time) >= 25) ||
 			(FreeplayState.opponentVocals != null && FreeplayState.opponentVocals.length > FlxG.sound.music.time && Math.abs(FlxG.sound.music.time - FreeplayState.opponentVocals.time) >= 25))
 			{
 				pauseOrResume();
 				setVocalsTime(FlxG.sound.music.time);
 				pauseOrResume(true);
-			}
+			}*/
 		}
 
 		positionSong();
