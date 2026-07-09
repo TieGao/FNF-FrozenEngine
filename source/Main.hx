@@ -5,7 +5,6 @@ import android.content.Context;
 #end
 
 import debug.FPSCounter;
-
 import flixel.graphics.FlxGraphic;
 import flixel.FlxGame;
 import flixel.FlxState;
@@ -199,40 +198,9 @@ class Main extends Sprite
 		// 从 1.0.1 保留的 FlxGame 构造函数参数（包含 zoom）
 		addChild(new FlxGame(game.width, game.height, game.initialState, #if (flixel < "5.0.0") game.zoom, #end game.framerate, game.framerate, game.skipSplash, game.startFullscreen));
 
-		// 应用保存的渲染分辨率（如果设置）并尝试改善字体清晰度
+		// 应用渲染分辨率（根据 useDpiSettings 决定）
 		#if (cpp || hl)
-		try {
-			var resIdx:Int = ClientPrefs.data.renderResolution;
-			var _resolutions = [
-				[1280, 720],
-				[1600, 900],
-				[1920, 1080],
-				[2560, 1440],
-				[3840, 2160]
-			];
-			if (resIdx >= 0 && resIdx < _resolutions.length) {
-				var w:Int = _resolutions[resIdx][0];
-				var h:Int = _resolutions[resIdx][1];
-				var window = Lib.current.stage.window;
-				window.resize(w, h);
-				var displayBounds = window.display.bounds;
-				window.x = Std.int(displayBounds.x + (displayBounds.width - w) / 2);
-				window.y = Std.int(displayBounds.y + (displayBounds.height - h) / 2);
-				flixel.FlxG.resizeGame(w, h);
-				flixel.FlxG.scaleMode = new flixel.system.scaleModes.RatioScaleMode(false);
-				// 提高舞台质量以减少字体缩放模糊
-				try { Lib.current.stage.quality = openfl.display.StageQuality.BEST; } catch(e:Dynamic) {}
-				// 刷新缓存以确保文本/精灵使用新的分辨率渲染更清晰
-				try {
-					if (flixel.FlxG.cameras != null) {
-						for (cam in flixel.FlxG.cameras.list) {
-							try { resetSpriteCache(cam.flashSprite); } catch(e:Dynamic) {}
-						}
-					}
-					try { resetSpriteCache(flixel.FlxG.game); } catch(e:Dynamic) {}
-				} catch(e:Dynamic) {}
-			}
-		} catch(e:Dynamic) {}
+		applyRenderResolution();
 		#end
 
 		#if !mobile
@@ -300,7 +268,55 @@ class Main extends Sprite
         #end
 	}
 
-	static function resetSpriteCache(sprite:Sprite):Void {
+	/**
+	 * 应用渲染分辨率（窗口物理尺寸和逻辑缩放）
+	 * @param resIdx 自定义分辨率索引，-1 表示使用 ClientPrefs.data.renderResolution
+	 */
+	#if (cpp || hl)
+	public static function applyRenderResolution(?resIdx:Int = -1):Void
+	{
+		if (resIdx == -1) resIdx = ClientPrefs.data.renderResolution;
+		var useDpi = ClientPrefs.data.useDpiSettings;
+		var window = Lib.current.stage.window;
+
+		if (useDpi) {
+			// DPI 缩放模式：不做任何窗口/逻辑尺寸调整，仅刷新缓存
+			// 窗口物理尺寸由系统控制，游戏保持逻辑尺寸
+		} else {
+			// 自定义分辨率模式：调整窗口和逻辑尺寸
+			var _resolutions = [
+				[1280, 720],
+				[1600, 900],
+				[1920, 1080],
+				[2560, 1440],
+				[3840, 2160]
+			];
+			if (resIdx >= 0 && resIdx < _resolutions.length) {
+				var w:Int = _resolutions[resIdx][0];
+				var h:Int = _resolutions[resIdx][1];
+				window.resize(w, h);
+				var displayBounds = window.display.bounds;
+				window.x = Std.int(displayBounds.x + (displayBounds.width - w) / 2);
+				window.y = Std.int(displayBounds.y + (displayBounds.height - h) / 2);
+				flixel.FlxG.resizeGame(w, h);
+				flixel.FlxG.scaleMode = new flixel.system.scaleModes.RatioScaleMode(false);
+				try { Lib.current.stage.quality = openfl.display.StageQuality.BEST; } catch(e:Dynamic) {}
+			}
+		}
+
+		// 刷新缓存以确保纹理清晰（不变）
+		try {
+			if (FlxG.cameras != null) {
+				for (cam in FlxG.cameras.list) {
+					try { resetSpriteCache(cam.flashSprite); } catch(e:Dynamic) {}
+				}
+			}
+			try { resetSpriteCache(FlxG.game); } catch(e:Dynamic) {}
+		} catch(e:Dynamic) {}
+	}
+	#end
+
+	public static function resetSpriteCache(sprite:Sprite):Void {
 		@:privateAccess {
 		        sprite.__cacheBitmap = null;
 			sprite.__cacheBitmapData = null;
@@ -320,7 +336,7 @@ class Main extends Sprite
 		dateNow = dateNow.replace(" ", "_");
 		dateNow = dateNow.replace(":", "'");
 
-		path = "./crash/" + "PsychEngine_" + dateNow + ".txt";
+		path = "./crash/" + "Frozen_Engine_" + dateNow + ".txt";
 
 		for (stackItem in callStack)
 		{

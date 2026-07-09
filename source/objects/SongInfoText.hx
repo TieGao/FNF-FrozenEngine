@@ -20,11 +20,29 @@ class SongInfoText extends FlxText {
         refresh();
     }
 
-    public function refresh():Void {
+        public function refresh():Void {
         var version:String = MainMenuState.frozenEngineVersion;
         var playtime:Float = ClientPrefs.data.totalPlaytime;
-        this.text = PlayState.SONG.song + ' - ' + Difficulty.getString() + ' | FE - ' + version /*' | Playtime: ' + Std.string(Math.round(playtime)) + 's'*/;
-        this.y = FlxG.height - 18 ; // keep near bottom by default
+        
+        // 构建显示文本
+        var textParts:Array<String> = [];
+        var songPart:String = PlayState.SONG.song;
+        
+        // 根据设置决定是否添加难度（使用 " - " 连接）
+        if (ClientPrefs.data.showDifficulty) {
+            songPart += ' - ' + Difficulty.getString();
+        }
+        textParts.push(songPart);
+        
+        // 根据设置决定是否显示引擎版本（使用 "FE - " 前缀）
+        if (ClientPrefs.data.showEngineVer) {
+            textParts.push('FE $version');
+        }
+        
+        // 用 ' | ' 连接所有部分
+        this.text = textParts.join(' | ');
+        
+        this.y = FlxG.height - 18; // keep near bottom by default
         this.borderSize = 1.1;
         if (ClientPrefs.data.downScroll) this.y = - FlxG.height + 18;
         if (ClientPrefs.data.customColor) {

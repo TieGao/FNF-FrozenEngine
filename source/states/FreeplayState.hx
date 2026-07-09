@@ -16,6 +16,7 @@ import objects.ToolBar;
 import options.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
 import substates.ModFolderSubstate;
+import substates.SearchSubState;
 
 import flixel.math.FlxMath;
 import flixel.util.FlxDestroyUtil;
@@ -117,6 +118,9 @@ class FreeplayState extends MusicBeatState
     var updateInterval:Float = 0.033; // 约 30fps 刷新卡片位置（视觉上足够平滑）
 
     public var inModFolderSelector:Bool = false; // 当前是否在模组文件夹选择器中
+
+    var searchHitbox:FlxSprite;
+    var searchLabel:FlxText;
 
     override function create()
     {
@@ -310,6 +314,68 @@ class FreeplayState extends MusicBeatState
             topBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, 85, 0xFF000000);
             topBar.alpha = 0.75;
             add(topBar);
+        }
+
+
+       if (ClientPrefs.data.freeplaySearch)
+        {
+            // 隐藏背景（增大点击区域）
+            searchHitbox = new FlxSprite(0, 0);
+            searchHitbox.makeGraphic(240, 50, FlxColor.TRANSPARENT);
+            searchHitbox.x = (FlxG.width - searchHitbox.width) / 2;
+            searchHitbox.y = 6;
+            searchHitbox.scrollFactor.set();
+            add(searchHitbox);
+            
+            // 搜索图标（放大镜）
+            var searchIcon:FlxSprite = new FlxSprite(0, 0);
+            searchIcon.loadGraphic(Paths.image('freeplay/search_icon')); // 需要准备图标，或使用文本替代
+            if (searchIcon.graphic == null)
+            {
+                // 如果没有图标，用文本替代
+                searchIcon = null;
+                var iconText:FlxText = new FlxText(0, 8, 0, "🔍", 20);
+                iconText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER);
+                iconText.x = (FlxG.width - 240) / 2 + 10;
+                iconText.y = 10;
+                iconText.scrollFactor.set();
+                add(iconText);
+            }
+            else
+            {
+                searchIcon.setGraphicSize(20, 20);
+                searchIcon.updateHitbox();
+                searchIcon.x = (FlxG.width - 240) / 2 + 12;
+                searchIcon.y = 14;
+                searchIcon.scrollFactor.set();
+                add(searchIcon);
+            }
+            
+            // 搜索提示文字
+            searchLabel = new FlxText(0, 0, 0, "Search songs...", 18);
+            searchLabel.setFormat(Paths.font("vcr.ttf"), 18, 0xFFAAAAAA, LEFT);
+            searchLabel.x = (FlxG.width - 240) / 2 + 38;
+            searchLabel.y = 13;
+            searchLabel.scrollFactor.set();
+            add(searchLabel);
+            
+            // 底部线条
+            var lineBg:FlxSprite = new FlxSprite(0, 0);
+            lineBg.makeGraphic(200, 1, FlxColor.WHITE);
+            lineBg.alpha = 0.25;
+            lineBg.x = (FlxG.width - lineBg.width) / 2;
+            lineBg.y = 42;
+            lineBg.scrollFactor.set();
+            add(lineBg);
+            
+            // 悬停/点击高亮线条（默认透明）
+            var highlightLine:FlxSprite = new FlxSprite(0, 0);
+            highlightLine.makeGraphic(200, 2, FlxColor.WHITE);
+            highlightLine.alpha = 0;
+            highlightLine.x = (FlxG.width - highlightLine.width) / 2;
+            highlightLine.y = 42;
+            highlightLine.scrollFactor.set();
+            add(highlightLine);
         }
 
         var modDisplayText:String = "Mod: ";
@@ -1018,6 +1084,11 @@ class FreeplayState extends MusicBeatState
             replayButton.alpha = 0.8;
             replayButton.scale.set(0.5, 0.5);
         }
+
+        if (searchHitbox != null && FlxG.mouse.justPressed && FlxG.mouse.overlaps(searchHitbox) && !musicPlayer.playingMusic)
+        {
+            openSearchSubstate();
+        }
         
         if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(replayButton))
         {
@@ -1392,6 +1463,22 @@ class FreeplayState extends MusicBeatState
 
         updateCardDifficultyInfo();
         updateSongInfoTexts();
+    }
+
+    function openSearchSubstate()
+    {
+        if (musicPlayer.playingMusic) return;
+        persistentUpdate = false;
+        openSubState(new SearchSubState(songs, function(song:NewSongMetaData) {
+            for (i in 0...songs.length) {
+                if (songs[i] == song) {
+                    curSelected = i;
+                    changeSelection(0, true);
+                    break;
+                }
+            }
+            persistentUpdate = true;
+        }));
     }
 
     function changeSelection(change:Int = 0, playSound:Bool = true)

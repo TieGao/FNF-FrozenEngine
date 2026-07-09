@@ -278,19 +278,19 @@ class PsychUIInputText extends FlxSpriteGroup
 
 			case BACKSPACE: //Delete letter to the left of caret
 				if(caretIndex <= 0) return;
-
+				 trace('Before BACKSPACE: caretIndex=$caretIndex, text="$text", len=${text.length}');
 				if(selectIndex > -1 && selectIndex != caretIndex)
 					deleteSelection();
 				else
 				{
 					var lastText = text;
 					text = text.substring(0, caretIndex-1) + text.substring(caretIndex);
-					caretIndex--;
+					if(caretIndex != text.length) caretIndex--;
 					if(onChange != null) onChange(lastText, text);
 					if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
 				}
 				_nextAccent = NONE;
-
+				trace('AFTER: caretIndex=$caretIndex, text="$text" (len=${text.length})');
 			case DELETE: //Delete letter to the right of caret
 				if(selectIndex > -1 && selectIndex != caretIndex)
 				{

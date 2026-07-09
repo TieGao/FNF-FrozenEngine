@@ -149,6 +149,7 @@ class KEOptionsMenu extends MusicBeatState
 	{
 		if (index < 0 || index >= _resolutions.length) return;
 		if (index == _lastResolution) return;
+		if (ClientPrefs.data.useDpiSettings) return;
 		var w = _resolutions[index][0];
 		var h = _resolutions[index][1];
 		#if (cpp || hl)
@@ -1295,6 +1296,35 @@ function onScrollChange()
 			"",
 			"Freeplay Settings"
 		);
+
+		var judgementsCounterOptions = KEOption.createSubMenu(
+			"Judgements Counter",
+			"Configure Judgements Counter settings",
+			[
+				KEOption.create("Judgements Counter", "Show judgements counter", "Counter", "bool"),
+				KEOption.create("Show Highest Combo", "Show highest combo in judgements counter", "showHC", "bool"),
+				KEOption.create("Show Current Combo", "Show current combo in judgements counter", "showCB", "bool"),
+				KEOption.create("Show Total Notes Hit", "Show total notes in judgements counter", "showTNH", "bool"),
+				KEOption.create("Show Misses", "Show misses in judgements counter", "showMiss", "bool"),
+			],
+			"",
+			"Judgements Counter Settings"
+		);
+
+		var songInfoTextOptions = KEOption.createSubMenu(
+			"Song Info Text",
+			"Configure Song Info Text settings",
+			[
+				KEOption.create("Song Info Text", "Show Song Info Text", "songText", "bool"),
+				//KEOption.create("Song Info Text Color", "Change the color of song info text", "songInfoTextColor", "color", FlxColor.WHITE),
+				KEOption.create("Song Info Text Size", "Change the size of song info text", "songInfoTextSize", "float", 1.0, 0.5, 3.0, 0.1),
+				KEOption.create("Show Difficulty", "Show difficulty in song info text", "showDifficulty", "bool"),
+				KEOption.create("Song Engine Version", "Show engine version in song info text", "showEngineVer", "bool"),
+				//KEOption.create("Song Info Text Offset Y", "Change the vertical position of song info text", "songInfoTextOffsetY", "int", 0, -450, 750, 10),
+			],
+			"",
+			"Song Info Text Settings"
+		);
 		
 		return [
 			skinSettings, 
@@ -1302,6 +1332,8 @@ function onScrollChange()
 			keyboardDisplayOptions,
 			charthelperOptions,
 			freeplayOptions,
+			judgementsCounterOptions,
+			songInfoTextOptions,
 			KEOption.create("Hide HUD", "Hide most HUD elements", "hideHud", "bool"),
 			KEOption.create("Flashing Lights", "Enable screen flashes", "flashing", "bool"),
 			KEOption.create("Camera Zooms", "Zoom camera on beat", "camZooms", "bool"),
@@ -1315,9 +1347,7 @@ function onScrollChange()
 			KEOption.create("Combo Stacking", "Stack combo numbers", "comboStacking", "bool"),
 			KEOption.create("MS Number", "Make you know how late/early ur when hit notes", "showMS", "bool"),
 			KEOption.create("Health Text", "Show health as number", "healthText", "bool"),
-			KEOption.create("Song Text", "Show song info watermark", "songText", "bool"),
 			KEOption.create("Score Screen", "Show Kade-style results", "scoreScreen", "bool"),
-			KEOption.create("Judgements Counter", "Show judgments counter", "Counter", "bool"),
 			KEOption.create("Transition Type", "Choose the transition animation style when switching scenes", "transitionType", "string", ['fade', 'pixel', 'loading']),
 			KEOption.create("Charm Bar Pause", "Modern Pause Sub State", "charmPause", "bool"),
 			//KEOption.create("Impostor V3 Story Mode BG", "Use Impostor V3 Story Mode Background", "ImpStory", "bool")

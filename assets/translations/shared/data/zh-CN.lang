@@ -1,7 +1,3 @@
-// ============================================
-// 简体中文翻译 - KEngine Options Menu
-// ============================================
-
 // Gameplay
 botplay: "自动演奏"
 
@@ -23,6 +19,7 @@ pause_back: "返回"
 practice_mode: "练习模式"
 charting_mode: "制谱模式"
 blueballed: "死亡次数: {1}"
+charting_panel: "制谱面板"
 
 // Story Mode
 week_score: "最佳得分: {1}"
@@ -107,272 +104,302 @@ description_pessy_easter_egg: "嘿嘿，你找到我啦~！"
 // ============================================
 // KEOptionsMenu 分类标题
 // ============================================
-basics: "基础选项"
-gameplay: "游玩选项"
-visuals: "视觉选项"
-graphics: "图形选项"
-advanced: "高级选项"
+Basics: "基础选项"
+Gameplay: "游玩选项"
+Visuals: "视觉选项"
+Graphics: "图形选项"
+Advanced: "高级选项"
 
 // ============================================
-// 选项名称 (用于显示)
+// KEOptionsMenu 基础选项 (Basics)
 // ============================================
-
-// Basics 分类
-open_note_colors: "自定义音符颜色"
-open_controls: "自定义按键绑定"
-open_ez_keybinds: "KE风格按键绑定"
-adjust_delay_and_combo: "自定义游戏体验"
-reset_keybinds: "恢复默认按键"
-
-// Gameplay 分类
-downscroll: "下落式"
-middlescroll: "中置音符"
-opponent_notes: "显示对手音符"
-ghost_tapping: "允许空敲"
-auto_pause: "自动暂停"
-disable_reset: "禁用重置键"
-guitar_hero_sustains: "长音合并"
-fast_restart: "快速重开"
-hitsound_volume: "敲击音量"
-rating_offset: "判定偏移"
-window_settings: "判定窗口设置"
-note_sustains_offset: "长音偏移"
-
-// Visuals 分类
-skin_settings: "皮肤设置"
-hide_hud: "隐藏HUD"
-flashing_lights: "闪烁灯光"
-camera_zooms: "镜头缩放"
-center_pause: "居中暂停菜单"
-custom_color: "对手自定义色"
-gradient_timebar: "渐变时间条"
-score_zoom: "分数跳动"
-time_bar: "时间条"
-pause_music: "暂停音乐"
-health_bar_alpha: "血条透明度"
-combo_stacking: "连击堆叠"
-ms_number: "显示判定偏移"
-health_text: "显示血量"
-song_text: "显示歌曲信息"
-score_screen: "显示结算界面"
-judgements_counter: "判定计数器"
-charm_bar_pause: "现代暂停界面"
-hit_error_bar: "命中误差条"
-keyboard_display: "键盘显示设置"
-chart_helper: "谱面辅助"
-
-// Graphics 分类
-low_quality: "低画质"
-antialiasing: "抗锯齿"
-shaders: "着色器"
-gpu_caching: "GPU缓存"
-fps_counter: "FPS显示"
-framerate: "帧率"
-show_os: "显示操作系统"
-fps_rework: "FPS优化"
-globalspace: "全局星空背景"
-old_freeplay: "旧版自由游玩"
-legacymp: "旧版音乐播放器"
-use_system_cursor: "使用系统光标"
-
-// Advanced 分类
-check_updates: "检查更新"
-loading_screen: "加载界面"
-enable_lua_debug_printer: "启用LUA调试"
-discord_rpc: "Discord状态"
-language: "语言"
-replay: "回放"
-replay_manager: "回放管理"
-newoptions: "新选项菜单"
-reset_settings: "重置所有设置"
-reset_scores: "重置所有分数"
-options_particle: "粒子设置"
-
-// ============================================
-// 选项描述 (使用下划线键名)
-// ============================================
-
-// Basics 描述
+Open_Note_Colors: "自定义音符颜色"
 Customize_note_colors: "自定义音符颜色"
+Open_Controls: "自定义按键绑定"
 Customize_key_bindings: "自定义按键绑定"
-Customize_key_bindings_in_KE_Styled_Menu: "在KE风格菜单中自定义按键绑定"
+Open_EZ_KeyBinds: "KE风格按键绑定"
+Customize_key_bindings_in_KE_Styled_Menu: "KE风格按键绑定"
+Adjust_Delay_and_Combo: "自定义游戏体验"
 Customize_ingame_experience: "自定义游戏内体验"
-Reset_to_default_keys: "重置为默认按键"
+Language: "语言"
+Change_the_games_language: "更改游戏的语言"
+Reset_KeyBinds: "恢复默认按键"
+Reset_all_key_bindings_to_default: "重置为默认按键"
 
-// Gameplay 描述
+// ============================================
+// KEOptionsMenu 游玩选项 (Gameplay)
+// ============================================
+Downscroll: "下落式"
 Notes_scroll_downwards_instead_of_upwards: "音符方向从上升改为下落"
+Middlescroll: "中置音符"
 Put_your_lane_in_the_center: "将你的音轨置于中间"
+Opponent_Notes: "显示对手音符"
 Show_opponents_strumline: "显示对手的弹奏轨道"
+Ghost_Tapping: "允许空敲"
 Allow_pressing_keys_without_missing: "允许在无音符时按键而不记为失误"
+Auto_Pause: "自动暂停"
 Pause_when_window_loses_focus: "窗口失去焦点时自动暂停"
+Disable_Reset: "禁用重置键"
 Disable_the_reset_button: "禁用重置按钮"
+Guitar_Hero_Sustains: "长音合并"
 Sustains_count_as_one_note: "长音计为一个音符"
+Fast_Restart: "快速重开"
 Fast_Restart_When_Dead_or_Press_R: "死亡或按R键时快速重开"
+Hitsound_Volume: "敲击音量"
 Volume_of_hit_sounds: "敲击音效的音量"
+Rating_Offset: "判定偏移"
 Adjust_note_hit_timing: "调整音符命中的时间偏移"
-Configure_window_and_timing_settings: "配置判定窗口与时间设置"
+Note_Sustains_Offset: "长音偏移"
 Adjust_the_timing_offset_for_note_sustains: "调整长音的时间偏移"
 
-// Visuals 描述
-Configure_note_skins_splashes_and_ratings: "配置音符皮肤、特效与判定样式"
-Hide_most_HUD_elements: "隐藏大部分HUD元素"
-Enable_screen_flashes: "启用屏幕闪烁效果"
-Zoom_camera_on_beat: "随节拍缩放镜头"
-Center_pause_menu: "将暂停菜单居中显示"
-Color_most_things_by_opponent: "按对手为大部分元素着色"
-Gradient_colored_timebar: "使用渐变色时间条"
-Grow_score_text_on_hit: "命中时放大分数文字"
-What_should_the_Time_Bar_display: "时间条应显示什么？"
-Choose_pause_screen_music: "暂停界面播放哪首歌？"
-Health_bar_transparency: "血条透明度"
-Stack_combo_numbers: "连击数字堆叠"
-Make_you_know_how_late_early_ur_when_hit_notes: "显示你命中音符的时机快慢(单位：毫秒)"
-Show_health_as_number: "显示剩余血量百分比"
-Show_song_info_watermark: "显示歌曲信息"
-Show_Kade-style_results: "显示Kade风格的结算界面"
-Show_judgments_counter: "显示判定计数器"
-Modern_Pause_Sub_State: "使用现代化暂停界面"
-Configure_hit_error_bar_display: "配置命中误差条的显示"
-Configure_keyboard_display_settings: "配置屏幕键盘的显示设置"
-Configure_Chart_Helper_settings: "配置谱面辅助设置"
-
-// Graphics 描述
-Reduce_graphics_for_performance: "降低画质以提升性能"
-Smoother_visuals: "更平滑的视觉效果"
-Enable_shader_effects: "启用着色器特效"
-Use_GPU_for_texture_caching: "使用GPU进行贴图缓存（可能减少内存占用）"
-Show_FPS_counter: "显示当前FPS"
-Target_framerate: "目标帧率"
-Show_operating_system_in_FPS_Counter: "在FPS计数器中显示操作系统"
-Make_ur_game_more_smooth: "让游戏更流畅"
-Just_a_cool_background_lol: "酷炫的背景效果"
-Show_space_background_everywhere: "在所有界面显示星空背景"
-Use_ur_systems_default_mouse_cursor_in_game: "在游戏中使用系统默认鼠标光标"
-
-// Advanced 描述
-Check_for_game_updates: "检查游戏更新"
-Show_loading_screen: "显示加载界面"
-Uncheck_it_if_u_dont_want_to_see_them: "取消勾选以隐藏Lua调试输出"
-Enable_Discord_Rich_Presence: "启用Discord状态显示"
-Change_the_games_language: "更改游戏语言"
-Score_Menu_and_Replay_Required: "需要评分界面和回放支持"
-Manage_and_view_ur_Replays: "管理并查看你的回放"
-Disable_it_if_u_dont_like_current_options_menu: "如果不喜欢当前选项菜单则禁用"
-Reset_all_settings_to_default_DO_NOT_APPLY_IT_UNLESS_YOU_KNOW_WHAT_YOU_ARE_DOING: "重置所有设置为默认（仅在你清楚后果时使用）"
-Clear_all_high_scores_DO_NOT_APPLY_IT_UNLESS_YOU_KNOW_WHAT_YOU_ARE_DOING: "清除所有最高分（仅在你清楚后果时使用）"
-Edit_Particle_Effects_in_Menu: "编辑设置中的粒子效果"
-
-
-Return_to_previous_menu: "返回上一级页面"
-Configure_Freeplay_settings: "配置Freeplay选项"
-Freeplay_ToolBar: "Freeplay工具栏"
-Show_tool_bar_in_freeplay: "在Freeplay中显示工具栏"
-New_Freeplay_Space_BackGround: "太空背景"
-Space_Back_Ground_EveryWhere: "全局星空背景"
-
-Unlimited_FPS: "解除帧率限制"
-Remove_framerate_cap_also_for_update_rate: "移除帧率上限(对游戏速度也适用)"
-Devide_Draw_And_Update: "拆分渲染和游戏速率"
-Draw_And_Update_in_separate_threads: "将渲染和游戏速率放在不同的线程中"
-Update_Rate: "游戏速率"
-Target_update_rate: "目标游戏速率"
-Reset_all_settings_to_default: "重置所有设置
-Reset_all_key_bindings_to_default: "重置所有键位"
-// ============================================
-// 子菜单选项名称
-// ============================================
-
-// Skin Settings 子菜单
-Note_Skins: "音符皮肤"
-Note_Splashes: "溅射皮肤"
-Note_HoldCover: "长音溅射皮肤"
-Judgements_Style: "判定套系风格"
-Note_Opacity: "音符不透明度"
-Note_Splash_Opacity: "溅射不透明度"
-Note_HoldCover_Opacity: "长音溅射不透明度"
-Force_Number_Color: "强制数字颜色"
-showEarlyLate: "显示快慢提示"
-showCombo: "显示连击文字"
-Force_Note_Skin: "强制音符皮肤"
-Force_Splash_Skin: "强制溅射皮肤"
-Force_RGB_Shader: "强制RGB着色器"
-
-// Hit Error Bar 子菜单
-Hit_Error_Bar: "命中误差条"
-Hit_Bar_Lines: "误差条线数"
-Hit_Bar_Line_Time: "每线时间(秒)"
-Hit_Error_Bar_Offset_X: "误差条X偏移"
-Hit_Error_Bar_Offset_Y: "误差条Y偏移"
-
-// Keyboard Display 子菜单
-Show_Keyboard: "显示键盘"
-Keyboard_Opacity: "键盘透明度"
-Keyboard_BG_Color: "键盘背景色"
-Keyboard_Text_Color: "键盘文本色"
-Keyboard_Offset_X: "键盘X偏移"
-Keyboard_Offset_Y: "键盘Y偏移"
-Keyboard_Time_Display: "键盘时间显示"
-Keyboard_Time_Length: "键盘显示时长(毫秒)"
-
-// Chart Helper 子菜单
-Note_Guide_Line_Opacity: "辅助线透明度"
-
-// Window Settings 子菜单
-Marvelous_Window: "Marvelous判定区间"
+// ---- Window Settings 子菜单 ----
+Window_Settings: "判定窗口设置"
+Configure_window_and_timing_settings: "配置窗口和判定时间设置"
+Marvelous_Window: "Sick判定区间"
+Timing_window_for_SICK: "Sick判定窗口"
 Sick_Window: "Sick判定区间"
+Timing_window_for_SICK: "Sick判定窗口"
 Good_Window: "Good判定区间"
+Timing_window_for_GOOD: "Good判定窗口"
 Bad_Window: "Bad判定区间"
-Safe_Frames: "容错帧"
-
-// Options Particle 子菜单
-Show_Particle_In_Option: "选项菜单粒子特效"
-Particle_Amount: "粒子数量"
-Particle_Speed: "粒子速度"
-Particle_Trail_Length: "粒子拖尾长度"
+Timing_window_for_BAD: "Bad判定窗口"
+Safe_Frames: "容错帧数"
+Frames_for_earlylate_hits: "调整提前/延后判定的容错时间"
 
 // ============================================
-// 子菜单选项描述 (使用下划线键名)
+// KEOptionsMenu 视觉选项 (Visuals)
 // ============================================
+Skin_Settings: "皮肤设置"
+Configure_note_skins_splashes_and_ratings: "配置音符皮肤、溅射和判定样式"
 
+Note_Skins: "音符皮肤"
 Select_your_preferred_Note_skin: "选择你喜欢的音符皮肤"
+Note_Splashes: "溅射皮肤"
 Select_your_preferred_Note_Splash_variation: "选择你喜欢的音符特效样式"
+Note_HoldCover: "长音溅射皮肤"
 Select_your_preferred_Note_Hold_Cover: "选择你喜欢的长音溅射皮肤"
+Judgements_Style: "判定套系风格"
 Select_your_preferred_judgements_Image: "选择你喜欢的判定样式贴图"
+Note_Opacity: "音符不透明度"
 Note_transparency: "音符透明度"
+Note_Splash_Opacity: "溅射不透明度"
 Note_splash_transparency: "音符特效透明度"
+Note_HoldCover_Opacity: "长音溅射不透明度"
+Note_splash_transparency: "长音溅射透明度"
+Force_Number_Color: "强制数字颜色"
 Force_numbers_to_a_specific_color: "强制将数字设置为特定颜色"
-Show_early_late_text_on_hit: "命中音符时显示提前/延后提示"
-Show_combo_text_when_combo_10: "连击数大于10时显示连击文字"
+showEarlyLate: "显示快慢提示"
+Show_early/late_text_on_hit: "命中音符时显示提前/延后提示"
+showCombo: "显示连击文字"
+Show_combo_text_when_combo_>_10: "连击数大于10时显示连击文字"
+Force_Note_Skin: "强制音符皮肤"
 Force_using_the_custom_note_skin: "强制使用自定义音符皮肤"
+Force_Splash_Skin: "强制溅射皮肤"
 Force_using_the_custom_splash_skin: "强制使用自定义溅射皮肤"
+Force_RGB_Shader: "强制RGB着色器"
 Force_using_the_RGB_shader_for_notes_and_splashes: "强制为音符和溅射使用RGB着色器"
 
-Show_hit_error_bar: "显示命中误差条"
+// ---- Hit Error Bar 子菜单 ----
+Hit_Error_Bar: "命中误差条"
+Configure_hit_error_bar_display: "配置命中误差条显示"
+Hit_Bar_Lines: "误差条线数"
 Number_of_lines_on_hit_error_bar: "命中误差条上的线条数量"
-Time_in_seconds_each_line_represents: "每条线代表的时间（秒）"
+Hit_Bar_Line_Time: "每线时间(秒)"
+Time_(in_seconds)_each_line_represents: "每条线代表的时间（秒）"
+Hit_Error_Bar_Offset_X: "误差条X偏移"
 Horizontal_position_of_hit_error_bar: "命中误差条的水平位置"
+Hit_Error_Bar_Offset_Y: "误差条Y偏移"
 Vertical_position_of_hit_error_bar: "命中误差条的垂直位置"
+Hit_Error_Bar_MS: "误差条显示毫秒"
+Show_MS_on_hit_error_bar_rather_than_on_ratings: "在误差条上显示毫秒而非判定"
 
+// ---- Keyboard Display 子菜单 ----
+Keyboard_Display: "键盘显示设置"
+Configure_keyboard_display_settings: "配置键盘显示设置"
+Show_Keyboard: "显示键盘"
 Display_keyboard_on_screen: "在屏幕上显示键盘"
+Keyboard_Opacity: "键盘透明度"
 Transparency_of_the_keyboard_display: "键盘显示的透明度"
+Keyboard_BG_Color: "键盘背景色"
 Background_color_of_the_keyboard_display: "键盘显示的背景颜色"
+Keyboard_Text_Color: "键盘文本色"
 Text_color_of_the_keyboard_display: "键盘显示的文本颜色"
+Keyboard_Offset_X: "键盘X偏移"
 Horizontal_position_of_the_keyboard_display: "键盘显示的水平位置"
+Keyboard_Offset_Y: "键盘Y偏移"
 Vertical_position_of_the_keyboard_display: "键盘显示的垂直位置"
+Keyboard_Time_Display: "键盘时间显示"
 Change_the_keyboard_time_should_display_or_not: "是否显示键盘时间"
+Keyboard_Time_Length: "键盘显示时长(毫秒)"
 Change_the_how_long_the_keyboard_is_displayed: "更改键盘显示的持续时间（毫秒）"
 
+// ---- Chart Helper 子菜单 ----
+Chart_Helper: "谱面辅助"
+Configure_Chart_Helper_settings: "配置谱面辅助设置"
+Note_Guide_Line_Opacity: "辅助线透明度"
 Transparency_of_the_chart_helper_display: "谱面辅助线的透明度"
 
-Timing_window_for_SICK: "SICK判定区间（毫秒）"
-Timing_window_for_GOOD: "GOOD判定区间（毫秒）"
-Timing_window_for_BAD: "BAD判定区间（毫秒）"
-Frames_for_early_late_hits: "允许提前/延后命中的帧数"
+// ---- Freeplay 子菜单 ----
+Freeplay: "自由游玩"
+Configure_Freeplay_settings: "配置自由游玩选项"
+Old_Freeplay_Menu: "旧版自由游玩"
+Use_Psych_Engine_Default_Freeplay_Menu: "使用Psych Engine默认自由游玩菜单"
+Card_Glow: "卡片光晕"
+Enable_breathing_glow_under_selected_card: "在选中的卡片下方启用呼吸光晕"
+Freeplay_ToolBar: "Freeplay工具栏"
+Show_tool_bar_in_freeplay: "在自由游玩中显示工具栏"
+New_Freeplay_Space_BackGround: "太空背景"
+Just_a_cool_background_lol: "酷炫的背景效果"
+Save_Freeplay_Cache: "保存Freeplay缓存"
+Save_freeplay_song_metadata_cache_to_disk: "将自由游玩歌曲元数据缓存保存到磁盘"
+Space_Back_Ground_EveryWhere: "全局星空背景"
+Show_space_background_everywhere: "在所有界面显示星空背景"
+Mod_Folder_Manager: "MOD文件夹管理"
+Organize_mods_in_Freeplay_using_folder_selector: "使用文件夹选择器在自由游玩中整理MOD"
+Audio_Display_Number: "音频可视化数量"
+Change_the_relax_audio_number: "更改音频可视化数量"
+Audio_Display_Quality: "音频可视化质量"
+Change_the_relax_audio_display_quality: "更改音频可视化质量"
+Audio_Display_Update_Speed: "音频可视化更新速度"
+Change_the_relax_audio_display_update_speed: "更改音频可视化更新速度"
+Audio_Gain: "音频增益"
+Change_the_relax_audio_range: "更改音频可视化范围"
 
+// ---- Judgements Counter 子菜单 ----
+Judgements_Counter: "判定计数器"
+Configure_Judgements_Counter_settings: "配置判定计数器设置"
+Show_Highest_Combo: "显示最高连击"
+Show_highest_combo_in_judgements_counter: "显示最高连击"
+Show_Current_Combo: "显示当前连击"
+Show_current_combo_in_judgements_counter: "显示当前连击"
+Show_Total_Notes_Hit: "显示命中总音符数"
+Show_total_notes_in_judgements_counter: "显示命中总音符数"
+Show_Misses: "显示失误数"
+Show_misses_in_judgements_counter: "显示失误数"
+
+// ---- Song Info Text 子菜单 ----
+Song_Info_Text: "歌曲信息文本"
+Configure_Song_Info_Text_settings: "配置歌曲信息文本设置"
+Song_Info_Text_Size: "歌曲信息文本大小"
+Change_the_size_of_song_info_text: "文本大小"
+Show_Difficulty: "显示难度"
+Show_difficulty_in_song_info_text: "显示难度"
+Song_Engine_Version: "显示引擎版本"
+Show_engine_version_in_song_info_text: "显示引擎版本"
+
+// ---- 视觉选项主列表 ----
+Hide_HUD: "隐藏HUD"
+Hide_most_HUD_elements: "开启后大部分UI元素会被隐藏"
+Flashing_Lights: "闪烁灯光"
+Enable_screen_flashes: "对闪光敏感请关闭此项！"
+Camera_Zooms: "镜头缩放"
+Zoom_camera_on_beat: "关闭后镜头不会随节拍缩放"
+Center_Pause: "居中暂停菜单"
+Center_pause_menu: "将暂停菜单居中显示"
+Custom_Color: "对手自定义色"
+Color_most_things_by_opponent: "按对手为大部分元素着色"
+Gradient_TimeBar: "渐变时间条"
+Gradient_colored_timebar: "使用渐变色时间条"
+Score_Zoom: "分数跳动"
+Grow_score_text_on_hit: "关闭后分数命中时不跳动"
+Time_Bar: "时间条"
+What_should_the_Time_Bar_display: "时间条应显示什么？"
+Pause_Music: "暂停音乐"
+Choose_pause_screen_music: "暂停界面播放哪首歌？"
+Health_Bar_Alpha: "血条透明度"
+Health_bar_transparency: "血条和头像的透明度"
+Combo_Stacking: "连击堆叠"
+Stack_combo_numbers: "关闭后连击数字不会堆叠，更易读"
+MS_Number: "显示判定偏移"
+Make_you_know_how_late_early_ur_when_hit_notes: "显示你命中音符的时机快慢(单位：毫秒)"
+Health_Text: "显示血量"
+Show_health_as_number: "显示剩余血量百分比"
+Song_Text: "显示歌曲信息"
+Show_song_info_watermark: "显示歌曲信息"
+Score_Screen: "显示结算界面"
+Show_Kade-style_results: "显示Kade风格的结算界面"
+Transition_Type: "过渡动画风格"
+Choose_the_transition_animation_style_when_switching_scenes: "选择场景切换时的过渡动画风格"
+Charm_Bar_Pause: "现代暂停界面"
+Modern_Pause_Sub_State: "使用现代化暂停界面"
+
+// ============================================
+// KEOptionsMenu 图形选项 (Graphics)
+// ============================================
+FPS_Counter: "FPS计数器"
+Configure_FPS_counter_settings: "配置FPS计数器设置"
+Show_OS: "显示操作系统"
+Show_operating_system_in_FPS_Counter: "在FPS计数器中显示操作系统"
+Show_API: "显示API"
+Show_graphics_API_in_FPS_Counter: "在FPS计数器中显示图形API"
+Show_TPS: "显示TPS"
+Show_ticks_per_second_in_FPS_Counter: "在FPS计数器中显示每秒刻数"
+Show_Memory_Peak: "显示内存峰值"
+Show_peak_memory_usage_in_FPS_Counter: "在FPS计数器中显示峰值内存使用量"
+
+Low_Quality: "低画质"
+Reduce_graphics_for_performance: "开启后关闭部分背景元素，减少加载时间并提升性能"
+Anti-Aliasing: "抗锯齿"
+Smoother_visuals: "关闭后提升性能，但画面会变得不平滑"
+Resolution: "分辨率"
+Change_the_games_render_resolution.: "更改游戏渲染分辨率"
+Shaders: "着色器"
+Enable_shader_effects: "关闭后禁用特效着色器，适合低性能CPU"
+GPU_Caching: "GPU缓存"
+Use_GPU_for_texture_caching: "开启后允许GPU缓存贴图，减少内存占用，显卡较差请勿开启"
+Devide_Draw_And_Update: "拆分渲染和游戏速率"
+Draw_and_Update_in_separate_threads: "将渲染和游戏速率放在不同的线程中"
+Framerate: "帧率"
+Target_framerate: "画面每秒刷新次数"
+Update_Rate: "游戏速率"
+Target_update_rate: "目标游戏速率"
+Unlimited_FPS: "解除帧率限制"
+Remove_framerate_cap_also_for_update_rate: "移除帧率上限(对游戏速度也适用)"
+FPS_Rework: "FPS优化"
+Make_ur_game_more_smooth: "让游戏更流畅"
+
+// ============================================
+// KEOptionsMenu 高级选项 (Advanced)
+// ============================================
+Check_Updates: "检查更新"
+Check_for_game_updates: "检查游戏更新"
+Beta_Updates: "测试版更新"
+Change_the_channel_to_beta: "切换到测试版通道"
+Loading_Screen: "加载界面"
+Show_loading_screen: "显示加载界面"
+Enable_LUA_Debug_Printer: "启用LUA调试"
+Uncheck_it_if_u_dont_want_to_see_them: "取消勾选以隐藏Lua调试输出"
+Discord_RPC: "Discord状态"
+Enable_Discord_Rich_Presence: "启用Discord状态显示"
+Replay: "回放"
+[Score_Menu_and_Replay_Required]: "需要评分界面和回放支持"
+Replay_Manager: "回放管理"
+Manage_and_view_ur_Replays: "管理并查看你的回放"
+NewOptions: "新选项菜单"
+Disable_it_if_u_dont_like_current_options_menu: "如果不喜欢当前选项菜单则禁用"
+Reset_Settings: "重置所有设置"
+Reset_all_settings_to_default: "重置所有设置"
+Reset_Scores: "重置所有分数"
+Clear_all_high_scores_and_ratings: "重置所有分数"
+
+// ---- Options Particle 子菜单 ----
+Options_Particle: "粒子设置"
+Edit_Particle_Effects_in_Menu: "编辑菜单中的粒子效果"
+Show_Particle_In_Option: "选项菜单粒子特效"
 Show_particle_effect_in_options_menu: "在选项菜单中显示粒子效果"
+Particle_Amount: "粒子数量"
 Amount_of_particles: "粒子数量"
+Particle_Speed: "粒子速度"
 Speed_of_particles: "粒子速度"
+Particle_Trail_Length: "粒子拖尾长度"
 Length_of_particle_trails: "粒子拖尾长度"
+
+// ============================================
+// 重置选项的警告消息（使用下划线替换空格）
+// ============================================
+Are_you_sure_you_want_to_reset_ALL_key_bindings_to_default?\nThis_action_cannot_be_undone!: "确定要将所有按键绑定重置为默认值吗？\n此操作无法撤销！"
+Are_you_sure_you_want_to_reset_ALL_settings_to_default?\nThis_will_reset_graphics,_gameplay,_and_other_preferences!\nThis_action_cannot_be_undone!: "确定要将所有设置重置为默认值吗？\n这将重置图形、游戏和其他偏好！\n此操作无法撤销！"
+Are_you_sure_you_want_to_reset_ALL_high_scores?\nThis_will_delete_all_your_progress_and_ratings!\nThis_action_cannot_be_undone!: "确定要重置所有最高分吗？\n这将删除你所有的进度和评级！\n此操作无法撤销！"
 
 // ============================================
 // 时间条选项值
@@ -388,7 +415,14 @@ Disabled: "禁用"
 None: "无"
 Tea_Time: "茶会时间"
 Breakfast: "早餐"
-Breakfast_Pico: "早餐(Pico)"
+Breakfast_(Pico): "早餐(Pico)"
+
+// ============================================
+// 过渡动画选项值
+// ============================================
+fade: "渐变"
+pixel: "像素"
+loading: "加载"
 
 // ============================================
 // 语言选项值
@@ -405,13 +439,26 @@ on: "开启"
 off: "关闭"
 Set_Key: "设置按键"
 back: "返回"
+ms: "毫秒"
+options: "游戏设置"
+reset: "重置分数"
+listen: "试听"
+Cancel: "取消"
+Confirm: "确认"
+Type: "类型"
+SelectOption: "选择一个选项"
+Return_to_previous_menu: "返回上一级页面"
+Configure_Freeplay_settings: "配置Freeplay选项"
+Unlimited_FPS: "解除帧率限制"
+Devide_Draw_And_Update: "拆分渲染和游戏速率"
+Update_Rate: "游戏速率"
+Reset_all_settings_to_default: "重置所有设置"
+Reset_all_key_bindings_to_default: "重置所有键位"
 
 // ============================================
-// 重置警告消息
+// 字体
 // ============================================
-warning_reset_keybinds: "确定要将所有按键绑定重置为默认值吗？\n此操作无法撤销！"
-warning_reset_settings: "确定要将所有设置重置为默认值吗？\n这将重置图形、游戏和其他偏好！\n此操作无法撤销！"
-warning_reset_scores: "确定要重置所有最高分吗？\n这将删除你所有的进度和评级！\n此操作无法撤销！"
+fonts/vcr.ttf: "fonts/HarmonyOS_Sans_SC_Medium.ttf"
 
 // ============================================
 // 统计界面
@@ -446,26 +493,9 @@ difficulty_easy: "简单"
 difficulty_normal: "普通"
 difficulty_hard: "困难"
 
-fonts/vcr.ttf: "fonts/HarmonyOS_Sans_SC_Medium.ttf"
-
-// Pause Menu
-pause_resume: "继续"
-pause_restart_song: "重新开始歌曲"
-pause_leave_charting_mode: "退出制谱模式"
-pause_skip_time: "跳转时间"
-pause_end_song: "结束歌曲"
-charting_panel: "制谱面板"
-pause_change_difficulty: "切换难度"
-pause_toggle_practice_mode: "切换练习模式"
-pause_toggle_botplay: "切换自动演奏"
-pause_options: "设置"
-pause_exit_to_menu: "返回菜单"
-pause_back: "返回"
-practice_mode: "练习模式"
-charting_mode: "制谱模式"
-blueballed: "死亡次数: {1}"
-
-// Options
+// ============================================
+// 其他菜单
+// ============================================
 options_note_colors: "音符颜色"
 options_controls: "按键设置"
 options_adjust_delay_and_combo: "延迟与连击调整"
@@ -534,9 +564,9 @@ setting_instakill_on_miss: "失误即死"
 setting_practice_mode: "练习模式"
 setting_botplay: "自动演奏"
 setting_player_mode: "玩家模式"
-setting_player_mode-player : "玩家"
-setting_player_mode-opponent : "对手"
-setting_player_mode-coop : "合作"
+setting_player_mode-player: "玩家"
+setting_player_mode-opponent: "对手"
+setting_player_mode-coop: "合作"
 
 // Graphics Settings
 setting_low_quality: "低画质"
@@ -621,12 +651,6 @@ description_safe_frames: "调整提前/延后判定的容错时间"
 setting_sustains_as_one_note: "长音合并"
 description_sustains_as_one_note: "如果开启，未按完整段长音只算一个失误"
 
-ms: "毫秒"
-
-options: "游戏设置"
-reset: "重置分数"
-listen: "试听"
-
 // Mobile Settings 子菜单
 Mobile_Settings: "移动设备设置"
 Configure_mobile_specific_settings: "配置移动设备专属选项"
@@ -652,9 +676,4 @@ If_checked_the_hitbox_will_be_put_at_the_bottom: "开启后，打击区会放在
 Dynamic_Controls_Color: "动态按钮颜色"
 If_checked_the_mobile_controls_color_will_be_set_to_the_notes_color: "开启后，移动按钮颜色会跟随设置中的音符颜色。\n（仅在游玩时生效）"
 Customize_Mobile_Controls: "自定义移动按钮布局"
-Customize_mobile_controls_layout_and_appearance: "自定义移动按钮的布局与外观" 
-
-Cancel: "取消"
-Confirm: "确认"
-Type: "类型"
-SelectOption: "选择一个选项"
+Customize_mobile_controls_layout_and_appearance: "自定义移动按钮的布局与外观"

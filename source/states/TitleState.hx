@@ -5,7 +5,7 @@ import flixel.input.keyboard.FlxKey;
 import flixel.graphics.frames.FlxFrame;
 import flixel.group.FlxGroup;
 import flixel.input.gamepad.FlxGamepad;
-
+import openfl.Lib;
 
 import shaders.ColorSwap;
 
@@ -36,6 +36,9 @@ class TitleState extends MusicBeatState
 	public static var volumeUpKeys:Array<FlxKey> = [FlxKey.NUMPADPLUS, FlxKey.PLUS];
 
 	public static var initialized:Bool = false;
+
+	public static var fromDpiSetting:Bool = false;
+	static var shouldSaveDpi:Bool = false;
 
 	var credGroup:FlxGroup = new FlxGroup();
 	var textGroup:FlxGroup = new FlxGroup();
@@ -98,14 +101,51 @@ class TitleState extends MusicBeatState
 		#elseif CHARTING
 		MusicBeatState.switchState(new ChartingState());
 		#else
-		if(FlxG.save.data.flashing == null && !FlashingState.leftState)
+		if (!ClientPrefs.data.dpiSettingsAsked && !DpiSettingState.leftState)
+		{
+			var logicW:Int = Main.game.width;
+			var logicH:Int = Main.game.height;
+			var physW:Int = Lib.current.stage.stageWidth;
+			var physH:Int = Lib.current.stage.stageHeight;
+			if ((physW > logicW || physH > logicH) && ClientPrefs.data.renderResolution != -1)
+			{
+				FlxTransitionableState.skipNextTransIn = true;
+				FlxTransitionableState.skipNextTransOut = true;
+				MusicBeatState.switchState(new DpiSettingState());
+				return;
+			}
+			else
+			{
+				ClientPrefs.data.dpiSettingsAsked = true;
+				shouldSaveDpi = true;          // 标记需要保存，但先不执行 saveSettings()
+			}
+		}
+
+		// ---- Flashing 检测（增加强制显示逻辑） ----
+		var shouldShowFlashing:Bool = false;
+		if (fromDpiSetting) {
+			shouldShowFlashing = true;
+			fromDpiSetting = false;
+		} else if (FlxG.save.data.flashing == null && !FlashingState.leftState) {
+			shouldShowFlashing = true;
+		}
+
+		if (shouldShowFlashing)
 		{
 			FlxTransitionableState.skipNextTransIn = true;
 			FlxTransitionableState.skipNextTransOut = true;
 			MusicBeatState.switchState(new FlashingState());
+			return;
 		}
 		else
+		{
+			// 进入主菜单前保存 DPI 设置（如果尚未保存）
+			if (shouldSaveDpi) {
+				ClientPrefs.saveSettings();
+				shouldSaveDpi = false;
+			}
 			startIntro();
+		}
 		#end
 	}
 
