@@ -632,31 +632,123 @@ var allowHumanHit:Bool = mustPress;
 	}
 
 	public function clipToStrumNote(myStrum:StrumNote)
-	{
-		var center:Float = myStrum.y + offsetY + Note.swagWidth / 2;
-		if((mustPress || !ignoreNote) && (wasGoodHit || (prevNote.wasGoodHit && !canBeHit)))
-		{
-			var swagRect:FlxRect = clipRect;
-			if(swagRect == null) swagRect = new FlxRect(0, 0, frameWidth, frameHeight);
+{
+    if (ClientPrefs.data.keLike && isSustainNote)
+    {
+        if ((mustPress || !ignoreNote) && (wasGoodHit || (prevNote.wasGoodHit && !canBeHit)))
+        {
+            // 1. 获取判定线的核心位置（使用长条的中心偏移）
+            var strumCenter:Float = myStrum.y + Note.swagWidth / 2;
+            
+            // 2. 创建裁剪矩形
+            var swagRect:FlxRect = new FlxRect(0, 0, frameWidth, frameHeight);
+            
+            // 计算长条的实际Y位置（考虑偏移）
+            var actualY:Float = y + offset.y * scale.y;
+            var actualHeight:Float = height;
 
-			if (myStrum.downScroll)
-			{
-				if(y - offset.y * scale.y + height >= center)
-				{
-					swagRect.width = frameWidth;
-					swagRect.height = (center - y) / scale.y;
-					swagRect.y = frameHeight - swagRect.height;
-				}
-			}
-			else if (y + offset.y * scale.y <= center)
-			{
-				swagRect.y = (center - y) / scale.y;
-				swagRect.width = width / scale.x;
-				swagRect.height = (height / scale.y) - swagRect.y;
-			}
-			clipRect = swagRect;
-		}
-	}
+            // ----- 下滚 (DownScroll) 模式 -----
+            if (myStrum.downScroll)
+            {
+                // 计算从判定线到长条顶部的距离
+                var distanceToCenter:Float = actualY + actualHeight - strumCenter;
+                
+                // 判断长条是否已经跨越判定线
+                if (distanceToCenter > 0)
+                {
+                    // 计算可见部分的高度（从底部到判定线）
+                    var visibleHeight:Float = distanceToCenter / scale.y;
+                    
+                    // 限制可见高度不超过纹理高度
+                    if (visibleHeight > frameHeight) visibleHeight = frameHeight;
+                    if (visibleHeight < 0) visibleHeight = 0;
+                    
+                    // 裁剪：从纹理底部开始保留 visibleHeight 高度
+                    swagRect.y = frameHeight - visibleHeight;
+                    swagRect.height = visibleHeight;
+                    swagRect.width = frameWidth;
+                    
+                    // 锁定长条底部位置到判定线（+1像素防止闪烁）
+                    y = strumCenter - actualHeight;
+					alpha = 0;
+                }
+                else
+                {
+                    // 长条还未到达判定线，不裁剪
+                    swagRect = null;
+                }
+            }
+            // ----- 上滚 (UpScroll) 模式 -----
+            else
+            {
+                // 计算从判定线到长条底部的距离
+                var distanceToCenter:Float = strumCenter - actualY;
+                
+                // 判断长条是否已经跨越判定线
+                if (distanceToCenter > 0)
+                {
+                    // 计算可见部分的高度（从顶部到判定线）
+                    var visibleHeight:Float = distanceToCenter / scale.y;
+                    
+                    // 限制可见高度不超过纹理高度
+                    if (visibleHeight > frameHeight) visibleHeight = frameHeight;
+                    if (visibleHeight < 0) visibleHeight = 0;
+                    
+                    // 裁剪：从纹理顶部开始保留 visibleHeight 高度
+                    swagRect.y = 0;
+                    swagRect.height = visibleHeight;
+                    swagRect.width = frameWidth;
+                    
+                    // 锁定长条顶部位置到判定线（-1像素防止闪烁）
+                    y = strumCenter;
+					alpha = 0;
+                }
+                else
+                {
+                    // 长条还未到达判定线，不裁剪
+                    swagRect = null;
+                }
+            }
+            
+            // 应用裁剪
+            if (swagRect != null && swagRect.height > 0)
+            {
+                clipRect = swagRect;
+            }
+            else
+            {
+                // 如果长条已经完全越过判定线，完全隐藏
+                clipRect = new FlxRect(0, 0, frameWidth, 0);
+            }
+        }
+        return;
+    }
+    
+    // ===== PSYCH ENGINE STYLE CLIPPING (原有代码保持不变) =====
+    var center:Float = myStrum.y + offsetY + Note.swagWidth / 2;
+    if((mustPress || !ignoreNote) && (wasGoodHit || (prevNote.wasGoodHit && !canBeHit)))
+    {
+        var swagRect:FlxRect = clipRect;
+        if(swagRect == null) swagRect = new FlxRect(0, 0, frameWidth, frameHeight);
+
+        if (myStrum.downScroll)
+        {
+            if(y - offset.y * scale.y + height >= center)
+            {
+                swagRect.width = frameWidth;
+                swagRect.height = (center - y) / scale.y;
+                swagRect.y = frameHeight - swagRect.height;
+            }
+        }
+        else if (y + offset.y * scale.y <= center)
+        {
+            swagRect.y = (center - y) / scale.y;
+            swagRect.width = width / scale.x;
+            swagRect.height = (height / scale.y) - swagRect.y;
+        }
+        clipRect = swagRect;
+    }
+}
 
 	@:noCompletion
 	override function set_clipRect(rect:FlxRect):FlxRect

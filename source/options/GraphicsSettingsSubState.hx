@@ -9,22 +9,36 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 	var antialiasingOption:Int;
 	var boyfriend:Character = null;
 	
-	// 分辨率相关
 	var resolutionOption:Int;
-	var resolutions:Array<Array<Int>> = [
+	
+	// 普通分辨率
+	var normalResolutions:Array<Array<Int>> = [
 		[1280, 720],
-		[1600, 900],
 		[1920, 1080],
 		[2560, 1440],
 		[3840, 2160]
 	];
+	
+	// 21:9 宽屏分辨率
+	var wideResolutions:Array<Array<Int>> = [
+		[Math.round(720 * 21.0 / 9.0), 720],   // 1680x720
+		[Math.round(1080 * 21.0 / 9.0), 1080], // 2520x1080
+		[Math.round(1440 * 21.0 / 9.0), 1440], // 3360x1440
+		[Math.round(2160 * 21.0 / 9.0), 2160]  // 5040x2160
+	];
+	
 	var resolutionNames:Array<String> = [
 		"1280x720 (720p)",
-		"1600x900 (900p)",
 		"1920x1080 (1080p)",
 		"2560x1440 (1440p)",
-		"3840x2160 (4K)"
+		"3840x2160 (2160p)"
 	];
+	
+	// 获取当前使用的分辨率列表
+	function getCurrentResolutions():Array<Array<Int>>
+	{
+		return (ClientPrefs.data != null && ClientPrefs.data.wideScreen) ? wideResolutions : normalResolutions;
+	}
 	
 	public function new()
 	{
@@ -38,14 +52,12 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		boyfriend.animation.finishCallback = function (name:String) boyfriend.dance();
 		boyfriend.visible = false;
 
-		// Low Quality
 		var option:Option = new Option('Low Quality',
 			'If checked, disables some background details,\ndecreases loading times and improves performance.',
 			'lowQuality',
 			BOOL);
 		addOption(option);
 
-		// Anti-Aliasing
 		var option:Option = new Option('Anti-Aliasing',
 			'If unchecked, disables anti-aliasing, increases performance\nat the cost of sharper visuals.',
 			'antialiasing',
@@ -54,31 +66,34 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		addOption(option);
 		antialiasingOption = optionsArray.length-1;
 
-		// 分辨率选项
 		var option:Option = new Option('Resolution',
 			'Changes the game\'s render resolution.\nHigher resolution = sharper image but worse performance.',
 			'renderResolution',
 			INT);
 		option.minValue = 0;
-		option.maxValue = resolutions.length - 1;
+		option.maxValue = resolutionNames.length - 1;
 		option.displayFormat = resolutionNames[option.getValue()];
 		option.onChange = onChangeResolution;
 		addOption(option);
 		resolutionOption = optionsArray.length - 1;
+
+		var wideScreenOption:Option = new Option('Wide Screen',
+			'Enable 21:9 widescreen mode for the game viewport width.',
+			'wideScreen',
+			BOOL);
+		wideScreenOption.onChange = onChangeWideScreen;
+		addOption(wideScreenOption);
 		
-		// 设置默认值
-		if (ClientPrefs.data.renderResolution < 0 || ClientPrefs.data.renderResolution >= resolutions.length) {
+		if (ClientPrefs.data.renderResolution < 0 || ClientPrefs.data.renderResolution >= resolutionNames.length) {
 			ClientPrefs.data.renderResolution = 0;
 		}
 
-		// Shaders
 		var option:Option = new Option('Shaders',
 			"If unchecked, disables shaders.\nIt's used for some visual effects, and also CPU intensive for weaker.",
 			'shaders',
 			BOOL);
 		addOption(option);
 
-		// GPU Caching
 		var option:Option = new Option('GPU Caching',
 			"If checked, allows the GPU to be used for caching textures, decreasing RAM usage.\nDon't turn this on if you have a shitty Graphics Card.",
 			'cacheOnGPU',
@@ -100,7 +115,6 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		option.onChange = onChangeFramerate;
 		#end
 
-		// FPS Rework
 		var option:Option = new Option('FPS Rework',
 			"If checked, this works around the game becoming \"slow\" and \"smooth\" when the current FPS is lower than the FPS cap.",
 			'fpsRework',
@@ -110,8 +124,13 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		super();
 		insert(1, boyfriend);
 		
-		// 应用保存的分辨率设置
 		applyResolutionSetting();
+	}
+
+	function onChangeWideScreen()
+	{
+		// 切换宽屏后立即应用分辨率
+		onChangeResolution();
 	}
 
 	function onChangeAntiAliasing()
@@ -149,25 +168,21 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		}
 	}
 	
-	// 分辨率改变回调
 	function onChangeResolution()
 	{
-		var selectedResolution = resolutions[ClientPrefs.data.renderResolution];
+		var resList = getCurrentResolutions();
+		var selectedResolution = resList[ClientPrefs.data.renderResolution];
 		changeRenderResolution(selectedResolution[0], selectedResolution[1]);
 	}
 	
-	// 实际改变分辨率的函数
 	function changeRenderResolution(newWidth:Int, newHeight:Int):Void 
 	{
 		try 
 		{
-			// 1. 改变窗口物理尺寸
+			#if (cpp || hl)
 			var window = Lib.current.stage.window;
 			window.resize(newWidth, newHeight);
 
-			// 2. 将窗口移动到屏幕中央（获取主显示器分辨率）
-			#if (cpp || hl)
-			// 需要 openfl 8.9+ 支持 window.display.bounds
 			var displayBounds = window.display.bounds;
 			var screenWidth = displayBounds.width;
 			var screenHeight = displayBounds.height;
@@ -175,10 +190,7 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 			window.y = Std.int(displayBounds.y + (screenHeight - newHeight) / 2);
 			#end
 
-			// 3. 使用 FlxG.resizeGame() - 它会处理所有渲染相关的更新！
 			FlxG.resizeGame(newWidth, newHeight);
-
-			// 4. 重新应用缩放模式（保持原有的拉伸窗口行为）
 			FlxG.scaleMode = new RatioScaleMode(false);
 
 			trace('Resolution changed to: $newWidth x $newHeight');
@@ -189,12 +201,12 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		}
 	}
 	
-	// 应用保存的分辨率
 	function applyResolutionSetting():Void
 	{
-		if (ClientPrefs.data.renderResolution >= 0 && ClientPrefs.data.renderResolution < resolutions.length)
+		var resList = getCurrentResolutions();
+		if (ClientPrefs.data.renderResolution >= 0 && ClientPrefs.data.renderResolution < resList.length)
 		{
-			var selectedResolution = resolutions[ClientPrefs.data.renderResolution];
+			var selectedResolution = resList[ClientPrefs.data.renderResolution];
 			changeRenderResolution(selectedResolution[0], selectedResolution[1]);
 		}
 	}

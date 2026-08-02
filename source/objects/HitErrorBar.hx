@@ -39,7 +39,7 @@ class HitErrorBar extends FlxSpriteGroup
     var shouldReturn:Bool = false;
     var returning:Bool = false;
     
-    var barWidth:Float = 300;
+    var barWidth:Float = FlxG.width * 0.25;
     var barHeight:Float = 5;
     
     var ratingColors:Map<String, FlxColor> = [

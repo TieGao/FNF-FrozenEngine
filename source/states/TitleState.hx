@@ -101,14 +101,19 @@ class TitleState extends MusicBeatState
 		#elseif CHARTING
 		MusicBeatState.switchState(new ChartingState());
 		#else
+		// 在 TitleState.hx 的 create() 中
 		if (!ClientPrefs.data.dpiSettingsAsked && !DpiSettingState.leftState)
 		{
-			var logicW:Int = Main.game.width;
-			var logicH:Int = Main.game.height;
+			// 使用原始逻辑尺寸，而不是被缩放后的
+			var originalLogicW:Int = Main.game.width;
+			var originalLogicH:Int = Main.game.height;
 			var physW:Int = Lib.current.stage.stageWidth;
 			var physH:Int = Lib.current.stage.stageHeight;
-			if ((physW > logicW || physH > logicH) && ClientPrefs.data.renderResolution != -1)
+			var zoomLevel:Float = FlxG.width / 1280; // 实际缩放
+			
+			if ((physW > originalLogicW || physH > originalLogicH) && ClientPrefs.data.renderResolution != -1)
 			{
+				// 进入 DpiSettingState
 				FlxTransitionableState.skipNextTransIn = true;
 				FlxTransitionableState.skipNextTransOut = true;
 				MusicBeatState.switchState(new DpiSettingState());
@@ -117,7 +122,7 @@ class TitleState extends MusicBeatState
 			else
 			{
 				ClientPrefs.data.dpiSettingsAsked = true;
-				shouldSaveDpi = true;          // 标记需要保存，但先不执行 saveSettings()
+				shouldSaveDpi = true;
 			}
 		}
 

@@ -397,12 +397,17 @@ class SearchSubState extends MusicBeatSubstate
         }
 
         // ---- 关闭 ----
-        if (FlxG.mouse.justPressedRight || controls.BACK || FlxG.keys.justPressed.ESCAPE)
+        if (FlxG.mouse.justPressedRight)
         {
             closeSubstate();
         }
-    }
 
+        if (controls.BACK)
+        {
+            if (PsychUIInputText.focusOn != null) return;
+            closeSubstate();
+        }
+    }
     // -------- 关闭子状态（带 FadeOut） --------
     function closeSubstate()
     {

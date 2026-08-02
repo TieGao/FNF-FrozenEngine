@@ -202,12 +202,15 @@ import states.TitleState;
 	public  var renderResolution:Int = 0;
 	public var useDpiSettings:Bool = true;
 	public var dpiSettingsAsked:Bool = false;
+	public var showStage:Bool = true;
 
 	public var showOS:Bool = false; // show os in fps counter
 	public var showTPS:Bool = false;
 	public var showMEMPeak:Bool = false;
 	public var showApi:Bool = false;
 
+	public var keLike:Bool = false;
+	public var clipoffset:Float = 0;
 	public var betaUpdates:Bool = false;
 }
 

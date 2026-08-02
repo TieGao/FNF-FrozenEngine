@@ -4055,17 +4055,21 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 						return;
 					}
 
-					var func:Void->Void = function()
+					fileDialog.openDirectory('Save Converted Psych JSON', function()
 					{
-						loadChart(loadedChart);
-						Song.chartPath = null; // Newly converted chart needs manual saving
-						reloadNotesDropdowns();
-						prepareReload();
-						showOutput('OSU chart converted successfully! Please remember to save as Psych format.');
-					}
-					
-					if(!ignoreProgressCheckBox.checked) openSubState(new Prompt('Warning: Any unsaved progress will be lost\n\nContinue conversion?', func));
-					else func();
+						var path:String = fileDialog.path.replace('\\', '/');
+						if(!path.endsWith('/')) path += '/';
+
+						var chartName:String = Paths.formatToSongPath(loadedChart.song);
+						if(chartName == null || chartName.length == 0) chartName = 'converted';
+						var savePath:String = path + chartName + '.json';
+						var saveData:String = PsychJsonPrinter.print(loadedChart, ['sectionNotes', 'events']);
+
+						overwriteCheck(savePath, chartName + '.json', saveData, function()
+						{
+							showOutput('OSU chart converted and saved successfully: ' + savePath);
+						}, true);
+					});
 				}
 				catch(e:Exception)
 				{
@@ -4090,19 +4094,26 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				try {
 					var filePath:String = fileDialog.path.replace('\\', '/');
 					var loadedChart:SwagSong = KadeConverter.convertKadeToPsych(filePath);
-					
-					var func:Void->Void = function() {
-						loadChart(loadedChart);
-						Song.chartPath = null;
-						reloadNotesDropdowns();
-						prepareReload();
-						showOutput('Kade Engine chart converted to Psych successfully!');
-					};
-					
-					if(!ignoreProgressCheckBox.checked) 
-						openSubState(new Prompt('Warning: Any unsaved progress will be lost\n\nContinue conversion?', func));
-					else func();
-					
+					if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
+					{
+						showOutput('Error: Unable to read Kade Engine chart or file format is incorrect', true);
+						return;
+					}
+
+					fileDialog.openDirectory('Save Converted Psych JSON', function()
+					{
+						var path:String = fileDialog.path.replace('\\', '/');
+						if(!path.endsWith('/')) path += '/';
+						var chartName:String = Paths.formatToSongPath(loadedChart.song);
+						if(chartName == null || chartName.length == 0) chartName = 'converted';
+						var savePath:String = path + chartName + '.json';
+						var saveData:String = PsychJsonPrinter.print(loadedChart, ['sectionNotes', 'events']);
+
+						overwriteCheck(savePath, chartName + '.json', saveData, function()
+						{
+							showOutput('Kade Engine chart converted and saved successfully: ' + savePath);
+						}, true);
+						});
 				} catch(e:Exception) {
 					showOutput('Error: ${e.message}', true);
 					trace(e.stack);
@@ -4145,7 +4156,6 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		}, btnWid);
 		tab_group.add(btn);
 
-		// ========== CODENAME ENGINE SECTION ==========
 		btnY += 20;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, 'Codename to Psych...', function()
 		{
@@ -4157,29 +4167,34 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			{
 				try {
 					var filePath:String = fileDialog.path.replace('\\', '/');
-					// Codename might have separate meta file
-					var metaPath = filePath.replace('.json', '-meta.json');
-					var loadedChart:SwagSong = CodenameConverter.convertCodenameToPsych(filePath, 
-						FileSystem.exists(metaPath) ? metaPath : null);
-					
-					var func:Void->Void = function() {
-						loadChart(loadedChart);
-						Song.chartPath = null;
-						reloadNotesDropdowns();
-						prepareReload();
-						showOutput('Codename Engine chart converted to Psych successfully!');
-					};
-					
-					if(!ignoreProgressCheckBox.checked) 
-						openSubState(new Prompt('Warning: Any unsaved progress will be lost\n\nContinue conversion?', func));
-					else func();
-					
+					var loadedChart:SwagSong = CodenameConverter.convertCodenameToPsych(filePath);
+					if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
+					{
+						showOutput('Error: Unable to read Codename Engine chart or file format is incorrect', true);
+						return;
+					}
+
+					fileDialog.openDirectory('Save Converted Psych JSON', function()
+					{
+						var path:String = fileDialog.path.replace('\\', '/');
+						if(!path.endsWith('/')) path += '/';
+						var chartName:String = Paths.formatToSongPath(loadedChart.song);
+						if(chartName == null || chartName.length == 0) chartName = 'converted';
+						var savePath:String = path + chartName + '.json';
+						var saveData:String = PsychJsonPrinter.print(loadedChart, ['sectionNotes', 'events']);
+
+						overwriteCheck(savePath, chartName + '.json', saveData, function()
+						{
+							showOutput('Codename Engine chart converted and saved successfully: ' + savePath);
+						}, true);
+					});
 				} catch(e:Exception) {
 					showOutput('Error: ${e.message}', true);
 					trace(e.stack);
 				}
 			});
 		}, btnWid);
+		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
 		btnY += 20;

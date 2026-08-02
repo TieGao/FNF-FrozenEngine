@@ -118,7 +118,7 @@ class JudgementCounter {
         return t;
     }
 
-    public function update():Void {
+    public function refresh():Void {
         if (!ClientPrefs.data.Counter) return;
 
         var hits:Int = if (side == "opponent") state.opponentSongHits else state.playerSongHits;

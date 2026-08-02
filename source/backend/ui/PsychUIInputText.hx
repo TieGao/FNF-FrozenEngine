@@ -278,7 +278,7 @@ class PsychUIInputText extends FlxSpriteGroup
 
 			case BACKSPACE: //Delete letter to the left of caret
 				if(caretIndex <= 0) return;
-				 trace('Before BACKSPACE: caretIndex=$caretIndex, text="$text", len=${text.length}');
+//				 trace('Before BACKSPACE: caretIndex=$caretIndex, text="$text", len=${text.length}');
 				if(selectIndex > -1 && selectIndex != caretIndex)
 					deleteSelection();
 				else
@@ -290,7 +290,7 @@ class PsychUIInputText extends FlxSpriteGroup
 					if(broadcastInputTextEvent) PsychUIEventHandler.event(CHANGE_EVENT, this);
 				}
 				_nextAccent = NONE;
-				trace('AFTER: caretIndex=$caretIndex, text="$text" (len=${text.length})');
+//				trace('AFTER: caretIndex=$caretIndex, text="$text" (len=${text.length})');
 			case DELETE: //Delete letter to the right of caret
 				if(selectIndex > -1 && selectIndex != caretIndex)
 				{

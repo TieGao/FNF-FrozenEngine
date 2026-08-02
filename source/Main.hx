@@ -28,10 +28,9 @@ import lime.graphics.Image;
 #end
 
 #if desktop
-import backend.ALSoftConfig; // Just to make sure DCE doesn't remove this, since it's not directly referenced anywhere else.
+import backend.ALSoftConfig;
 #end
 
-//crash handler stuff
 #if CRASH_HANDLER
 import openfl.events.UncaughtErrorEvent;
 import haxe.CallStack;
@@ -40,7 +39,6 @@ import haxe.io.Path;
 
 import backend.Highscore;
 
-// NATIVE API STUFF, YOU CAN IGNORE THIS AND SCROLL //
 #if (linux && !debug)
 @:cppInclude('./external/gamemode_client.h')
 @:cppFileCode('#define GAMEMODE_AUTO')
@@ -49,18 +47,16 @@ import backend.Highscore;
 class Main extends Sprite
 {
 	public static final game = {
-		width: 1280, // WINDOW width
-		height: 720, // WINDOW height
-		initialState: TitleState, // initial game state
-		zoom: -1.0, // game state bounds (从 1.0.1 保留)
-		framerate: 60, // default framerate
-		skipSplash: true, // if the default flixel splash screen should be skipped
-		startFullscreen: false // if the game should start at fullscreen mode
+		width: 1280,
+		height: 720,
+		initialState: TitleState,
+		zoom: -1.0,
+		framerate: 60,
+		skipSplash: true,
+		startFullscreen: false
 	};
 
 	public static var fpsVar:FPSCounter;
-
-	// You can pretty much ignore everything from here on - your code should go in your states.
 
 	public static function main():Void
 	{
@@ -71,19 +67,16 @@ class Main extends Sprite
 	{
 		super();
 
-		// 从 1.0.4 保留的 Windows 缩放修复
 		#if (cpp && windows)
 		backend.Native.fixScaling();
 		#end
 
-		// Credits to MAJigsaw77 (he's the og author for this code)
 		#if android
 		Sys.setCwd(Path.addTrailingSlash(Context.getExternalFilesDir()));
 		#elseif ios
 		Sys.setCwd(lime.system.System.applicationStorageDirectory);
 		#end
 
-		// 使用 1.0.1 的延迟初始化模式
 		if (stage != null)
 		{
 			init();
@@ -106,20 +99,35 @@ class Main extends Sprite
 
 	private function setupGame():Void
 	{
-		// 从 1.0.1 保留的自动缩放计算
 		var stageWidth:Int = Lib.current.stage.stageWidth;
 		var stageHeight:Int = Lib.current.stage.stageHeight;
+
+		// 加载保存的数据
+		FlxG.save.bind('funkin', CoolUtil.getSavePath());
+		
+		var renderResIdx:Int = 0;
+		var wideScreen:Bool = false;
+		
+		if (FlxG.save.data != null)
+		{
+			if (Reflect.hasField(FlxG.save.data, 'renderResolution'))
+				renderResIdx = cast FlxG.save.data.renderResolution;
+			if (Reflect.hasField(FlxG.save.data, 'wideScreen'))
+				wideScreen = cast FlxG.save.data.wideScreen;
+		}
+
+		// 获取分辨率
+		var resolved:Array<Int> = getResolutionPreset(renderResIdx, wideScreen);
+		game.width = resolved[0];
+		game.height = resolved[1];
 
 		if (game.zoom == -1.0)
 		{
 			var ratioX:Float = stageWidth / game.width;
 			var ratioY:Float = stageHeight / game.height;
 			game.zoom = Math.min(ratioX, ratioY);
-			game.width = Math.ceil(stageWidth / game.zoom);
-			game.height = Math.ceil(stageHeight / game.zoom);
 		}
 
-		// 从 1.0.4 保留的初始化代码（但移到 setupGame 中）
 		#if VIDEOS_ALLOWED
 		hxvlc.util.Handle.init(#if (hxvlc >= "1.8.0")  ['--no-lua'] #end);
 		#end
@@ -129,10 +137,8 @@ class Main extends Sprite
 		#end
 		Mods.loadTopMod();
 
-		FlxG.save.bind('funkin', CoolUtil.getSavePath());
 		Highscore.load();
 
-		// 从 1.0.4 保留的 HScript 错误处理
 		#if HSCRIPT_ALLOWED
 		Iris.warn = function(x, ?pos:haxe.PosInfos) {
 			Iris.logLevel(WARN, x, pos);
@@ -195,12 +201,10 @@ class Main extends Sprite
 		ClientPrefs.loadDefaultKeys();
 		#if ACHIEVEMENTS_ALLOWED Achievements.load(); #end
 		
-		// 从 1.0.1 保留的 FlxGame 构造函数参数（包含 zoom）
 		addChild(new FlxGame(game.width, game.height, game.initialState, #if (flixel < "5.0.0") game.zoom, #end game.framerate, game.framerate, game.skipSplash, game.startFullscreen));
 
-		// 应用渲染分辨率（根据 useDpiSettings 决定）
 		#if (cpp || hl)
-		applyRenderResolution();
+		applyRenderResolution(renderResIdx, wideScreen);
 		#end
 
 		#if !mobile
@@ -213,7 +217,7 @@ class Main extends Sprite
 		}
 		#end
 
-		#if (linux || mac) // 从 1.0.4 保留的图标修复
+		#if (linux || mac)
 		var icon = Image.fromFile("icon.png");
 		Lib.current.stage.window.setIcon(icon);
 		#end
@@ -235,7 +239,6 @@ class Main extends Sprite
 		DiscordClient.prepare();
 		#end
 
-		// shader coords fix (两个版本都有)
 		FlxG.signals.gameResized.add(function (w, h) {
 		     if (FlxG.cameras != null) {
 			   for (cam in FlxG.cameras.list) {
@@ -250,7 +253,6 @@ class Main extends Sprite
 
         ClientPrefs.data.sessionStartTime = Date.now().getTime();
         
-        // 监听退出事件
         var currentApp = Application.current;
         if (currentApp != null)
         {
@@ -259,7 +261,6 @@ class Main extends Sprite
             });
         }
         
-        // 窗口关闭事件（作为额外保障）
         #if (cpp || hl)
         Lib.current.stage.window.onClose.add(function() {
             saveSessionPlaytime();
@@ -268,43 +269,70 @@ class Main extends Sprite
         #end
 	}
 
-	/**
-	 * 应用渲染分辨率（窗口物理尺寸和逻辑缩放）
-	 * @param resIdx 自定义分辨率索引，-1 表示使用 ClientPrefs.data.renderResolution
-	 */
+	// 分辨率预设 - 宽屏模式下直接返回21:9比例
+	public static function getResolutionPreset(resIdx:Int, ?wideScreen:Bool = null):Array<Int>
+	{
+		var presets:Array<Array<Int>> = [
+			[1280, 720],
+			[1920, 1080],
+			[2560, 1440],
+			[3840, 2160]
+		];
+
+		if (wideScreen == null)
+		{
+			wideScreen = ClientPrefs.data != null && Reflect.hasField(ClientPrefs.data, 'wideScreen') && cast ClientPrefs.data.wideScreen;
+		}
+
+		// 宽屏模式：返回21:9比例的分辨率
+		if (wideScreen)
+		{
+			var widePresets:Array<Array<Int>> = [
+				[Math.round(720 * 21.0 / 9.0), 720],   // 1680x720
+				[Math.round(1080 * 21.0 / 9.0), 1080], // 2520x1080
+				[Math.round(1440 * 21.0 / 9.0), 1440], // 3360x1440
+				[Math.round(2160 * 21.0 / 9.0), 2160]  // 5040x2160
+			];
+			if (resIdx >= 0 && resIdx < widePresets.length)
+				return widePresets[resIdx];
+			return widePresets[0];
+		}
+
+		// 普通模式
+		if (resIdx >= 0 && resIdx < presets.length)
+			return presets[resIdx];
+		return presets[0];
+	}
+
 	#if (cpp || hl)
-	public static function applyRenderResolution(?resIdx:Int = -1):Void
+	public static function applyRenderResolution(?resIdx:Int = -1, ?wideScreen:Bool = null):Void
 	{
 		if (resIdx == -1) resIdx = ClientPrefs.data.renderResolution;
+		if (wideScreen == null)
+		{
+			wideScreen = ClientPrefs.data != null && Reflect.hasField(ClientPrefs.data, 'wideScreen') && cast ClientPrefs.data.wideScreen;
+		}
+		
 		var useDpi = ClientPrefs.data.useDpiSettings;
 		var window = Lib.current.stage.window;
 
-		if (useDpi) {
-			// DPI 缩放模式：不做任何窗口/逻辑尺寸调整，仅刷新缓存
-			// 窗口物理尺寸由系统控制，游戏保持逻辑尺寸
-		} else {
-			// 自定义分辨率模式：调整窗口和逻辑尺寸
-			var _resolutions = [
-				[1280, 720],
-				[1600, 900],
-				[1920, 1080],
-				[2560, 1440],
-				[3840, 2160]
-			];
-			if (resIdx >= 0 && resIdx < _resolutions.length) {
-				var w:Int = _resolutions[resIdx][0];
-				var h:Int = _resolutions[resIdx][1];
-				window.resize(w, h);
-				var displayBounds = window.display.bounds;
-				window.x = Std.int(displayBounds.x + (displayBounds.width - w) / 2);
-				window.y = Std.int(displayBounds.y + (displayBounds.height - h) / 2);
-				flixel.FlxG.resizeGame(w, h);
-				flixel.FlxG.scaleMode = new flixel.system.scaleModes.RatioScaleMode(false);
-				try { Lib.current.stage.quality = openfl.display.StageQuality.BEST; } catch(e:Dynamic) {}
-			}
+		if (!useDpi)
+		{
+			var resolved:Array<Int> = getResolutionPreset(resIdx, wideScreen);
+			var w:Int = resolved[0];
+			var h:Int = resolved[1];
+			
+			window.resize(w, h);
+			var displayBounds = window.display.bounds;
+			window.x = Std.int(displayBounds.x + (displayBounds.width - w) / 2);
+			window.y = Std.int(displayBounds.y + (displayBounds.height - h) / 2);
+			
+			FlxG.resizeGame(w, h);
+			FlxG.scaleMode = new flixel.system.scaleModes.RatioScaleMode(false);
+			
+			try { Lib.current.stage.quality = openfl.display.StageQuality.BEST; } catch(e:Dynamic) {}
 		}
 
-		// 刷新缓存以确保纹理清晰（不变）
 		try {
 			if (FlxG.cameras != null) {
 				for (cam in FlxG.cameras.list) {
@@ -323,8 +351,6 @@ class Main extends Sprite
 		}
 	}
 
-	// Code was entirely made by sqirra-rng for their fnf engine named "Izzy Engine", big props to them!!!
-	// very cool person for real they don't get enough credit for their work
 	#if CRASH_HANDLER
 	function onCrash(e:UncaughtErrorEvent):Void
 	{
@@ -350,7 +376,6 @@ class Main extends Sprite
 		}
 
 		errMsg += "\nUncaught Error: " + e.error;
-		// 从 1.0.4 保留的崩溃报告信息
 		#if officialBuild
 		errMsg += "\nPlease report this error to the GitHub page: https://github.com/ShadowMario/FNF-PsychEngine";
 		#end
@@ -382,7 +407,6 @@ class Main extends Sprite
 			ClientPrefs.data.totalPlaytime += sessionSeconds;
 			ClientPrefs.saveSettings();
 			
-			// 重置开始时间，避免重复保存
 			ClientPrefs.data.sessionStartTime = 0;
 		}
 	}

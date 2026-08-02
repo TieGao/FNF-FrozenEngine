@@ -476,8 +476,10 @@ class PlayState extends MusicBeatState
 		if(SONG.stage == null || SONG.stage.length < 1)
 			SONG.stage = StageData.vanillaSongStage(Paths.formatToSongPath(Song.loadedSongName));
 
-		curStage = SONG.stage;
-
+		if(ClientPrefs.data.showStage)
+			curStage = SONG.stage;
+		else
+			curStage = "";
 		var stageData:StageFile = StageData.getStageFile(curStage);
 		defaultCamZoom = stageData.defaultZoom;
 
@@ -787,7 +789,7 @@ class PlayState extends MusicBeatState
 			{
 				hitErrorBar = new HitErrorBar();
 				hitErrorBar.screenCenter();
-				hitErrorBar.x -= 250 + ClientPrefs.data.hitErrorBarOffsetX;
+				hitErrorBar.x -= FlxG.width * 0.18 + ClientPrefs.data.hitErrorBarOffsetX;
 				hitErrorBar.y = FlxG.height * 0.3 + ClientPrefs.data.hitErrorBarOffsetY; // 顶部10%位置
 				if (ClientPrefs.data.downScroll)
         		 hitErrorBar.y = FlxG.height - 100 + ClientPrefs.data.hitErrorBarOffsetY;
@@ -1478,7 +1480,7 @@ class PlayState extends MusicBeatState
 		var shits:Int = ratingsData[4].hits;
 		var totalHits:Int = marvelous + sicks + goods + bads + shits;
 
-		if (judgementCounterObj != null) judgementCounterObj.update();
+		if (judgementCounterObj != null) judgementCounterObj.refresh();
 
 		ratingFC = "";
 		if(songMisses == 0)
@@ -1497,10 +1499,10 @@ public function reloadCounterColors()
 		// Delegate counter/health/song color refresh to modules
 		if (isSplitCoopMode())
 		{
-			if (judgementCounterPlayer != null) judgementCounterPlayer.update();
-			if (judgementCounterOpponent != null) judgementCounterOpponent.update();
+			if (judgementCounterPlayer != null) judgementCounterPlayer.refresh();
+			if (judgementCounterOpponent != null) judgementCounterOpponent.refresh();
 		}
-		else if (judgementCounterObj != null) judgementCounterObj.update();
+		else if (judgementCounterObj != null) judgementCounterObj.refresh();
 		if (healthTextObj != null) healthTextObj.refresh();
 		if (songInfoTextObj != null) songInfoTextObj.refresh();
 	}
@@ -1525,7 +1527,7 @@ public function reloadCounterColors()
 		if(!ClientPrefs.data.scoreZoom)
 			return;
 		if(ClientPrefs.data.customColor){
-		if (judgementCounterObj != null) judgementCounterObj.update();
+		if (judgementCounterObj != null) judgementCounterObj.refresh();
 		if (healthTextObj != null) healthTextObj.refresh();
 		if (songInfoTextObj != null) songInfoTextObj.refresh();
 	}
@@ -1912,7 +1914,8 @@ public function reloadCounterColors()
 	public var skipArrowStartTween:Bool = false; //for lua
 	private function generateStaticArrows(player:Int):Void
 	{
-		var strumLineX:Float = ClientPrefs.data.middleScroll ? STRUM_X_MIDDLESCROLL : STRUM_X;
+		var screenWidthRatio:Float = FlxG.width / 1280.0;
+		var strumLineX:Float = ClientPrefs.data.middleScroll ? STRUM_X_MIDDLESCROLL * screenWidthRatio : STRUM_X * screenWidthRatio * screenWidthRatio * screenWidthRatio * screenWidthRatio;
 		var strumLineY:Float = ClientPrefs.data.downScroll ? (FlxG.height - 150) : 50;
 		for (i in 0...4)
 		{
@@ -1940,9 +1943,9 @@ public function reloadCounterColors()
 			{
 				if(ClientPrefs.data.middleScroll)
 				{
-					babyArrow.x += 310;
+					babyArrow.x += 310 * screenWidthRatio;
 					if(i > 1) { //Up and Right
-						babyArrow.x += FlxG.width / 2 + 25;
+						babyArrow.x += FlxG.width / 2 + 25 * screenWidthRatio;
 					}
 				}
 				opponentStrums.add(babyArrow);
@@ -2271,10 +2274,10 @@ public function reloadCounterColors()
 		if (healthTextObj != null) healthTextObj.refresh();
 		if (isSplitCoopMode())
 		{
-			if (judgementCounterPlayer != null) judgementCounterPlayer.update();
-			if (judgementCounterOpponent != null) judgementCounterOpponent.update();
+			if (judgementCounterPlayer != null) judgementCounterPlayer.refresh();
+			if (judgementCounterOpponent != null) judgementCounterOpponent.refresh();
 		}
-		else if (judgementCounterObj != null) judgementCounterObj.update();
+		else if (judgementCounterObj != null) judgementCounterObj.refresh();
 
 		recycleDeadSplashes();
 		setOnScripts('botPlay', cpuControlled);

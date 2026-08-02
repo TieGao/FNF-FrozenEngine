@@ -29,3 +29,12 @@ art/build_html-debug.bat
 .github/agents/note-splash-spritepool.agent.md
 compile-output.txt
 patch_note_pool.py
+moonchart_api_matches.txt
+moonchart_all.txt
+moonchart_files.txt
+moonchart_formats_listing.txt
+moonchart_fromfile_defs.txt
+moonchart_fromjson_defs.txt
+moonchart_libs.txt
+moonchart_matches.txt
+moonchart_versions.txt

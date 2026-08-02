@@ -41,9 +41,13 @@ class OsuConverter
             
             // 4. Get the converted data
             var psychData:Dynamic = psychChart.data;
+            var osuTitle:String = null;
+            if (osuChart.data != null && osuChart.data.Metadata != null) {
+                osuTitle = Std.string(osuChart.data.Metadata.TitleUnicode != null && Std.string(osuChart.data.Metadata.TitleUnicode).length > 0 ? osuChart.data.Metadata.TitleUnicode : osuChart.data.Metadata.Title);
+            }
             
             // 5. Convert to Psych Engine 1.0.4 format
-            var swagSong = convertToSwagSong(psychData, osuPath);
+            var swagSong = convertToSwagSong(psychData, osuPath, osuTitle);
             
             trace('=== Conversion Complete ===');
             trace('Song: ${swagSong.song}');
@@ -102,33 +106,36 @@ class OsuConverter
     }
     
     // Convert MoonChart's Psych data to SwagSong format
-    static function convertToSwagSong(psychData:Dynamic, osuPath:String):SwagSong
+    static function convertToSwagSong(psychData:Dynamic, osuPath:String, ?osuTitle:String):SwagSong
     {
         trace('--- Converting to SwagSong format ---');
-        
-        // Extract song data from psych format
-        var songData:Dynamic = psychData.song;
-        
-        // Get basic info
-        var songName = extractSongName(osuPath);
-        var bpm:Float = songData.bpm != null ? songData.bpm : 120.0;
-        var speed:Float = songData.speed != null ? songData.speed : 1.0;
-        var offset:Float = songData.offset != null ? songData.offset : 0.0;
-        
-        // Convert sections - FIXED: Check if notes is an array
+
+        var songData:Dynamic = psychData != null ? psychData.song : null;
+        var songName:String = extractSongName(osuPath);
+
+        if (osuTitle != null && osuTitle.length > 0) {
+            songName = osuTitle;
+        } else if (psychData != null && psychData.Meta != null) {
+            if (psychData.Meta.Title != null && Std.string(psychData.Meta.Title).length > 0) {
+                songName = Std.string(psychData.Meta.Title);
+            } else if (psychData.Meta.TitleUnicode != null && Std.string(psychData.Meta.TitleUnicode).length > 0) {
+                songName = Std.string(psychData.Meta.TitleUnicode);
+            }
+        }
+
+        var bpm:Float = songData != null && songData.bpm != null ? songData.bpm : 120.0;
+        var speed:Float = songData != null && songData.speed != null ? songData.speed : 1.0;
+        var offset:Float = songData != null && songData.offset != null ? songData.offset : 0.0;
+
         var sections:Array<SwagSection> = [];
-        var notesData:Dynamic = songData.notes;
-        
+        var notesData:Dynamic = songData != null ? songData.notes : null;
         if (notesData != null && Std.isOfType(notesData, Array)) {
             var notesArray:Array<Dynamic> = cast notesData;
-            
             for (sectionData in notesArray) {
-                // Ensure sectionNotes is an array
                 var sectionNotes:Array<Dynamic> = [];
                 if (sectionData.sectionNotes != null && Std.isOfType(sectionData.sectionNotes, Array)) {
                     sectionNotes = cast sectionData.sectionNotes;
                 }
-                
                 var section:SwagSection = {
                     sectionNotes: sectionNotes,
                     sectionBeats: sectionData.sectionBeats != null ? sectionData.sectionBeats : 4,
@@ -143,16 +150,13 @@ class OsuConverter
         } else {
             trace('Warning: No notes array found in psych data');
         }
-        
-        // Convert events - FIXED: Check if events is an array
+
         var events:Array<Array<Dynamic>> = [];
-        var eventsData:Dynamic = songData.events;
-        
+        var eventsData:Dynamic = songData != null ? songData.events : null;
         if (eventsData != null && Std.isOfType(eventsData, Array)) {
             events = cast eventsData;
         }
-        
-        // Create the SwagSong object
+
         var swagSong:SwagSong = {
             song: songName,
             notes: sections,
@@ -161,27 +165,23 @@ class OsuConverter
             needsVoices: true,
             speed: speed,
             offset: offset,
-            
-            player1: songData.player1 != null ? songData.player1 : "boyfriend",
-            player2: songData.player2 != null ? songData.player2 : "dad",
-            gfVersion: songData.gfVersion != null ? songData.gfVersion : "gf",
-            stage: songData.stage != null ? songData.stage : "stage",
+            player1: songData != null && songData.player1 != null ? songData.player1 : "boyfriend",
+            player2: songData != null && songData.player2 != null ? songData.player2 : "dad",
+            gfVersion: songData != null && songData.gfVersion != null ? songData.gfVersion : "gf",
+            stage: songData != null && songData.stage != null ? songData.stage : "stage",
             format: "psych_v1",
-            
-            arrowSkin: songData.arrowSkin != null ? songData.arrowSkin : "NOTE_assets",
-            splashSkin: songData.splashSkin != null ? songData.splashSkin : "noteSplashes",
-            
-            gameOverChar: songData.gameOverChar != null ? songData.gameOverChar : "bf-dead",
-            gameOverSound: songData.gameOverSound != null ? songData.gameOverSound : "fnf_loss_sfx",
-            gameOverLoop: songData.gameOverLoop != null ? songData.gameOverLoop : "gameOver",
-            gameOverEnd: songData.gameOverEnd != null ? songData.gameOverEnd : "gameOverEnd",
-            
-            disableNoteRGB: songData.disableNoteRGB != null ? songData.disableNoteRGB : false
+            arrowSkin: songData != null && songData.arrowSkin != null ? songData.arrowSkin : "NOTE_assets",
+            splashSkin: songData != null && songData.splashSkin != null ? songData.splashSkin : "noteSplashes",
+            gameOverChar: songData != null && songData.gameOverChar != null ? songData.gameOverChar : "bf-dead",
+            gameOverSound: songData != null && songData.gameOverSound != null ? songData.gameOverSound : "fnf_loss_sfx",
+            gameOverLoop: songData != null && songData.gameOverLoop != null ? songData.gameOverLoop : "gameOver",
+            gameOverEnd: songData != null && songData.gameOverEnd != null ? songData.gameOverEnd : "gameOverEnd",
+            disableNoteRGB: songData != null && songData.disableNoteRGB != null ? songData.disableNoteRGB : false
         };
-        
+
         return swagSong;
     }
-    
+
     // Convert SwagSong to MoonChart BasicFormat
     static function convertPsychToBasicChart(psychSong:SwagSong):BasicChart
     {
