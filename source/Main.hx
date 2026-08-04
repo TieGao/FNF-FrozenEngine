@@ -116,10 +116,9 @@ class Main extends Sprite
 				wideScreen = cast FlxG.save.data.wideScreen;
 		}
 
-		// 获取分辨率
-		var resolved:Array<Int> = getResolutionPreset(renderResIdx, wideScreen);
-		game.width = resolved[0];
-		game.height = resolved[1];
+		// 根据宽屏模式设置游戏舞台尺寸
+		game.width = wideScreen ? Math.round(720 * 21.0 / 9.0) : 1280;
+		game.height = 720;
 
 		if (game.zoom == -1.0)
 		{
@@ -316,22 +315,31 @@ class Main extends Sprite
 		var useDpi = ClientPrefs.data.useDpiSettings;
 		var window = Lib.current.stage.window;
 
+		// 舞台尺寸：宽屏模式使用21:9比例，普通模式使用16:9比例
+		var stageHeight:Int = 720;
+		var stageWidth:Int = wideScreen ? Math.round(720 * 21.0 / 9.0) : 1280;
+
 		if (!useDpi)
 		{
+			// 窗口分辨率：根据宽屏模式选择对应的预设
 			var resolved:Array<Int> = getResolutionPreset(resIdx, wideScreen);
-			var w:Int = resolved[0];
-			var h:Int = resolved[1];
+			var winW:Int = resolved[0];
+			var winH:Int = resolved[1];
 			
-			window.resize(w, h);
+			// 调整窗口大小
+			window.resize(winW, winH);
 			var displayBounds = window.display.bounds;
-			window.x = Std.int(displayBounds.x + (displayBounds.width - w) / 2);
-			window.y = Std.int(displayBounds.y + (displayBounds.height - h) / 2);
-			
-			FlxG.resizeGame(w, h);
-			FlxG.scaleMode = new flixel.system.scaleModes.RatioScaleMode(false);
+			window.x = Std.int(displayBounds.x + (displayBounds.width - winW) / 2);
+			window.y = Std.int(displayBounds.y + (displayBounds.height - winH) / 2);
 			
 			try { Lib.current.stage.quality = openfl.display.StageQuality.BEST; } catch(e:Dynamic) {}
 		}
+
+		// 应用舞台尺寸（改变游戏渲染分辨率）
+		FlxG.resizeGame(stageWidth, stageHeight);
+		
+		// 使用等比缩放，让游戏画面适配窗口
+		FlxG.scaleMode = new flixel.system.scaleModes.RatioScaleMode(false);
 
 		try {
 			if (FlxG.cameras != null) {

@@ -1356,6 +1356,7 @@ function onScrollChange()
 		return [
 			KEOption.create("Open Note Colors", "Customize note colors", "", "action"),
 			KEOption.create("Open Controls", "Customize key bindings", "", "action"),
+			KEOption.create("Open EK Controls", "Customize key bindings for EK mode", "", "action"),
 			KEOption.create("Adjust Delay and Combo", "Customize ingame experience", "", "action"),
 			KEOption.create("Language", "Change the game's language", "language", "string", ['en-US', 'pt-BR', 'zh-CN', 'zh-TW']),
 			KEOption.createResetOption("Reset KeyBinds", "keybinds"),

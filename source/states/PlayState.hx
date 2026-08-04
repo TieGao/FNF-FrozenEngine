@@ -422,12 +422,12 @@ class PlayState extends MusicBeatState
 		PauseSubState.songName = null; //Reset to default
 		playbackRate = ClientPrefs.getGameplaySetting('songspeed');
 
-		keysArray = [
-			'note_left',
-			'note_down',
-			'note_up',
-			'note_right'
-		];
+		var totalKeys:Int = Note.getColumnsPerPlayer(SONG);
+		keysArray = [];
+		for (i in 1...totalKeys + 1)
+		{
+			keysArray.push('note_${totalKeys}k_$i');
+		}
 
 		if(FlxG.sound.music != null)
 			FlxG.sound.music.stop();
@@ -763,7 +763,12 @@ class PlayState extends MusicBeatState
 		}
 
 
-		keyboardViewer = new KeyboardViewer(FlxG.width/2 + ClientPrefs.data.kbOffsetX, FlxG.height - 150 + ClientPrefs.data.kbOffsetY, keys);
+		var totalKeys:Int = Note.getColumnsPerPlayer(SONG);
+		keyboardViewer = new KeyboardViewer(
+			FlxG.width/2 + ClientPrefs.data.kbOffsetX, 
+			FlxG.height - 150 + ClientPrefs.data.kbOffsetY, 
+			totalKeys  // 传入歌曲键位数，coop模式会在KeyboardViewer内部自动变为8
+		);
 		keyboardViewer.antialiasing = ClientPrefs.data.antialiasing;
 		keyboardViewer.cameras = [camOther];
 		if (ClientPrefs.data.kb) add(keyboardViewer);
@@ -1625,9 +1630,15 @@ public function reloadCounterColors()
 	private var eventsPushed:Array<String> = [];
 	private var totalColumns: Int = 4;
 
+	private function refreshColumnCount():Void
+	{
+		totalColumns = Note.getColumnsPerPlayer(SONG);
+	}
+
 	private function generateSong():Void
 	{
 		// FlxG.log.add(ChartParser.parse());
+		refreshColumnCount();
 		songSpeed = PlayState.SONG.speed;
 		songSpeedType = ClientPrefs.getGameplaySetting('scrolltype');
 		switch(songSpeedType)
@@ -1917,7 +1928,8 @@ public function reloadCounterColors()
 		var screenWidthRatio:Float = FlxG.width / 1280.0;
 		var strumLineX:Float = ClientPrefs.data.middleScroll ? STRUM_X_MIDDLESCROLL * screenWidthRatio : STRUM_X * screenWidthRatio * screenWidthRatio * screenWidthRatio * screenWidthRatio;
 		var strumLineY:Float = ClientPrefs.data.downScroll ? (FlxG.height - 150) : 50;
-		for (i in 0...4)
+		var columns:Int = totalColumns > 0 ? totalColumns : Note.getColumnsPerPlayer(SONG);
+		for (i in 0...columns)
 		{
 			// FlxG.log.add(i);
 			var targetAlpha:Float = ClientPrefs.data.noteAlpha;
@@ -3777,13 +3789,11 @@ private function cachePopUpScore()
 
 	private function keyPressed(key:Int, ?keyBindIndex:Int = -1)
 	{
-		if(cpuControlled || paused || inCutscene || key < 0 || key >= playerStrums.length || !generatedMusic || endingSong || boyfriend.stunned) return;
+		if(cpuControlled || paused || inCutscene || key < 0 || !generatedMusic || endingSong || boyfriend.stunned) return;
 		if (!inReplay && (loadRep)) return; // 只在非replay模式下跳过loadRep
 
 		if (keyboardViewer != null) {
-			var displayKey = key;
-			if (isCoopMode() && keyBindIndex == 1) displayKey += 4;
-			keyboardViewer.pressed(displayKey);
+			keyboardViewer.pressed(key, keyBindIndex >= 0 ? keyBindIndex : 0);
 		}
 
 		var ret:Dynamic = callOnScripts('onKeyPressPre', [key]);
@@ -3862,12 +3872,10 @@ private function cachePopUpScore()
 
 	private function keyReleased(key:Int, ?keyBindIndex:Int = 0)
 	{
-		if(cpuControlled || !startedCountdown || paused || key < 0 || key >= 4) return;
+		if(cpuControlled || !startedCountdown || paused || key < 0) return;
 
 		if (keyboardViewer != null) {
-			var displayKey = key;
-			if (isCoopMode() && keyBindIndex == 1) displayKey += 4;
-			keyboardViewer.released(displayKey);
+			keyboardViewer.released(key, keyBindIndex >= 0 ? keyBindIndex : 0);
 		}
 		var ret:Dynamic = callOnScripts('onKeyReleasePre', [key]);
 		if(ret == LuaUtils.Function_Stop) return;
@@ -3886,15 +3894,35 @@ private function cachePopUpScore()
 		PlayState.lastKeyBindIndex = -1;
 		if(key != NONE)
 		{
+			// 遍历传入的 keysArray（动态生成的）
 			for (i in 0...arr.length)
 			{
 				var note:Array<FlxKey> = Controls.instance.keyboardBinds[arr[i]];
-				for (j in 0...note.length)
-					if(key == note[j])
-					{
-						PlayState.lastKeyBindIndex = j;
-						return i;
-					}
+				if (note != null)
+				{
+					for (j in 0...note.length)
+						if(key == note[j])
+						{
+							PlayState.lastKeyBindIndex = j;
+							return i;
+						}
+				}
+			}
+			
+			// 回退：尝试匹配 4K 键位（兼容性）
+			var legacyKeys:Array<String> = ['note_left', 'note_down', 'note_up', 'note_right'];
+			for (i in 0...legacyKeys.length)
+			{
+				var note:Array<FlxKey> = Controls.instance.keyboardBinds[legacyKeys[i]];
+				if (note != null)
+				{
+					for (j in 0...note.length)
+						if(key == note[j])
+						{
+							PlayState.lastKeyBindIndex = j;
+							return i;
+						}
+				}
 			}
 		}
 		return -1;
@@ -3903,15 +3931,30 @@ private function cachePopUpScore()
 	// Hold notes
 	private function keysCheck():Void
 	{
-		// HOLDING
+		var totalKeys:Int = playerStrums.length;
 		var holdArray:Array<Bool> = [];
 		var holdArrayAlt:Array<Bool> = [];
 		var pressArray:Array<Bool> = [];
 		var pressArrayAlt:Array<Bool> = [];
 		var releaseArray:Array<Bool> = [];
 		var releaseArrayAlt:Array<Bool> = [];
-		for (key in keysArray)
+
+		for (i in 0...totalKeys)
 		{
+			// 根据键位数决定键名格式
+			var key:String;
+			if (totalKeys == 4)
+			{
+				// 4K 使用 legacy 键名
+				var legacyKeys:Array<String> = ['note_left', 'note_down', 'note_up', 'note_right'];
+				key = legacyKeys[i];
+			}
+			else
+			{
+				// 5K+ 使用动态键名
+				key = 'note_${totalKeys}k_${i+1}';
+			}
+			
 			holdArray.push(controls.pressedKeyIndex(key, 0));
 			holdArrayAlt.push(controls.pressedKeyIndex(key, 1));
 			pressArray.push(controls.justPressedKeyIndex(key, 0));
@@ -3919,6 +3962,7 @@ private function cachePopUpScore()
 			releaseArray.push(controls.justReleasedKeyIndex(key, 0));
 			releaseArrayAlt.push(controls.justReleasedKeyIndex(key, 1));
 		}
+
 
 		// TO DO: Find a better way to handle controller inputs, this should work for now
 		if(controls.controllerMode && (pressArray.contains(true) || pressArrayAlt.contains(true)))
@@ -4124,12 +4168,12 @@ private function cachePopUpScore()
 			var postfix:String = '';
 			if(note != null) postfix = note.animSuffix;
 
+			var idx:Int = Std.int(Math.abs(direction) % singAnimations.length);
 			var animToPlay:String;
 			if(char.hasMissAnimations)
-				animToPlay = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, direction)))] + 'miss' + postfix;
+				animToPlay = singAnimations[idx] + 'miss' + postfix;
 			else
-				animToPlay = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, direction)))] + postfix;
-			char.playAnim(animToPlay, true);
+				animToPlay = singAnimations[idx] + postfix;
 
 			// Set character to gray color on miss
 			var originalColor:FlxColor = char.color;
@@ -4171,7 +4215,7 @@ private function cachePopUpScore()
 		else if(!note.noAnimation)
 		{
 			var char:Character = (opponentMode == "opponent") ? boyfriend : dad;
-			var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, note.noteData)))] + note.animSuffix;
+			var animToPlay:String = singAnimations[Std.int(Math.abs(note.noteData) % singAnimations.length)] + note.animSuffix;
 			if(note.gfNote) char = gf;
 
 			if(char != null)
@@ -4234,7 +4278,7 @@ private function cachePopUpScore()
 		{
 			if(!note.noAnimation)
 			{
-				var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, note.noteData)))] + note.animSuffix;
+				var animToPlay:String = singAnimations[Std.int(Math.abs(note.noteData) % singAnimations.length)] + note.animSuffix;
 
 				var char:Character = boyfriend;
 				var animCheck:String = 'hey';

@@ -262,6 +262,9 @@ class KEOption
 				case "Open EZ KeyBinds":
 					KEOptionsMenu.instance.openSubState(new options.KEKeyBindMenu());
 					return false;   
+				case "Open EK Controls":
+					KEOptionsMenu.instance.openSubState(new options.ExtraKeybindSubState());
+					return false;
 				case "Replay Manager":
 					MusicBeatState.switchState(new states.LoadReplayState());
 					return false;  

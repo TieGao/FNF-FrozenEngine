@@ -98,6 +98,51 @@ class Note extends FlxSprite
 	public static var swagWidth:Float = 160 * 0.7;
 	public static var colArray:Array<String> = ['purple', 'blue', 'green', 'red'];
 	public static var defaultNoteSkin(default, never):String = 'noteSkins/NOTE_assets';
+	public static var BASE_SWAG_WIDTH:Float = 160 * 0.7;
+
+	public static function getNoteSpacing(keys:Int):Float {
+		// 只根据键数调整间距，不额外乘以缩放系数
+		// 4K 保持原样，更多键数自动缩小
+		return BASE_SWAG_WIDTH * (4 / keys);
+	}
+
+	public static function getColumnsPerPlayer(?song:Dynamic):Int
+	{
+		var columns:Int = 4;
+		
+		// 如果传入了 song，优先使用
+		var targetSong = (song != null) ? song : PlayState.SONG;
+		
+		if(targetSong != null)
+		{
+			var value:Dynamic = Reflect.field(targetSong, 'mania');
+			// trace('[Note] mania field: $value');
+			if(Std.isOfType(value, Int))
+				columns = Std.int(value) + 1;
+			else
+			{
+				value = Reflect.field(targetSong, 'keyCount');
+				// trace('[Note] keyCount field: $value');
+				if(Std.isOfType(value, Int))
+					columns = Std.int(value);
+				else
+				{
+					value = Reflect.field(targetSong, 'keycount');
+					// trace('[Note] keycount field: $value');
+					if(Std.isOfType(value, Int))
+						columns = Std.int(value);
+				}
+			}
+		}
+		else
+		{
+			// trace('[Note] SONG is null! Using default columns=4');
+		}
+
+		var result:Int = Std.int(Math.max(4, columns));
+//		trace('[Note] Final columns = $result');
+		return result;
+	}
 
 	public var noteSplashData:NoteSplashData = {
 		disabled: false,
@@ -174,10 +219,15 @@ class Note extends FlxSprite
 
 	public function defaultRGB()
 	{
-		var arr:Array<FlxColor> = ClientPrefs.data.arrowRGB[noteData];
-		if(PlayState.isPixelStage) arr = ClientPrefs.data.arrowRGBPixel[noteData];
+		var arr:Array<FlxColor> = null;
+		var colorSets:Array<Array<FlxColor>> = (!PlayState.isPixelStage) ? ClientPrefs.data.arrowRGB : ClientPrefs.data.arrowRGBPixel;
+		if(colorSets != null && colorSets.length > 0 && noteData > -1)
+		{
+			var colorIndex:Int = Std.int(Math.abs(noteData) % colorSets.length);
+			arr = colorSets[colorIndex];
+		}
 
-		if (arr != null && noteData > -1 && noteData <= arr.length)
+		if (arr != null && arr.length >= 3)
 		{
 			rgbShader.r = arr[0];
 			rgbShader.g = arr[1];
@@ -353,10 +403,11 @@ class Note extends FlxSprite
 			if(PlayState.SONG != null && PlayState.SONG.disableNoteRGB) rgbShader.enabled = false;
 			texture = '';
 
-			x += swagWidth * (noteData);
-			if(!isSustainNote && noteData < colArray.length) { //Doing this 'if' check to fix the warnings on Senpai songs
-				var animToPlay:String = '';
-				animToPlay = colArray[noteData % colArray.length];
+			var keys = getColumnsPerPlayer();
+			var spacing = getNoteSpacing(keys);
+			x += spacing * noteData;
+			if(!isSustainNote) {
+				var animToPlay:String = colArray[noteData % colArray.length];
 				animation.play(animToPlay + 'Scroll');
 			}
 		}
@@ -418,9 +469,15 @@ class Note extends FlxSprite
 		if(globalRgbShaders[noteData] == null)
 		{
 			var newRGB:RGBPalette = new RGBPalette();
-			var arr:Array<FlxColor> = (!PlayState.isPixelStage) ? ClientPrefs.data.arrowRGB[noteData] : ClientPrefs.data.arrowRGBPixel[noteData];
+			var arr:Array<FlxColor> = null;
+			var colorSets:Array<Array<FlxColor>> = (!PlayState.isPixelStage) ? ClientPrefs.data.arrowRGB : ClientPrefs.data.arrowRGBPixel;
+			if(colorSets != null && colorSets.length > 0 && noteData > -1)
+			{
+				var colorIndex:Int = Std.int(Math.abs(noteData) % colorSets.length);
+				arr = colorSets[colorIndex];
+			}
 			
-			if (arr != null && noteData > -1 && noteData <= arr.length)
+			if (arr != null && arr.length >= 3)
 			{
 				newRGB.r = arr[0];
 				newRGB.g = arr[1];
@@ -481,7 +538,10 @@ class Note extends FlxSprite
 				var graphic = Paths.image('pixelUI/' + skinPixel + skinPostfix);
 				loadGraphic(graphic, true, Math.floor(graphic.width / 4), Math.floor(graphic.height / 5));
 			}
-			setGraphicSize(Std.int(width * PlayState.daPixelZoom));
+			var keys = getColumnsPerPlayer();
+			var scale = getPixelNoteScaleForKeys(keys);
+			trace('[Note] Keys=$keys, Scale=$scale, Width=${width * scale}');
+			setGraphicSize(Std.int(width * PlayState.daPixelZoom * scale));
 			loadPixelNoteAnims();
 			antialiasing = false;
 
@@ -518,30 +578,34 @@ class Note extends FlxSprite
 	}
 
 	function loadNoteAnims() {
-		if (colArray[noteData] == null)
-			return;
+		var idx:Int = Std.int(Math.abs(noteData) % colArray.length);
+		if (colArray[idx] == null) return;
 
-		if (isSustainNote)
-		{
+		if (isSustainNote) {
 			attemptToAddAnimationByPrefix('purpleholdend', 'pruple end hold', 24, true); // this fixes some retarded typo from the original note .FLA
-			animation.addByPrefix(colArray[noteData] + 'holdend', colArray[noteData] + ' hold end', 24, true);
-			animation.addByPrefix(colArray[noteData] + 'hold', colArray[noteData] + ' hold piece', 24, true);
+			animation.addByPrefix(colArray[idx] + 'holdend', colArray[idx] + ' hold end', 24, true);
+			animation.addByPrefix(colArray[idx] + 'hold', colArray[idx] + ' hold piece', 24, true);
+		} else {
+			animation.addByPrefix(colArray[idx] + 'Scroll', colArray[idx] + '0');
 		}
-		else animation.addByPrefix(colArray[noteData] + 'Scroll', colArray[noteData] + '0');
-
-		setGraphicSize(Std.int(width * 0.7));
+		var keys = getColumnsPerPlayer();
+		var scale = getNoteScaleForKeys(keys);
+		//trace('[Note] Keys=$keys, Scale=$scale, Width=${width * scale}');
+		//trace('加载 note 动画: noteData=$noteData, idx=$idx, color=${colArray[idx]}');
+		setGraphicSize(Std.int(width * scale));
 		updateHitbox();
 	}
 
 	function loadPixelNoteAnims() {
-		if (colArray[noteData] == null)
-			return;
+		var idx:Int = Std.int(Math.abs(noteData) % colArray.length);
+		if (colArray[idx] == null) return;
 
-		if(isSustainNote)
-		{
-			animation.add(colArray[noteData] + 'holdend', [noteData + 4], 24, true);
-			animation.add(colArray[noteData] + 'hold', [noteData], 24, true);
-		} else animation.add(colArray[noteData] + 'Scroll', [noteData + 4], 24, true);
+		if (isSustainNote) {
+			animation.add(colArray[idx] + 'holdend', [idx + 4], 24, true);
+			animation.add(colArray[idx] + 'hold', [idx], 24, true);
+		} else {
+			animation.add(colArray[idx] + 'Scroll', [idx + 4], 24, true);
+		}
 	}
 
 	function attemptToAddAnimationByPrefix(name:String, prefix:String, framerate:Float = 24, doLoop:Bool = true)
@@ -589,6 +653,49 @@ var allowHumanHit:Bool = mustPress;
 				alpha = 0.3;
 		}
 	}
+
+	public static function getNoteScaleForKeys(keys:Int):Float {
+		// 硬编码每个键数的缩放因子（可根据需要调整）
+		var scales:Map<Int, Float> = [
+			4  => 0.7,
+			5  => 0.61,
+			6  => 0.52,
+			7  => 0.43,
+			8  => 0.38,
+			9  => 0.34,
+			10 => 0.3,
+			11 => 0.28,
+			12 => 0.26,
+			13 => 0.23,
+			14 => 0.2,
+			15 => 0.18,
+			16 => 0.16
+		];
+		// 若未定义，默认返回 0.7（4K 的缩放）
+		return scales.exists(keys) ? scales[keys] : 0.7;
+	}
+
+		public static function getPixelNoteScaleForKeys(keys:Int):Float {
+		// 硬编码每个键数的缩放因子（可根据需要调整）
+		var scales:Map<Int, Float> = [
+			4  => 1,
+			5  => 0.9,
+			6  => 0.8,
+			7  => 0.71,
+			8  => 0.66,
+			9  => 0.59,
+			10 => 0.52,
+			11 => 0.47,
+			12 => 0.42,
+			13 => 0.39,
+			14 => 0.37,
+			15 => 0.35,
+			16 => 0.32
+		];
+		// 若未定义，默认返回 0.7（4K 的缩放）
+		return scales.exists(keys) ? scales[keys] : 0.7;
+	}
+
 
 	override public function destroy()
 	{

@@ -2,7 +2,6 @@ package states.editors.content;
 
 import backend.Song;
 import backend.Rating;
-import backend.SpritePool;
 
 import objects.Note;
 import objects.NoteSplash;
@@ -36,10 +35,11 @@ class EditorPlayState extends MusicBeatSubstate
 	var opponentStrums:FlxTypedGroup<StrumNote>;
 	var playerStrums:FlxTypedGroup<StrumNote>;
 	var grpNoteSplashes:FlxTypedGroup<NoteSplash>;
+	
 	var combo:Int = 0;
-
-    private var splashPool:SpritePool;
-    private var maxPoolSize:Int = 15;
+	var lastRating:FlxSprite;
+	var lastCombo:FlxSprite;
+	var lastScore:Array<FlxSprite> = [];
 	var keysArray:Array<String> = [
 		'note_left',
 		'note_down',
@@ -50,6 +50,7 @@ class EditorPlayState extends MusicBeatSubstate
 	var songHits:Int = 0;
 	var songMisses:Int = 0;
 	var songLength:Float = 0;
+	var totalColumns:Int = 4;
 	var songSpeed:Float = 1;
 	
 	var showCombo:Bool = false;
@@ -108,14 +109,8 @@ class EditorPlayState extends MusicBeatSubstate
 		add(strumLineNotes);
 		grpNoteSplashes = new FlxTypedGroup<NoteSplash>();
 		add(grpNoteSplashes);
-		splashPool = new SpritePool(maxPoolSize);
-		NoteSplash.pool = splashPool;
-		for (i in 0...maxPoolSize) {
-			splashPool.put(new NoteSplash());
-		}
-
-		var splash:NoteSplash = cast splashPool.get();
-		if (splash == null) splash = new NoteSplash();
+		
+		var splash:NoteSplash = new NoteSplash();
 		grpNoteSplashes.add(splash);
 		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
 
@@ -166,7 +161,6 @@ class EditorPlayState extends MusicBeatSubstate
 
 	override function update(elapsed:Float)
 	{
-		recycleDeadSplashes();
 		if(controls.BACK || FlxG.keys.justPressed.ESCAPE || FlxG.keys.justPressed.F12)
 		{
 			endSong();
@@ -247,19 +241,6 @@ class EditorPlayState extends MusicBeatSubstate
 		super.update(elapsed);
 	}
 
-	private function recycleDeadSplashes():Void {
-		if (splashPool == null || grpNoteSplashes == null) return;
-		var i:Int = grpNoteSplashes.length - 1;
-		while (i >= 0) {
-			var splash:NoteSplash = grpNoteSplashes.members[i];
-			if (splash != null && !splash.exists) {
-				grpNoteSplashes.remove(splash, false);
-				splashPool.put(splash);
-			}
-			--i;
-		}
-	}
-
 	var lastBeatHit:Int = -1;
 	override function beatHit()
 	{
@@ -289,37 +270,43 @@ class EditorPlayState extends MusicBeatSubstate
 		FlxG.stage.removeEventListener(KeyboardEvent.KEY_UP, onKeyRelease);
 		FlxG.mouse.visible = true;
 		NoteSplash.configs.clear();
-		if (splashPool != null) {
-			splashPool.clear();
-			splashPool = null;
-		}
-		NoteSplash.pool = null;
 		FlxG.sound.list.remove(inst);
 		flixel.util.FlxDestroyUtil.destroy(inst);
 		super.destroy();
 	}
-
-	function startSong():Void {
-		@:privateAccess inst.loadEmbedded(FlxG.sound.music._sound);
-		inst.looped = false;
-		inst.onComplete = finishSong;
-		inst.volume = vocals.volume = opponentVocals.volume = 1;
-		FlxG.sound.list.add(inst);
-
-		FlxG.sound.music.pause();
-		inst.play();
+	
+// EditorPlayState.hx - startSong()
+	function startSong():Void
+	{
+		startingSong = false;
+		
+		// 使用新的 Flixel 6.2.0 API
+		var soundPath = Paths.inst(PlayState.SONG.song);
+		if (soundPath != null) {
+			// 方法1: 使用 FlxSound.load()
+			inst = new FlxSound();
+			inst.load(soundPath); // 新 API
+			inst.looped = false;
+			inst.onComplete = finishSong;
+			inst.volume = 1;
+			FlxG.sound.list.add(inst);
+			
+			inst.play();
+			inst.time = startPos - Conductor.offset;
+			songLength = inst.length;
+		}
+		
+		// 处理 vocals
 		vocals.play();
 		opponentVocals.play();
-		inst.time = vocals.time = opponentVocals.time = startPos - Conductor.offset;
-
-		// Song duration in a float, useful for the time left feature
-		songLength = inst.length;
+		vocals.time = startPos - Conductor.offset;
+		opponentVocals.time = startPos - Conductor.offset;
 	}
-
 	// Borrowed from PlayState
 	function generateSong()
 	{
 		// FlxG.log.add(ChartParser.parse());
+		totalColumns = Note.getColumnsPerPlayer(PlayState.SONG);
 		songSpeed = PlayState.SONG.speed;
 		var songSpeedType:String = ClientPrefs.getGameplaySetting('scrolltype');
 		switch(songSpeedType)
@@ -467,7 +454,8 @@ class EditorPlayState extends MusicBeatSubstate
 	{
 		var strumLineX:Float = ClientPrefs.data.middleScroll ? PlayState.STRUM_X_MIDDLESCROLL : PlayState.STRUM_X;
 		var strumLineY:Float = ClientPrefs.data.downScroll ? (FlxG.height - 150) : 50;
-		for (i in 0...4)
+		var columns:Int = totalColumns > 0 ? totalColumns : Note.getColumnsPerPlayer(PlayState.SONG);
+		for (i in 0...columns)
 		{
 			// FlxG.log.add(i);
 			var targetAlpha:Float = 1;
@@ -917,8 +905,7 @@ class EditorPlayState extends MusicBeatSubstate
 	}
 
 	function spawnNoteSplash(x:Float, y:Float, data:Int, ?note:Note = null, strum:StrumNote) {
-		var splash:NoteSplash = cast splashPool != null ? splashPool.get() : null;
-		if (splash == null) splash = new NoteSplash();
+		var splash:NoteSplash = new NoteSplash();
 		splash.babyArrow = strum;
 		splash.spawnSplashNote(note);
 		grpNoteSplashes.add(splash);

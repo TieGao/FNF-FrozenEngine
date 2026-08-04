@@ -32,10 +32,15 @@ class StrumNote extends FlxSprite
 		rgbShader.enabled = false;
 		if(PlayState.SONG != null && PlayState.SONG.disableNoteRGB) useRGBShader = false;
 		
-		var arr:Array<FlxColor> = ClientPrefs.data.arrowRGB[leData];
-		if(PlayState.isPixelStage) arr = ClientPrefs.data.arrowRGBPixel[leData];
+		var colorSets:Array<Array<FlxColor>> = PlayState.isPixelStage ? ClientPrefs.data.arrowRGBPixel : ClientPrefs.data.arrowRGB;
+		var arr:Array<FlxColor> = null;
+		if(colorSets != null && colorSets.length > 0)
+		{
+			var colorIndex:Int = Std.int(Math.abs(leData) % colorSets.length);
+			arr = colorSets[colorIndex];
+		}
 		
-		if(leData <= arr.length)
+		if(arr != null && arr.length >= 3)
 		{
 			@:bypassAccessor
 			{
@@ -68,6 +73,10 @@ class StrumNote extends FlxSprite
 		var lastAnim:String = null;
 		if(animation.curAnim != null) lastAnim = animation.curAnim.name;
 
+
+		var keys = Note.getColumnsPerPlayer();  // 获取当前键数
+    	var scale = Note.getNoteScaleForKeys(keys); // 复用同一个函数
+		var pixelScale = Note.getPixelNoteScaleForKeys(keys);
 		if(PlayState.isPixelStage)
 		{
 			loadGraphic(Paths.image('pixelUI/' + texture));
@@ -76,7 +85,7 @@ class StrumNote extends FlxSprite
 			loadGraphic(Paths.image('pixelUI/' + texture), true, Math.floor(width), Math.floor(height));
 
 			antialiasing = false;
-			setGraphicSize(Std.int(width * PlayState.daPixelZoom));
+			setGraphicSize(Std.int(width * PlayState.daPixelZoom * pixelScale));
 
 			animation.add('green', [6]);
 			animation.add('red', [7]);
@@ -111,7 +120,7 @@ class StrumNote extends FlxSprite
 			animation.addByPrefix('red', 'arrowRIGHT');
 
 			antialiasing = ClientPrefs.data.antialiasing;
-			setGraphicSize(Std.int(width * 0.7));
+			setGraphicSize(Std.int(width * scale));
 
 			switch (Math.abs(noteData) % 4)
 			{
@@ -141,9 +150,10 @@ class StrumNote extends FlxSprite
 		}
 	}
 
-	public function playerPosition()
-	{
-		x += Note.swagWidth * noteData;
+	public function playerPosition() {
+		var keys = Note.getColumnsPerPlayer();
+		var spacing = Note.getNoteSpacing(keys);
+		x += spacing * noteData;
 		x += 50;
 		x += ((FlxG.width / 2) * player);
 	}

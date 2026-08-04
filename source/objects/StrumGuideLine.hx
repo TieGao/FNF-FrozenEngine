@@ -9,31 +9,64 @@ import states.PlayState;
 
 class StrumGuideLine extends FlxTypedSpriteGroup<FlxSprite>
 {
-    // 4个黑条，对应4列（玩家侧）
+    // 动态数组，根据键数变化
     var playerLines:Array<FlxSprite> = [];
-    // 对手侧黑条（用于双人模式）
     var opponentLines:Array<FlxSprite> = [];
+    
+    // 当前键数
+    var currentKeyCount:Int = 4;
     
     public function new()
     {
         super(0, 0);
         
-        // 创建玩家侧的4个黑条
-        for (i in 0...4)
+        // 根据键数创建黑条
+        setupLinesForKeys();
+    }
+    
+    /**
+     * 根据当前键数设置引导线
+     */
+    function setupLinesForKeys():Void
+    {
+        var keys:Int = Note.getColumnsPerPlayer();
+        currentKeyCount = keys;
+        
+        // 清理旧的引导线
+        for (line in playerLines)
+        {
+            remove(line);
+            line.destroy();
+        }
+        for (line in opponentLines)
+        {
+            remove(line);
+            line.destroy();
+        }
+        playerLines = [];
+        opponentLines = [];
+        
+        // 计算每条线的宽度
+        var spacing:Float = Note.getNoteSpacing(keys);
+        var strumWidth:Float = 115; // 基础宽度
+        var lineWidth:Float = strumWidth * (4 / keys); // 根据键数调整宽度
+        
+        // 创建玩家侧的引导线
+        for (i in 0...keys)
         {
             var line = new FlxSprite();
-            line.makeGraphic(115, FlxG.height, FlxColor.BLACK);
+            line.makeGraphic(Math.round(lineWidth), FlxG.height, FlxColor.BLACK);
             line.alpha = ClientPrefs.data.guideLineAlpha;
             line.visible = false;
             playerLines.push(line);
             add(line);
         }
         
-        // 创建对手侧的4个黑条（预创建，根据需要显示）
-        for (i in 0...4)
+        // 创建对手侧的引导线
+        for (i in 0...keys)
         {
             var line = new FlxSprite();
-            line.makeGraphic(115, FlxG.height, FlxColor.BLACK);
+            line.makeGraphic(Math.round(lineWidth), FlxG.height, FlxColor.BLACK);
             line.alpha = ClientPrefs.data.guideLineAlpha;
             line.visible = false;
             opponentLines.push(line);
@@ -45,59 +78,69 @@ class StrumGuideLine extends FlxTypedSpriteGroup<FlxSprite>
     {
         super.update(elapsed);
         
+        // 检查键数是否变化
+        var keys:Int = Note.getColumnsPerPlayer();
+        if (keys != currentKeyCount)
+        {
+            setupLinesForKeys();
+        }
+        
         var playState = PlayState.instance;
         if (playState == null) return;
         
-        // 获取当前 opponentMode
         var opponentMode = playState.opponentMode;
         var isCoopMode:Bool = (opponentMode == "coop" || opponentMode == "coop_split");
         var isOpponentMode:Bool = (opponentMode == "opponent");
         
-        // 更新玩家侧黑条（始终显示，但对手模式下可能隐藏或不同行为）
+        // 更新玩家侧引导线
         for (i in 0...playerLines.length)
         {
-            var strum = playState.playerStrums.members[i];
-            var shouldShow:Bool = (strum != null && strum.visible);
-            
-            // 对手模式下，玩家侧轨道不显示（因为玩家控制对手侧）
-            if (isOpponentMode)
-                shouldShow = false;
-            
-            if (shouldShow)
+            if (i < playState.playerStrums.members.length)
             {
-                var line = playerLines[i];
-                line.x = strum.x + (strum.width / 2) - (line.width / 2);
-                line.y = 0;
-                line.alpha = ClientPrefs.data.guideLineAlpha;
-                line.visible = (line.alpha > 0);
-            }
-            else
-            {
-                playerLines[i].visible = false;
+                var strum = playState.playerStrums.members[i];
+                var shouldShow:Bool = (strum != null && strum.visible);
+                
+                if (isOpponentMode)
+                    shouldShow = false;
+                
+                if (shouldShow)
+                {
+                    var line = playerLines[i];
+                    line.x = strum.x + (strum.width / 2) - (line.width / 2);
+                    line.y = 0;
+                    line.alpha = ClientPrefs.data.guideLineAlpha;
+                    line.visible = (line.alpha > 0);
+                }
+                else
+                {
+                    playerLines[i].visible = false;
+                }
             }
         }
         
-        // 更新对手侧黑条（双人模式或对手模式下显示）
+        // 更新对手侧引导线
         for (i in 0...opponentLines.length)
         {
-            var strum = playState.opponentStrums.members[i];
-            var shouldShow:Bool = (strum != null && strum.visible);
-            
-            // 普通模式下，对手侧轨道不显示
-            if (!isCoopMode && !isOpponentMode)
-                shouldShow = false;
-            
-            if (shouldShow)
+            if (i < playState.opponentStrums.members.length)
             {
-                var line = opponentLines[i];
-                line.x = strum.x + (strum.width / 2) - (line.width / 2);
-                line.y = 0;
-                line.alpha = ClientPrefs.data.guideLineAlpha;
-                line.visible = (line.alpha > 0);
-            }
-            else
-            {
-                opponentLines[i].visible = false;
+                var strum = playState.opponentStrums.members[i];
+                var shouldShow:Bool = (strum != null && strum.visible);
+                
+                if (!isCoopMode && !isOpponentMode)
+                    shouldShow = false;
+                
+                if (shouldShow)
+                {
+                    var line = opponentLines[i];
+                    line.x = strum.x + (strum.width / 2) - (line.width / 2);
+                    line.y = 0;
+                    line.alpha = ClientPrefs.data.guideLineAlpha;
+                    line.visible = (line.alpha > 0);
+                }
+                else
+                {
+                    opponentLines[i].visible = false;
+                }
             }
         }
     }
@@ -117,6 +160,14 @@ class StrumGuideLine extends FlxTypedSpriteGroup<FlxSprite>
             line.alpha = ClientPrefs.data.guideLineAlpha;
             line.visible = (line.alpha > 0);
         }
+    }
+    
+    /**
+     * 重新加载引导线（当键数或设置改变时调用）
+     */
+    public function reloadLines():Void
+    {
+        setupLinesForKeys();
     }
     
     override public function destroy():Void

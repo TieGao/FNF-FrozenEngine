@@ -159,8 +159,8 @@ class KadeConverter
             stage: songData.stage != null ? songData.stage : "stage",
             format: "psych_v1",
             
-            arrowSkin: songData.arrowSkin != null ? songData.arrowSkin : "NOTE_assets",
-            splashSkin: songData.splashSkin != null ? songData.splashSkin : "noteSplashes",
+            arrowSkin: songData.arrowSkin != null ? songData.arrowSkin : "",
+            splashSkin: songData.splashSkin != null ? songData.splashSkin : "",
             
             gameOverChar: songData.gameOverChar != null ? songData.gameOverChar : "bf-dead",
             gameOverSound: songData.gameOverSound != null ? songData.gameOverSound : "fnf_loss_sfx",
