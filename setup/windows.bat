@@ -4,7 +4,7 @@ cd ..
 @echo on
 echo Installing dependencies...
 echo This might take a few moments depending on your internet speed.
-haxelib git flixel https://github.com/TieGao/flixel --skip-dependencies
+haxelib install flixel 6.2.0
 haxelib git flixel-addons https://github.com/TieGao/flixel-addons --skip-dependencies
 haxelib install flixel-tools 1.5.1 --skip-dependencies
 haxelib install hscript-iris 1.1.3 --skip-dependencies
@@ -15,7 +15,6 @@ haxelib git lime https://github.com/TieGao/lime --skip-dependencies
 haxelib git openfl https://github.com/TieGao/openfl --skip-dependencies
 haxelib install format --skip-dependencies
 haxelib install hxp --skip-dependencies
-haxelib install moonchart 0.5.1 --skip-dependencies
 haxelib git hxcpp https://github.com/TieGao/hxcpp.git
 haxelib git flxanimate https://github.com/Dot-Stuff/flxanimate 768740a56b26aa0c072720e0d1236b94afe68e3e
 haxelib git linc_luajit https://github.com/superpowers04/linc_luajit 1906c4a96f6bb6df66562b3f24c62f4c5bba14a7

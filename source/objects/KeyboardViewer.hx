@@ -132,7 +132,7 @@ class KeyboardViewer extends FlxSpriteGroup
 
 		// 创建KPS数值文本
 		kpsText = new FlxText(startX, Y + KeyButton.size + 4, bigButtonWidth, '0', 16);
-		kpsText.setFormat("assets/fonts/vcr.ttf", 16, FlxColor.WHITE, CENTER, OUTLINE_CARDINAL, FlxColor.BLACK);
+		kpsText.setFormat("assets/fonts/vcr.ttf", 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		kpsText.borderSize = 1;
 		kpsText.x = startX + (bigButtonWidth - kpsText.width) / 2;
 		kpsText.y = Y + KeyButton.size + 4 + KeyButton.size / 5 * 3;
@@ -146,7 +146,7 @@ class KeyboardViewer extends FlxSpriteGroup
 			total = FlxG.save.data.keyboardtotal;
 			
 		totalText = new FlxText(startX + bigButtonWidth + 4, Y + KeyButton.size + 4, bigButtonWidth, Std.string(total), 16);
-		totalText.setFormat("assets/fonts/vcr.ttf", 16, FlxColor.WHITE, CENTER, OUTLINE_CARDINAL, FlxColor.BLACK);
+		totalText.setFormat("assets/fonts/vcr.ttf", 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		totalText.borderSize = 1;
 		totalText.x = startX + bigButtonWidth + 4 + (bigButtonWidth - totalText.width) / 2;
 		totalText.y = Y + KeyButton.size + 4 + KeyButton.size / 5 * 3;
