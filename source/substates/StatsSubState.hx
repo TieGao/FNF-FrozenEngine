@@ -32,11 +32,14 @@ class StatsSubState extends MusicBeatSubstate
         add(bg);
         
         statsContainer = new FlxTypedGroup<FlxText>();
+        for (text in statsContainer.members)
+            text.antialiasing = ClientPrefs.data.antialiasing;
         add(statsContainer);
         
         titleText = new FlxText(0, 20, FlxG.width, 
             Language.getPhrase('stats_title', '=== GAME STATISTICS ==='), 
             32);
+        titleText.antialiasing = ClientPrefs.data.antialiasing;
         titleText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER);
         titleText.scrollFactor.set();
         titleText.alpha = 0.0;
@@ -47,6 +50,7 @@ class StatsSubState extends MusicBeatSubstate
         var hintText:FlxText = new FlxText(0, FlxG.height - 35, FlxG.width,
             Language.getPhrase('stats_hint', '←/→ to switch pages | ESC to close'), 
             18);
+        hintText.antialiasing = ClientPrefs.data.antialiasing;
         hintText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.GRAY, CENTER);
         hintText.scrollFactor.set();
         hintText.alpha = 0.0;
@@ -113,6 +117,7 @@ class StatsSubState extends MusicBeatSubstate
             if (stat.label == "") {
                 // 分隔线
                 var separator:FlxText = new FlxText(leftX, startY + (i * lineHeight), maxWidth, "------------------------", 22);
+                separator.antialiasing = ClientPrefs.data.antialiasing;
                 separator.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.GRAY, LEFT);
                 separator.scrollFactor.set();
                 separator.alpha = 0.0;
@@ -120,6 +125,7 @@ class StatsSubState extends MusicBeatSubstate
                 FlxTween.tween(separator, { alpha: 0.6 }, 0.4, { ease: FlxEase.sineIn, startDelay: 0.1 + (i * 0.03) });
             } else {
                 var statText:FlxText = new FlxText(leftX, startY + (i * lineHeight), maxWidth, displayText, 22);
+                statText.antialiasing = ClientPrefs.data.antialiasing;
                 statText.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.WHITE, LEFT);
                 statText.scrollFactor.set();
                 statText.alpha = 0.0;
@@ -131,6 +137,7 @@ class StatsSubState extends MusicBeatSubstate
         // 添加页面指示器
         var pageText:FlxText = new FlxText(0, FlxG.height - 65, FlxG.width, 
             Language.getPhrase('stats_page', 'Page') + " " + (currentPage + 1) + "/" + totalPages, 18);
+        pageText.antialiasing = ClientPrefs.data.antialiasing;
         pageText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.CYAN, CENTER);
         pageText.scrollFactor.set();
         pageText.alpha = 0.0;

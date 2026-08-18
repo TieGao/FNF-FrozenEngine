@@ -285,6 +285,9 @@ class KEOption
 				case "Adjust Delay and Combo":
 					MusicBeatState.switchState(new options.NoteOffsetState());
 					return false;
+				case "About":
+					KEOptionsMenu.instance.openSubState(new substates.AboutSubState());
+					return false;
 			}
 			return true;
 		}

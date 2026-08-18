@@ -528,6 +528,7 @@ class PlayState extends MusicBeatState
 			case 'tank': new Tank();					//Week 7 - Ugh, Guns, Stress
 			case 'phillyStreets': new PhillyStreets(); 	//Weekend 1 - Darnell, Lit Up, 2Hot
 			case 'phillyBlazin': new PhillyBlazin();	//Weekend 1 - Blazin
+			case 'audiostage': new AudioStage();		
 		}
 		if(isPixelStage) introSoundsSuffix = '-pixel';
 
@@ -2874,6 +2875,12 @@ public function reloadCounterColors()
 
 	deathCounter = 0;
 	seenCutscene = false;
+
+	if (ClientPrefs.data.blurEffects)
+	{
+		camGame.filters = [new BlurFilter(8, 8, BitmapFilterQuality.HIGH)];
+		camHUD.filters = [new BlurFilter(8, 8, BitmapFilterQuality.HIGH)];
+	}
 
 	#if ACHIEVEMENTS_ALLOWED
 	var weekNoMiss:String = WeekData.getWeekFileName() + '_nomiss';

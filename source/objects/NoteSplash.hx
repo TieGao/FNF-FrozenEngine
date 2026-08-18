@@ -56,8 +56,7 @@ class NoteSplash extends FlxSprite
 
 		rgbShader = new PixelSplashShaderRef();
 		shader = rgbShader.shader;
-
-		loadSplash(splash);
+		if(splash != null) loadSplash(splash);
 	}
 
 	public var maxAnims(default, set):Int = 0;

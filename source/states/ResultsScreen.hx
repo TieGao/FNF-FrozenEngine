@@ -70,6 +70,7 @@ class ResultsScreen extends MusicBeatSubstate
         text.borderSize = 4;
         text.scrollFactor.set();
         text.cameras = [camResults];
+        text.antialiasing = ClientPrefs.data.antialiasing;
         text.alpha = 0;
         add(text);
 
@@ -262,6 +263,7 @@ class ResultsScreen extends MusicBeatSubstate
         comboText.scrollFactor.set();
         comboText.cameras = [camResults];
         comboText.alpha = 0;
+        comboText.antialiasing = ClientPrefs.data.antialiasing;
         add(comboText);
 
         // 根据模式设置不同的提示文本
@@ -277,6 +279,7 @@ class ResultsScreen extends MusicBeatSubstate
         contText.scrollFactor.set();
         contText.cameras = [camResults];
         contText.alpha = 0;
+        contText.antialiasing = ClientPrefs.data.antialiasing;
         add(contText);
 
         // F1 - 打开回放库 (在所有模式下都可用)
@@ -286,6 +289,7 @@ class ResultsScreen extends MusicBeatSubstate
         replayLibText.scrollFactor.set();
         replayLibText.cameras = [camResults];
         replayLibText.alpha = 0;
+        replayLibText.antialiasing = ClientPrefs.data.antialiasing;
         add(replayLibText);
 
         // F2 - 重新开始/重播 (根据模式不同)
@@ -300,6 +304,7 @@ class ResultsScreen extends MusicBeatSubstate
         replayText.scrollFactor.set();
         replayText.cameras = [camResults];
         replayText.alpha = 0;
+        replayText.antialiasing = ClientPrefs.data.antialiasing;
         add(replayText);
 
         settingsText = new FlxText(0, FlxG.height + 50, FlxG.width, "");
@@ -308,6 +313,7 @@ class ResultsScreen extends MusicBeatSubstate
         settingsText.scrollFactor.set();
         settingsText.cameras = [camResults];
         settingsText.alpha = 0;
+        settingsText.antialiasing = ClientPrefs.data.antialiasing;
         add(settingsText);
     }
 
@@ -706,7 +712,7 @@ class ResultsScreen extends MusicBeatSubstate
     function closeResults()
     {
         // 音乐渐出
-        if (mode != REPLAY_PREVIEW && pauseMusic != null && pauseMusic.playing)
+        if (mode != REPLAY_PREVIEW && pauseMusic != null && pauseMusic.playing && !ClientPrefs.data.skipResultExitAnim)
         {
             FlxTween.tween(pauseMusic, {volume: 0}, 0.5, {
                 onComplete: function(twn:FlxTween) {
@@ -719,6 +725,7 @@ class ResultsScreen extends MusicBeatSubstate
             finishClose();
         }
 
+        if (ClientPrefs.data.skipResultExitAnim) return;
         FlxTween.tween(background, {alpha: 0}, 0.3);
         FlxTween.tween(text, {alpha: 0}, 0.3);
         FlxTween.tween(comboText, {alpha: 0}, 0.3);

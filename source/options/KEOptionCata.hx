@@ -26,12 +26,16 @@ class KEOptionCata extends FlxSprite
 
 		options = _options;
 		optionObjects = new FlxTypedGroup<FlxText>();
+
+		/*for (text in optionObjects.members)
+			text.antialiasing = ClientPrefs.data.antialiasing;*/
 		var localizedTitle = Language.getPhrase(title, title);
 		
 		// 使用屏幕宽度计算居中位置
 		var screenWidth:Int = 1280;
 		
 		titleObject = new FlxText((middleType ? screenWidth / 2 : x), y + (middleType ? 0 : 8), 0, localizedTitle);
+		//titleObject.antialiasing = ClientPrefs.data.antialiasing;
 		titleObject.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK); // 字体稍微减小
 		titleObject.borderSize = 2; // 边框减小
 

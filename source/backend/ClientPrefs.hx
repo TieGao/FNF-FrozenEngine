@@ -209,6 +209,8 @@ import states.TitleState;
 	public var forceNoteSkins:Bool = false;
 	public var forceSplashSkins:Bool = false;
 	public var forceNoteRGB:Bool = false;
+	public var blurEffects:Bool = true;
+	public var skipResultExitAnim:Bool = false;
 
 	public var showHC:Bool = true;
 	public var showCB:Bool = true;

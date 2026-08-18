@@ -123,7 +123,6 @@
 	<haxelib name="hxvlc" if="VIDEOS_ALLOWED" version="2.2.5"/>
 	<haxelib name="hxdiscord_rpc" version="1.2.4" if="DISCORD_ALLOWED"/>
 	<haxelib name="flxanimate"/>
-	<!--chart converter [Frozen Engine Features]-->
 
 	<!-- Disable Discord IO Thread -->
 	<haxedef name="DISCORD_DISABLE_IO_THREAD" if="hxdiscord_rpc" />
@@ -182,11 +181,22 @@
 	<!-- pretty (haxeflixel default), indent, classic (haxe compiler default) -->
 	<haxedef name="message.reporting" value="pretty" />
 
+	<!-- 标准分代式 GC（hxcpp 默认行为） -->
+	<!-- haxedef name="HXCPP_GC_GENERATIONAL"/> -->
+
+	<!-- 启用 ZGC（低延迟 GC，hxcpp 4.x+） -->
+	<!-- <haxedef name="hxcpp_zgc"/> -->
+
 	<!--Macro fixes-->
 	<haxeflag name="--macro" value="allowPackage('flash')" />
 	<haxeflag name="--macro" value="include('my.pack')" />
 
 	<haxedef name="hscriptPos" if="HSCRIPT_ALLOWED" />
+
+	<haxedef name="HXCPP_TRACY" if="TRACY_ALLOWED"/>
+	<haxedef name="HXCPP_TELEMETRY" if="TRACY_ALLOWED"/>
+	<haxedef name="HXCPP_STACK_TRACE" if="TRACY_ALLOWED"/>
+	<haxedef name="HXCPP_STACK_LINES" if="TRACY_ALLOWED"/>
 
 	<!-- _________________________________ Custom _______________________________ -->
 

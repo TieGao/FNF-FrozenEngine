@@ -118,12 +118,12 @@ class BiosDateDisplay extends FlxSpriteGroup
 	{
 		if (timeFirst) {
 			// 时间在前，日期在后
-			timeText.x = 0;
-			dateText.x = timeText.fieldWidth + 15;
+			timeText.x = FlxG.width - timeText.fieldWidth - 15; // 右对齐时间
+			dateText.x = FlxG.width - timeText.fieldWidth - 15 - dateText.fieldWidth - 15;
 		} else {
 			// 日期在前，时间在后
-			dateText.x = 0;
-			timeText.x = dateText.fieldWidth + 15;
+			dateText.x = FlxG.width - dateText.fieldWidth - 15; // 右对齐日期
+			timeText.x = FlxG.width - dateText.fieldWidth - 15 - timeText.fieldWidth - 15;
 		}
 		
 		// Y坐标对齐

@@ -11,8 +11,6 @@ import backend.StageData;
 import objects.BiosDateDisplay;
 import objects.DraggableBar;
 
-import shaders.ParticleBeamShader;
-
 import backend.MouseMove;
 import backend.MouseEvent;
 
@@ -24,7 +22,7 @@ class KEOptionsMenu extends MusicBeatState
 	public static var instance:KEOptionsMenu;
 
 	public var background:FlxSprite;
-	public var bg:FlxSprite;
+	public var bg:FlxFilteredSprite;
 	public var selectedCat:KEOptionCata;
 	public var selectedOption:KEOption;
 	public var selectedCatIndex:Int = 0;
@@ -51,7 +49,7 @@ class KEOptionsMenu extends MusicBeatState
 	
 	var changedOption:Bool = false;
 	public var descText:FlxText;
-	public var descBack:FlxSprite;
+	public var descBack:FlxFilteredSprite;
 	var valueBar:DraggableBar;
 	var valueBarText:FlxText;
 
@@ -197,8 +195,6 @@ class KEOptionsMenu extends MusicBeatState
 		_lastResolution = index;
 	}
 
-	var beamShader:ParticleBeamShader = new ParticleBeamShader();
-
 	public function new(pauseMenu:Bool = false)
 	{
 		super();
@@ -225,6 +221,8 @@ class KEOptionsMenu extends MusicBeatState
 		];
 
 		shownStuff = new FlxTypedGroup<FlxText>();
+		/*for(text in shownStuff.members)
+			text.antialiasing = ClientPrefs.data.antialiasing;*/
 
 		
 		background = new FlxSprite(0, 0).makeGraphic(SCREEN_WIDTH, SCREEN_HEIGHT, FlxColor.BLACK);
@@ -232,7 +230,9 @@ class KEOptionsMenu extends MusicBeatState
 		background.scrollFactor.set();
 		add(background);
 
-		var optionBg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
+		var optionBg = new FlxFilteredSprite();
+		optionBg.loadGraphic(Paths.image('menuDesat'));
+		if(ClientPrefs.data.blurEffects)optionBg.filters = [new BlurFilter(4, 4, BitmapFilterQuality.HIGH)];
 		optionBg.alpha = 1;
 		optionBg.scrollFactor.set();
 		optionBg.antialiasing = ClientPrefs.data.antialiasing;
@@ -272,16 +272,19 @@ class KEOptionsMenu extends MusicBeatState
 		var contentStartY:Int = MARGIN_TOP + CATEGORY_HEIGHT;
 		var contentHeight:Int = SCREEN_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM - CATEGORY_HEIGHT;
 		
-		bg = new FlxSprite(0, contentStartY).makeGraphic(SCREEN_WIDTH, contentHeight, FlxColor.BLACK);
+		bg = new FlxFilteredSprite(0, contentStartY);
+		bg.makeGraphic(SCREEN_WIDTH, contentHeight, FlxColor.BLACK);
 		bg.alpha = 0.6;
 		bg.scrollFactor.set();
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		add(bg);
 
-		descBack = new FlxSprite(0, SCREEN_HEIGHT - MARGIN_BOTTOM).makeGraphic(SCREEN_WIDTH, 32, FlxColor.BLACK);
+		descBack = new FlxFilteredSprite(0, SCREEN_HEIGHT - MARGIN_BOTTOM);
+		descBack.makeGraphic(SCREEN_WIDTH, 32, FlxColor.BLACK);
 		descBack.alpha = DESC_ALPHA;
 		descBack.scrollFactor.set();
 		descBack.antialiasing = ClientPrefs.data.antialiasing;
+		//descBack.filters = [blurFilter];
 		add(descBack);
 
 		add(shownStuff);
@@ -329,10 +332,11 @@ class KEOptionsMenu extends MusicBeatState
 	valueBarText.borderSize = 2;
 	valueBarText.visible = false;
 	valueBarText.cameras = [FlxG.camera];
+	valueBarText.antialiasing = ClientPrefs.data.antialiasing;
 	add(valueBar);
 	add(valueBarText);
 
-		dateDisplay = new BiosDateDisplay(10, 30, 20, FlxColor.WHITE, true);
+		dateDisplay = new BiosDateDisplay(FlxG.width/2 , 30, 20, FlxColor.WHITE, true);
 		dateDisplay.setShowSeconds(true);
 		dateDisplay.setMilitaryTime(false);
 		dateDisplay.scrollFactor.set();
@@ -397,9 +401,6 @@ class KEOptionsMenu extends MusicBeatState
 		
 		startColorCycle();
 		startBgColorCycle();
-		if (ClientPrefs.data.shaders && ClientPrefs.data.beamparticle) {
-			optionBg.shader = beamShader;
-		}
 
 		var self = this;
 		langReloadCb = function() {
@@ -727,18 +728,6 @@ function scrollOptions(change:Int, isLongPress:Bool = false)
     var resolutions = getCurrentResolutions();
     if (curRes >= 0 && curRes < resolutions.length && curRes != _lastResolution && !FlxG.save.data.fullscreen) {
         applyRenderResolution(curRes);
-    }
-    
-    if (beamShader != null) 
-    {
-        beamShader.update(elapsed * ClientPrefs.data.particleSpeed);
-        beamShader.setParams(
-            ClientPrefs.data.particleSpeed,
-            ClientPrefs.data.particleTrail,
-            0.004,
-            1.0,
-            ClientPrefs.data.particleAmount
-        );
     }
     
     if (optionClickCooldown > 0) {
@@ -1347,6 +1336,8 @@ function onScrollChange()
 			KEOption.create("Health Text", "Show health as number", "healthText", "bool"),
 			KEOption.create("Score Screen", "Show Kade-style results", "scoreScreen", "bool"),
 			KEOption.create("Transition Type", "Choose the transition animation style when switching scenes", "transitionType", "string", ['fade', 'pixel', 'loading']),
+			KEOption.create("Blur Effect", "Enable blur effect on background elements", "blurEffects", "bool"),
+			KEOption.create("Skip Results Screen Fade Out", "Skip the exit results screen animation", "skipResultExitAnim", "bool"),
 			KEOption.create("Charm Bar Pause", "Modern Pause Sub State", "charmPause", "bool"),
 		];
 	}
@@ -1365,20 +1356,7 @@ function onScrollChange()
 
 	function getAdvancedOptions():Array<KEOption>
 	{
-		var optionsparticle = KEOption.createSubMenu(
-			"Options Particle",
-			"Edit Particle Effects in Menu",
-			[
-				KEOption.create("Show Particle In Option", "Show particle effect in options menu", "particle", "bool"),
-				KEOption.create("Particle Amount", "Amount of particles", "particleAmount", "float", 50, 0, 200, 0.1),
-				KEOption.create("Particle Speed", "Speed of particles", "particleSpeed", "float", 1.0, 0.1, 5.0, 0.1),
-				KEOption.create("Particle Trail Length", "Length of particle trails", "particleTrail", "int", 2, 0, 50, 1)
-			],
-			"",
-			"Particle"
-		);
-
-		return [
+	return [
 			KEOption.create("Check Updates", "Check for game updates", "checkForUpdates", "bool"),
 			KEOption.create("Beta Updates", "Change the channel to beta", "betaUpdates", "bool"),
 			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
@@ -1389,7 +1367,7 @@ function onScrollChange()
 			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
 			KEOption.createResetOption("Reset Settings", "settings"),
 			KEOption.createResetOption("Reset Scores", "scores"),
-			optionsparticle,
+			KEOption.create("About", "View information about the game", "", "action"),
 			KEOption.create("Use Default Mouse Cursor", "Use ur system's default mouse cursor in game", "useSystemCursor", "bool")
 		];
 	}

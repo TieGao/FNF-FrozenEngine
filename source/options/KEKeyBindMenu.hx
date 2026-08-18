@@ -85,16 +85,23 @@ class KEKeyBindMenu extends MusicBeatSubstate
         add(bg);
         
         grpHeaders = new FlxTypedGroup<FlxText>();
+        for (text in grpHeaders.members)
+            text.antialiasing = ClientPrefs.data.antialiasing;
         add(grpHeaders);
         
         grpOptions = new FlxTypedGroup<FlxText>();
+        for (text in grpOptions.members)
+            text.antialiasing = ClientPrefs.data.antialiasing;
         add(grpOptions);
         
         grpBinds = new FlxTypedGroup<FlxText>();
+        for (text in grpBinds.members)
+            text.antialiasing = ClientPrefs.data.antialiasing;
         add(grpBinds);
         
         selectSpr = new FlxSprite().makeGraphic(150, 40, FlxColor.WHITE);
         selectSpr.alpha = 0;
+        selectSpr.antialiasing = ClientPrefs.data.antialiasing;
         selectSpr.visible = false; // 初始隐藏
         add(selectSpr);
         
@@ -114,6 +121,7 @@ class KEKeyBindMenu extends MusicBeatSubstate
             'Press CTRL to switch mode • ENTER to rebind • ESC to save and exit',
             20);
         infoText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        infoText.antialiasing = ClientPrefs.data.antialiasing;
         infoText.borderSize = 2;
         infoText.screenCenter(X);
         infoText.alpha = 0;

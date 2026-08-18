@@ -110,6 +110,7 @@ class JudgementCounter {
     private function createText(x:Float, y:Float, w:Float, txt:String, font:String, size:Int, ?color:FlxColor, ?align:Dynamic):FlxText {
         var t:FlxText = new FlxText(x, y, w, txt, size);
         var textAlign:Dynamic = if (align != null) align else LEFT;
+        t.antialiasing = ClientPrefs.data.antialiasing;
         t.setFormat(font, size, (color != null ? color : FlxColor.fromRGB(state.dad.healthColorArray[0], state.dad.healthColorArray[1], state.dad.healthColorArray[2])), textAlign, OUTLINE, FlxColor.BLACK);
         t.scrollFactor.set(0, 0);
         t.borderSize = 2.00;

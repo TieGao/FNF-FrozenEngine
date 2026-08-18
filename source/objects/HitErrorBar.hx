@@ -217,6 +217,7 @@ class HitErrorBar extends FlxSpriteGroup
         }
         else
         {    
+            currentMsText.antialiasing = ClientPrefs.data.antialiasing;
             currentMsText.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         }
         

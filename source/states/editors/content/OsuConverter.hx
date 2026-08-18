@@ -153,222 +153,212 @@ class OsuConverter
      * @param filePath .osu 文件路径
      */
     public static function convertOsuToPsych(filePath:String):SwagSong
-    {
-        trace("========== OSU → Psych 转换开始 ==========");
-        
-        if (!FileSystem.exists(filePath))
-        {
-            trace('【错误】文件不存在: $filePath');
-            return null;
-        }
-        
-        var content:String = File.getContent(filePath);
-        var sections:Map<String, Array<String>> = parseOsuSections(content);
+	{
+		trace("========== OSU → Psych 转换开始 ==========");
+		
+		if (!FileSystem.exists(filePath))
+		{
+			trace('【错误】文件不存在: $filePath');
+			return null;
+		}
 
-        var general:Map<String, String> = parseKeyValues(sections["General"]);
-        var metadata:Map<String, String> = parseKeyValues(sections["Metadata"]);
-        var difficulty:Map<String, String> = parseKeyValues(sections["Difficulty"]);
-        var timingLines:Array<String> = sections["TimingPoints"] ?? [];
-        var hitLines:Array<String> = sections["HitObjects"] ?? [];
+		var content:String;
+		var tempDir:String = null;
+		var audioPath:String = null;
 
-        trace('【解析】HitObjects 行数: ${hitLines.length}');
+		// 检测是否为 OSZ 压缩包
+		if (filePath.toLowerCase().endsWith(".osz"))
+		{
+			trace('【检测】OSZ 压缩包，正在提取...');
+			var result = OsuArchiveExtractor.extract(filePath);
 
-        // 提取 BPM 变化
-        var bpmChanges:Array<BpmChange> = [];
-        for (line in timingLines)
-        {
-            var parts = line.split(",");
-            if (parts.length < 8) continue;
-            var time:Float = Std.parseFloat(parts[0]);
-            var beatLength:Float = Std.parseFloat(parts[1]);
-            var meter:Int = Std.parseInt(parts[2]);
-            var uninherited:Int = Std.parseInt(parts[6]);
-            if (uninherited == 1) // BPM change
-            {
-                var bpm:Float = 60000.0 / beatLength;
-                bpmChanges.push({ time: time, bpm: bpm, meter: meter });
-            }
-        }
-        if (bpmChanges.length == 0)
-        {
-            bpmChanges.push({ time: 0, bpm: 120, meter: 4 });
-            trace('【警告】未找到 TimingPoints，使用默认 BPM=120');
-        }
-        // 按时间排序
-        bpmChanges.sort((a, b) -> Std.int(a.time - b.time));
-        
-        trace('【提取】BPM变化点数: ${bpmChanges.length}');
-        for (bpm in bpmChanges)
-        {
-//            trace('  time=${bpm.time}, bpm=${bpm.bpm}');
-        }
+			if (result == null)
+			{
+				trace('【错误】OSZ 提取失败');
+				return null;
+			}
 
-        // 提取音符
-        var keys:Int = Std.parseInt(difficulty.get("CircleSize"));
-        if (keys < 1) keys = 4;
-        
-        var notes:Array<OsuNote> = [];
-        for (line in hitLines)
-        {
-            var parts = line.split(",");
-            if (parts.length < 6) continue;
-            var x:Float = Std.parseFloat(parts[0]);
-            var time:Float = Std.parseFloat(parts[2]);
-            var type:Int = Std.parseInt(parts[3]);
-            var params:String = parts[5];
-            var lane:Int = Math.floor((x / 512) * keys);
-            var length:Float = 0;
-            if (type == 128) // hold note
-            {
-                var endTimeStr = params.split(":")[0];
-                var endTime:Float = Std.parseFloat(endTimeStr);
-                if (endTime > time) length = endTime - time;
-            }
-            notes.push({ time: time, lane: lane, length: length });
-        }
-        // 按时间排序
-        notes.sort((a, b) -> Std.int(a.time - b.time));
-        
-        trace('【提取】OSU音符总数: ${notes.length}');
-        if (notes.length > 0)
-        {
-            trace('【提取】第一个音符时间: ${notes[0].time}ms, 最后一个音符时间: ${notes[notes.length - 1].time}ms');
-        }
+			content = result.osuContent;
+			audioPath = result.audioPath;
+			tempDir = result.tempDir;
+			trace('【提取】OSU 内容长度: ${content.length}');
+		}
+		else
+		{
+			content = File.getContent(filePath);
+		}
 
-       // 在 convertOsuToPsych 函数中，构建 SwagSong 的部分
-        var song:SwagSong = {
-            song: metadata.get("Title") ?? "Untitled",
-            notes: [],
-            events: [],
-            bpm: bpmChanges[0].bpm,
-            needsVoices: true,
-            speed: 1.0,
-            offset: 0,
-            player1: "bf",
-            player2: "dad",
-            gfVersion: "gf",
-            stage: "stage",
-            format: "psych_v1",
-            // 添加 mania 相关字段
-            mania: keys - 1,
-            keyCount: keys,
-            keycount: keys
-        };
+		// 解析 OSU 文件
+		var sections:Map<String, Array<String>> = parseOsuSections(content);
+		var metadata:Map<String, String> = parseKeyValues(sections["Metadata"]);
+		var difficulty:Map<String, String> = parseKeyValues(sections["Difficulty"]);
+		var timingLines:Array<String> = sections["TimingPoints"] ?? [];
+		var hitLines:Array<String> = sections["HitObjects"] ?? [];
 
-        Reflect.setField(song, 'mania', keys - 1);
-        Reflect.setField(song, 'keyCount', keys);
-        Reflect.setField(song, 'keycount', keys);
+		// 提取 BPM 变化
+		var bpmChanges:Array<BpmChange> = [];
+		for (line in timingLines)
+		{
+			var parts = line.split(",");
+			if (parts.length < 8) continue;
+			var time:Float = Std.parseFloat(parts[0]);
+			var beatLength:Float = Std.parseFloat(parts[1]);
+			var meter:Int = Std.parseInt(parts[2]);
+			var uninherited:Int = Std.parseInt(parts[6]);
+			if (uninherited == 1)
+			{
+				var bpm:Float = 60000.0 / beatLength;
+				bpmChanges.push({ time: time, bpm: bpm, meter: meter });
+			}
+		}
 
-        // ========== 修复：精确计算总小节数 ==========
-        var beatsPerSection:Float = 4.0;
-        var totalSections:Int = 1;
-        
-        if (notes.length > 0)
-        {
-            var lastNoteTime:Float = notes[notes.length - 1].time;
-            
-            // 计算从0到最后一个音符的总拍数（考虑BPM变化）
-            var totalBeats:Float = 0;
-            var currentTime:Float = 0;
-            var currentBpm:Float = bpmChanges[0].bpm;
-            var bpmIndex:Int = 0;
-            
-            while (currentTime < lastNoteTime)
-            {
-                // 检查是否有BPM变化
-                var nextBpmTime:Float = (bpmIndex + 1 < bpmChanges.length) ? bpmChanges[bpmIndex + 1].time : lastNoteTime + 1;
-                var segmentDuration:Float = nextBpmTime - currentTime;
-                if (segmentDuration <= 0)
-                {
-                    bpmIndex++;
-                    if (bpmIndex >= bpmChanges.length) break;
-                    currentBpm = bpmChanges[bpmIndex].bpm;
-                    continue;
-                }
-                
-                // 计算这段持续时间的拍数
-                var beatsInSegment:Float = segmentDuration / (60000 / currentBpm);
-                totalBeats += beatsInSegment;
-                
-                currentTime = nextBpmTime;
-                bpmIndex++;
-                if (bpmIndex < bpmChanges.length)
-                {
-                    currentBpm = bpmChanges[bpmIndex].bpm;
-                }
-            }
-            
-            // 额外加几个小节作为缓冲，确保所有音符都被包含
-            totalSections = Math.ceil(totalBeats / beatsPerSection) + 4;
-            trace('【计算】总拍数: $totalBeats, 生成小节数: $totalSections (含4节缓冲)');
-        }
+		if (bpmChanges.length == 0)
+			bpmChanges.push({ time: 0, bpm: 120, meter: 4 });
 
-        var swagSections:Array<SwagSection> = [];
-        var sectionTime:Float = 0;
-        var bpmIndex:Int = 0;
-        var currentBpm:Float = bpmChanges[0].bpm;
-        var totalSectionNotes:Int = 0;
-        
-        for (i in 0...totalSections)
-        {
-            // 检查当前小节是否应该改变BPM
-            var nextBpm:Float = currentBpm;
-            var changeBPM:Bool = false;
-            
-            // 如果下一个BPM变化在这个小节开始之前，更新BPM
-            while (bpmIndex + 1 < bpmChanges.length && bpmChanges[bpmIndex + 1].time <= sectionTime + 0.1)
-            {
-                bpmIndex++;
-                currentBpm = bpmChanges[bpmIndex].bpm;
-                changeBPM = true;
-            }
-            nextBpm = currentBpm;
+		bpmChanges.sort((a, b) -> Std.int(a.time - b.time));
 
-            var sec:SwagSection = {
-                sectionNotes: [],
-                sectionBeats: beatsPerSection,
-                mustHitSection: true,
-                bpm: nextBpm,
-                changeBPM: changeBPM,
-                altAnim: false,
-                gfSection: false
-            };
+		// 获取键数
+		var keys:Int = Std.parseInt(difficulty.get("CircleSize"));
+		if (keys < 1) keys = 4;
 
-            // 将该小节时间范围内的音符加入
-            var startTime:Float = sectionTime;
-            var endTime:Float = sectionTime + beatsPerSection * (60000 / currentBpm);
-            
-            var sectionNotes:Array<Array<Dynamic>> = [];
-            for (note in notes)
-            {
-                if (note.time >= startTime && note.time < endTime)
-                {
-                    var data:Int = note.lane;
-                    var length:Float = note.length;
-                    var noteType:String = null;
-                    sectionNotes.push([note.time, data, length, noteType]);
-                }
-            }
-            sec.sectionNotes = sectionNotes;
-            swagSections.push(sec);
-            totalSectionNotes += sectionNotes.length;
-            
-            if (i % 20 == 0 || i == totalSections - 1)
-            {
-//                trace('【小节 $i】时间范围: $startTime ~ $endTime ms, BPM: $currentBpm, 音符数: ${sectionNotes.length}');
-            }
+		// 提取音符
+		var notes:Array<OsuNote> = [];
+		for (line in hitLines)
+		{
+			var parts = line.split(",");
+			if (parts.length < 6) continue;
+			var x:Float = Std.parseFloat(parts[0]);
+			var time:Float = Std.parseFloat(parts[2]);
+			var type:Int = Std.parseInt(parts[3]);
+			var params:String = parts[5];
+			var lane:Int = Math.floor((x / 512) * keys);
+			var length:Float = 0;
 
-            sectionTime = endTime;
-        }
+			if (type == 128) // hold note
+			{
+				var endTimeStr = params.split(":")[0];
+				var endTime:Float = Std.parseFloat(endTimeStr);
+				if (endTime > time) length = endTime - time;
+			}
+			notes.push({ time: time, lane: lane, length: length });
+		}
 
-        song.notes = swagSections;
-        
-        trace('【完成】生成小节数: ${swagSections.length}');
-        trace('【完成】总音符数: $totalSectionNotes');
-        trace("========== OSU → Psych 转换完成 ==========");
-        
-        return song;
-    }
+		notes.sort((a, b) -> Std.int(a.time - b.time));
+
+		// 获取歌曲名
+		var songName:String = metadata.get("Title") ?? "Untitled";
+
+		// 创建 SwagSong
+		var song:SwagSong = {
+			song: songName,
+			notes: [],
+			events: [],
+			bpm: bpmChanges[0].bpm,
+			needsVoices: true,
+			speed: 1.0,
+			offset: 0,
+			player1: "bf",
+			player2: "dad",
+			gfVersion: "gf",
+			stage: "stage",
+			format: "psych_v1",
+			mania: keys - 1,
+			keyCount: keys,
+			keycount: keys
+		};
+
+		// 生成小节
+		var beatsPerSection:Float = 4.0;
+		var totalSections:Int = 1;
+
+		if (notes.length > 0)
+		{
+			var lastNoteTime:Float = notes[notes.length - 1].time;
+			var totalBeats:Float = 0;
+			var currentTime:Float = 0;
+			var currentBpm:Float = bpmChanges[0].bpm;
+			var bpmIndex:Int = 0;
+
+			while (currentTime < lastNoteTime)
+			{
+				var nextBpmTime:Float = (bpmIndex + 1 < bpmChanges.length) ? bpmChanges[bpmIndex + 1].time : lastNoteTime + 1;
+				var segmentDuration:Float = nextBpmTime - currentTime;
+
+				if (segmentDuration <= 0)
+				{
+					bpmIndex++;
+					if (bpmIndex >= bpmChanges.length) break;
+					currentBpm = bpmChanges[bpmIndex].bpm;
+					continue;
+				}
+
+				var beatsInSegment:Float = segmentDuration / (60000 / currentBpm);
+				totalBeats += beatsInSegment;
+				currentTime = nextBpmTime;
+				bpmIndex++;
+				if (bpmIndex < bpmChanges.length)
+					currentBpm = bpmChanges[bpmIndex].bpm;
+			}
+
+			totalSections = Math.ceil(totalBeats / beatsPerSection) + 4;
+			trace('【计算】总拍数: $totalBeats, 生成小节数: $totalSections');
+		}
+
+		var swagSections:Array<SwagSection> = [];
+		var sectionTime:Float = 0;
+		var bpmIndex:Int = 0;
+		var currentBpm:Float = bpmChanges[0].bpm;
+
+		for (i in 0...totalSections)
+		{
+			while (bpmIndex + 1 < bpmChanges.length && bpmChanges[bpmIndex + 1].time <= sectionTime + 0.1)
+			{
+				bpmIndex++;
+				currentBpm = bpmChanges[bpmIndex].bpm;
+			}
+
+			var startTime:Float = sectionTime;
+			var endTime:Float = sectionTime + beatsPerSection * (60000 / currentBpm);
+
+			var sectionNotes:Array<Array<Dynamic>> = [];
+			for (note in notes)
+			{
+				if (note.time >= startTime && note.time < endTime)
+				{
+					sectionNotes.push([note.time, note.lane, note.length, null]);
+				}
+			}
+
+			swagSections.push({
+				sectionNotes: sectionNotes,
+				sectionBeats: beatsPerSection,
+				mustHitSection: true,
+				bpm: currentBpm,
+				changeBPM: (i == 0 || bpmChanges[bpmIndex].time >= startTime),
+				altAnim: false,
+				gfSection: false
+			});
+
+			sectionTime = endTime;
+		}
+
+		song.notes = swagSections;
+
+		// ========== 关键: 保存音频到歌曲目录 ==========
+		if (audioPath != null)
+		{
+			var savedPath = OsuArchiveExtractor.saveAudioToSong(audioPath, songName);
+			if (savedPath != null)
+				trace('【完成】音频已保存到歌曲目录');
+		}
+
+		// 清理临时目录
+		if (tempDir != null)
+			OsuArchiveExtractor.cleanup(tempDir);
+
+		trace("========== OSU → Psych 转换完成 ==========");
+		return song;
+	}
 
 	// ============ 内部辅助函数 ============
 

@@ -154,12 +154,14 @@ class ModFolderSubstate extends MusicBeatSubstate
 		add(selectedModIcon);
 
 		selectedModName = new FlxText(FlxG.width *0.2 + 100, 200, 300, "", 32);
+		selectedModName.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModName.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		selectedModName.scrollFactor.set();
 		selectedModName.borderSize = 2;
 		add(selectedModName);
 
 		selectedModDesc = new FlxText(FlxG.width *0.2 + 100, 250, 300, "", 16);
+		selectedModDesc.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModDesc.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		selectedModDesc.scrollFactor.set();
 		selectedModDesc.borderSize = 2;
@@ -553,6 +555,7 @@ class ModFolderItem extends FlxSpriteGroup
 
 		// 模组名称文本
 		text = new FlxText(75, 32, 280, name, 20);
+		text.antialiasing = ClientPrefs.data.antialiasing;
 		text.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 		text.borderSize = 2;
 		text.y -= Std.int(text.height / 2);

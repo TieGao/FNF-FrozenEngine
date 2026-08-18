@@ -1,5 +1,6 @@
 package states;
 
+import haxe.xml.Check.Filter;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.text.FlxText;
@@ -63,46 +64,46 @@ class ReplayCard extends FlxSpriteGroup
         add(bg);
         
         var songName:String = data.songName != null ? data.songName : "Unknown Song";
-        songText = new FlxText(12, 8, width - 100, songName, 18);
-        songText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, LEFT);
+        songText = new FlxText(12, 6, width - 100, songName, 22);
+        songText.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.WHITE, LEFT);
         add(songText);
         
         var diffColor = getDifficultyColor(data.difficultyName);
         var dateStr = formatDate(data.timestamp);
         
         infoText = new FlxText(12, 32, width - 100, 
-            '${data.difficultyName}  •  ${dateStr}', 12);
-        infoText.setFormat(Paths.font("vcr.ttf"), 12, diffColor, LEFT);
+            '${data.difficultyName}  •  ${dateStr}', 16);
+        infoText.setFormat(Paths.font("vcr.ttf"), 16, diffColor, LEFT);
         add(infoText);
         
         var ratingStr:String = (data.rating != null) ? data.rating : "N/A";
         var fcStr:String = (data.ratingFC != null && data.ratingFC != "N/A") ? data.ratingFC : "";
         var ratingDisplay:String = fcStr != "" ? '$ratingStr ($fcStr)' : ratingStr;
         
-        ratingText = new FlxText(width - 80, 8, 75, ratingDisplay, 14);
-        ratingText.setFormat(Paths.font("vcr.ttf"), 14, getRatingColor(ratingStr), RIGHT);
+        ratingText = new FlxText(width - 80, 6, 75, ratingDisplay, 18);
+        ratingText.setFormat(Paths.font("vcr.ttf"), 18, getRatingColor(ratingStr), RIGHT);
         add(ratingText);
         
-        accuracyBG = new FlxSprite(12, 52).makeGraphic(Std.int(width - 24), 4, FlxColor.GRAY);
+        accuracyBG = new FlxSprite(12, 54).makeGraphic(Std.int(width - 24), 4, FlxColor.GRAY);
         accuracyBG.alpha = 0.8;
         add(accuracyBG);
         
         var accuracy:Float = data.accuracy != null ? data.accuracy : 0;
         var fillWidth = Std.int((width - 24) * Math.min(accuracy, 100) / 100);
-        accuracyFill = new FlxSprite(12, 52).makeGraphic(fillWidth, 4, getAccuracyColor(accuracy));
+        accuracyFill = new FlxSprite(12, 54).makeGraphic(fillWidth, 4, getAccuracyColor(accuracy));
         add(accuracyFill);
         
         var scoreStr = formatNumber(data.score);
         var accuracyStr = formatAccuracy(accuracy);
-        scoreText = new FlxText(12, 62, width - 24, 
-            'Score: $scoreStr  •  Acc: $accuracyStr%', 12);
-        scoreText.setFormat(Paths.font("vcr.ttf"), 12, FlxColor.WHITE, LEFT);
+        scoreText = new FlxText(12, 64, width - 24, 
+            'Score: $scoreStr  •  Acc: $accuracyStr%', 16);
+        scoreText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT);
         add(scoreText);
         
         if (data.modDirectory != null && data.modDirectory.length > 0 && data.modDirectory != "")
         {
-            modTag = new FlxText(width - 60, 32, 55, "MOD", 10);
-            modTag.setFormat(Paths.font("vcr.ttf"), 10, FlxColor.YELLOW, RIGHT);
+            modTag = new FlxText(width - 60, 34, 55, "MOD", 14);
+            modTag.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.YELLOW, RIGHT);
             add(modTag);
         }
         
@@ -183,7 +184,6 @@ class ReplayCard extends FlxSpriteGroup
         return FlxColor.RED;
     }
     
-    // 格式化日期为 YYYY-MM-DD
     public static function formatDate(timestamp:Dynamic):String
     {
         if (timestamp == null) return "Unknown";
@@ -192,25 +192,20 @@ class ReplayCard extends FlxSpriteGroup
             if (Std.isOfType(timestamp, Date)) {
                 date = cast timestamp;
             } else if (Std.isOfType(timestamp, String)) {
-                // 尝试解析字符串
                 var str:String = cast timestamp;
-                // 如果包含 'T' 可能是 ISO 格式
                 if (str.indexOf('T') > -1) {
-                    // 尝试解析为 Date
                     try {
                         date = Date.fromString(str);
                     } catch(e:Dynamic) {
-                        // 失败则尝试提取前10个字符（YYYY-MM-DD）
                         var parts = str.split('T')[0].split('-');
                         if (parts.length >= 3) {
                             var year = Std.parseInt(parts[0]);
                             var month = Std.parseInt(parts[1]) - 1;
                             var day = Std.parseInt(parts[2]);
-                                date = new Date(year, month, day, 0, 0, 0);
+                            date = new Date(year, month, day, 0, 0, 0);
                         }
                     }
                 } else {
-                    // 尝试直接解析
                     try {
                         date = Date.fromString(str);
                     } catch(e:Dynamic) {}
@@ -228,15 +223,12 @@ class ReplayCard extends FlxSpriteGroup
         } catch(e:Dynamic) {
             trace('Error formatting date: $e');
         }
-        // 回退：返回原始字符串截断或短格式
         var str = Std.string(timestamp);
         if (str.length > 10) {
-            // 尝试截取 YYYY-MM-DD 部分
             var match = ~/^(\d{4}-\d{2}-\d{2})/;
             if (match.match(str)) {
                 return match.matched(1);
             }
-            // 否则取前10个字符
             return str.substr(0, 10);
         }
         return str;
@@ -257,6 +249,14 @@ class ReplayCard extends FlxSpriteGroup
         if (Math.isNaN(acc)) return "0.00";
         var rounded:Float = FlxMath.roundDecimal(acc, 2);
         return Std.string(rounded);
+    }
+
+    override public function destroy():Void
+    {
+        // 清除回调引用，防止循环引用
+        onClick = null;
+        onDoubleClick = null;
+        super.destroy();
     }
 }
 
@@ -281,6 +281,8 @@ class ReplayDetailPanel extends FlxSpriteGroup
     private var panelWidth:Float;
     private var panelHeight:Float;
     
+    private var loadTimer:FlxTimer = null; // 用于管理加载定时器
+    
     private var ratingColors:Map<String, FlxColor> = [
         "Marvelous" => FlxColor.fromRGB(255, 215, 0),
         "Sick" => FlxColor.CYAN,
@@ -298,16 +300,16 @@ class ReplayDetailPanel extends FlxSpriteGroup
         
         bg = new FlxSprite(0, 0).makeGraphic(Std.int(width), Std.int(height), FlxColor.fromRGB(20, 20, 35));
         bg.alpha = 0.6;
-        add(bg);
+        //add(bg);
         
         var sectionWidth:Float = width / 2;
         
         infoBg = new FlxSprite(0, 0).makeGraphic(Std.int(sectionWidth), Std.int(height), FlxColor.fromRGB(15, 15, 25));
         infoBg.alpha = 0.6;
-        add(infoBg);
+        //add(infoBg);
         
-        var infoTitle = new FlxText(10, 10, sectionWidth - 20, "REPLAY INFO", 18);
-        infoTitle.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.CYAN, CENTER);
+        var infoTitle = new FlxText(10, 10, sectionWidth - 20, "REPLAY INFO", 22);
+        infoTitle.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.CYAN, CENTER);
         add(infoTitle);
         
         var infoY:Float = 50;
@@ -325,22 +327,22 @@ class ReplayDetailPanel extends FlxSpriteGroup
         
         for (i in 0...infoLabels.length)
         {
-            var label = new FlxText(12, infoY + i * 26, 120, infoLabels[i], 16);
-            label.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.GRAY, LEFT);
+            var label = new FlxText(12, infoY + i * 28, 120, infoLabels[i], 18);
+            label.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.GRAY, LEFT);
             add(label);
             
-            var value = new FlxText(130, infoY + i * 26, sectionWidth - 120, "--", 16);
-            value.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT);
+            var value = new FlxText(130, infoY + i * 28, sectionWidth - 120, "--", 18);
+            value.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, LEFT);
             add(value);
             infoTexts.push(value);
         }
         
         graphBg = new FlxSprite(sectionWidth, 0).makeGraphic(Std.int(sectionWidth), Std.int(height), FlxColor.fromRGB(15, 15, 25));
         graphBg.alpha = 0.6;
-        add(graphBg);
+        //add(graphBg);
         
-        var graphTitle = new FlxText(sectionWidth + 10, 10, sectionWidth - 20, "HIT GRAPH", 18);
-        graphTitle.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.CYAN, CENTER);
+        var graphTitle = new FlxText(sectionWidth + 10, 10, sectionWidth - 20, "HIT GRAPH", 22);
+        graphTitle.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.CYAN, CENTER);
         add(graphTitle);
         
         var graphAreaHeight:Float = height * 0.4;
@@ -353,24 +355,27 @@ class ReplayDetailPanel extends FlxSpriteGroup
         hitGraphSprite = new OFLSprite(sectionWidth + 12, graphY, Std.int(graphWidth), Std.int(graphAreaHeight - 10), hitGraph);
         hitGraphSprite.scrollFactor.set();
         hitGraphSprite.visible = false;
+        hitGraphSprite.antialiasing = ClientPrefs.data.antialiasing;
         add(hitGraphSprite);
         
-        loadingText = new FlxText(sectionWidth + 12, graphY + graphAreaHeight / 2 - 20, graphWidth, "Select a replay to view hit graph", 14);
-        loadingText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.YELLOW, CENTER);
+        loadingText = new FlxText(sectionWidth + 12, graphY + graphAreaHeight / 2 - 20, graphWidth, "Select a replay to view hit graph", 16);
+        loadingText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.YELLOW, CENTER);
+        loadingText.antialiasing = ClientPrefs.data.antialiasing;
         add(loadingText);
         
         var barsY:Float = graphY + graphAreaHeight + 20;
         var barsHeight:Float = height - barsY - 20;
         var barsWidth:Float = sectionWidth - 24;
 
-        var barsTitle = new FlxText(sectionWidth + 12, barsY - 8, barsWidth, "JUDGEMENT BREAKDOWN", 16);
-        barsTitle.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER);
+        var barsTitle = new FlxText(sectionWidth + 12, barsY - 8, barsWidth, "JUDGEMENT BREAKDOWN", 18);
+        barsTitle.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER);
+        barsTitle.antialiasing = ClientPrefs.data.antialiasing;
         add(barsTitle);
 
         var ratingNames:Array<String> = ["Marvelous", "Sick", "Good", "Bad", "Shit", "Miss"];
-        var barYPos:Float = barsY + 15;
-        var barHeight:Int = 16;
-        var barSpacing:Int = 34;
+        var barYPos:Float = barsY + 18;
+        var barHeight:Int = 18;
+        var barSpacing:Int = 36;
 
         for (i in 0...ratingNames.length)
         {
@@ -378,13 +383,15 @@ class ReplayDetailPanel extends FlxSpriteGroup
             var color = ratingColors.get(ratingName);
             if (color == null) color = FlxColor.WHITE;
             
-            var label = new FlxText(sectionWidth , barYPos + i * barSpacing, 125, ratingName + ":", 16);
-            label.setFormat(Paths.font("vcr.ttf"), 16, color, LEFT);
+            var label = new FlxText(sectionWidth , barYPos + i * barSpacing, 125, ratingName + ":", 18);
+            label.setFormat(Paths.font("vcr.ttf"), 18, color, LEFT);
+            label.antialiasing = ClientPrefs.data.antialiasing;
             add(label);
             ratingLabels.set(ratingName, label);
             
-            var percentText = new FlxText(sectionWidth + barsWidth - 60, barYPos + i * barSpacing, 64, "0%", 16);
-            percentText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT);
+            var percentText = new FlxText(sectionWidth + barsWidth - 60, barYPos + i * barSpacing, 64, "0%", 18);
+            percentText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, RIGHT);
+            percentText.antialiasing = ClientPrefs.data.antialiasing;
             add(percentText);
             ratingPercentTexts.set(ratingName, percentText);
             
@@ -413,7 +420,6 @@ class ReplayDetailPanel extends FlxSpriteGroup
         var accuracyValue:String = (replayData.accuracy != null) ? formatAccuracyValue(replayData.accuracy) : "0";
         var scoreValue:Float = (replayData.score != null) ? Std.parseFloat(Std.string(replayData.score)) : 0;
         
-        // 格式化日期用于详情面板
         var dateStr = ReplayCard.formatDate(replayData.timestamp);
         
         var values:Array<String> = [
@@ -448,6 +454,13 @@ class ReplayDetailPanel extends FlxSpriteGroup
     
     function loadReplayData():Void
     {
+        // 取消之前的加载定时器
+        if (loadTimer != null)
+        {
+            loadTimer.cancel();
+            loadTimer = null;
+        }
+        
         if (hitGraph == null || currentFilename == null || currentFilename == "")
         {
             if (loadingText != null)
@@ -469,9 +482,11 @@ class ReplayDetailPanel extends FlxSpriteGroup
         var currentRatingBars = ratingBars;
         var currentRatingBarsBg = ratingBarsBgMap;
         var currentRatingPercentTexts = ratingPercentTexts;
+        var currentRatingColors = ratingColors;
         
-        new FlxTimer().start(0.05, function(tmr:FlxTimer)
+        loadTimer = new FlxTimer().start(0.05, function(tmr:FlxTimer)
         {
+            loadTimer = null; // 清除引用
             if (currentHitGraph == null)
             {
                 trace('HitGraph is null, cannot load hit data');
@@ -497,7 +512,7 @@ class ReplayDetailPanel extends FlxSpriteGroup
                 currentHitGraph.history = [];
                 
                 var ratingCounts:Map<String, Int> = new Map();
-                for (rating in ratingColors.keys())
+                for (rating in currentRatingColors.keys())
                     ratingCounts.set(rating, 0);
                 
                 var songNotes = rep.replay.songNotes;
@@ -564,7 +579,7 @@ class ReplayDetailPanel extends FlxSpriteGroup
                 
                 if (totalNotes > 0)
                 {
-                    for (ratingName in ratingColors.keys())
+                    for (ratingName in currentRatingColors.keys())
                     {
                         var count = ratingCounts.get(ratingName);
                         var percent:Float = (count / totalNotes) * 100;
@@ -577,7 +592,7 @@ class ReplayDetailPanel extends FlxSpriteGroup
                             var maxWidth = barBg.width;
                             var fillWidth = Std.int(maxWidth * percent / 100);
                             
-                            barFill.makeGraphic(fillWidth, Std.int(barBg.height), ratingColors.get(ratingName));
+                            barFill.makeGraphic(fillWidth, Std.int(barBg.height), currentRatingColors.get(ratingName));
                             barFill.x = barBg.x;
                             barFill.y = barBg.y;
                         }
@@ -672,6 +687,12 @@ class ReplayDetailPanel extends FlxSpriteGroup
     
     override public function destroy()
     {
+        if (loadTimer != null)
+        {
+            loadTimer.cancel();
+            loadTimer = null;
+        }
+        
         if (hitGraphSprite != null)
         {
             remove(hitGraphSprite);
@@ -692,6 +713,10 @@ class ReplayDetailPanel extends FlxSpriteGroup
         }
         ratingBarsBgMap.clear();
         
+        ratingLabels.clear();
+        ratingPercentTexts.clear();
+        infoTexts = [];
+        
         super.destroy();
     }
 }
@@ -704,13 +729,13 @@ class LoadReplayState extends MusicBeatState
     var curSelected:Int = 0;
     var replayJsons:Map<String, Dynamic> = new Map();
     
-    var bg:FlxSprite;
+    var bg:FlxFilteredSprite;
     var starsBG:FlxBackdrop;
     var starsFG:FlxBackdrop;
     var space:FlxSprite;
     
-    var topBlackBar:FlxSprite;
-    var bottomBlackBar:FlxSprite;
+    var topBlackBar:FlxFilteredSprite;
+    var bottomBlackBar:FlxFilteredSprite;
     
     var titleText:FlxText;
     var noReplaysText:FlxText;
@@ -733,14 +758,24 @@ class LoadReplayState extends MusicBeatState
     var waitingForDeleteConfirm:Bool = false;
     var deleteConfirmText:FlxText;
     var replayToDelete:String = "";
+
+    // ---- 排序切换 ----
+    var sortAscending:Bool = false;
+    var sortToggleBg:FlxSprite;
+    var sortToggleText:FlxText;
+
+    // ---- 错误提示定时器 ----
+    var errorTimer:FlxTimer = null;
     
     override function create()
     {
-        bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
+        bg = new FlxFilteredSprite();
+        bg.loadGraphic(Paths.image('menuDesat'));
         bg.color = 0xFF3E3EF3;
         bg.setGraphicSize(Std.int(bg.width * 1.1));
         bg.updateHitbox();
         bg.screenCenter();
+        if(ClientPrefs.data.blurEffects)bg.filters = [new BlurFilter(5, 5, BitmapFilterQuality.HIGH)];
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
         
@@ -772,57 +807,75 @@ class LoadReplayState extends MusicBeatState
         }
         
         var barHeight:Int = Std.int(FlxG.height * 0.1);
-        topBlackBar = new FlxSprite(0, 0).makeGraphic(FlxG.width, barHeight, FlxColor.BLACK);
+        topBlackBar = new FlxFilteredSprite(0, -45);
+        topBlackBar.makeGraphic(FlxG.width + 200, barHeight + 50, FlxColor.BLACK);
         topBlackBar.alpha = 0.7;
+        topBlackBar.antialiasing = ClientPrefs.data.antialiasing;
+        topBlackBar.filters = [new BlurFilter(40, 40, BitmapFilterQuality.HIGH)];
         topBlackBar.scrollFactor.set();
         add(topBlackBar);
         
-        bottomBlackBar = new FlxSprite(0, FlxG.height - barHeight).makeGraphic(FlxG.width, barHeight, FlxColor.BLACK);
+        bottomBlackBar = new FlxFilteredSprite(0, FlxG.height - barHeight + 25);
+        bottomBlackBar.makeGraphic(FlxG.width + 200, barHeight +50, FlxColor.BLACK);
+        bottomBlackBar.antialiasing = ClientPrefs.data.antialiasing;
+        bottomBlackBar.filters = [new BlurFilter(40, 40, BitmapFilterQuality.HIGH)];
         bottomBlackBar.alpha = 0.7;
         bottomBlackBar.scrollFactor.set();
         add(bottomBlackBar);
         
-        titleText = new FlxText(0, 15, FlxG.width, "REPLAY LIBRARY", 28);
-        titleText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        titleText = new FlxText(0, 10, FlxG.width, "REPLAY LIBRARY", 32);
+        titleText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         titleText.borderSize = 2;
+        titleText.antialiasing = ClientPrefs.data.antialiasing;
         add(titleText);
         
-        statsText = new FlxText(15, 95, 200, "", 14);
-        statsText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.CYAN, LEFT);
+        statsText = new FlxText(15, 95, 200, "", 16);
+        statsText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.CYAN, LEFT);
         statsText.visible = false;
+        statsText.antialiasing = ClientPrefs.data.antialiasing;
         add(statsText);
         
         var leftPanelWidth:Int = Std.int(FlxG.width / 3);
         
         detailPanel = new ReplayDetailPanel(leftPanelWidth, barHeight, FlxG.width - leftPanelWidth, FlxG.height - barHeight * 2);
         add(detailPanel);
+
+        cardsContainer = new FlxTypedGroup<ReplayCard>();
+        add(cardsContainer);
         
         controlsText = new FlxText(0, FlxG.height - barHeight + 8, FlxG.width, 
-            "↑/↓: Navigate | Enter/Double Click: Load | F: Delete | ESC: Back", 16);
-        controlsText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+            "↑/↓: Navigate | Enter/Double Click: Load | F: Delete | ESC: Back", 20);
+        controlsText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         controlsText.borderSize = 1;
+        controlsText.antialiasing = ClientPrefs.data.antialiasing;
         add(controlsText);
         
         noReplaysText = new FlxText(0, FlxG.height / 2 - 30, leftPanelWidth - 30, 
-            "No Replays Found\n\nPlace .kadeReplay files in assets/replays/", 16);
-        noReplaysText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+            "No Replays Found\n\nPlace .kadeReplay files in assets/replays/", 20);
+        noReplaysText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         noReplaysText.borderSize = 2;
         noReplaysText.visible = false;
+        noReplaysText.antialiasing = ClientPrefs.data.antialiasing;
         add(noReplaysText);
         
-        deleteConfirmText = new FlxText(0, FlxG.height / 2 - 20, FlxG.width, "", 22);
-        deleteConfirmText.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
+        deleteConfirmText = new FlxText(0, FlxG.height / 2 - 20, FlxG.width, "", 26);
+        deleteConfirmText.setFormat(Paths.font("vcr.ttf"), 26, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
         deleteConfirmText.borderSize = 2;
+        deleteConfirmText.antialiasing = ClientPrefs.data.antialiasing;
         deleteConfirmText.visible = false;
         add(deleteConfirmText);
         
-        FlxG.mouse.visible = true;
+        sortToggleBg = new FlxSprite(FlxG.width - 200, 12).makeGraphic(180, 34, FlxColor.BLACK);
+        sortToggleBg.alpha = 0.7;
+        add(sortToggleBg);
+        sortToggleText = new FlxText(FlxG.width - 190, 14, 170, "Sort: Newest", 16);
+        sortToggleText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER);
+        sortToggleText.antialiasing = ClientPrefs.data.antialiasing;
+        add(sortToggleText);
         
-        cardsContainer = new FlxTypedGroup<ReplayCard>();
-        add(cardsContainer);
+        FlxG.mouse.visible = true;
 
         loadReplays();
-                
         updateDisplay();
         
         var maxScroll:Float = Math.max(0, (replays.length - CARDS_PER_PAGE) * (CARD_HEIGHT + CARD_SPACING));
@@ -848,6 +901,17 @@ class LoadReplayState extends MusicBeatState
         
         super.update(elapsed);
         
+        if (FlxG.mouse.justPressed && sortToggleText.visible && FlxG.mouse.overlaps(sortToggleBg))
+        {
+            sortAscending = !sortAscending;
+            updateSortLabel();
+            FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+            loadReplays();
+            curSelected = 0;
+            cardScrollPos = 0;
+            updateDisplay();
+        }
+        
         if (waitingForDeleteConfirm)
         {
             handleDeleteConfirmation();
@@ -865,7 +929,7 @@ class LoadReplayState extends MusicBeatState
         replayJsons.clear();
         
         var replayDir = "assets/replays/";
-        var entries:Array<{file:String, ts:Float, json:Dynamic}> = [];
+        var entries:Array<{file:String, ts:String, json:Dynamic}> = [];
         
         if (FileSystem.exists(replayDir))
         {
@@ -884,55 +948,29 @@ class LoadReplayState extends MusicBeatState
                     if (json.songName == null) json.songName = "Unknown Song";
                     if (json.difficultyName == null) json.difficultyName = 
                         (json.songDiff != null ? Difficulty.getString(Std.int(json.songDiff)) : "Normal");
-                    // 处理时间戳
-                    var ts:Float = 0;
-                    if (json.timestamp != null)
-                    {
-                        try {
-                            if (Std.isOfType(json.timestamp, Date)) {
-                                ts = cast(json.timestamp, Date).getTime();
-                            } else if (Std.isOfType(json.timestamp, String)) {
-                                // 尝试解析
-                                var str:String = cast json.timestamp;
-                                var num:Float = Std.parseFloat(str);
-                                if (!Math.isNaN(num)) ts = num;
-                                else {
-                                    // 尝试从 ISO 字符串解析
-                                    try {
-                                        var date = Date.fromString(str);
-                                        ts = date.getTime();
-                                    } catch(e:Dynamic) {
-                                        // 失败则使用文件修改时间
-                                        ts = FileSystem.stat(filePath).mtime.getTime();
-                                    }
-                                }
-                            } else if (Std.isOfType(json.timestamp, Float) || Std.isOfType(json.timestamp, Int)) {
-                                ts = Std.parseFloat(Std.string(json.timestamp));
-                            }
-                        } catch(e:Dynamic) {
-                            ts = 0;
-                        }
-                    }
-                    // 如果仍为0，使用文件修改时间
-                    if (ts == 0) {
-                        try {
-                            ts = FileSystem.stat(filePath).mtime.getTime();
-                        } catch(e:Dynamic) {}
-                    }
-                    if (ts == 0) ts = Date.now().getTime(); // fallback
+                    
+                    var dateStr:String = extractDateFromReplay(json);
                     
                     if (json.modDirectory == null) json.modDirectory = "";
                     if (json.rating == null) json.rating = "N/A";
                     if (json.ratingFC == null) json.ratingFC = "N/A";
                     if (json.maxCombo == null) json.maxCombo = 0;
                     
-                    entries.push({ file: file, ts: ts, json: json });
+                    entries.push({ file: file, ts: dateStr, json: json });
                 }
                 catch(e:Dynamic) { trace('Error parsing replay: $e'); }
             }
             
-            // 按时间戳降序排序（最新的在前）
-            entries.sort(function(a,b):Int { return Std.int(b.ts - a.ts); });
+            entries.sort(function(a, b):Int {
+                if (a.ts != b.ts) {
+                    return sortAscending ? Reflect.compare(a.ts, b.ts) : Reflect.compare(b.ts, a.ts);
+                }
+                if (sortAscending) {
+                    return Reflect.compare(a.file, b.file);
+                } else {
+                    return Reflect.compare(b.file, a.file);
+                }
+            });
             
             for (entry in entries)
             {
@@ -940,14 +978,76 @@ class LoadReplayState extends MusicBeatState
                 replayJsons.set(entry.file, entry.json);
             }
         }
-        
         #end
+    }
+
+    function extractDateFromReplay(json:Dynamic):String
+    {
+        var timestamp = json.timestamp;
+        if (timestamp == null) return "0000-00-00";
+        
+        try {
+            var date:Date = null;
+            if (Std.isOfType(timestamp, Date)) {
+                date = cast timestamp;
+            } 
+            else if (Std.isOfType(timestamp, String)) {
+                var str:String = cast timestamp;
+                if (str.indexOf('T') > -1) {
+                    try {
+                        date = Date.fromString(str);
+                    } catch(e:Dynamic) {
+                        var parts = str.split('T')[0].split('-');
+                        if (parts.length >= 3) {
+                            var year = Std.parseInt(parts[0]);
+                            var month = Std.parseInt(parts[1]);
+                            var day = Std.parseInt(parts[2]);
+                            if (year != null && month != null && day != null) {
+                                return StringTools.lpad(Std.string(year), '0', 4) + '-' +
+                                    StringTools.lpad(Std.string(month), '0', 2) + '-' +
+                                    StringTools.lpad(Std.string(day), '0', 2);
+                            }
+                        }
+                    }
+                } 
+                else {
+                    try {
+                        date = Date.fromString(str);
+                    } catch(e:Dynamic) {}
+                }
+            } 
+            else if (Std.isOfType(timestamp, Float) || Std.isOfType(timestamp, Int)) {
+                var num:Float = Std.parseFloat(Std.string(timestamp));
+                if (!Math.isNaN(num)) date = Date.fromTime(num);
+            }
+            
+            if (date != null) {
+                var year:String = StringTools.lpad(Std.string(date.getFullYear()), '0', 4);
+                var month:String = StringTools.lpad(Std.string(date.getMonth() + 1), '0', 2);
+                var day:String = StringTools.lpad(Std.string(date.getDate()), '0', 2);
+                return '$year-$month-$day';
+            }
+        } catch(e:Dynamic) {
+            trace('Error extracting date from replay: $e');
+        }
+        return "0000-00-00";
+    }
+
+    function updateSortLabel()
+    {
+        sortToggleText.text = sortAscending ? "Sort: Oldest" : "Sort: Newest";
     }
 
     function updateDisplay()
     {
-        cardsContainer.clear();
+        // --- 销毁所有旧卡片，防止泄漏 ---
+        for (card in allCards)
+        {
+            if (card != null) card.destroy();
+        }
         allCards = [];
+        // cardsContainer.clear() 会由于 autoDestroy = true 自动销毁子对象
+        cardsContainer.clear();
         
         if (replays.length == 0)
         {
@@ -967,7 +1067,6 @@ class LoadReplayState extends MusicBeatState
         {
             var filename = replays[i];
             var json = replayJsons.get(filename);
-            
             if (json == null) continue;
             
             var card = new ReplayCard(
@@ -1008,20 +1107,22 @@ class LoadReplayState extends MusicBeatState
     
     function updateCardsPosition()
     {
-        var cardIndex:Float = cardScrollPos / (CARD_HEIGHT + CARD_SPACING);
+        // 添加边界限制
+        var maxScroll = Math.max(0, (replays.length - CARDS_PER_PAGE) * (CARD_HEIGHT + CARD_SPACING));
+        cardScrollPos = Math.max(0, Math.min(cardScrollPos, maxScroll));
         
+        var cardIndex:Float = cardScrollPos / (CARD_HEIGHT + CARD_SPACING);
         for (i in 0...allCards.length)
         {
             var card = allCards[i];
             var distance = i - cardIndex;
             var visible = Math.abs(distance) <= CARDS_PER_PAGE + 2;
-            
             if (visible)
             {
                 card.visible = true;
                 card.active = true;
-                var targetY:Float = 130 + (i * (CARD_HEIGHT + CARD_SPACING)) - cardScrollPos;
-                card.y = targetY;
+                // 使用 Math.round 避免小数
+                card.y = Math.round(130 + (i * (CARD_HEIGHT + CARD_SPACING)) - cardScrollPos);
             }
             else
             {
@@ -1034,7 +1135,6 @@ class LoadReplayState extends MusicBeatState
     function updateMouseSelection()
     {
         if (waitingForDeleteConfirm) return;
-        
         for (card in allCards)
         {
             if (card != null && card.visible && FlxG.mouse.overlaps(card))
@@ -1044,7 +1144,6 @@ class LoadReplayState extends MusicBeatState
                     changeSelection(card.index);
                     FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
                 }
-                
                 if (FlxG.mouse.justPressed)
                 {
                     if (card.index == curSelected)
@@ -1059,22 +1158,18 @@ class LoadReplayState extends MusicBeatState
     {
         if (index < 0) index = 0;
         if (index >= replays.length) index = replays.length - 1;
-        
         var oldSelected = curSelected;
         curSelected = index;
-        
         for (card in allCards)
         {
             if (card != null)
                 card.updateSelected(card.index == curSelected);
         }
-        
         if (curSelected >= 0 && curSelected < replays.length)
         {
             var selectedJson = replayJsons.get(replays[curSelected]);
             detailPanel.updateWithReplay(replays[curSelected], selectedJson);
         }
-        
         if (playSound && oldSelected != curSelected)
             FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
     }
@@ -1087,65 +1182,46 @@ class LoadReplayState extends MusicBeatState
             MusicBeatState.switchState(new FreeplayState());
             return;
         }
-        
         if (replays.length == 0) return;
         
-        if (controls.UI_UP_P)
-            changeSelection(curSelected - 1);
-        
-        if (controls.UI_DOWN_P)
-            changeSelection(curSelected + 1);
-        
-        if (FlxG.keys.justPressed.PAGEUP)
-            changeSelection(curSelected - CARDS_PER_PAGE);
-        
-        if (FlxG.keys.justPressed.PAGEDOWN)
-            changeSelection(curSelected + CARDS_PER_PAGE);
-        
+        if (controls.UI_UP_P) changeSelection(curSelected - 1);
+        if (controls.UI_DOWN_P) changeSelection(curSelected + 1);
+        if (FlxG.keys.justPressed.PAGEUP) changeSelection(curSelected - CARDS_PER_PAGE);
+        if (FlxG.keys.justPressed.PAGEDOWN) changeSelection(curSelected + CARDS_PER_PAGE);
         if (controls.ACCEPT)
         {
             if (curSelected >= 0 && curSelected < replays.length)
                 loadReplay(replays[curSelected]);
         }
-        
         if (FlxG.keys.justPressed.F)
         {
             if (curSelected >= 0 && curSelected < replays.length)
                 promptDelete(replays[curSelected]);
         }
-        
-        if (FlxG.keys.justPressed.HOME)
-            changeSelection(0);
-        if (FlxG.keys.justPressed.END)
-            changeSelection(replays.length - 1);
+        if (FlxG.keys.justPressed.HOME) changeSelection(0);
+        if (FlxG.keys.justPressed.END) changeSelection(replays.length - 1);
     }
     
     function handleDeleteConfirmation()
     {
-        if (FlxG.keys.justPressed.Y)
-            confirmDelete();
-        else if (FlxG.keys.justPressed.N || FlxG.keys.justPressed.ESCAPE)
-            cancelDelete();
+        if (FlxG.keys.justPressed.Y) confirmDelete();
+        else if (FlxG.keys.justPressed.N || FlxG.keys.justPressed.ESCAPE) cancelDelete();
     }
     
     public function loadReplay(filename:String):Void
     {
         trace('Loading replay: $filename');
-        
         var rep:Replay = Replay.LoadReplay(filename);
-        
         if (rep == null || !rep.isValid())
         {
             FlxG.sound.play(Paths.sound('cancelMenu'));
             showError("Invalid replay file!");
             return;
         }
-        
         #if MODS_ALLOWED
         if (rep.replay.modDirectory != null && rep.replay.modDirectory.length > 0)
             Mods.currentModDirectory = rep.replay.modDirectory;
         #end
-        
         PlayState.rep = rep;
         PlayState.loadRep = true;
         PlayState.inReplay = true;
@@ -1160,15 +1236,12 @@ class LoadReplayState extends MusicBeatState
             else if (diffLower.indexOf('hard') >= 0) difficultyID = 2;
             else difficultyID = rep.replay.songDiff;
         }
-        else
-            difficultyID = rep.replay.songDiff;
-        
+        else difficultyID = rep.replay.songDiff;
         PlayState.storyDifficulty = difficultyID;
         PlayState.storyWeek = 0;
         
         var songName:String = rep.replay.songName;
         var difficultyName:String = rep.replay.difficultyName;
-        
         try
         {
             var diffSuffix = '';
@@ -1178,18 +1251,12 @@ class LoadReplayState extends MusicBeatState
                 if (lowerDiff != 'normal' && lowerDiff != 'standard')
                     diffSuffix = '-' + lowerDiff;
             }
-            
             var jsonToLoad = songName + diffSuffix;
             trace('Loading JSON: $jsonToLoad');
-            
             PlayState.SONG = Song.loadFromJson(jsonToLoad, songName);
-            
-            if (PlayState.SONG == null)
-                throw 'Failed to load song';
-            
+            if (PlayState.SONG == null) throw 'Failed to load song';
             PlayState.isStoryMode = false;
             ClientPrefs.data.downScroll = rep.replay.isDownscroll;
-            
             FlxG.sound.music.stop();
             LoadingState.loadAndSwitchState(new PlayState());
         }
@@ -1206,10 +1273,14 @@ class LoadReplayState extends MusicBeatState
         var errorMsg:FlxText = new FlxText(0, FlxG.height / 2 - 30, FlxG.width, message, 18);
         errorMsg.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.RED, CENTER, OUTLINE, FlxColor.BLACK);
         errorMsg.borderSize = 2;
+        errorMsg.antialiasing = ClientPrefs.data.antialiasing;
         errorMsg.screenCenter(X);
         add(errorMsg);
         
-        new FlxTimer().start(3, function(tmr:FlxTimer) {
+        // 取消旧定时器（如果有）
+        if (errorTimer != null) errorTimer.cancel();
+        errorTimer = new FlxTimer().start(3, function(tmr:FlxTimer) {
+            errorTimer = null;
             remove(errorMsg);
             errorMsg.destroy();
         });
@@ -1219,11 +1290,8 @@ class LoadReplayState extends MusicBeatState
     {
         replayToDelete = filename;
         waitingForDeleteConfirm = true;
-        
         var displayName = filename;
-        if (displayName.length > 40)
-            displayName = displayName.substr(0, 37) + "...";
-        
+        if (displayName.length > 40) displayName = displayName.substr(0, 37) + "...";
         deleteConfirmText.text = 'Delete "${displayName}"? (Y/N)';
         deleteConfirmText.screenCenter(X);
         deleteConfirmText.visible = true;
@@ -1238,16 +1306,13 @@ class LoadReplayState extends MusicBeatState
         {
             FileSystem.deleteFile(replayPath);
             trace('Deleted replay: $replayToDelete');
-            
             loadReplays();
             curSelected = 0;
             cardScrollPos = 0;
             updateDisplay();
-            
             FlxG.sound.play(Paths.sound('cancelMenu'));
         }
         #end
-        
         cancelDelete();
     }
     
@@ -1261,7 +1326,41 @@ class LoadReplayState extends MusicBeatState
     
     override function destroy()
     {
-        if (detailPanel != null) detailPanel.destroy();
+        // 取消错误提示定时器
+        if (errorTimer != null)
+        {
+            errorTimer.cancel();
+            errorTimer = null;
+        }
+        
+        // 销毁滚动组件
+        if (cardScroller != null)
+        {
+            remove(cardScroller);
+            cardScroller.destroy();
+            cardScroller = null;
+        }
+        
+        // 销毁所有卡片（由于 autoDestroy = true，cardsContainer 会负责，但我们手动清空数组）
+        for (card in allCards)
+        {
+            if (card != null) card.destroy();
+        }
+        allCards = [];
+        visibleCards = [];
+        
+        // 清空数据
+        replayJsons.clear();
+        replays = [];
+        
+        // 销毁详情面板
+        if (detailPanel != null)
+        {
+            remove(detailPanel);
+            detailPanel.destroy();
+            detailPanel = null;
+        }
+        
         super.destroy();
     }
 }

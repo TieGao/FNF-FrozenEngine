@@ -15,9 +15,13 @@ import options.ModSettingsSubState;
 import openfl.display.BitmapData;
 import lime.utils.Assets;
 
+import openfl.filters.BlurFilter;
+import backend.FlxFilteredSprite;
+import openfl.filters.BitmapFilterQuality;
+
 class ModsMenuState extends MusicBeatState
 {
-	var bg:FlxSprite;
+	var bg:FlxFilteredSprite;
 	var icon:FlxSprite;
 	var modName:Alphabet;
 	var modDesc:FlxText;
@@ -67,9 +71,11 @@ class ModsMenuState extends MusicBeatState
 		DiscordClient.changePresence("In the Menus", null);
 		#end
 
-		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
+		bg = new FlxFilteredSprite();
+		bg.loadGraphic(Paths.image('menuDesat'));
 		bg.color = 0xFF665AFF;
 		bg.antialiasing = ClientPrefs.data.antialiasing;
+		if(ClientPrefs.data.blurEffects)bg.filters = [new BlurFilter(4, 4, BitmapFilterQuality.HIGH)];
 		add(bg);
 		bg.screenCenter();
 

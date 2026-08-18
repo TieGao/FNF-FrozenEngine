@@ -368,6 +368,7 @@ class StoryMenuState extends MusicBeatState
 				changeWeek(-1);
 				FlxG.sound.play(Paths.sound('scrollMenu'));
 				changeDiff = true;
+				holdTime = 0;
 			}
 
 			if (controls.UI_DOWN_P)
@@ -375,6 +376,7 @@ class StoryMenuState extends MusicBeatState
 				changeWeek(1);
 				FlxG.sound.play(Paths.sound('scrollMenu'));
 				changeDiff = true;
+				holdTime = 0;
 			}
 			if(controls.UI_DOWN || controls.UI_UP)
 			{
@@ -382,9 +384,7 @@ class StoryMenuState extends MusicBeatState
 				holdTime += elapsed;
 				var checkNewHold:Int = Math.floor((holdTime - 0.5) * 10);
 				if(holdTime > 0.5 && checkNewHold - checkLastHold > 0)
-				{
-					changeWeek((checkNewHold - checkLastHold) * (controls.UI_UP ? -shiftMult : shiftMult));
-				}
+				changeWeek((checkNewHold - checkLastHold) * (controls.UI_UP ? -shiftMult : shiftMult));
 			}
 
 			if (controls.UI_RIGHT)
