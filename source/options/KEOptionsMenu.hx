@@ -46,6 +46,7 @@ class KEOptionsMenu extends MusicBeatState
 	var holdCovers:Array<String> = Mods.mergeAllTextsNamed('images/holdCover/list.txt');
 	var ratings:Array<String> = Mods.mergeAllTextsNamed('images/ratings/list.txt');
 	var pauseMusicList:Array<String> = Mods.mergeAllTextsNamed('music/list.txt');
+	var hitsoundList:Array<String> = Mods.mergeAllTextsNamed('sounds/hitsounds/HitSound.txt');
 	
 	var changedOption:Bool = false;
 	public var descText:FlxText;
@@ -205,6 +206,12 @@ class KEOptionsMenu extends MusicBeatState
 		holdCovers.insert(0, ClientPrefs.defaultData.holdCoverSkin);
 		ratings.insert(0, ClientPrefs.defaultData.customUI);
 		pauseMusicList = ['None', 'Tea Time', 'Breakfast', 'Breakfast (Pico)'];
+		if (hitsoundList.length == 0) hitsoundList = ['hitsound'];
+		for (i in 0...hitsoundList.length)
+		{
+			if (!hitsoundList[i].contains('/')) hitsoundList[i] = 'hitsounds/' + hitsoundList[i];
+		}
+		//if (!hitsoundList.contains('hitsound')) hitsoundList.insert(0, 'hitsound');
 	}
 
 	override function create()
@@ -1191,6 +1198,8 @@ function onScrollChange()
 			KEOption.create("Guitar Hero Sustains", "Sustains count as one note", "guitarHeroSustains", "bool"),
 			KEOption.create("Fast Restart", "Fast Restart When Dead or Press 'R' ", "skipDeath", "bool"),
 			KEOption.create("Hitsound Volume", "Volume of hit sounds", "hitsoundVolume", "float", 0, 0, 1, 0.1),
+			KEOption.create("Hitsound", "Choose the note hit sound", "hitsound", "string", hitsoundList),
+			KEOption.create("Pause Music", "Choose pause screen music", "pauseMusic", "string", pauseMusicList),
 			KEOption.create("Rating Offset", "Adjust note hit timing", "ratingOffset", "int", 0, -30, 30, 1),
 			windowSettings,
 			KEOption.create("Show Stage", "Show the stage", "showStage", "bool"),
@@ -1329,7 +1338,6 @@ function onScrollChange()
 			KEOption.create("Gradient TimeBar", "Gradient colored timebar", "gradientTimeBar", "bool"),
 			KEOption.create("Score Zoom", "Grow score text on hit", "scoreZoom", "bool"),
 			KEOption.create('Time Bar',"What should the Time Bar display?","timeBarType","string",['Time Left', 'Time Elapsed', 'Song Name', 'Disabled']),
-			KEOption.create("Pause Music", "Choose pause screen music", "pauseMusic", "string", pauseMusicList),
 			KEOption.create("Health Bar Alpha", "Health bar transparency", "healthBarAlpha", "float", 1, 0, 1, 0.1),
 			KEOption.create("Combo Stacking", "Stack combo numbers", "comboStacking", "bool"),
 			KEOption.create("MS Number", "Make you know how late/early ur when hit notes", "showMS", "bool"),
@@ -1360,10 +1368,11 @@ function onScrollChange()
 			KEOption.create("Check Updates", "Check for game updates", "checkForUpdates", "bool"),
 			KEOption.create("Beta Updates", "Change the channel to beta", "betaUpdates", "bool"),
 			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
+			KEOption.create('Lua Text Antialiasing', "Enable antialiasing on lua texts", "luatextantialiasing", "bool"),
 			KEOption.create("Enable LUA Debug Printer", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
 			KEOption.create("Discord RPC", "Enable Discord Rich Presence", "discordRPC", "bool"),
 			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
-			KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
+			//KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
 			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
 			KEOption.createResetOption("Reset Settings", "settings"),
 			KEOption.createResetOption("Reset Scores", "scores"),

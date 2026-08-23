@@ -265,9 +265,10 @@ class KEOption
 				case "Open EK Controls":
 					KEOptionsMenu.instance.openSubState(new options.ExtraKeybindSubState());
 					return false;
-				case "Replay Manager":
-					MusicBeatState.switchState(new states.LoadReplayState());
-					return false;  
+				//case "Replay Manager":
+				//	MusicBeatState.switchState(new states.LoadReplayState());
+				//	return false;  
+				// RIP LoadReplayState
 				case "Reset KeyBinds":
 					ClientPrefs.resetKeys();
 					ClientPrefs.saveSettings();
@@ -516,6 +517,8 @@ class KEOption
 				// 如果有选项列表，显示当前选项（需要本地化选项文本）
 				if (options.length > 0) {
 					var optName = options[curOption];
+					if (variable == "hitsound" && optName.startsWith("hitsounds/"))
+						optName = optName.substring("hitsounds/".length);
 					optName = resolveTranslation(optName, optName);
 					return displayName + ": < " + optName + " >";
 				}

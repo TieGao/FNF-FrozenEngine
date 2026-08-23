@@ -351,7 +351,7 @@ class Note extends FlxSprite
 		hitsoundDisabled = false;
 		hitsoundChartEditor = true;
 		hitsoundForce = false;
-		hitsound = 'hitsound';
+		hitsound = ClientPrefs.data.hitsound;
 		alpha = 1;
 		visible = true;
 		exists = true;
@@ -378,6 +378,7 @@ class Note extends FlxSprite
 	private function initializeNote(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?inEditor:Bool = false, ?createdFrom:Dynamic = null)
 	{
 		antialiasing = ClientPrefs.data.antialiasing;
+		hitsound = ClientPrefs.data.hitsound;
 		if(createdFrom == null) createdFrom = PlayState.instance;
 
 		if (prevNote == null)

@@ -184,6 +184,7 @@ class TextFunctions
 
 		Lua_helper.add_callback(lua, "addLuaText", function(tag:String) {
 			var text:FlxText = MusicBeatState.getVariables().get(tag);
+			text.antialiasing = ClientPrefs.data.luatextantialiasing;
 			if(text != null) LuaUtils.getTargetInstance().add(text);
 		});
 		Lua_helper.add_callback(lua, "removeLuaText", function(tag:String, destroy:Bool = true) {

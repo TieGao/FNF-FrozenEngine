@@ -526,9 +526,25 @@ class SearchCard extends FlxTypedGroup<FlxSprite>
     public function setSong(song:NewSongMetaData)
     {
         this.songData = song;
-        if (songNameText != null) songNameText.text = song.songName;
+        
+        // 重置悬停状态
+        _isHovering = false;
+        bgSprite.color = FlxColor.fromRGB(45, 45, 45);
+        bgSprite.alpha = 0.85;
+        
+        if (songNameText != null) {
+            songNameText.text = song.songName;
+            songNameText.color = FlxColor.WHITE;
+        }
         if (modFolderText != null) modFolderText.text = "Mod: " + song.folder;
-        if (colorRect != null) colorRect.color = song.color;
+        
+        // 确保色块颜色正确更新
+        if (colorRect != null) {
+            colorRect.color = song.color;
+            // 重新绘制色块以确保颜色生效
+            colorRect.makeGraphic(6, Math.round(_cardHeight), song.color);
+            colorRect.alpha = 0.9;
+        }
 
         if (icon != null)
         {
@@ -539,7 +555,7 @@ class SearchCard extends FlxTypedGroup<FlxSprite>
 
     public function checkMouseOver():Bool
     {
-        if (!this.visible) return false;
+        if (!this.visible || songData == null) return false;
         var over = FlxG.mouse.overlaps(bgSprite);
         
         if (over != _isHovering)

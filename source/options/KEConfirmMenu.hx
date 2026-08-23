@@ -400,9 +400,17 @@ class KEConfirmMenu extends MusicBeatSubstate
 		}
 
 		if (selectedIndex >= 0 && selectedIndex < availableOptions.length) {
-			return Language.getPhrase("Selected: ", "Selected: ") + resolveTranslation(availableOptions[selectedIndex], availableOptions[selectedIndex]);
+			var selectedName = getOptionDisplayName(availableOptions[selectedIndex]);
+			return Language.getPhrase("Selected: ", "Selected: ") + resolveTranslation(selectedName, selectedName);
 		}
 		return "";
+	}
+
+	function getOptionDisplayName(optionName:String):String
+	{
+		if (parentOption.variable == "hitsound" && optionName.startsWith("hitsounds/"))
+			return optionName.substring("hitsounds/".length);
+		return optionName;
 	}
 
 	function resolveTranslation(key:String, defaultVal:String):String
@@ -452,7 +460,8 @@ class KEConfirmMenu extends MusicBeatSubstate
 		{
 			var optionText = optionTexts.members[i];
 			if (optionText == null) continue;
-			optionText.text = resolveTranslation(availableOptions[i], availableOptions[i]);
+			var optionName = getOptionDisplayName(availableOptions[i]);
+			optionText.text = resolveTranslation(optionName, optionName);
 		}
 		updateOptionPositions();
 		valueText.text = getSelectedName();

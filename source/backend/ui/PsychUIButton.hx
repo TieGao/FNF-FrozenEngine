@@ -39,6 +39,7 @@ class PsychUIButton extends FlxSpriteGroup
 		bg.alpha = 0.6;
 
 		text = new FlxText(0, 0, 1, '');
+		text.antialiasing = ClientPrefs.data.antialiasing;
 		text.alignment = CENTER;
 		add(text);
 		resize(wid, hei);

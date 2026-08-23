@@ -517,6 +517,8 @@ class PauseSubState extends MusicBeatSubstate
 				PlayState.seenCutscene = false;
 
 				PlayState.instance.canResync = false;
+				PlayState.inReplay = false;
+				PlayState.loadRep = false;
 				Mods.loadTopMod();
 				if(PlayState.isStoryMode)
 					MusicBeatState.switchState(new StoryMenuState());

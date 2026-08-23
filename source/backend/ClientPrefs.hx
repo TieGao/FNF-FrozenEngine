@@ -91,6 +91,7 @@ import states.TitleState;
 	public var noReset:Bool = false;
 	public var healthBarAlpha:Float = 1;
 	public var hitsoundVolume:Float = 0;
+	public var hitsound:String = 'hitsound';
 	public var pauseMusic:String = 'Tea Time';
 	public var checkForUpdates:Bool = true;
 	public var comboStacking:Bool = true;
@@ -235,6 +236,7 @@ import states.TitleState;
 	public var showMEMPeak:Bool = false;
 	public var showApi:Bool = false;
 
+	public var luatextantialiasing = true;
 	public var keLike:Bool = false;
 	public var clipoffset:Float = 0;
 	public var betaUpdates:Bool = false;

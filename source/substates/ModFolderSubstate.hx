@@ -29,7 +29,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 	var curSelected:Int = 0;
 	var parent:FreeplayState;
 
-	var bgList:FlxSprite;
+	var bgList:FlxFilteredSprite;
 	var bgDim:FlxSprite;
 
 	var selectedModName:FlxText;
@@ -74,8 +74,8 @@ class ModFolderSubstate extends MusicBeatSubstate
 		add(bgDim);
 
 		// 加载模组列表
-		var modsList:ModsList = Mods.parseList();
-		totalItems = modsList.all.length + 1; // +1 为 "ALL" 选项
+		var modsListData:ModsList = Mods.parseList();
+		totalItems = modsListData.all.length + 1; // +1 为 "ALL" 选项
 
 		// 计算可见项目数量
 		var panelHeight:Int = FlxG.height;
@@ -87,10 +87,9 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 		// 创建背景面板
 		var panelWidth:Int = 500;
-		bgList = FlxSpriteUtil.drawRoundRect(
-			new FlxSprite(FlxG.width, 40).makeGraphic(panelWidth, FlxG.height - 80, FlxColor.TRANSPARENT),
-			0, 0, panelWidth, FlxG.height - 80, 15, 15, FlxColor.BLACK
-		);
+		bgList = new FlxFilteredSprite();
+		bgList.makeGraphic(panelWidth, panelHeight, FlxColor.BLACK,);
+		bgList.filters = [new BlurFilter(30,30,BitmapFilterQuality.HIGH)];
 		bgList.alpha = 0.8;
 		bgList.scrollFactor.set();
 		add(bgList);
@@ -130,9 +129,19 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 		// 添加每个模组
 		var itemIndex:Int = 1;
-		for (mod in modsList.all)
+		for (mod in modsListData.all)
 		{
-			var modItem = new ModFolderItem(mod, mod, 0xFF888888, mod, itemIndex);
+			// 获取模组描述
+			var pack = Mods.getPack(mod);
+			var modName:String = mod;
+			var modDesc:String = 'No description';
+			if (pack != null)
+			{
+				if (pack.name != null) modName = pack.name;
+				if (pack.description != null) modDesc = pack.description;
+			}
+			
+			var modItem = new ModFolderItem(modName, modDesc, 0xFF888888, mod, itemIndex);
 			modItem.setPosition(bgList.x + 10, startY + (itemIndex * (itemHeight + ITEM_SPACING)));
 			modsGroup.add(modItem);
 			
@@ -147,20 +156,22 @@ class ModFolderSubstate extends MusicBeatSubstate
 		var targetScroll = selectedIndex * (itemHeight + ITEM_SPACING) - (visibleItemCount * (itemHeight + ITEM_SPACING)) / 2 + (itemHeight / 2);
 		scrollPos = Math.max(0, Math.min(targetScroll, maxScrollPos));
 
-		// 模组信息显示区域
-		selectedModIcon = new FlxSprite(FlxG.width *0.2, 80);
+		// 模组信息显示区域 - 调整位置
+		selectedModIcon = new FlxSprite(FlxG.width * 0.2, 80);
 		selectedModIcon.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModIcon.scrollFactor.set();
 		add(selectedModIcon);
 
-		selectedModName = new FlxText(FlxG.width *0.2 + 100, 200, 300, "", 32);
+		// mod名字下移40像素 (原来是200，现在改为240)
+		selectedModName = new FlxText(FlxG.width * 0.2 + 100, 240, 300, "", 32);
 		selectedModName.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModName.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		selectedModName.scrollFactor.set();
 		selectedModName.borderSize = 2;
 		add(selectedModName);
 
-		selectedModDesc = new FlxText(FlxG.width *0.2 + 100, 250, 300, "", 16);
+		// 描述在mod名字下20像素 (240 + 32 + 20 = 292)
+		selectedModDesc = new FlxText(FlxG.width * 0.2 + 100, 292, 300, "", 16);
 		selectedModDesc.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModDesc.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		selectedModDesc.scrollFactor.set();
@@ -290,7 +301,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 			changeSelection(1);
 		else if (controls.ACCEPT)
 			selectMod();
-		else if (controls.BACK)
+		else if (controls.BACK || FlxG.mouse.justPressedRight)
 			close();
 
 		// 鼠标支持 - 点击项目
@@ -300,8 +311,8 @@ class ModFolderSubstate extends MusicBeatSubstate
 			if (item.visible && FlxG.mouse.overlaps(item) && FlxG.mouse.justPressed)
 			{
 				curSelected = i;
-				// 滚动到选中项
-				scrollToItem(i);
+				// 滚动到选中项中间
+				scrollToItemMiddle(i);
 				updateSelection();
 				selectMod();
 				break;
@@ -335,7 +346,28 @@ class ModFolderSubstate extends MusicBeatSubstate
 	}
 
 	/**
-	 * 滚动到指定项目
+	 * 滚动到指定项目，使其出现在列表可视区域的中间
+	 */
+	function scrollToItemMiddle(index:Int)
+	{
+		// 计算目标滚动位置，让选中的项目出现在可视区域的中间
+		var targetScroll = index * (itemHeight + ITEM_SPACING) - (visibleItemCount * (itemHeight + ITEM_SPACING)) / 2 + (itemHeight / 2);
+		targetScroll = Math.max(0, Math.min(targetScroll, maxScrollPos));
+		
+		if (cardScroller != null)
+		{
+			cardScroller.tweenData = targetScroll;
+		}
+		else
+		{
+			scrollPos = targetScroll;
+			updateItemsPosition();
+			updateScrollBar();
+		}
+	}
+
+	/**
+	 * 滚动到指定项目 (保留原有功能，用于鼠标点击等)
 	 */
 	function scrollToItem(index:Int)
 	{
@@ -354,25 +386,18 @@ class ModFolderSubstate extends MusicBeatSubstate
 		}
 	}
 
+	/**
+	 * 键盘选择逻辑 - 滚动到中间位置
+	 */
 	function changeSelection(change:Int = 0)
 	{
 		curSelected = FlxMath.wrap(curSelected + change, 0, modsGroup.members.length - 1);
 		
-		// 如果选中项不在可见区域，滚动到它
 		var selectedItem = modsGroup.members[curSelected];
 		if (selectedItem != null)
 		{
-			var itemTop = selectedItem.y;
-			var itemBottom = selectedItem.y + itemHeight;
-			
-			if (itemTop < bgList.y + PADDING_TOP)
-			{
-				scrollToItem(curSelected);
-			}
-			else if (itemBottom > bgList.y + bgList.height - PADDING_BOTTOM)
-			{
-				scrollToItem(curSelected - visibleItemCount + 1);
-			}
+			// 直接滚动到选中项的中间位置
+			scrollToItemMiddle(curSelected);
 		}
 		
 		updateSelection();
@@ -509,10 +534,6 @@ class ModFolderSubstate extends MusicBeatSubstate
 			cardScroller = null;
 		}
 
-        if (parent != null)
-        {
-            parent.inModFolderSelector = false;
-        }
     }
 }
 
@@ -521,7 +542,7 @@ class ModFolderSubstate extends MusicBeatSubstate
  */
 class ModFolderItem extends FlxSpriteGroup
 {
-	public var selectBg:FlxSprite;
+	public var selectBg:FlxFilteredSprite;
 	public var icon:FlxSprite;
 	public var text:FlxText;
 
@@ -534,15 +555,18 @@ class ModFolderItem extends FlxSpriteGroup
 	static inline var WIDTH:Int = 450;
 	static inline var HEIGHT:Int = 80;
 
-	public function new(id:String, name:String, color:Int, ?folder:String, index:Int)
+	public function new(name:String, desc:String, color:Int, ?folder:String, index:Int)
 	{
 		super();
 
 		this.name = name;
+		this.desc = desc;
 		this.folder = folder;
 
 		// 背景选择框
-		selectBg = new FlxSprite().makeGraphic(WIDTH, HEIGHT, FlxColor.WHITE);
+		selectBg = new FlxFilteredSprite();
+		selectBg.makeGraphic(WIDTH, HEIGHT, FlxColor.WHITE);
+		selectBg.filters = [new BlurFilter(30,30,BitmapFilterQuality.HIGH)];
 		selectBg.color = color;
 		selectBg.alpha = 0.3;
 		add(selectBg);

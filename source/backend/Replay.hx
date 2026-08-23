@@ -43,7 +43,7 @@ class Analysis
 typedef ReplayJSON =
 {
     public var replayGameVer:String;
-    public var timestamp:Date; // 保存为 Date，但 JSON 中实际为字符串
+    public var timestamp:Date;
     public var songName:String;
     public var songDiff:Int;
     public var difficultyName:String;
@@ -78,9 +78,13 @@ class Replay
     public var judgementRecording:Array<String> = [];
     public var anaRecording:Analysis;
     
+    // 新增：存储Replay的完整路径（包含mod子文件夹）
+    public var fullPath:String = "";
+    
     public function new(path:String)
     {
         this.path = path;
+        this.fullPath = path;
         replay = {
             songName: "No Song Found", 
             songDiff: 1,
@@ -154,6 +158,136 @@ class Replay
         return rounded;
     }
 
+    // ========== 新增：获取Replay目录路径 ==========
+    
+    /**
+     * 获取Replay的根目录路径
+     */
+    public static function getReplayRootDir():String
+    {
+        return "assets/replays/";
+    }
+    
+    /**
+    * 获取当前Mod对应的Replay子目录路径
+    * 如果没有Mod，则返回 "base" 子目录
+    */
+    public static function getReplayModDir(?modName:String = null):String
+    {
+        var rootDir:String = getReplayRootDir();
+        
+        #if MODS_ALLOWED
+        if (modName == null) {
+            modName = Mods.currentModDirectory;
+        }
+        
+        // 如果 modName 为空或者是 "base"，都保存到 base 子目录
+        if (modName != null && modName.length > 0 && modName != "base") {
+            // 清理Mod名称中的非法字符
+            var safeModName:String = StringTools.replace(modName, "/", "_");
+            safeModName = StringTools.replace(safeModName, "\\", "_");
+            safeModName = StringTools.replace(safeModName, ":", "_");
+            safeModName = StringTools.replace(safeModName, "*", "_");
+            safeModName = StringTools.replace(safeModName, "?", "_");
+            safeModName = StringTools.replace(safeModName, "\"", "_");
+            safeModName = StringTools.replace(safeModName, "<", "_");
+            safeModName = StringTools.replace(safeModName, ">", "_");
+            safeModName = StringTools.replace(safeModName, "|", "_");
+            
+            return rootDir + safeModName + "/";
+        }
+        #end
+        
+        // 默认保存到 base 子目录（包括原版 FNF 曲目）
+        return rootDir + "base/";
+    }
+    
+    /**
+     * 确保Replay目录存在（递归创建）
+     */
+    public static function ensureReplayDirExists(?modName:String = null):String
+    {
+        #if sys
+        var dir:String = getReplayModDir(modName);
+        if (!FileSystem.exists(dir)) {
+            FileSystem.createDirectory(dir);
+            trace('Created replay directory: $dir');
+        }
+        return dir;
+        #else
+        return getReplayModDir(modName);
+        #end
+    }
+    
+    /**
+     * 获取所有Replay文件（从所有子目录）
+     */
+    public static function getAllReplayFiles():Array<String>
+    {
+        #if sys
+        var allFiles:Array<String> = [];
+        var rootDir:String = getReplayRootDir();
+        
+        if (!FileSystem.exists(rootDir)) {
+            return allFiles;
+        }
+        
+        // 遍历根目录下的所有文件和文件夹
+        for (entry in FileSystem.readDirectory(rootDir)) {
+            var fullPath:String = rootDir + entry;
+            
+            if (FileSystem.isDirectory(fullPath)) {
+                // 遍历子文件夹中的.replay文件
+                for (file in FileSystem.readDirectory(fullPath)) {
+                    if (file.endsWith(".kadeReplay")) {
+                        allFiles.push(entry + "/" + file);
+                    }
+                }
+            } else if (entry.endsWith(".kadeReplay")) {
+                // 根目录下的.replay文件（兼容旧版本）
+                allFiles.push(entry);
+            }
+        }
+        
+        return allFiles;
+        #else
+        return [];
+        #end
+    }
+    
+    /**
+     * 获取指定Mod目录下的Replay文件
+     */
+    public static function getReplayFilesForMod(?modName:String = null):Array<String>
+    {
+        #if sys
+        var files:Array<String> = [];
+        var dir:String = getReplayModDir(modName);
+        
+        if (!FileSystem.exists(dir)) {
+            return files;
+        }
+        
+        for (file in FileSystem.readDirectory(dir)) {
+            if (file.endsWith(".kadeReplay")) {
+                // 返回相对于根目录的路径
+                var modDirName:String = (modName != null && modName.length > 0) ? modName : "";
+                if (modDirName.length > 0) {
+                    files.push(modDirName + "/" + file);
+                } else {
+                    files.push(file);
+                }
+            }
+        }
+        
+        return files;
+        #else
+        return [];
+        #end
+    }
+
+    // ========== 修改：LoadReplay 支持子文件夹路径 ==========
+    
     public static function LoadReplay(path:String):Replay
     {
         var rep:Replay = new Replay(path);
@@ -161,6 +295,8 @@ class Replay
         return rep;
     }
 
+    // ========== 修改：SaveReplay 按Mod分类保存 ==========
+    
     public function SaveReplay(notearray:Array<Dynamic>, judge:Array<String>, ana:Analysis)
     {
         #if sys
@@ -234,20 +370,28 @@ class Replay
         var data:String = Json.stringify(json, null, "\t");
         var time = Date.now().getTime();
 
-        var replayDir = "assets/replays/";
-        if (!FileSystem.exists(replayDir))
-            FileSystem.createDirectory(replayDir);
+        // ========== 使用Mod子目录 ==========
+        var replayDir:String = ensureReplayDirExists(currentMod);
 
         var songNameForFile:String = PlayState.SONG != null ? 
             StringTools.replace(StringTools.replace(PlayState.SONG.song, " ", "_"), ":", "_") : "Unknown";
         var diffName:String = Difficulty.getString().toLowerCase();
         
         var fileName:String = 'replay_${songNameForFile}_${diffName}_${time}.kadeReplay';
-        File.saveContent(replayDir + fileName, data);
+        var fullFilePath:String = replayDir + fileName;
+        File.saveContent(fullFilePath, data);
         
-        path = fileName;
+        // 存储完整路径和相对路径
+        this.fullPath = fullFilePath;
+        if (currentMod != null && currentMod.length > 0) {
+            this.path = currentMod + "/" + fileName;
+        } else {
+            this.path = fileName;
+        }
+        
         trace('=== REPLAY SAVED ===');
         trace('File: $fileName');
+        trace('Full Path: $fullFilePath');
         trace('Mod Directory: $modDirectory');
         trace('Difficulty ID: $songDiff');
         trace('Difficulty Name: $difficultyName');
@@ -258,86 +402,159 @@ class Replay
         #end
     }
 
+    // ========== 修改：LoadFromJSON 支持子文件夹路径 ==========
+    
     public function LoadFromJSON()
     {
         #if sys
         try
         {
-            var filePath:String = "assets/replays/" + path;
-            trace('Loading replay from: $filePath');
+            // 尝试多种可能的路径
+            var possiblePaths:Array<String> = [];
+            var rootDir:String = getReplayRootDir();
             
-            if (FileSystem.exists(filePath))
-            {
-                var fileContent:String = File.getContent(filePath);
-                var repl:ReplayJSON = cast Json.parse(fileContent);
-                replay = repl;
-                
-                if (repl.replayGameVer != version)
-                {
-                    trace('Warning: Replay version mismatch. Replay: ${repl.replayGameVer}, Current: $version');
+            // 1. 原始路径（可能包含子文件夹）
+            if (path != null && path.length > 0) {
+                possiblePaths.push(rootDir + path);
+            }
+            
+            // 2. 如果路径不包含 "/"，尝试在所有Mod子目录中查找
+            if (path != null && path.length > 0 && path.indexOf("/") == -1) {
+                // 遍历所有子目录
+                if (FileSystem.exists(rootDir)) {
+                    for (entry in FileSystem.readDirectory(rootDir)) {
+                        var fullPath:String = rootDir + entry;
+                        if (FileSystem.isDirectory(fullPath)) {
+                            var filePath:String = fullPath + "/" + path;
+                            if (FileSystem.exists(filePath)) {
+                                possiblePaths.push(filePath);
+                            }
+                        }
+                    }
                 }
-                
-                // 补齐可能缺失的字段
-                if (replay.songNotes == null) replay.songNotes = [];
-                if (replay.songJudgements == null) replay.songJudgements = [];
-                if (replay.ana == null) replay.ana = new Analysis();
-                if (replay.modDirectory == null) replay.modDirectory = "";
-                if (replay.songName == null) replay.songName = "Unknown";
-                if (replay.difficultyName == null) replay.difficultyName = "Normal";
-                if (replay.rating == null) replay.rating = "N/A";
-                if (replay.ratingFC == null) replay.ratingFC = "N/A";
-                
-                // 修复 timestamp：JSON 解析后是字符串，尝试转为 Date
-                var ts = replay.timestamp;
-                if (ts != null)
-                {
-                    if (Std.isOfType(ts, String))
-                    {
-                        var str:String = cast ts;
-                        // 尝试解析为 Date
-                        try {
-                            var parsed:Date = Date.fromString(str);
-                            if (parsed != null) replay.timestamp = parsed;
-                            else {
-                                // 如果失败，尝试从数字解析（有些旧版本存为数字）
-                                var num:Float = Std.parseFloat(str);
-                                if (!Math.isNaN(num)) {
-                                    replay.timestamp = Date.fromTime(num);
+            }
+            
+            // 3. 尝试将路径拆分为 Mod名/文件名 格式
+            if (path != null && path.length > 0 && path.indexOf("/") > 0) {
+                var parts:Array<String> = path.split("/");
+                if (parts.length == 2) {
+                    var modName:String = parts[0];
+                    var fileName:String = parts[1];
+                    var modPath:String = rootDir + modName + "/" + fileName;
+                    if (!possiblePaths.contains(modPath)) {
+                        possiblePaths.push(modPath);
+                    }
+                }
+            }
+            
+            // 4. 如果路径为空或者是旧格式，尝试用文件名在所有子目录中查找
+            if (path != null && path.length > 0) {
+                var fileNameOnly:String = path.split("/").pop();
+                if (fileNameOnly != null && fileNameOnly.length > 0) {
+                    // 遍历所有子目录查找同名文件
+                    if (FileSystem.exists(rootDir)) {
+                        for (entry in FileSystem.readDirectory(rootDir)) {
+                            var fullPath:String = rootDir + entry;
+                            if (FileSystem.isDirectory(fullPath)) {
+                                var filePath:String = fullPath + "/" + fileNameOnly;
+                                if (FileSystem.exists(filePath) && !possiblePaths.contains(filePath)) {
+                                    possiblePaths.push(filePath);
                                 }
                             }
-                        } catch(e:Dynamic) {
-                            trace('Failed to parse timestamp string: $str');
-                        }
-                    }
-                    else if (Std.isOfType(ts, Float) || Std.isOfType(ts, Int))
-                    {
-                        var num:Float = Std.parseFloat(Std.string(ts));
-                        if (!Math.isNaN(num)) {
-                            replay.timestamp = Date.fromTime(num);
                         }
                     }
                 }
-                // 如果仍然是 null 或无效，设置为当前时间
-                if (replay.timestamp == null) {
-                    replay.timestamp = Date.now();
-                }
-                
-                // 初始化播放索引
-                currentIndex = 0;
-                judgementIndex = 0;
-                
-                trace('Successfully loaded replay:');
-                trace('  Song: ${repl.songName}');
-                trace('  Difficulty: ${repl.difficultyName}');
-                trace('  Mod Directory: ${repl.modDirectory}');
-                trace('  Accuracy: ${repl.accuracy}%');
-                trace('  Notes: ${repl.songNotes.length}');
-                trace('  Timestamp: ${replay.timestamp}');
             }
-            else
+            
+            // 查找存在的文件
+            var filePath:String = null;
+            for (p in possiblePaths) {
+                if (FileSystem.exists(p)) {
+                    filePath = p;
+                    break;
+                }
+            }
+            
+            // 如果还是找不到，尝试直接使用根目录+路径
+            if (filePath == null && path != null && path.length > 0) {
+                var testPath:String = rootDir + path;
+                if (FileSystem.exists(testPath)) {
+                    filePath = testPath;
+                }
+            }
+            
+            if (filePath == null) {
+                trace('Replay file not found. Tried paths: $possiblePaths');
+                return;
+            }
+            
+            trace('Loading replay from: $filePath');
+            
+            var fileContent:String = File.getContent(filePath);
+            var repl:ReplayJSON = cast Json.parse(fileContent);
+            replay = repl;
+            
+            // 存储完整路径
+            this.fullPath = filePath;
+            
+            if (repl.replayGameVer != version)
             {
-                trace('Replay file not found: $filePath');
+                trace('Warning: Replay version mismatch. Replay: ${repl.replayGameVer}, Current: $version');
             }
+            
+            // 补齐可能缺失的字段
+            if (replay.songNotes == null) replay.songNotes = [];
+            if (replay.songJudgements == null) replay.songJudgements = [];
+            if (replay.ana == null) replay.ana = new Analysis();
+            if (replay.modDirectory == null) replay.modDirectory = "";
+            if (replay.songName == null) replay.songName = "Unknown";
+            if (replay.difficultyName == null) replay.difficultyName = "Normal";
+            if (replay.rating == null) replay.rating = "N/A";
+            if (replay.ratingFC == null) replay.ratingFC = "N/A";
+            
+            // 修复 timestamp
+            var ts = replay.timestamp;
+            if (ts != null)
+            {
+                if (Std.isOfType(ts, String))
+                {
+                    var str:String = cast ts;
+                    try {
+                        var parsed:Date = Date.fromString(str);
+                        if (parsed != null) replay.timestamp = parsed;
+                        else {
+                            var num:Float = Std.parseFloat(str);
+                            if (!Math.isNaN(num)) {
+                                replay.timestamp = Date.fromTime(num);
+                            }
+                        }
+                    } catch(e:Dynamic) {
+                        trace('Failed to parse timestamp string: $str');
+                    }
+                }
+                else if (Std.isOfType(ts, Float) || Std.isOfType(ts, Int))
+                {
+                    var num:Float = Std.parseFloat(Std.string(ts));
+                    if (!Math.isNaN(num)) {
+                        replay.timestamp = Date.fromTime(num);
+                    }
+                }
+            }
+            if (replay.timestamp == null) {
+                replay.timestamp = Date.now();
+            }
+            
+            currentIndex = 0;
+            judgementIndex = 0;
+            
+            trace('Successfully loaded replay:');
+            trace('  Song: ${repl.songName}');
+            trace('  Difficulty: ${repl.difficultyName}');
+            trace('  Mod Directory: ${repl.modDirectory}');
+            trace('  Accuracy: ${repl.accuracy}%');
+            trace('  Notes: ${repl.songNotes.length}');
+            trace('  Timestamp: ${replay.timestamp}');
+            trace('  File: $filePath');
         }
         catch(e:Dynamic)
         {

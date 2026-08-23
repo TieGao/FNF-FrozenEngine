@@ -1410,12 +1410,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					{
 						if(hitSoundPlayer && note.mustPress)
 						{
-							FlxG.sound.play(Paths.sound('hitsound'), hitsoundPlayerStepper.value);
+							FlxG.sound.play(Paths.sound(ClientPrefs.data.hitsound), hitsoundPlayerStepper.value);
 							hitSoundPlayer = false;
 						}
 						else if(hitSoundOpp && !note.mustPress)
 						{
-							FlxG.sound.play(Paths.sound('hitsound'), hitsoundOpponentStepper.value);
+							FlxG.sound.play(Paths.sound(ClientPrefs.data.hitsound), hitsoundOpponentStepper.value);
 							hitSoundOpp = false;
 						}
 					}

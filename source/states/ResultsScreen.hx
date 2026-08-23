@@ -14,7 +14,6 @@ import backend.OFLSprite;
 
 enum ResultsMode {
     NORMAL;         // 正常游戏结算
-    REPLAY_PREVIEW; // 回放库预览
     REPLAY_END;     // 游戏后回放结束
 }
 
@@ -26,7 +25,7 @@ class ResultsScreen extends MusicBeatSubstate
     public var contText:FlxText;
     public var settingsText:FlxText;
     public var replayText:FlxText;
-    public var replayLibText:FlxText; // 新增：返回回放库
+    public var replayLibText:FlxText;
 
     public var anotherBackground:FlxSprite;
     public var graph:HitGraph;
@@ -46,7 +45,7 @@ class ResultsScreen extends MusicBeatSubstate
     // 存储游戏统计数据
     var gameStats:Dynamic = null;
 
-    // 构造函数 - 支持三种模式
+    // 构造函数 - 支持两种模式
     public function new(?mode:ResultsMode, ?replayFile:String = null)
     {
         this.mode = mode != null ? mode : NORMAL;
@@ -83,10 +82,6 @@ class ResultsScreen extends MusicBeatSubstate
                     text.text = "Song Cleared!";
                 collectGameStats();
                 
-            case REPLAY_PREVIEW:
-                text.text = "REPLAY PREVIEW";
-                text.color = FlxColor.CYAN;
-                
             case REPLAY_END:
                 text.text = "REPLAY FINISHED";
                 text.color = FlxColor.YELLOW;
@@ -100,10 +95,6 @@ class ResultsScreen extends MusicBeatSubstate
     }
 
     // 为了兼容旧代码，保留原有的构造函数
-    public static function fromReplayFile(replayFile:String):ResultsScreen {
-        return new ResultsScreen(REPLAY_PREVIEW, replayFile);
-    }
-
     public static function forGameResults():ResultsScreen {
         return new ResultsScreen(NORMAL);
     }
@@ -114,8 +105,8 @@ class ResultsScreen extends MusicBeatSubstate
     
     function collectGameStats():Void
     {
-        // 只有在游戏模式下才收集数据
-        if (mode == REPLAY_PREVIEW) return;
+        // 回放结束模式下不收集数据（数据已存在）
+        if (mode == REPLAY_END && PlayState.rep != null) return;
         
         var playState = PlayState.instance;
         if (playState == null) return;
@@ -270,9 +261,6 @@ class ResultsScreen extends MusicBeatSubstate
         switch(mode) {
             case NORMAL, REPLAY_END:
                 contText = new FlxText(FlxG.width + 100, FlxG.height - 60, 400, 'Press ENTER to continue');
-                
-            case REPLAY_PREVIEW:
-                contText = new FlxText(FlxG.width + 100, FlxG.height - 60, 400, 'Press ESC/ENTER to back / Press F2 to play');
         }
         contText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
         contText.borderSize = 4;
@@ -282,8 +270,8 @@ class ResultsScreen extends MusicBeatSubstate
         contText.antialiasing = ClientPrefs.data.antialiasing;
         add(contText);
 
-        // F1 - 打开回放库 (在所有模式下都可用)
-        replayLibText = new FlxText(-400, FlxG.height - 100, 400, 'F1 - Open Replay Library');
+        // F1 - 回放当前歌曲 (在所有模式下都可用)
+        replayLibText = new FlxText(-400, FlxG.height - 100, 400, 'F1 - Replay This Song');
         replayLibText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.CYAN, LEFT, OUTLINE, FlxColor.BLACK);
         replayLibText.borderSize = 4;
         replayLibText.scrollFactor.set();
@@ -292,13 +280,8 @@ class ResultsScreen extends MusicBeatSubstate
         replayLibText.antialiasing = ClientPrefs.data.antialiasing;
         add(replayLibText);
 
-        // F2 - 重新开始/重播 (根据模式不同)
-        if (mode == REPLAY_PREVIEW) {
-            replayText = new FlxText(-400, FlxG.height - 60, 400, 'F2 - Play This Replay');
-            replayText.color = FlxColor.LIME;
-        } else {
-            replayText = new FlxText(-400, FlxG.height - 60, 400, 'F2 - Replay Song');
-        }
+        // F2 - 重新开始
+        replayText = new FlxText(-400, FlxG.height - 60, 400, 'F2 - Replay Song');
         replayText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
         replayText.borderSize = 4;
         replayText.scrollFactor.set();
@@ -323,56 +306,80 @@ class ResultsScreen extends MusicBeatSubstate
         
         // 根据模式加载数据
         switch(mode) {
-            case REPLAY_PREVIEW:
-                if (loadedReplay == null) loadReplayPreviewData();
-                updateUIForReplayPreview();
-                
             case NORMAL, REPLAY_END:
                 if (mode == REPLAY_END && PlayState.rep != null) {
-                    loadReplayPreviewData();
+                    loadReplayData();
                 } else if (PlayState.rep != null && PlayState.rep.replay != null) {
                     loadRealHitData();
                 }
                 updateUIForGameResults();
         }
         
-        // 初始化音乐 (除了回放预览模式)
-        if (mode != REPLAY_PREVIEW) {
-            initMusic();
-        }
+        // 初始化音乐 (所有模式)
+        initMusic();
         
         // 开始动画
         startAnimations();
     }
     
-    function loadReplayPreviewData():Void
+    function loadReplayData():Void
     {
-        trace('Loading replay preview data: $replayToLoad');
+        trace('Loading replay data for REPLAY_END mode');
         
-        // 加载回放文件
-        loadedReplay = Replay.LoadReplay(replayToLoad);
+        // 从 PlayState.rep 获取回放数据
+        loadedReplay = PlayState.rep;
         
         if (loadedReplay == null || !loadedReplay.isValid()) {
-            trace('Cannot load replay from file: $replayToLoad');
-            showError("Cannot load replay!");
+            trace('Cannot load replay from PlayState.rep');
+            showError("Cannot load replay data!");
             return;
         }
-        
-        // 保存到PlayState以便其他部分访问
-        PlayState.rep = loadedReplay;
         
         // 加载数据到图表
         loadRealHitData();
         
-        trace('Replay preview data loaded successfully');
+        trace('Replay data loaded successfully');
     }
     
-    function updateUIForReplayPreview():Void
+    function updateUIForGameResults():Void
     {
-        if (loadedReplay == null) {
-            comboText.text = "Failed to load replay data";
+        if (gameStats == null) {
+            // 如果 gameStats 为空，尝试从回放数据构建
+            if (loadedReplay != null) {
+                buildStatsFromReplay();
+            }
             return;
         }
+        
+        var stats = gameStats;
+        var mean = calculateMean();
+        var ratioText = calculateRatios(stats.sicks, stats.goods, stats.bads);
+        var sfText = (PlayState.rep != null && PlayState.rep.replay != null) ? 'SF: ${PlayState.rep.replay.sf} | ' : '';
+        
+        // 更新comboText
+        comboText.text = 
+            'Judgements:\n' +
+            'Marvelous - ${stats.marvelous}\n' +
+            'Sicks - ${stats.sicks}\n' +
+            'Goods - ${stats.goods}\n' +
+            'Bads - ${stats.bads}\n' +
+            'Shits - ${stats.shits}\n\n' +
+            'Combo Breaks: ${stats.misses}\n' +
+            'Highest Combo: ${stats.highestCombo}\n' +
+            'Total Notes Hit: ${stats.totalNotesHit}\n' +
+            'Score: ${stats.score}\n' +
+            'Accuracy: ${truncateFloat(stats.accuracy, 2)}%\n\n' +
+            '${generateLetterRank(stats.accuracy)}\n' +
+            'Rate: ${stats.playbackRate}x';
+        
+        // 更新底部设置文本
+        settingsText.text = 
+            '${sfText}${ratioText} | Mean: ${mean}ms | Played on ${stats.songName} ${stats.difficultyName}';
+    }
+
+    function buildStatsFromReplay():Void
+    {
+        if (loadedReplay == null) return;
         
         var rep = loadedReplay.replay;
         
@@ -419,77 +426,36 @@ class ResultsScreen extends MusicBeatSubstate
             if (currentCombo > highestCombo) highestCombo = currentCombo;
         }
         
-        // 更新comboText
-        comboText.text = 
-            'Judgements:\n' +
-            'Marvelous - ${marvelous}\n' +
-            'Sicks - ${sicks}\n' +
-            'Goods - ${goods}\n' +
-            'Bads - ${bads}\n' +
-            'Shits - ${shits}\n\n' +
-            'Combo Breaks: ${misses}\n' +
-            'Highest Combo: ${highestCombo}\n' +
-            'Total Notes Hit: ${totalHits}\n' +
-            'Score: ${rep.score}\n' +
-            'Accuracy: ${truncateFloat(accuracy, 2)}%\n\n' +
-            'Rating: ${rep.rating != null ? rep.rating : "N/A"}\n' +
-            '${generateLetterRank(accuracy)}\n' +
-            'Rate: 1.0x';
+        gameStats = {
+            songName: rep.songName,
+            score: rep.score,
+            accuracy: accuracy,
+            marvelous: marvelous,
+            sicks: sicks,
+            goods: goods,
+            bads: bads,
+            shits: shits,
+            misses: misses,
+            highestCombo: highestCombo,
+            totalNotes: totalNotes,
+            totalNotesHit: totalHits,
+            ratingName: rep.rating != null ? rep.rating : "N/A",
+            ratingFC: rep.ratingFC != null ? rep.ratingFC : "N/A",
+            playbackRate: 1.0,
+            difficultyName: rep.difficultyName != null ? rep.difficultyName : "Normal",
+            isFullCombo: (misses == 0),
+            isPerfectClear: (misses == 0 && shits == 0 && bads == 0)
+        };
         
-        // 更新底部设置文本
-        var difficultyName:String = rep.difficultyName != null ? rep.difficultyName : "Normal";
-        var dateStr = formatDate(rep.timestamp);
-        var sfText = (rep.sf != 0) ? 'SF: ${rep.sf} | ' : '';
-        var mean = calculateMean();
-        var ratioText = calculateRatios(sicks, goods, bads);
-        
-        settingsText.text = 
-            '${sfText}${ratioText} | Mean: ${mean}ms | Played on ${rep.songName} ${difficultyName} | Date: ${dateStr}';
-            
-        if (rep.modDirectory != null && rep.modDirectory.length > 0 && rep.modDirectory != "") {
-            settingsText.text += ' | Mod: ${rep.modDirectory}';
+        // 如果是回放结束模式，更新标题
+        if (mode == REPLAY_END) {
+            text.text = 'REPLAY FINISHED: ${rep.songName}';
         }
-        
-        // 更新标题为歌曲名
-        text.text = 'REPLAY PREVIEW: ${rep.songName}';
-    }
-    
-    function updateUIForGameResults():Void
-    {
-        if (gameStats == null) return;
-        
-        var stats = gameStats;
-        var mean = calculateMean();
-        var ratioText = calculateRatios(stats.sicks, stats.goods, stats.bads);
-        var sfText = (PlayState.rep != null && PlayState.rep.replay != null) ? 'SF: ${PlayState.rep.replay.sf} | ' : '';
-        
-        // 更新comboText
-        comboText.text = 
-            'Judgements:\n' +
-            'Marvelous - ${stats.marvelous}\n' +
-            'Sicks - ${stats.sicks}\n' +
-            'Goods - ${stats.goods}\n' +
-            'Bads - ${stats.bads}\n' +
-            'Shits - ${stats.shits}\n\n' +
-            'Combo Breaks: ${stats.misses}\n' +
-            'Highest Combo: ${stats.highestCombo}\n' +
-            'Total Notes Hit: ${stats.totalNotesHit}\n' +
-            'Score: ${stats.score}\n' +
-            'Accuracy: ${truncateFloat(stats.accuracy, 2)}%\n\n' +
-            '${generateLetterRank(stats.accuracy)}\n' +
-            'Rate: ${stats.playbackRate}x';
-        
-        // 更新底部设置文本
-        settingsText.text = 
-            '${sfText}${ratioText} | Mean: ${mean}ms | Played on ${stats.songName} ${stats.difficultyName}';
     }
 
     function initMusic()
     {
-        // 只在游戏模式下播放暂停音乐
-        if (mode == REPLAY_PREVIEW && PlayState.instance == null) return;
-        
-        // 先停止当前音乐
+        // 停止当前音乐
         if (FlxG.sound.music != null) {
             FlxG.sound.music.stop();
         }
@@ -669,41 +635,26 @@ class ResultsScreen extends MusicBeatSubstate
         }
 
         // 更新音乐音量
-        if (mode != REPLAY_PREVIEW && pauseMusic != null && pauseMusic.volume < 0.5) {
+        if (pauseMusic != null && pauseMusic.volume < 0.5) {
             pauseMusic.volume += 0.01 * elapsed;
         }
         
         // 根据模式处理输入
         switch(mode) {
-            case REPLAY_PREVIEW:
-                if (controls.BACK || FlxG.mouse.justPressedRight) {
-                    closeResults();
-                }
-                if (controls.ACCEPT || FlxG.mouse.justPressed) {
-                    closeResults();
-                }
-                
             case NORMAL, REPLAY_END:
                 if (controls.BACK || controls.ACCEPT || FlxG.mouse.justPressed) {
                     closeResults();
                 }
         }
         
-        // F1 - 打开回放库 (在所有模式下)
+        // F1 - 回放当前歌曲 (在所有模式下)
         if (FlxG.keys.justPressed.F1) {
-            openReplayLibrary();
+            replayCurrentSong();
         }
         
-        // F2 - 重新开始/播放回放
+        // F2 - 重新开始
         if (FlxG.keys.justPressed.F2) {
-            switch(mode) {
-                case REPLAY_PREVIEW:
-                    playReplay();
-                case NORMAL:
-                    restartSong();
-                case REPLAY_END:
-                    restartSong();
-            }
+            restartSong();
         }
 
         super.update(elapsed);
@@ -712,7 +663,7 @@ class ResultsScreen extends MusicBeatSubstate
     function closeResults()
     {
         // 音乐渐出
-        if (mode != REPLAY_PREVIEW && pauseMusic != null && pauseMusic.playing && !ClientPrefs.data.skipResultExitAnim)
+        if (pauseMusic != null && pauseMusic.playing && !ClientPrefs.data.skipResultExitAnim)
         {
             FlxTween.tween(pauseMusic, {volume: 0}, 0.5, {
                 onComplete: function(twn:FlxTween) {
@@ -746,9 +697,6 @@ class ResultsScreen extends MusicBeatSubstate
         FlxG.cameras.remove(camResults);
         
         switch(mode) {
-            case REPLAY_PREVIEW:
-                close();
-                
             case NORMAL, REPLAY_END:
                 var playState = PlayState.instance;
                 if (playState != null) {
@@ -759,18 +707,53 @@ class ResultsScreen extends MusicBeatSubstate
         }
     }
 
-    function openReplayLibrary()
+    /**
+     * 回放当前歌曲 - 进入录制模式
+     */
+    function replayCurrentSong()
     {
-        trace('Opening replay library from ResultsScreen');
+        trace('Replaying current song from ResultsScreen');
         
-        if (pauseMusic != null) {
-            FlxTween.tween(pauseMusic, {volume: 0}, 0.3);
+        var playState = PlayState.instance;
+        if (playState == null) {
+            trace('ERROR: PlayState.instance is null, cannot replay song');
+            FlxG.sound.play(Paths.sound('cancelMenu'));
+            return;
         }
         
+        if (PlayState.SONG == null) {
+            trace('ERROR: PlayState.SONG is null, cannot replay song');
+            FlxG.sound.play(Paths.sound('cancelMenu'));
+            return;
+        }
+        
+        // 停止音乐
+        if (pauseMusic != null) {
+            pauseMusic.stop();
+        }
+        
+        // 移除相机
         FlxG.cameras.remove(camResults);
         
-        // 直接切换到 LoadReplayState
-        MusicBeatState.switchState(new LoadReplayState());
+        // 设置回放录制模式
+        var rep = new Replay("");
+        PlayState.rep = rep;
+        PlayState.loadRep = false;
+        PlayState.inReplay = false;
+        PlayState.replayFileName = null;
+        
+        // 保留当前歌曲数据
+        PlayState.isStoryMode = false;
+        
+        // 停止所有声音
+        if (FlxG.sound.music != null) {
+            FlxG.sound.music.stop();
+        }
+        
+        trace('Starting replay recording for: ${PlayState.SONG.song}');
+        
+        // 使用 LoadingState 切换到 PlayState
+        LoadingState.loadAndSwitchState(new PlayState());
     }
 
     function restartSong()
@@ -813,55 +796,6 @@ class ResultsScreen extends MusicBeatSubstate
         PlayState.isStoryMode = false;
         LoadingState.loadAndSwitchState(new PlayState());
     }
-
-    function playReplay()
-{
-    trace('Playing replay from ResultsScreen');
-    
-    if (mode == REPLAY_PREVIEW && loadedReplay != null) {
-        // 预览模式：直接播放当前回放
-        if (pauseMusic != null) {
-            pauseMusic.stop();
-        }
-        FlxG.cameras.remove(camResults);
-        
-        // 设置回放数据
-        PlayState.rep = loadedReplay;
-        PlayState.loadRep = true;
-        PlayState.inReplay = true;
-        
-        // 设置难度
-        if (loadedReplay.replay.difficultyName != null) {
-            var diffLower = loadedReplay.replay.difficultyName.toLowerCase();
-            if (diffLower.indexOf('easy') >= 0)
-                PlayState.storyDifficulty = 0;
-            else if (diffLower.indexOf('normal') >= 0)
-                PlayState.storyDifficulty = 1;
-            else if (diffLower.indexOf('hard') >= 0)
-                PlayState.storyDifficulty = 2;
-            else
-                PlayState.storyDifficulty = loadedReplay.replay.songDiff;
-        } else {
-            PlayState.storyDifficulty = loadedReplay.replay.songDiff;
-        }
-        
-        // 设置模组目录
-        #if MODS_ALLOWED
-        if (loadedReplay.replay.modDirectory != null && loadedReplay.replay.modDirectory.length > 0)
-        {
-            Mods.currentModDirectory = loadedReplay.replay.modDirectory;
-            trace('Set mod directory to: ${loadedReplay.replay.modDirectory}');
-        }
-        #end
-        
-        // 设置下落方向
-        ClientPrefs.data.downScroll = loadedReplay.replay.isDownscroll;
-        
-        // 直接切换到 PlayState，让 PlayState 自己处理歌曲加载
-        // 因为 PlayState 会使用 PlayState.rep 中的数据来加载歌曲
-        LoadingState.loadAndSwitchState(new PlayState());
-    }
-}
 
     override function destroy()
     {

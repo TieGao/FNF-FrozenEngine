@@ -116,6 +116,7 @@ class FreeplayState extends MusicBeatState
     var freeplaySongCache:Map<String, Dynamic> = new Map<String, Dynamic>();
     var freeplayCacheDirty:Bool = false;
     var difficultyPreloadQueue:Array<Dynamic> = [];
+    var difficultyPreloadQueued:Map<String, Bool> = new Map<String, Bool>();
     var menuBgGraphicCache:Map<String, Dynamic> = new Map<String, Dynamic>();
         
     var updateTimer:Float = 0;
@@ -479,6 +480,7 @@ class FreeplayState extends MusicBeatState
         Difficulty.loadFromWeek();
         
         changeDiff();
+        queueSelectedSongInfo();
         showArtForIndex(curSelected, false);
         showCharacterForIndex(curSelected, false);
         updateCornerGlow();
@@ -542,19 +544,50 @@ class FreeplayState extends MusicBeatState
         if (cachedEntry != null)
         {
             song.difficultyInfo = buildSongInfoMapFromCache(cachedEntry, difficulties);
-            var missingDiffs:Array<String> = getMissingDifficulties(cachedEntry, difficulties);
-            if (missingDiffs.length == 0)
-            {
-                songs.push(song);
-                return;
-            }
-            difficultyPreloadQueue.push({ song: song, songName: songName, folder: song.folder, difficulties: missingDiffs, weekData: weekData, cacheKey: cacheKey });
             songs.push(song);
             return;
         }
 
-        difficultyPreloadQueue.push({ song: song, songName: songName, folder: song.folder, difficulties: difficulties, weekData: weekData, cacheKey: cacheKey });
         songs.push(song);
+    }
+
+    private function queueSelectedSongInfo():Void
+    {
+        if (curSelected < 0 || curSelected >= songs.length)
+            return;
+
+        var song = songs[curSelected];
+        var cacheKey:String = getFreeplaySongCacheKey(song.songName, song.folder);
+        if (difficultyPreloadQueued.exists(cacheKey))
+            return;
+
+        var weekData:WeekData = null;
+        if (song.week >= 0 && song.week < WeekData.weeksList.length)
+            weekData = WeekData.weeksLoaded.get(WeekData.weeksList[song.week]);
+
+        var difficulties:Array<String> = Difficulty.list.copy();
+        if (difficulties.length == 0)
+            difficulties = Difficulty.defaultList.copy();
+
+        var missingDiffs:Array<String> = [];
+        for (diffName in difficulties)
+        {
+            if (song.difficultyInfo.get(diffName) == null)
+                missingDiffs.push(diffName);
+        }
+
+        if (missingDiffs.length == 0)
+            return;
+
+        difficultyPreloadQueued.set(cacheKey, true);
+        difficultyPreloadQueue.push({
+            song: song,
+            songName: song.songName,
+            folder: song.folder,
+            difficulties: missingDiffs,
+            weekData: weekData,
+            cacheKey: cacheKey
+        });
     }
 
     private function getFreeplaySongCacheKey(songName:String, folder:String):String
@@ -1121,11 +1154,7 @@ class FreeplayState extends MusicBeatState
         var desiredIndex:Float = cardScrollPos / CARD_SPACING;
         lerpSelected = FlxMath.lerp(desiredIndex, lerpSelected, Math.exp(-elapsed * 9.6));
 
-        if (desiredIndex == 0) {
-            lerpSelected = 0;
-        } else if (desiredIndex == (songs.length - 1)) {
-            lerpSelected = songs.length - 1;
-        } else if (Math.abs(lerpSelected - desiredIndex) < 0.0001) {
+        if (Math.abs(lerpSelected - desiredIndex) < 0.0001) {
             lerpSelected = desiredIndex;
         }
         
@@ -1146,14 +1175,21 @@ class FreeplayState extends MusicBeatState
             {
                 var info = SongInfoParser.preloadAllDifficulties(item.songName, item.folder, item.difficulties, item.weekData);
                 item.song.difficultyInfo = info;
+                difficultyPreloadQueued.remove(item.cacheKey);
                 if (ClientPrefs.data.saveFreeplayCache)
                 {
                     freeplaySongCache.set(item.cacheKey, buildFreeplayCacheEntry(info));
                     freeplayCacheDirty = true;
                 }
+                if (item.song == songs[curSelected])
+                {
+                    updateCardDifficultyInfo();
+                    updateSongInfoTexts();
+                }
             }
             catch(e:Dynamic)
             {
+                difficultyPreloadQueued.remove(item.cacheKey);
                 trace('Failed to preload song info: $e');
             }
         }
@@ -1183,8 +1219,16 @@ class FreeplayState extends MusicBeatState
         
         if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(replayButton))
         {
+            if (curSelected < 0 || curSelected >= songs.length) return;
+            
             FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
-            MusicBeatState.switchState(new LoadReplayState());
+            persistentUpdate = false;
+            openSubState(new substates.LoadReplaySubState(
+                this,
+                songs[curSelected].songName,
+                songs[curSelected].folder,
+                Difficulty.getString(curDifficulty)
+            ));
         }
 
         if (ClientPrefs.data.freeplayModFolder && FlxG.mouse.justPressed && FlxG.mouse.overlaps(modFolderText) && !musicPlayer.playingMusic && !inModFolderSelector)
@@ -1255,7 +1299,7 @@ class FreeplayState extends MusicBeatState
             }
         }
 
-        if (controls.BACK || FlxG.mouse.justPressedRight)
+        if (!inModFolderSelector && (controls.BACK || FlxG.mouse.justPressedRight))
         {
             if (PsychUIInputText.focusOn != null)
                 return;
@@ -1275,7 +1319,7 @@ class FreeplayState extends MusicBeatState
                 MusicBeatState.switchState(new MainMenuState());
             }
         }
-        else if (PsychUIInputText.focusOn == null)
+        else if (!inModFolderSelector && PsychUIInputText.focusOn == null)
         {
             if(FlxG.keys.justPressed.CONTROL || FlxG.mouse.justPressedMiddle && !musicPlayer.playingMusic)
             {
@@ -1292,7 +1336,7 @@ class FreeplayState extends MusicBeatState
             }
         }
 
-        if (PsychUIInputText.focusOn == null && controls.RESET && !musicPlayer.playingMusic)
+        if (!inModFolderSelector && PsychUIInputText.focusOn == null && controls.RESET && !musicPlayer.playingMusic)
         {
             if (curSelected < 0 || curSelected >= songs.length)
             {
@@ -1334,6 +1378,11 @@ class FreeplayState extends MusicBeatState
     {
         if (cards.length == 0) return;
         if (inModFolderSelector) return;
+        if (FlxG.mouse.y >= FlxG.height - 50 || FlxG.mouse.y <= 85)
+        {
+            mouseOverCard = -1;
+            return;
+        }
         computeVisibleCardRange();
         var newMouseOverCard:Int = -1;
         for (i in visibleCardMin...visibleCardMax + 1)
@@ -1749,7 +1798,6 @@ class FreeplayState extends MusicBeatState
         changeDiff();
         showArtForIndex(curSelected, false);
         showCharacterForIndex(curSelected, false);
-        inModFolderSelector = false;
     }
 
     override function destroy():Void
