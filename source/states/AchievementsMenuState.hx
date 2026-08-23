@@ -56,9 +56,11 @@ class AchievementsMenuState extends MusicBeatState
 		camFollow = new FlxObject(0, 0, 1, 1);
 		add(camFollow);
 
-		var menuBG:FlxSprite = new FlxSprite().loadGraphic(Paths.image('menuBGBlue'));
+		var menuBG:FlxFilteredSprite = new FlxFilteredSprite();
+		menuBG.loadGraphic(Paths.image('menuBGBlue'));
 		menuBG.antialiasing = ClientPrefs.data.antialiasing;
 		menuBG.setGraphicSize(Std.int(menuBG.width * 1.1));
+		if(ClientPrefs.data.blurEffects)menuBG.filters = [new BlurFilter(5, 5, BitmapFilterQuality.HIGH)];
 		menuBG.updateHitbox();
 		menuBG.screenCenter();
 		menuBG.scrollFactor.set();
@@ -144,10 +146,12 @@ class AchievementsMenuState extends MusicBeatState
 		add(box);
 		
 		nameText = new FlxText(50, box.y + 10, FlxG.width - 100, "", 32);
+		nameText.antialiasing = ClientPrefs.data.antialiasing;
 		nameText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER);
 		nameText.scrollFactor.set();
 
 		descText = new FlxText(50, nameText.y + 38, FlxG.width - 100, "", 24);
+		descText.antialiasing = ClientPrefs.data.antialiasing;
 		descText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER);
 		descText.scrollFactor.set();
 
@@ -157,6 +161,7 @@ class AchievementsMenuState extends MusicBeatState
 		progressBar.enabled = false;
 		
 		progressTxt = new FlxText(50, progressBar.y - 6, FlxG.width - 100, "", 32);
+		progressTxt.antialiasing = ClientPrefs.data.antialiasing;
 		progressTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		progressTxt.scrollFactor.set();
 		progressTxt.borderSize = 2;
@@ -168,6 +173,7 @@ class AchievementsMenuState extends MusicBeatState
 
 		// --- 添加统计按钮（右上角） ---
 		statsButton = new FlxText(0, 15, 0, "View Game Stats", 24);
+		statsButton.antialiasing = ClientPrefs.data.antialiasing;
 		statsButton.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.CYAN, RIGHT);
 		statsButton.scrollFactor.set();
 		statsButton.x = FlxG.width - statsButton.width - 20;
@@ -416,6 +422,7 @@ class ResetAchievementSubstate extends MusicBeatSubstate
 		var state:AchievementsMenuState = cast FlxG.state;
 		var text:FlxText = new FlxText(50, text.y + 90, FlxG.width - 100, state.options[state.curSelected].displayName, 40);
 		text.setFormat(Paths.font("vcr.ttf"), 40, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		text.antialiasing = ClientPrefs.data.antialiasing;
 		text.scrollFactor.set();
 		text.borderSize = 2;
 		add(text);

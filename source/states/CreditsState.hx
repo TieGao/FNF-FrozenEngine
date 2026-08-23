@@ -13,7 +13,7 @@ class CreditsState extends MusicBeatState
 	private var iconArray:Array<AttachedSprite> = [];
 	private var creditsStuff:Array<Array<String>> = [];
 
-	var bg:FlxSprite;
+	var bg:FlxFilteredSprite;
 	var descText:FlxText;
 	var intendedColor:FlxColor;
 	var descBox:AttachedSprite;
@@ -43,12 +43,14 @@ class CreditsState extends MusicBeatState
 		#end
 
 		persistentUpdate = true;
-		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
+		bg = new FlxFilteredSprite();
+		bg.loadGraphic(Paths.image('menuDesat'));
+		if(ClientPrefs.data.blurEffects)bg.filters = [new BlurFilter(5, 5, BitmapFilterQuality.HIGH)];
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		add(bg);
 		bg.screenCenter();
 
-		        space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
+		space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
         space.antialiasing = ClientPrefs.data.antialiasing;
         space.updateHitbox();
         space.scrollFactor.set();
@@ -119,7 +121,7 @@ class CreditsState extends MusicBeatState
             ["Ice_Axe",         "iceaxe",       "Creator of Frozen Engine","https://github.com/TieGao",     "87CEEB"],
 			["Special Thanks"],
 			["beihu", "novaflare", "Original of KeyboardViewer", "https://space.bilibili.com/511083372", "FF69B4"],
-			["MaybeMaru","","Chart Converter Lib","https://lib.haxe.org/p/moonchart/", "FF69B4"]
+			//["MaybeMaru","","Chart Converter Lib","https://lib.haxe.org/p/moonchart/", "FF69B4"]
         ];
 		
 		for(i in defaultList)
@@ -181,6 +183,7 @@ class CreditsState extends MusicBeatState
 		add(descBox);
 
 		descText = new FlxText(50, FlxG.height + offsetThing - 25, 1180, "", 32);
+		descText.antialiasing = ClientPrefs.data.antialiasing;
 		descText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER/*, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK*/);
 		descText.scrollFactor.set();
 		//descText.borderSize = 2.4;

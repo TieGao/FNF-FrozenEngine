@@ -17,9 +17,9 @@ import lime.graphics.RenderContextType;
 #if cpp
 #if windows
 @:cppFileCode('#include <windows.h>')
-#elseif (ios || mac)
+#elseif mac
 @:cppFileCode('#include <mach-o/arch.h>')
-#else
+#elseif linux
 @:headerInclude('sys/utsname.h')
 #end
 #end
@@ -46,30 +46,16 @@ class FPSCounter extends TextField
 	@:noCompletion private var tpsUpdateTime:Int;
 	@:noCompletion private var tpsCount:Int;
 	@:noCompletion private var prevTPSTime:Int;
-	
-	// 用于 TPS 独立计时的变量
-	@:noCompletion private var lastTPSTickTime:Int;
-	@:noCompletion private var expectedUpdateDelta:Float;
 
-	public var os:String = '';
 	public var graphicsAPI:String = '';
 
 	public function new(x:Float = 10, y:Float = 10, color:Int = 0x000000)
 	{
 		super();
 		
-		// 获取图形 API 信息
+		// 获取图形 API 信息（运行时不变，只获取一次）
 		graphicsAPI = getGraphicsAPI();
 		
-		// 获取操作系统信息
-		if (ClientPrefs.data.showOS)
-		{
-			if (LimeSystem.platformName == LimeSystem.platformVersion || LimeSystem.platformVersion == null)
-				os = LimeSystem.platformName #if cpp + (getArch() != 'Unknown' ? ' ${getArch()}' : '') #end;
-			else
-				os = LimeSystem.platformName #if cpp + (getArch() != 'Unknown' ? ' ${getArch()}' : '') #end + ' - ${LimeSystem.platformVersion}';
-		}
-
 		positionFPS(x, y);
 
 		currentFPS = 0;
@@ -90,8 +76,6 @@ class FPSCounter extends TextField
 		prevTPSTime = Lib.getTimer();
 		tpsUpdateTime = prevTPSTime + 500;
 		tpsCount = 0;
-		lastTPSTickTime = Lib.getTimer();
-		expectedUpdateDelta = 1000.0 / ClientPrefs.data.updaterate;
 	}
 
 	/**
@@ -131,7 +115,7 @@ class FPSCounter extends TextField
 			case RenderContextType.OPENGL: "OpenGL";
 			case RenderContextType.OPENGLES: "OpenGL ES";
 			case RenderContextType.WEBGL: "WebGL";
-//			case RenderContextType.VULKAN: "Vulkan";
+			//case RenderContextType.VULKAN: "Vulkan";
 			case RenderContextType.CAIRO: "Cairo";
 			case RenderContextType.CANVAS: "Canvas 2D";
 			case RenderContextType.DOM: "DOM";
@@ -190,11 +174,34 @@ class FPSCounter extends TextField
 		#end
 	}
 
+	/**
+		实时获取操作系统信息
+	**/
+	private function getOSInfo():String
+	{
+		if (!ClientPrefs.data.showOS) return '';
+		
+		var platformName = LimeSystem.platformName;
+		var platformVersion = LimeSystem.platformVersion;
+		
+		#if ios
+		// iOS 只显示系统版本，不显示架构
+		return platformVersion != null ? 'iOS $platformVersion' : 'iOS';
+		#else
+		// 其他平台显示系统名称 + 架构 + 版本
+		var arch = #if cpp getArch() #else "" #end;
+		if (platformName == platformVersion || platformVersion == null)
+			return platformName + (arch != 'Unknown' && arch != '' ? ' $arch' : '');
+		else
+			return platformName + (arch != 'Unknown' && arch != '' ? ' $arch' : '') + ' - $platformVersion';
+		#end
+	}
+
 	public dynamic function updateText():Void
 	{
 		var lines:Array<String> = [];
 		
-		// 第一行：FPS | TPS（不带括号内数值）
+		// 第一行：FPS | TPS
 		var fpsTpsLine = 'FPS: $currentFPS';
 		if (ClientPrefs.data.showTPS)
 		{
@@ -211,11 +218,12 @@ class FPSCounter extends TextField
 		}
 		lines.push(memLine);
 		
-		// 第三行：OS 和 Render（在同一行，用 | 分隔）
+		// 第三行：OS 和 Render（实时获取，切换设置立即生效）
 		var infoParts:Array<String> = [];
-		if (ClientPrefs.data.showOS && os != '')
+		if (ClientPrefs.data.showOS)
 		{
-			infoParts.push('OS: $os');
+			var osInfo = getOSInfo();
+			if (osInfo != '') infoParts.push('OS: $osInfo');
 		}
 		if (ClientPrefs.data.showApi && graphicsAPI != '')
 		{
@@ -250,9 +258,9 @@ class FPSCounter extends TextField
 				FlxG.stage.window.frameRate = ClientPrefs.data.framerate;
 
 			var currentTime = openfl.Lib.getTimer();
-			
-			// FPS 统计 - 每帧都会触发
 			framesCount++;
+			tpsCount++;
+
 			if (currentTime >= updateTime)
 			{
 				var elapsed = currentTime - prevTime;
@@ -262,18 +270,7 @@ class FPSCounter extends TextField
 				updateTime = currentTime + 500;
 			}
 			
-			// TPS 统计 - 基于实际的更新周期
-			// 检查是否应该计为一个更新 tick
-			var timeSinceLastTick = currentTime - lastTPSTickTime;
-			if (timeSinceLastTick >= expectedUpdateDelta - 1) // 允许 1ms 误差
-			{
-				tpsCount++;
-				lastTPSTickTime = currentTime;
-				
-				// 动态调整期望的更新间隔，使其更准确
-				expectedUpdateDelta = 1000.0 / ClientPrefs.data.updaterate;
-			}
-			
+			// TPS 更新
 			if (currentTime >= tpsUpdateTime)
 			{
 				var elapsedTPS = currentTime - prevTPSTime;
@@ -283,24 +280,11 @@ class FPSCounter extends TextField
 				tpsUpdateTime = currentTime + 500;
 			}
 
-			// 动态调整 FlxG 的更新帧率以匹配目标 TPS
-			if (FlxG.updateFramerate != ClientPrefs.data.updaterate)
-			{
-				FlxG.updateFramerate = ClientPrefs.data.updaterate;
-			}
-			
-			// 可选：根据实际 FPS 调整绘制帧率（如果启用自动调整）
-			if (ClientPrefs.data.devideDrawAndUpdate)
-			{
-				// 保持绘制帧率独立
-				if (FlxG.drawFramerate != ClientPrefs.data.framerate)
-					FlxG.drawFramerate = ClientPrefs.data.framerate;
-			}
-			else if ((FlxG.updateFramerate >= currentFPS + 5 || FlxG.updateFramerate <= currentFPS - 5)
+			// Set Update and Draw framerate to the current FPS every 1.5 second to prevent "slowness" issue
+			if ((FlxG.updateFramerate >= currentFPS + 5 || FlxG.updateFramerate <= currentFPS - 5)
 				&& haxe.Timer.stamp() - lastFramerateUpdateTime >= 1.5
 				&& currentFPS >= 30)
 			{
-				// 仅在未分离时同步更新和绘制帧率
 				FlxG.updateFramerate = FlxG.drawFramerate = currentFPS;
 				lastFramerateUpdateTime = haxe.Timer.stamp();
 			}
@@ -340,31 +324,23 @@ class FPSCounter extends TextField
 	#if windows
 	@:functionCode('
 		SYSTEM_INFO osInfo;
-
 		GetSystemInfo(&osInfo);
-
 		switch(osInfo.wProcessorArchitecture)
 		{
-			case 9:
-				return ::String("x86_64");
-			case 5:
-				return ::String("ARM");
-			case 12:
-				return ::String("ARM64");
-			case 6:
-				return ::String("IA-64");
-			case 0:
-				return ::String("x86");
-			default:
-				return ::String("Unknown");
+			case 9: return ::String("x86_64");
+			case 5: return ::String("ARM");
+			case 12: return ::String("ARM64");
+			case 6: return ::String("IA-64");
+			case 0: return ::String("x86");
+			default: return ::String("Unknown");
 		}
 	')
-	#elseif (ios || mac)
+	#elseif mac
 	@:functionCode('
 		const NXArchInfo *archInfo = NXGetLocalArchInfo();
-    	return ::String(archInfo == NULL ? "Unknown" : archInfo->name);
+		return ::String(archInfo == NULL ? "Unknown" : archInfo->name);
 	')
-	#else
+	#elseif linux
 	@:functionCode('
 		struct utsname osInfo{};
 		uname(&osInfo);

@@ -187,13 +187,27 @@ class ControlsSubState extends MusicBeatSubstate
 	}
 	function addKeyText(text:Alphabet, option:Array<Dynamic>, id:Int)
 	{
-		var keys:Array<Null<FlxKey>> = ClientPrefs.keyBinds.get(option[2]);
-		if(keys == null && onKeyboardMode)
-			keys = ClientPrefs.defaultKeys.get(option[2]).copy();
+		var bindMap:Dynamic = onKeyboardMode ? ClientPrefs.keyBinds : ClientPrefs.gamepadBinds;
+		var defaultMap:Dynamic = onKeyboardMode ? ClientPrefs.defaultKeys : ClientPrefs.defaultButtons;
+		var keys:Array<Null<FlxKey>> = null;
+		var gmpds:Array<Null<FlxGamepadInputID>> = null;
 
-		var gmpds:Array<Null<FlxGamepadInputID>> = ClientPrefs.gamepadBinds.get(option[2]);
-		if(gmpds == null && !onKeyboardMode)
-			gmpds = ClientPrefs.defaultButtons.get(option[2]).copy();
+		if(onKeyboardMode)
+		{
+			keys = cast bindMap.get(option[2]);
+			if(keys == null && defaultMap != null && defaultMap.exists(option[2]))
+				keys = cast defaultMap.get(option[2]).copy();
+			if(keys == null)
+				keys = [NONE, NONE];
+		}
+		else
+		{
+			gmpds = cast bindMap.get(option[2]);
+			if(gmpds == null && defaultMap != null && defaultMap.exists(option[2]))
+				gmpds = cast defaultMap.get(option[2]).copy();
+			if(gmpds == null)
+				gmpds = [NONE, NONE];
+		}
 
 		for (n in 0...2)
 		{
@@ -276,6 +290,7 @@ class ControlsSubState extends MusicBeatSubstate
 	var bindingBlack:FlxSprite;
 	var bindingText:Alphabet;
 	var bindingText2:Alphabet;
+	var hasPendingChanges:Bool = false;
 
 	var timeForMoving:Float = 0.1;
 	override function update(elapsed:Float)
@@ -401,6 +416,8 @@ class ControlsSubState extends MusicBeatSubstate
 				// 重置为默认键位
 				ClientPrefs.resetKeys(!onKeyboardMode);
 				ClientPrefs.reloadVolumeKeys();
+				hasPendingChanges = true;
+				ClientPrefs.saveSettings();
 				var lastSel:Int = curSelected;
 				createTexts();
 				curSelected = lastSel;
@@ -446,6 +463,8 @@ class ControlsSubState extends MusicBeatSubstate
 					// Reset to Default
 					ClientPrefs.resetKeys(!onKeyboardMode);
 					ClientPrefs.reloadVolumeKeys();
+					hasPendingChanges = true;
+					ClientPrefs.saveSettings();
 					var lastSel:Int = curSelected;
 					createTexts();
 					curSelected = lastSel;
@@ -486,6 +505,8 @@ class ControlsSubState extends MusicBeatSubstate
 						ClientPrefs.gamepadBinds.get(curOption[2])[altNum] = NONE;
 					ClientPrefs.clearInvalidKeys(curOption[2]);
 					updateBind(Math.floor(curSelected * 2) + altNum, onKeyboardMode ? InputFormatter.getKeyName(NONE) : InputFormatter.getGamepadName(NONE));
+					hasPendingChanges = true;
+					ClientPrefs.saveSettings();
 					FlxG.sound.play(Paths.sound('cancelMenu'));
 					closeBinding();
 				}
@@ -496,6 +517,8 @@ class ControlsSubState extends MusicBeatSubstate
 				var changed:Bool = false;
 				var curKeys:Array<FlxKey> = ClientPrefs.keyBinds.get(curOption[2]);
 				var curButtons:Array<FlxGamepadInputID> = ClientPrefs.gamepadBinds.get(curOption[2]);
+				if(curKeys == null) curKeys = [NONE, NONE];
+				if(curButtons == null) curButtons = [NONE, NONE];
 
 				if(onKeyboardMode)
 				{
@@ -580,6 +603,8 @@ class ControlsSubState extends MusicBeatSubstate
 						}
 						updateBind(Math.floor(curSelected * 2) + n, key);
 					}
+					hasPendingChanges = true;
+					ClientPrefs.saveSettings();
 					FlxG.sound.play(Paths.sound('confirmMenu'));
 					closeBinding();
 				}
@@ -625,6 +650,16 @@ class ControlsSubState extends MusicBeatSubstate
 		bindingText2.destroy();
 		remove(bindingText2);
 		ClientPrefs.reloadVolumeKeys();
+	}
+
+	override function close()
+	{
+		if(hasPendingChanges)
+		{
+			ClientPrefs.saveSettings();
+			hasPendingChanges = false;
+		}
+		super.close();
 	}
 
 	function updateText(?change:Int = 0)

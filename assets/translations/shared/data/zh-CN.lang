@@ -677,3 +677,10 @@ Dynamic_Controls_Color: "动态按钮颜色"
 If_checked_the_mobile_controls_color_will_be_set_to_the_notes_color: "开启后，移动按钮颜色会跟随设置中的音符颜色。\n（仅在游玩时生效）"
 Customize_Mobile_Controls: "自定义移动按钮布局"
 Customize_mobile_controls_layout_and_appearance: "自定义移动按钮的布局与外观"
+
+osu_import_title:OSU 导入选项
+osu_import_convert_prompt:检测到 {1}K ({2} 键 mania)。\n是否转换为 4K (3 键 mania)？
+osu_import_keep_prompt:检测到 {1}K ({2} 键 mania)。\n保持原始键数导入。
+osu_import_convert_check:转换为 4K (3 键 mania)
+osu_import_confirm:确认导入
+osu_import_cancel:取消

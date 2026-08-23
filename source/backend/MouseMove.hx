@@ -16,6 +16,7 @@ class MouseMove extends FlxBasic
 
     public var mouseWheelSensitivity:Float = -1000.0; // 鼠标滚轮更改量的控制变量
     public var tweenData(default, set):Float = 0; //用于tween/lerp到指定数据的
+    private var hasTweenData:Bool = false;
     public var tweenTime:Float = 0.3; //tween时间
     public var tweenType:String = 'linear'; //tween类型
     public var useLerp:Bool = true; //是否使用lerp而不是tween
@@ -144,10 +145,11 @@ class MouseMove extends FlxBasic
         applyInertia(elapsed);
     }
 
-    if (tweenData != 0 && allowLerp) {
+    if (hasTweenData && allowLerp) {
         if (Math.abs(target - tweenData) < 0.1) {
             target = tweenData;
             tweenData = 0;
+            hasTweenData = false;
             allowLerp = false;
         } else {
             target = FlxMath.lerp(tweenData, target, Math.exp(-elapsed * lerpSmooth));
@@ -229,6 +231,7 @@ private function startDrag(startY:Float) {
     private function set_tweenData(value:Float) {
         var doNotStop:Bool = value == tweenData;
         tweenData = value;
+        hasTweenData = true;
         if (!doNotStop) moveTo(tweenData);
 
         return tweenData;
@@ -247,6 +250,7 @@ private function startDrag(startY:Float) {
     private function cancelMoveTo() {
         allowLerp = false;
         tweenData = 0;
+        hasTweenData = false;
         if (moveTween != null) moveTween.cancel();
     }
 

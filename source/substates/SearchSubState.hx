@@ -76,6 +76,7 @@ class SearchSubState extends MusicBeatSubstate
         registerFadeElement(bg, 0.75);
 
         title = new FlxText(0, 20, FlxG.width, "Search Songs", 28);
+        title.antialiasing = ClientPrefs.data.antialiasing;
         title.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER);
         title.scrollFactor.set();
         add(title);
@@ -107,6 +108,7 @@ class SearchSubState extends MusicBeatSubstate
         registerFadeElement(inputText, 1);
 
         searchLabel = new FlxText(searchContainerX + 34, searchContainerY + 4, 360, "Type to search songs...", 18);
+        searchLabel.antialiasing = ClientPrefs.data.antialiasing;
         searchLabel.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.GRAY, LEFT);
         searchLabel.scrollFactor.set();
         add(searchLabel);
@@ -132,6 +134,7 @@ class SearchSubState extends MusicBeatSubstate
         add(cardContainer);
 
         noResultText = new FlxText(0, FlxG.height / 2 - 20, FlxG.width, "No songs found", 28);
+        noResultText.antialiasing = ClientPrefs.data.antialiasing;
         noResultText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER);
         noResultText.visible = false;
         noResultText.scrollFactor.set();
@@ -139,6 +142,7 @@ class SearchSubState extends MusicBeatSubstate
         registerFadeElement(noResultText, 1);
 
         hint = new FlxText(0, FlxG.height - 35, FlxG.width, "Right click or ESC to close", 14);
+        hint.antialiasing = ClientPrefs.data.antialiasing;
         hint.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.GRAY, CENTER);
         hint.scrollFactor.set();
         add(hint);
@@ -483,10 +487,12 @@ class SearchCard extends FlxTypedGroup<FlxSprite>
         add(icon);
 
         songNameText = new FlxText(0, 0, 0, song.songName, 20);
+        songNameText.antialiasing = ClientPrefs.data.antialiasing;
         songNameText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT);
         add(songNameText);
 
         modFolderText = new FlxText(0, 0, 0, "Mod: " + song.folder, 13);
+        modFolderText.antialiasing = ClientPrefs.data.antialiasing;
         modFolderText.setFormat(Paths.font("vcr.ttf"), 13, FlxColor.GRAY, LEFT);
         add(modFolderText);
 
@@ -520,9 +526,25 @@ class SearchCard extends FlxTypedGroup<FlxSprite>
     public function setSong(song:NewSongMetaData)
     {
         this.songData = song;
-        if (songNameText != null) songNameText.text = song.songName;
+        
+        // 重置悬停状态
+        _isHovering = false;
+        bgSprite.color = FlxColor.fromRGB(45, 45, 45);
+        bgSprite.alpha = 0.85;
+        
+        if (songNameText != null) {
+            songNameText.text = song.songName;
+            songNameText.color = FlxColor.WHITE;
+        }
         if (modFolderText != null) modFolderText.text = "Mod: " + song.folder;
-        if (colorRect != null) colorRect.color = song.color;
+        
+        // 确保色块颜色正确更新
+        if (colorRect != null) {
+            colorRect.color = song.color;
+            // 重新绘制色块以确保颜色生效
+            colorRect.makeGraphic(6, Math.round(_cardHeight), song.color);
+            colorRect.alpha = 0.9;
+        }
 
         if (icon != null)
         {
@@ -533,7 +555,7 @@ class SearchCard extends FlxTypedGroup<FlxSprite>
 
     public function checkMouseOver():Bool
     {
-        if (!this.visible) return false;
+        if (!this.visible || songData == null) return false;
         var over = FlxG.mouse.overlaps(bgSprite);
         
         if (over != _isHovering)

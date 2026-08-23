@@ -144,6 +144,7 @@ class OldFreeplayState extends MusicBeatState
 		WeekData.setDirectoryFromWeek();
 
 		scoreText = new FlxText(FlxG.width * 0.7, 5, 0, "", 32);
+		scoreText.antialiasing = ClientPrefs.data.antialiasing;
 		scoreText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT);
 
 		scoreBG = new FlxSprite(scoreText.x - 6, 0).makeGraphic(1, 66, 0xFF000000);
@@ -151,6 +152,7 @@ class OldFreeplayState extends MusicBeatState
 		add(scoreBG);
 
 		diffText = new FlxText(scoreText.x, scoreText.y + 36, 0, "", 24);
+		diffText.antialiasing = ClientPrefs.data.antialiasing;
 		diffText.font = scoreText.font;
 		add(diffText);
 
@@ -165,6 +167,7 @@ class OldFreeplayState extends MusicBeatState
 		missingText = new FlxText(50, 0, FlxG.width - 100, '', 24);
 		missingText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		missingText.scrollFactor.set();
+		missingText.antialiasing = ClientPrefs.data.antialiasing;
 		missingText.visible = false;
 		add(missingText);
 
@@ -183,6 +186,7 @@ class OldFreeplayState extends MusicBeatState
 		bottomString = leText;
 		var size:Int = 16;
 		bottomText = new FlxText(bottomBG.x, bottomBG.y + 4, FlxG.width, leText, size);
+		bottomText.antialiasing = ClientPrefs.data.antialiasing;
 		bottomText.setFormat(Paths.font("vcr.ttf"), size, FlxColor.WHITE, CENTER);
 		bottomText.scrollFactor.set();
 		add(bottomText);

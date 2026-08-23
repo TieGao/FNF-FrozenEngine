@@ -163,12 +163,20 @@ class HScript extends Iris
 		set('Paths', Paths);
 		set('Conductor', Conductor);
 		set('ClientPrefs', ClientPrefs);
+		set('FlxSound', flixel.sound.FlxSound);
+		set('Highscore', backend.Highscore);
 		#if ACHIEVEMENTS_ALLOWED
 		set('Achievements', Achievements);
 		#end
 		set('Character', Character);
 		set('Alphabet', Alphabet);
 		set('Note', objects.Note);
+		// 例如，如果老的 Lua 脚本用了 'StrumNote' 但新路径是 'objects.StrumNote'
+		set('StrumNote', objects.StrumNote);
+		// 如果用了 'NoteSplash' 但新路径是 'objects.NoteSplash'
+		set('NoteSplash', objects.NoteSplash);
+		set('HealthIcon', objects.HealthIcon);
+		set('CheckboxThingie', objects.CheckboxThingie);
 		set('CustomSubstate', CustomSubstate);
 		#if (!flash && sys)
 		set('FlxRuntimeShader', flixel.addons.display.FlxRuntimeShader);
@@ -551,6 +559,10 @@ class CustomInterp extends crowplexus.hscript.Interp
         if (funcToRun == "setFilters") {
             return handleSetFilters(o, args);
         }
+
+		if (funcToRun == "playMusic") {
+			return handlePlayMusic(o, args);
+		}
         
         for (_using in usings) {
             var v = _using.call(o, funcToRun, args);
@@ -567,6 +579,50 @@ class CustomInterp extends crowplexus.hscript.Interp
 
         return Reflect.callMethod(o, f, args);
     }
+
+	private function handlePlayMusic(obj:Dynamic, args:Array<Dynamic>):Dynamic {
+		try {
+			// 旧格式: playMusic(assetId, volume, loop)
+			// 新格式: playMusic(assetId, group, volume, loop)
+			
+			if (args.length >= 3) {
+				// 检测是否为旧格式: 第二个参数是数字，第三个参数是布尔值
+				var arg2:Dynamic = args[1];
+				var arg3:Dynamic = args[2];
+				
+				if ((Std.isOfType(arg2, Float) || Std.isOfType(arg2, Int)) && Std.isOfType(arg3, Bool)) {
+					// 旧格式转换: (assetId, volume, loop) -> (assetId, null, volume, loop)
+					var assetId = args[0];
+					var volume:Float = arg2;
+					var loop:Bool = arg3;
+					
+					return FlxG.sound.playMusic(assetId, null, volume, loop);
+				}
+			}
+			
+			// 如果参数是旧格式的变体: playMusic(assetId, volume) 只有2个参数
+			if (args.length == 2) {
+				var arg2:Dynamic = args[1];
+				if (Std.isOfType(arg2, Float) || Std.isOfType(arg2, Int)) {
+					var assetId = args[0];
+					var volume:Float = arg2;
+					return FlxG.sound.playMusic(assetId, null, volume, true);
+				}
+			}
+			
+			// 其他情况直接调用原始方法
+			return Reflect.callMethod(obj, Reflect.field(obj, "playMusic"), args);
+			
+		} catch (e:Dynamic) {
+			// 出错时尝试直接调用
+			try {
+				return Reflect.callMethod(obj, Reflect.field(obj, "playMusic"), args);
+			} catch (e2:Dynamic) {
+				Iris.error('Failed to call playMusic: $e2', posInfos());
+				return null;
+			}
+		}
+	}
     
 private function handleSetFilters(obj:Dynamic, args:Array<Dynamic>):Dynamic {
 //    trace('[DEBUG] handleSetFilters called: obj=$obj, args=$args, args.length=${args.length}');

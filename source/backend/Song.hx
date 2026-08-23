@@ -31,6 +31,10 @@ typedef SwagSong =
 	@:optional var arrowSkin:String;
 	@:optional var splashSkin:String;
 	@:optional var mirrorNotes:Bool;
+
+	@:optional var mania:Int;        // 键数-1 (3 = 4K, 15 = 16K)
+    @:optional var keyCount:Int;     // 实际键数 (4-16)
+    @:optional var keycount:Int;     // 兼容旧版
 }
 
 typedef SwagSection =

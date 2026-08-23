@@ -4,6 +4,7 @@ import objects.Character;
 import objects.DraggableBar;  // 改为导入 DraggableBar
 import flixel.addons.display.shapes.FlxShapeCircle;
 
+
 import states.stages.StageWeek1 as BackgroundStage;
 
 class NoteOffsetState extends MusicBeatState
@@ -168,7 +169,10 @@ class NoteOffsetState extends MusicBeatState
 
 		///////////////////////
 
-		var blackBox:FlxSprite = new FlxSprite().makeGraphic(FlxG.width, 40, FlxColor.BLACK);
+		var blackBox:FlxFilteredSprite = new FlxFilteredSprite();
+		blackBox.makeGraphic(FlxG.width + 200, 80, FlxColor.BLACK);
+		blackBox.y -= 40;
+		blackBox.filters = [new BlurFilter(40, 40, BitmapFilterQuality.HIGH)];
 		blackBox.scrollFactor.set();
 		blackBox.alpha = 0.6;
 		blackBox.cameras = [camHUD];

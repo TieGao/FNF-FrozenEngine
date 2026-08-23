@@ -51,16 +51,19 @@ class MusicPlayerLegacy extends FlxGroup
 		add(playbackBG);
 
 		songTxt = new FlxText(FlxG.width * 0.7, 90, 0, "", 32);
+		songTxt.antialiasing = ClientPrefs.data.antialiasing;
 		songTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT);
 		add(songTxt);
 
 		timeTxt = new FlxText(xPos, songTxt.y + 60, 0, "", 32);
+		timeTxt.antialiasing = ClientPrefs.data.antialiasing;
 		timeTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT);
 		add(timeTxt);
 
 		for (i in 0...2)
 		{
 			var text:FlxText = new FlxText();
+			text.antialiasing = ClientPrefs.data.antialiasing;
 			text.setFormat(Paths.font('vcr.ttf'), 32, FlxColor.WHITE, CENTER);
 			text.text = '^';
 			if (i == 1)
@@ -75,6 +78,7 @@ class MusicPlayerLegacy extends FlxGroup
 		add(progressBar);
 
 		playbackTxt = new FlxText(FlxG.width * 0.6, 0, 0, "", 32);
+		playbackTxt.antialiasing = ClientPrefs.data.antialiasing;
 		playbackTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE);
 		add(playbackTxt);
 
@@ -189,21 +193,21 @@ class MusicPlayerLegacy extends FlxGroup
 			setVocalsTime(0);
 		}
 
-		if (playing)
+		/*if (playing)
 		{
 			if(FreeplayState.vocals != null)
 				FreeplayState.vocals.volume = (FreeplayState.vocals.length > FlxG.sound.music.time) ? 0.8 : 0;
 			if(FreeplayState.opponentVocals != null)
 				FreeplayState.opponentVocals.volume = (FreeplayState.opponentVocals.length > FlxG.sound.music.time) ? 0.8 : 0;
 
-			/*if((FreeplayState.vocals != null && FreeplayState.vocals.length > FlxG.sound.music.time && Math.abs(FlxG.sound.music.time - FreeplayState.vocals.time) >= 25) ||
+			if((FreeplayState.vocals != null && FreeplayState.vocals.length > FlxG.sound.music.time && Math.abs(FlxG.sound.music.time - FreeplayState.vocals.time) >= 25) ||
 			(FreeplayState.opponentVocals != null && FreeplayState.opponentVocals.length > FlxG.sound.music.time && Math.abs(FlxG.sound.music.time - FreeplayState.opponentVocals.time) >= 25))
 			{
 				pauseOrResume();
 				setVocalsTime(FlxG.sound.music.time);
 				pauseOrResume(true);
-			}*/
-		}
+			}
+		}*/
 
 		positionSong();
 		updateTimeTxt();

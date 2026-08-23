@@ -228,6 +228,7 @@ class ModInfoBox extends FlxSpriteGroup
         
         // 创建"Now Playing:"文本
         nowPlayingText = new FlxText(textStartX, 40, textWidth, "Now Playing:");
+        nowPlayingText.antialiasing = ClientPrefs.data.antialiasing;
         nowPlayingText.setFormat(Paths.font("vcr.ttf"), introTextSize, FlxColor.WHITE, LEFT);
         nowPlayingText.scrollFactor.set();
         add(nowPlayingText);
@@ -236,6 +237,7 @@ class ModInfoBox extends FlxSpriteGroup
         var songNameX:Float = textStartX + 160;
         var songNameWidth:Float = artSprite != null ? 200 : 200;
         songNameText = new FlxText(songNameX  , 40, songNameWidth, displaySongName);
+        songNameText.antialiasing = ClientPrefs.data.antialiasing;
         songNameText.setFormat(Paths.font("vcr.ttf"), introSubTextSize, FlxColor.WHITE, LEFT);
         songNameText.scrollFactor.set();
         add(songNameText);
@@ -253,6 +255,7 @@ class ModInfoBox extends FlxSpriteGroup
         
         // 创建作者文本
         authorText = new FlxText(textStartX, 70, textWidth, songAuthor);
+        authorText.antialiasing = ClientPrefs.data.antialiasing;
         authorText.setFormat(Paths.font("vcr.ttf"), introSubTextSize, FlxColor.WHITE, LEFT);
         authorText.scrollFactor.set();
         add(authorText);

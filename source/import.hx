@@ -65,5 +65,8 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.addons.transition.FlxTransitionableState;
 import flixel.addons.display.FlxBackdrop;
 
+import backend.FlxFilteredSprite;
+import openfl.filters.BlurFilter;
+import openfl.filters.BitmapFilterQuality;
 using StringTools;
 #end

@@ -235,6 +235,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		opponentVocals.looped = true;
 
 		initPsychCamera();
+		updateColumnConfig(PlayState.SONG);
 		camUI = new FlxCamera();
 		camUI.bgColor.alpha = 0;
 		FlxG.cameras.add(camUI, false);
@@ -300,74 +301,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		timeLine.scrollFactor.set();
 		add(timeLine);
 		
-		var startX:Float = gridBg.x;
-		var startY:Float = FlxG.height/2;
 		vortexIndicator.visible = strumLineNotes.visible = strumLineNotes.active = vortexEnabled;
-		if(SHOW_EVENT_COLUMN) startX += GRID_SIZE;
-
-		for (i in 0...Std.int(GRID_PLAYERS * GRID_COLUMNS_PER_PLAYER))
-		{
-			var note:StrumNote = new StrumNote(startX + (GRID_SIZE * i), startY, i % GRID_COLUMNS_PER_PLAYER, 0);
-			note.scrollFactor.set();
-			note.playAnim('static');
-			note.alpha = 0.4;
-			note.updateHitbox();
-			if(note.width > note.height)
-				note.setGraphicSize(GRID_SIZE);
-			else
-				note.setGraphicSize(0, GRID_SIZE);
-	
-			note.updateHitbox();
-			note.x += GRID_SIZE/2 - note.width/2;
-			note.y += GRID_SIZE/2 - note.height/2;
-			strumLineNotes.add(note);
-		}
-
-		var columns:Int = 0;
-		var iconX:Float = gridBg.x;
-		var iconY:Float = 50;
-		if(SHOW_EVENT_COLUMN)
-		{
-			eventIcon = new FlxSprite(0, iconY).loadGraphic(Paths.image('editors/eventIcon'));
-			eventIcon.antialiasing = ClientPrefs.data.antialiasing;
-			eventIcon.alpha = 0.6;
-			eventIcon.setGraphicSize(30, 30);
-			eventIcon.updateHitbox();
-			eventIcon.scrollFactor.set();
-			add(eventIcon);
-			eventIcon.x = iconX + (GRID_SIZE * 0.5) - eventIcon.width/2;
-			iconX += GRID_SIZE;
-
-			columns++;
-		}
-
-		mustHitIndicator = FlxSpriteUtil.drawTriangle(new FlxSprite(0, iconY - 20).makeGraphic(16, 16, FlxColor.TRANSPARENT), 0, 0, 16);
-		mustHitIndicator.scrollFactor.set();
-		mustHitIndicator.flipY = true;
-		mustHitIndicator.offset.x += mustHitIndicator.width/2;
-		add(mustHitIndicator);
-
-		var gridStripes:Array<Int> = [];
-		for (i in 0...GRID_PLAYERS)
-		{
-			if(columns > 0) gridStripes.push(columns);
-			columns += GRID_COLUMNS_PER_PLAYER;
-
-			var icon:HealthIcon = new HealthIcon();
-			icon.autoAdjustOffset = false;
-			icon.y = iconY;
-			icon.alpha = 0.6;
-			icon.scrollFactor.set();
-			icon.scale.set(0.3, 0.3);
-			icon.updateHitbox();
-			icon.ID = i+1;
-			add(icon);
-			icons.push(icon);
-			
-			icon.x = iconX + GRID_SIZE * (GRID_COLUMNS_PER_PLAYER/2) - icon.width/2;
-			iconX += GRID_SIZE * GRID_COLUMNS_PER_PLAYER;
-		}
-		prevGridBg.stripes = nextGridBg.stripes = gridBg.stripes = gridStripes;
+		createStrumLineNotes();
+		createGridIndicators();
 		
 		selectionBox = new FlxSprite().makeGraphic(1, 1, FlxColor.CYAN);
 		selectionBox.alpha = 0.4;
@@ -634,7 +570,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		// SONG TAB
 		songNameInputText.text = PlayState.SONG.song;
-		allowVocalsCheckBox.checked = (PlayState.SONG.needsVoices != false); //If the song for some reason does not have this value, it will be set to true
+		allowVocalsCheckBox.checked = (PlayState.SONG.needsVoices != false);
 
 		bpmStepper.value = PlayState.SONG.bpm;
 		scrollSpeedStepper.value = PlayState.SONG.speed;
@@ -657,6 +593,20 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		noteTextureInputText.text = PlayState.SONG.arrowSkin;
 		noteSplashesInputText.text = PlayState.SONG.splashSkin;
+		if(maniaStepper != null)
+		{
+			// 从 JSON 读取 mania 信息
+			var maniaVal:Int = 4;
+			if (Reflect.hasField(PlayState.SONG, 'mania')) {
+				maniaVal = Reflect.field(PlayState.SONG, 'mania') + 1;
+			} else if (Reflect.hasField(PlayState.SONG, 'keyCount')) {
+				maniaVal = Reflect.field(PlayState.SONG, 'keyCount');
+			} else if (Reflect.hasField(PlayState.SONG, 'keycount')) {
+				maniaVal = Reflect.field(PlayState.SONG, 'keycount');
+			}
+			maniaStepper.value = Math.max(4, maniaVal);
+			GRID_COLUMNS_PER_PLAYER = Std.int(maniaStepper.value);
+		}
 	}
 	
 	var noteSelectionSine:Float = 0;
@@ -1460,12 +1410,12 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					{
 						if(hitSoundPlayer && note.mustPress)
 						{
-							FlxG.sound.play(Paths.sound('hitsound'), hitsoundPlayerStepper.value);
+							FlxG.sound.play(Paths.sound(ClientPrefs.data.hitsound), hitsoundPlayerStepper.value);
 							hitSoundPlayer = false;
 						}
 						else if(hitSoundOpp && !note.mustPress)
 						{
-							FlxG.sound.play(Paths.sound('hitsound'), hitsoundOpponentStepper.value);
+							FlxG.sound.play(Paths.sound(ClientPrefs.data.hitsound), hitsoundOpponentStepper.value);
 							hitSoundOpp = false;
 						}
 					}
@@ -1741,7 +1691,133 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		else selectedEventText.visible = false;
 	}
 
-	function createGrids()
+	function createStrumLineNotes()
+	{
+		if(strumLineNotes == null)
+			strumLineNotes = new FlxTypedGroup<StrumNote>();
+		else
+		{
+			for (note in strumLineNotes)
+			{
+				if(note != null) note.destroy();
+			}
+			strumLineNotes.clear();
+		}
+
+		var startX:Float = gridBg.x;
+		var startY:Float = FlxG.height/2;
+		if(SHOW_EVENT_COLUMN) startX += GRID_SIZE;
+
+		for (i in 0...Std.int(GRID_PLAYERS * GRID_COLUMNS_PER_PLAYER))
+		{
+			var note:StrumNote = new StrumNote(startX + (GRID_SIZE * i), startY, i % GRID_COLUMNS_PER_PLAYER, 0);
+			note.scrollFactor.set();
+			note.playAnim('static');
+			note.alpha = 0.4;
+			note.updateHitbox();
+			if(note.width > note.height)
+				note.setGraphicSize(GRID_SIZE);
+			else
+				note.setGraphicSize(0, GRID_SIZE);
+
+			note.updateHitbox();
+			note.x += GRID_SIZE/2 - note.width/2;
+			note.y += GRID_SIZE/2 - note.height/2;
+			strumLineNotes.add(note);
+		}
+	}
+
+	function createGridIndicators()
+	{
+		if(eventIcon != null)
+		{
+			remove(eventIcon, true);
+			eventIcon.destroy();
+			eventIcon = null;
+		}
+		if(mustHitIndicator != null)
+		{
+			remove(mustHitIndicator, true);
+			mustHitIndicator.destroy();
+			mustHitIndicator = null;
+		}
+		for (icon in icons)
+		{
+			if(icon != null)
+			{
+				remove(icon, true);
+				icon.destroy();
+			}
+		}
+		icons = [];
+
+		var columns:Int = 0;
+		var iconX:Float = gridBg.x;
+		var iconY:Float = 50;
+		if(SHOW_EVENT_COLUMN)
+		{
+			eventIcon = new FlxSprite(0, iconY).loadGraphic(Paths.image('editors/eventIcon'));
+			eventIcon.antialiasing = ClientPrefs.data.antialiasing;
+			eventIcon.alpha = 0.6;
+			eventIcon.setGraphicSize(30, 30);
+			eventIcon.updateHitbox();
+			eventIcon.scrollFactor.set();
+			add(eventIcon);
+			eventIcon.x = iconX + (GRID_SIZE * 0.5) - eventIcon.width/2;
+			iconX += GRID_SIZE;
+			columns++;
+		}
+
+		mustHitIndicator = FlxSpriteUtil.drawTriangle(new FlxSprite(0, iconY - 20).makeGraphic(16, 16, FlxColor.TRANSPARENT), 0, 0, 16);
+		mustHitIndicator.scrollFactor.set();
+		mustHitIndicator.flipY = true;
+		mustHitIndicator.offset.x += mustHitIndicator.width/2;
+		add(mustHitIndicator);
+
+		var gridStripes:Array<Int> = [];
+		for (i in 0...GRID_PLAYERS)
+		{
+			if(columns > 0) gridStripes.push(columns);
+			columns += GRID_COLUMNS_PER_PLAYER;
+
+			var icon:HealthIcon = new HealthIcon();
+			icon.autoAdjustOffset = false;
+			icon.y = iconY;
+			icon.alpha = 0.6;
+			icon.scrollFactor.set();
+			icon.scale.set(0.3, 0.3);
+			icon.updateHitbox();
+			icon.ID = i+1;
+			add(icon);
+			icons.push(icon);
+			
+			icon.x = iconX + GRID_SIZE * (GRID_COLUMNS_PER_PLAYER/2) - icon.width/2;
+			iconX += GRID_SIZE * GRID_COLUMNS_PER_PLAYER;
+		}
+		if(prevGridBg != null) prevGridBg.stripes = nextGridBg.stripes = gridBg.stripes = gridStripes;
+	}
+
+	function rebuildChartLayout()
+	{
+		createGrids(false);
+		createStrumLineNotes();
+		createGridIndicators();
+
+		timeLine.setGraphicSize(Std.int(gridBg.width), 4);
+		waveformSprite.x = gridBg.x + (SHOW_EVENT_COLUMN ? GRID_SIZE : 0);
+		// 重置虚拟箭头位置
+		var startX:Float = gridBg.x;
+		if(SHOW_EVENT_COLUMN) startX += GRID_SIZE;
+		dummyArrow.x = startX;
+		dummyArrow.y = gridBg.y;
+
+		// 重置Vortex指示器位置
+		if(vortexIndicator != null) {
+			vortexIndicator.x = gridBg.x - GRID_SIZE;
+		}
+	}
+
+	function createGrids(?autoLoad:Bool = true)
 	{
 		var destroyed:Bool = false;
 		var stripes:Array<Int> = null;
@@ -1771,7 +1847,15 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			insert(getFirstNull(), prevGridBg);
 			insert(getFirstNull(), nextGridBg);
 			insert(getFirstNull(), gridBg);
-			loadSection();
+			// 确保在重建网格后，重要的覆盖层（波形、虚拟箭头、vortex 指示器、strumLine 和笔记组）位于网格之上
+			if(waveformSprite != null) { remove(waveformSprite, false); add(waveformSprite); }
+			if(dummyArrow != null) { remove(dummyArrow, false); add(dummyArrow); }
+			if(vortexIndicator != null) { remove(vortexIndicator, false); add(vortexIndicator); }
+			if(strumLineNotes != null) { remove(strumLineNotes, false); add(strumLineNotes); }
+			if(behindRenderedNotes != null) { remove(behindRenderedNotes, false); add(behindRenderedNotes); }
+			if(curRenderedNotes != null) { remove(curRenderedNotes, false); add(curRenderedNotes); }
+			if(movingNotes != null) { remove(movingNotes, false); add(movingNotes); }
+			 if(autoLoad) loadSection();
 		}
 		else
 		{
@@ -1785,9 +1869,15 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	var cachedSectionTimes:Array<Float>;
 	var cachedSectionCrochets:Array<Float>;
 	var cachedSectionBPMs:Array<Float>;
+	function updateColumnConfig(?song:SwagSong):Void
+	{
+		GRID_COLUMNS_PER_PLAYER = Note.getColumnsPerPlayer(song != null ? song : PlayState.SONG);
+	}
+
 	function loadChart(song:SwagSong)
 	{
 		PlayState.SONG = song;
+		updateColumnConfig(song);
 		StageData.loadDirectory(PlayState.SONG);
 		Conductor.bpm = PlayState.SONG.bpm;
 	}
@@ -2447,6 +2537,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	var noRGBCheckBox:PsychUICheckBox;
 	var noteTextureInputText:PsychUIInputText;
 	var noteSplashesInputText:PsychUIInputText;
+	var maniaStepper:PsychUINumericStepper;
 	function addDataTab()
 	{
 		var tab_group = mainBox.getTab('Data').menu;
@@ -2482,7 +2573,41 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		}
 
 		objY += 35;
-		noRGBCheckBox = new PsychUICheckBox(objX, objY, 'Disable Note RGB', 100, updateNotesRGB);
+		noRGBCheckBox = new PsychUICheckBox(objX, objY, 'Disable Note RGB', 140, updateNotesRGB);
+		maniaStepper = new PsychUINumericStepper(objX + 180, objY,  1, Math.max(4, GRID_COLUMNS_PER_PLAYER), 4, 16, 0);
+		maniaStepper.onValueChange = function()
+		{
+			if(PlayState.SONG == null) return;
+			var newCols:Int = Std.int(Math.max(4, Math.round(maniaStepper.value)));
+			var oldCols:Int = GRID_COLUMNS_PER_PLAYER;
+
+			if (oldCols != newCols) {
+				// 重新映射所有音符的列索引
+				var newTotal:Int = newCols * GRID_PLAYERS;
+				for (section in PlayState.SONG.notes) {
+					for (note in section.sectionNotes) {
+						if (note == null) continue;
+						var data:Int = Std.int(note[1]);
+						var player = Math.floor(data / oldCols);
+						var col = data % oldCols;
+						var newData = player * newCols + Std.int(Math.min(col, newCols - 1));
+						// 保证不超出总列数
+						if (newData >= newTotal) newData = newTotal - 1;
+						if (newData < 0) newData = 0;
+						note[1] = newData;
+					}
+				}
+			}
+
+			Reflect.setField(PlayState.SONG, 'mania', newCols - 1);
+			Reflect.setField(PlayState.SONG, 'keyCount', newCols);
+			Reflect.setField(PlayState.SONG, 'keycount', newCols);
+			GRID_COLUMNS_PER_PLAYER = newCols;
+
+			rebuildChartLayout();   // 重建网格与界面元素
+			prepareReload();        // 重新加载音符并刷新显示
+			showOutput('Mania set to $newCols keys');
+		};
 		
 		objY += 40;
 		noteTextureInputText = new PsychUIInputText(objX, objY, 120, '');
@@ -2527,12 +2652,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	
 		tab_group.add(new FlxText(gameOverCharDropDown.x, gameOverCharDropDown.y - 15, 120, 'Game Over Character:'));
 		tab_group.add(new FlxText(gameOverSndInputText.x, gameOverSndInputText.y - 15, 180, 'Game Over Death Sound (sounds/):'));
+		tab_group.add(new FlxText(maniaStepper.x, maniaStepper.y - 15, 120, 'Mania Keys (min 4):'));
 		tab_group.add(new FlxText(gameOverLoopInputText.x, gameOverLoopInputText.y - 15, 180, 'Game Over Loop Music (music/):'));
 		tab_group.add(new FlxText(gameOverRetryInputText.x, gameOverRetryInputText.y - 15, 180, 'Game Over Retry Music (music/):'));
 		tab_group.add(gameOverSndInputText);
 		tab_group.add(gameOverLoopInputText);
 		tab_group.add(gameOverRetryInputText);
 		tab_group.add(noRGBCheckBox);
+		tab_group.add(maniaStepper);
 
 		tab_group.add(new FlxText(noteTextureInputText.x, noteTextureInputText.y - 15, 100, 'Note Texture:'));
 		tab_group.add(new FlxText(noteSplashesInputText.x, noteSplashesInputText.y - 15, 120, 'Note Splashes Texture:'));
@@ -4048,28 +4175,26 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				try
 				{
 					var filePath:String = fileDialog.path.replace('\\', '/');
-					var loadedChart:SwagSong = OsuConverter.convertOsuToPsych(filePath);
-					if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
-					{
-						showOutput('Error: Unable to read OSU file or file format is incorrect', true);
-						return;
-					}
+					
+					// 先读取 OSU 文件获取键数信息
+					var content:String = File.getContent(filePath);
+					var sections:Map<String, Array<String>> = OsuConverter.parseOsuSections(content);
+					var difficulty:Map<String, String> = OsuConverter.parseKeyValues(sections["Difficulty"]);
+					var keys:Int = Std.parseInt(difficulty.get("CircleSize"));
+					if (keys < 1) keys = 4;
+					
 
-					fileDialog.openDirectory('Save Converted Psych JSON', function()
-					{
-						var path:String = fileDialog.path.replace('\\', '/');
-						if(!path.endsWith('/')) path += '/';
-
-						var chartName:String = Paths.formatToSongPath(loadedChart.song);
-						if(chartName == null || chartName.length == 0) chartName = 'converted';
-						var savePath:String = path + chartName + '.json';
-						var saveData:String = PsychJsonPrinter.print(loadedChart, ['sectionNotes', 'events']);
-
-						overwriteCheck(savePath, chartName + '.json', saveData, function()
+						var dialog:OsuImportDialog = new OsuImportDialog(keys);
+						dialog.onConfirm = function(convertTo4k:Bool, action:Int)
 						{
-							showOutput('OSU chart converted and saved successfully: ' + savePath);
-						}, true);
-					});
+							performOsuImport(filePath, keys, convertTo4k, action);
+						};
+						dialog.onCancel = function()
+						{
+							showOutput('OSU import cancelled');
+						};
+						openSubState(dialog);
+
 				}
 				catch(e:Exception)
 				{
@@ -4079,156 +4204,6 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			});
 		}, btnWid);
 		btn.text.alignment = LEFT;
-		tab_group.add(btn);
-		
-		// ========== KADE ENGINE SECTION ==========
-		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, 'Kade to Psych...', function()
-		{
-			if(!fileDialog.completed) return;
-			upperBox.isMinimized = true;
-			upperBox.bg.visible = false;
-
-			fileDialog.open('*.json', 'Open Kade Engine Chart', function()
-			{
-				try {
-					var filePath:String = fileDialog.path.replace('\\', '/');
-					var loadedChart:SwagSong = KadeConverter.convertKadeToPsych(filePath);
-					if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
-					{
-						showOutput('Error: Unable to read Kade Engine chart or file format is incorrect', true);
-						return;
-					}
-
-					fileDialog.openDirectory('Save Converted Psych JSON', function()
-					{
-						var path:String = fileDialog.path.replace('\\', '/');
-						if(!path.endsWith('/')) path += '/';
-						var chartName:String = Paths.formatToSongPath(loadedChart.song);
-						if(chartName == null || chartName.length == 0) chartName = 'converted';
-						var savePath:String = path + chartName + '.json';
-						var saveData:String = PsychJsonPrinter.print(loadedChart, ['sectionNotes', 'events']);
-
-						overwriteCheck(savePath, chartName + '.json', saveData, function()
-						{
-							showOutput('Kade Engine chart converted and saved successfully: ' + savePath);
-						}, true);
-						});
-				} catch(e:Exception) {
-					showOutput('Error: ${e.message}', true);
-					trace(e.stack);
-				}
-			});
-		}, btnWid);
-		tab_group.add(btn);
-
-		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, 'Psych to Kade...', function()
-		{
-			if(!fileDialog.completed) return;
-			upperBox.isMinimized = true;
-			upperBox.bg.visible = false;
-
-			updateChartData();
-			
-			fileDialog.openDirectory('Save Kade Engine File', function()
-			{
-				try {
-					var path:String = fileDialog.path.replace('\\', '/');
-					if(!path.endsWith('/')) path += '/';
-					
-					var kadeFileName:String = Paths.formatToSongPath(PlayState.SONG.song) + '.json';
-					var savePath:String = path + kadeFileName;
-					
-					overwriteCheck(savePath, kadeFileName, '', function()
-					{
-						if(KadeConverter.convertPsychToKade(PlayState.SONG, savePath)) {
-							showOutput('Kade Engine file saved successfully: $savePath');
-						} else {
-							showOutput('Kade Engine conversion failed!', true);
-						}
-					});
-				} catch(e:Exception) {
-					showOutput('Error: ${e.message}', true);
-					trace(e.stack);
-				}
-			});
-		}, btnWid);
-		tab_group.add(btn);
-
-		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, 'Codename to Psych...', function()
-		{
-			if(!fileDialog.completed) return;
-			upperBox.isMinimized = true;
-			upperBox.bg.visible = false;
-
-			fileDialog.open('*.json', 'Open Codename Engine Chart', function()
-			{
-				try {
-					var filePath:String = fileDialog.path.replace('\\', '/');
-					var loadedChart:SwagSong = CodenameConverter.convertCodenameToPsych(filePath);
-					if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
-					{
-						showOutput('Error: Unable to read Codename Engine chart or file format is incorrect', true);
-						return;
-					}
-
-					fileDialog.openDirectory('Save Converted Psych JSON', function()
-					{
-						var path:String = fileDialog.path.replace('\\', '/');
-						if(!path.endsWith('/')) path += '/';
-						var chartName:String = Paths.formatToSongPath(loadedChart.song);
-						if(chartName == null || chartName.length == 0) chartName = 'converted';
-						var savePath:String = path + chartName + '.json';
-						var saveData:String = PsychJsonPrinter.print(loadedChart, ['sectionNotes', 'events']);
-
-						overwriteCheck(savePath, chartName + '.json', saveData, function()
-						{
-							showOutput('Codename Engine chart converted and saved successfully: ' + savePath);
-						}, true);
-					});
-				} catch(e:Exception) {
-					showOutput('Error: ${e.message}', true);
-					trace(e.stack);
-				}
-			});
-		}, btnWid);
-		btn.text.alignment = LEFT;
-		tab_group.add(btn);
-
-		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, 'Psych to Codename...', function()
-		{
-			if(!fileDialog.completed) return;
-			upperBox.isMinimized = true;
-			upperBox.bg.visible = false;
-
-			updateChartData();
-			
-			fileDialog.openDirectory('Save Codename Engine File', function()
-			{
-				try {
-					var path:String = fileDialog.path.replace('\\', '/');
-					if(!path.endsWith('/')) path += '/';
-					
-					var codenameFileName:String = Paths.formatToSongPath(PlayState.SONG.song) + '.json';
-					var savePath:String = path + codenameFileName;
-					
-					overwriteCheck(savePath, codenameFileName, '', function()
-					{
-						if(CodenameConverter.convertPsychToCodename(PlayState.SONG, savePath)) {
-							showOutput('Codename Engine files saved successfully: $savePath');
-						} else {
-							showOutput('Codename Engine conversion failed!', true);
-						}
-					});
-				} catch(e:Exception) {
-					showOutput('Error: ${e.message}', true);
-					trace(e.stack);
-				}
-			});
-		}, btnWid);
 		tab_group.add(btn);
 
 		btnY += 20;
@@ -4851,7 +4826,6 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			}
 
 			var arr:Array<Dynamic> = PlayState.SONG.notes[noteSec].sectionNotes;
-			//trace('Added note with time ${note.songData[0]} at section $noteSec');
 			arr.push(note.songData);
 		}
 
@@ -4859,6 +4833,13 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		PlayState.SONG.events = [];
 		for (event in events)
 			PlayState.SONG.events.push(event.songData);
+		
+		// 确保 mania 信息被正确保存
+		// 根据当前 GRID_COLUMNS_PER_PLAYER 更新 mania 字段
+		var maniaValue:Int = GRID_COLUMNS_PER_PLAYER - 1;
+		Reflect.setField(PlayState.SONG, 'mania', maniaValue);
+		Reflect.setField(PlayState.SONG, 'keyCount', GRID_COLUMNS_PER_PLAYER);
+		Reflect.setField(PlayState.SONG, 'keycount', GRID_COLUMNS_PER_PLAYER);
 	}
 
 	function saveChart(canQuickSave:Bool = true)
@@ -5431,25 +5412,37 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			wavData = waveformData(sound._sound.__buffer, bytes, cachedSectionTimes[curSec] - Conductor.offset, cachedSectionTimes[curSec+1] - Conductor.offset, 1, wavData, height);
 		}
 
-		// Draws
+		// 计算波形绘制区域的偏移量，使其居中
+		// 原始绘制宽度为 GRID_SIZE * 8（固定8列）
+		var originalDrawWidth:Float = GRID_SIZE * 8;
+		// 实际需要绘制的宽度
+		var actualWidth:Float = GRID_SIZE * GRID_COLUMNS_PER_PLAYER * GRID_PLAYERS;
+		// 偏移量 = (实际宽度 - 原始宽度) / 2
+		var offsetX:Float = (actualWidth - originalDrawWidth) / 2;
+		
+		// 如果键数 <= 4，偏移量为0或负数，限制最小为0
+		if (offsetX < 0) offsetX = 0;
+
 		var gSize:Int = Std.int(GRID_SIZE * 8);
 		var hSize:Int = Std.int(gSize / 2);
 		var size:Float = 1;
 
 		var leftLength:Int = (wavData[0][0].length > wavData[0][1].length ? wavData[0][0].length : wavData[0][1].length);
 		var rightLength:Int = (wavData[1][0].length > wavData[1][1].length ? wavData[1][0].length : wavData[1][1].length);
-
 		var length:Int = leftLength > rightLength ? leftLength : rightLength;
 
 		for (index in 0...length)
 		{
 			var lmin:Float = FlxMath.bound(((index < wavData[0][0].length && index >= 0) ? wavData[0][0][index] : 0) * (gSize / 1.12), -hSize, hSize) / 2;
 			var lmax:Float = FlxMath.bound(((index < wavData[0][1].length && index >= 0) ? wavData[0][1][index] : 0) * (gSize / 1.12), -hSize, hSize) / 2;
-
 			var rmin:Float = FlxMath.bound(((index < wavData[1][0].length && index >= 0) ? wavData[1][0][index] : 0) * (gSize / 1.12), -hSize, hSize) / 2;
 			var rmax:Float = FlxMath.bound(((index < wavData[1][1].length && index >= 0) ? wavData[1][1][index] : 0) * (gSize / 1.12), -hSize, hSize) / 2;
 
-			waveformSprite.pixels.fillRect(new Rectangle(hSize - (lmin + rmin), index * size, (lmin + rmin) + (lmax + rmax), size), FlxColor.WHITE);
+			// 左声道偏移 + offsetX
+			var leftX:Float = offsetX + hSize - (lmin + rmin);
+			var leftW:Float = (lmin + rmin) + (lmax + rmax);
+			if(leftW > 0)
+				waveformSprite.pixels.fillRect(new Rectangle(leftX, index * size, leftW, size), FlxColor.WHITE);
 		}
 		#else
 		waveformSprite.visible = false;
@@ -5569,4 +5562,162 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		return [[[0], [0]], [[0], [0]]];
 		#end
 	}
+
+	function performOsuImport(filePath:String, keys:Int, convertTo4k:Bool, action:Int)
+	{
+		try
+		{
+			// 读取文件进行转换
+			var loadedChart:SwagSong = OsuConverter.convertOsuToPsych(filePath);
+			if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
+			{
+				showOutput('Error: Unable to read OSU file or file format is incorrect', true);
+				return;
+			}
+
+			// 如果需要转换为 4K (仅当 keys == 8 且 convertTo4k == true)
+			if (convertTo4k && keys == 8)
+			{
+				var targetKeys:Int = 4;
+				var sourceKeys:Int = keys;
+				
+				// 重新映射所有音符的列索引（将 8K 映射到 4K）
+				for (section in loadedChart.notes)
+				{
+					for (note in section.sectionNotes)
+					{
+						if (note == null) continue;
+						var data:Int = Std.int(note[1]);
+						// 将原始列映射到 4K 范围 (0-3)
+						var mappedData:Int = Math.round((data / (sourceKeys - 1)) * (targetKeys - 1));
+						if (mappedData < 0) mappedData = 0;
+						if (mappedData >= targetKeys) mappedData = targetKeys - 1;
+						note[1] = mappedData;
+					}
+				}
+				
+				// 更新键数信息
+				Reflect.setField(loadedChart, 'mania', targetKeys - 1);
+				Reflect.setField(loadedChart, 'keyCount', targetKeys);
+				Reflect.setField(loadedChart, 'keycount', targetKeys);
+				
+				showOutput('Converted from ${sourceKeys}K to ${targetKeys}K (${targetKeys - 1} key mania)');
+			}
+			else
+			{
+				// 保持原键数
+				var maniaVal:Int = keys - 1;
+				Reflect.setField(loadedChart, 'mania', maniaVal);
+				Reflect.setField(loadedChart, 'keyCount', keys);
+				Reflect.setField(loadedChart, 'keycount', keys);
+				
+				if (keys == 8)
+					showOutput('Keeping original 8K (7 key mania)');
+				else
+					showOutput('Importing ${keys}K (${keys - 1} key mania)');
+			}
+
+			// 根据操作类型执行不同逻辑
+			if (action == OsuImportDialog.ACTION_LOAD_TO_EDITOR)
+			{
+				// 直接加载到图表编辑器
+				var func:Void->Void = function()
+				{
+					// 更新 mania 列数配置
+					GRID_COLUMNS_PER_PLAYER = convertTo4k ? 4 : keys;
+					
+					loadChart(loadedChart);
+					Song.chartPath = null;
+					reloadNotesDropdowns();
+					
+					// 重建布局以适配新的键数
+					rebuildChartLayout();
+					prepareReload();
+					
+					showOutput('OSU chart loaded into editor successfully! (${convertTo4k ? 4 : keys}K)');
+				};
+				
+				if (!ignoreProgressCheckBox.checked)
+					openSubState(new Prompt('Warning: Any unsaved progress\nwill be lost.', func));
+				else
+					func();
+			}
+			else // ACTION_SAVE_TO_FILE
+			{
+				// 保存到文件
+				fileDialog.openDirectory('Save Converted Psych JSON', function()
+				{
+					var path:String = fileDialog.path.replace('\\', '/');
+					if(!path.endsWith('/')) path += '/';
+
+					var chartName:String = Paths.formatToSongPath(loadedChart.song);
+					if(chartName == null || chartName.length == 0) chartName = 'converted';
+					var savePath:String = path + chartName + '.json';
+					var saveData:String = PsychJsonPrinter.print(loadedChart, ['sectionNotes', 'events']);
+
+					overwriteCheck(savePath, chartName + '.json', saveData, function()
+					{
+						// 询问是否同时加载到编辑器
+						openSubState(new BasePrompt(400, 150, 'Import Complete',
+							function(state:BasePrompt)
+							{
+								var btnY:Float = state.bg.y + state.bg.height - 70;
+								
+								var yesBtn:PsychUIButton = new PsychUIButton(0, btnY, 'Yes, load to editor', function()
+								{
+									state.close();
+									
+									// 更新键数配置
+									GRID_COLUMNS_PER_PLAYER = convertTo4k ? 4 : keys;
+									
+									var func:Void->Void = function()
+									{
+										loadChart(loadedChart);
+										Song.chartPath = savePath;
+										reloadNotesDropdowns();
+										rebuildChartLayout();
+										prepareReload();
+										showOutput('OSU chart loaded from: ' + savePath);
+									};
+									
+									if (!ignoreProgressCheckBox.checked)
+										openSubState(new Prompt('Warning: Any unsaved progress\nwill be lost.', func));
+									else
+										func();
+								});
+								yesBtn.normalStyle.bgColor = FlxColor.GREEN;
+								yesBtn.normalStyle.textColor = FlxColor.WHITE;
+								yesBtn.cameras = state.cameras;
+								yesBtn.screenCenter(X);
+								yesBtn.x -= 100;
+								state.add(yesBtn);
+								
+								var noBtn:PsychUIButton = new PsychUIButton(0, btnY, 'No, just save', function()
+								{
+									state.close();
+									showOutput('OSU chart converted and saved successfully: ' + savePath);
+								});
+								noBtn.cameras = state.cameras;
+								noBtn.screenCenter(X);
+								noBtn.x += 100;
+								state.add(noBtn);
+								
+								var infoTxt:FlxText = new FlxText(0, state.bg.y + 60, state.bg.width,
+									'Chart saved successfully!\nWould you like to load it into the editor?', 18);
+								infoTxt.setFormat(null, 18, FlxColor.WHITE, CENTER);
+								infoTxt.cameras = state.cameras;
+								state.add(infoTxt);
+							}
+						));
+					}, true);
+				});
+			}
+		}
+		catch(e:Exception)
+		{
+			showOutput('Error: ${e.message}', true);
+			trace(e.stack);
+		}
+	}
 }
+

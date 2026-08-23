@@ -12,6 +12,7 @@ import flixel.math.FlxMath;
 import objects.DraggableBar;
 import backend.MouseMove;
 
+
 class KESubMenu extends MusicBeatSubstate
 {
 	var parentOption:KEOption;
@@ -24,8 +25,8 @@ class KESubMenu extends MusicBeatSubstate
 	var optionTexts:FlxTypedGroup<FlxText>;
 	var descText:FlxText;
 	
-	var bg:FlxSprite;
-	var descBack:FlxSprite;
+	var bg:FlxFilteredSprite;
+	var descBack:FlxFilteredSprite;
 	
 	var scrollOffset:Int = 0;
 	static var VISIBLE_OPTIONS:Int = 10;
@@ -58,6 +59,8 @@ class KESubMenu extends MusicBeatSubstate
 	var bgAlpha:Float;
 	var optionAlpha:Float;
 	var descAlpha:Float;
+
+	public var blurFilter:BlurFilter;  // 模糊滤镜
 	
 	public function new(parentOption:KEOption)
 	{
@@ -103,9 +106,12 @@ class KESubMenu extends MusicBeatSubstate
 		
 		// 计算内容区域
 		var contentStartY:Int = marginTop;
-		
+		blurFilter = new BlurFilter();
+		blurFilter.quality = BitmapFilterQuality.HIGH;
 		// 创建半透明背景 - 全屏
-		bg = new FlxSprite(0, 0).makeGraphic(screenWidth, screenHeight, FlxColor.BLACK);
+		bg = new FlxFilteredSprite(0, 0);
+		bg.makeGraphic(screenWidth, screenHeight, FlxColor.BLACK);
+		if(ClientPrefs.data.blurEffects)bg.filters = [blurFilter];
 		bg.alpha = bgAlpha;
 		bg.scrollFactor.set();
 		add(bg);
@@ -117,7 +123,9 @@ class KESubMenu extends MusicBeatSubstate
 		add(titleText);
 		
 		// 描述区域背景 - 在屏幕底部
-		descBack = new FlxSprite(0, screenHeight - marginBottom).makeGraphic(screenWidth, 40, FlxColor.BLACK);
+		descBack = new FlxFilteredSprite(0, screenHeight - marginBottom);
+		descBack.makeGraphic(screenWidth, 40, FlxColor.BLACK);
+		if(ClientPrefs.data.blurEffects)descBack.filters = [blurFilter];
 		descBack.alpha = descAlpha;
 		descBack.scrollFactor.set();
 		add(descBack);

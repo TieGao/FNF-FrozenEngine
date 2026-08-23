@@ -15,6 +15,7 @@ class HealthText extends FlxText {
         this.scrollFactor.set();
         this.borderSize = 1.25;
         this.visible = !ClientPrefs.data.hideHud && ClientPrefs.data.healthText;
+        this.antialiasing = ClientPrefs.data.antialiasing;
         state.uiGroup.add(this);
         refresh();
     }

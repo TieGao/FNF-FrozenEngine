@@ -56,8 +56,7 @@ class NoteSplash extends FlxSprite
 
 		rgbShader = new PixelSplashShaderRef();
 		shader = rgbShader.shader;
-
-		loadSplash(splash);
+		if(splash != null) loadSplash(splash);
 	}
 
 	public var maxAnims(default, set):Int = 0;
@@ -317,8 +316,36 @@ class NoteSplash extends FlxSprite
 			animation.curAnim.frameRate = FlxG.random.int(minFps, maxFps);
 
 		spawned = true;
+		
+		// 根据键数调整splash大小
+		applyKeyCountScale();
 	}
 	
+	/**
+	 * 根据当前键数调整splash的缩放
+	 */
+	public function applyKeyCountScale():Void
+	{
+		var keys:Int = Note.getColumnsPerPlayer();
+		var scaleFactor:Float = PlayState.isPixelStage ? 
+			Note.getPixelNoteScaleForKeys(keys) : 
+			Note.getNoteScaleForKeys(keys);
+		
+		// 相对于4K的缩放比例
+		var baseScale:Float = PlayState.isPixelStage ? 1.0 : 0.7;
+		var ratio:Float = scaleFactor / baseScale;
+		
+		// 应用缩放，同时保留config中定义的scale
+		if (config != null)
+		{
+			scale.set(config.scale * ratio, config.scale * ratio);
+		}
+		else
+		{
+			scale.set(ratio, ratio);
+		}
+	}
+
 	public function playDefaultAnim()
 	{
 		var anim:String = noteDataMap.get(noteData);
@@ -476,7 +503,6 @@ class PixelSplashShaderRef
 
 		if (!PlayState.isPixelStage) pixelAmount = 1;
 		else pixelAmount = PlayState.daPixelZoom;
-		//trace('Created shader ' + Conductor.songPosition);
 	}
 }
 

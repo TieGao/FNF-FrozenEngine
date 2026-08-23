@@ -29,13 +29,9 @@ class KEConfirmMenu extends MusicBeatSubstate
 	var listStartY:Int;
 
 	var bg:FlxSprite;
-	var headerBack:FlxSprite;
 	var confirmBack:FlxSprite;
 	var cancelBack:FlxSprite;
-	var bodyBack:FlxSprite;
-	var topEdge:FlxSprite;
-	var bottomEdge:FlxSprite;
-	var descBack:FlxSprite;
+	var bodyBack:FlxFilteredSprite;
 
 	var titleText:FlxText;
 	var typeText:FlxText;
@@ -88,53 +84,41 @@ class KEConfirmMenu extends MusicBeatSubstate
 		bg = new FlxSprite(0, 0).makeGraphic(screenWidth, screenHeight, FlxColor.BLACK);
 		bg.alpha = 0.75;
 		bg.scrollFactor.set();
+		bg.antialiasing = ClientPrefs.data.antialiasing;
 		add(bg);
 
 		var bodyY = Std.int(screenHeight * 0.25);
 		var bodyHeight = Std.int(screenHeight * 0.5);
-		bodyBack = new FlxSprite(0, bodyY).makeGraphic(screenWidth, bodyHeight, FlxColor.BLACK);
-		bodyBack.alpha = 0.8;
+		bodyBack = new FlxFilteredSprite(0, bodyY);
+		bodyBack.makeGraphic(screenWidth, bodyHeight, FlxColor.BLACK);
+		if (ClientPrefs.data.blurEffects)bodyBack.filters = [new BlurFilter(50, 50, BitmapFilterQuality.HIGH)];
+		bodyBack.alpha = 0.7;
 		bodyBack.scrollFactor.set();
 		add(bodyBack);
-
-		topEdge = new FlxSprite(0, bodyY - 20).makeGraphic(screenWidth, 20, FlxColor.BLACK);
-		topEdge.scrollFactor.set();
-		add(topEdge);
-
-		bottomEdge = new FlxSprite(0, bodyY + bodyHeight).makeGraphic(screenWidth, 20, FlxColor.BLACK);
-		bottomEdge.scrollFactor.set();
-		add(bottomEdge);
-
-		headerBack = new FlxSprite(0, marginTop - 10).makeGraphic(screenWidth, 140, FlxColor.BLACK);
-		headerBack.alpha = 0.7;
-		headerBack.scrollFactor.set();
-		add(headerBack);
 
 		var titles:String = isConfirmMode ? Language.getPhrase("Confirm action", "Confirm action") : Language.getPhrase("Select an option", "SelectOption");
 		titleText = new FlxText(0, marginTop, screenWidth, titles);
 		titleText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		titleText.antialiasing = ClientPrefs.data.antialiasing;
 		titleText.borderSize = 2;
 		add(titleText);
 
 		var typeLabel = isConfirmMode ? Language.getPhrase("Confirm", "Confirm") : Language.getPhrase("Type", "Type");
 		typeText = new FlxText(0, titleText.y + 44, screenWidth, typeLabel + ": " + (isConfirmMode ? parentOption.name : parentOption.type));
 		typeText.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.GRAY, CENTER, OUTLINE, FlxColor.BLACK);
+		typeText.antialiasing = ClientPrefs.data.antialiasing;
 		typeText.borderSize = 2;
 		add(typeText);
 
 		valueText = new FlxText(0, typeText.y + 40, screenWidth, getSelectedName());
 		valueText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		valueText.antialiasing = ClientPrefs.data.antialiasing;
 		valueText.borderSize = 2;
 		add(valueText);
 
 		var buttonY = Std.int(bodyY + bodyHeight - 70);
 		var buttonWidth = Std.int(screenWidth * 0.24);
 		var buttonHeight = 44;
-
-		descBack = new FlxSprite(0, buttonY - 60).makeGraphic(screenWidth, 50, FlxColor.BLACK);
-		descBack.alpha = 0.8;
-		descBack.scrollFactor.set();
-		add(descBack);
 
 		confirmBack = new FlxSprite(Std.int(screenWidth * 0.18), buttonY).makeGraphic(buttonWidth, buttonHeight, FlxColor.fromRGB(0, 120, 220));
 		confirmBack.alpha = 0.9;
@@ -147,6 +131,9 @@ class KEConfirmMenu extends MusicBeatSubstate
 		add(cancelBack);
 
 		optionTexts = new FlxTypedGroup<FlxText>();
+
+		for (text in optionTexts.members)
+			text.antialiasing = ClientPrefs.data.antialiasing;
 		add(optionTexts);
 
 		if (!isConfirmMode) {
@@ -163,11 +150,13 @@ class KEConfirmMenu extends MusicBeatSubstate
 
 		confirmText = new FlxText(Std.int(screenWidth * 0.18), buttonY + 6, buttonWidth, Language.getPhrase("Confirm", "Confirm"));
 		confirmText.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		confirmText.antialiasing = ClientPrefs.data.antialiasing;
 		confirmText.borderSize = 2;
 		add(confirmText);
 
 		cancelText = new FlxText(Std.int(screenWidth * 0.58), buttonY + 6, buttonWidth, Language.getPhrase("Cancel", "Cancel"));
 		cancelText.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		cancelText.antialiasing = ClientPrefs.data.antialiasing;
 		cancelText.borderSize = 2;
 		add(cancelText);
 
@@ -411,9 +400,17 @@ class KEConfirmMenu extends MusicBeatSubstate
 		}
 
 		if (selectedIndex >= 0 && selectedIndex < availableOptions.length) {
-			return Language.getPhrase("Selected: ", "Selected: ") + resolveTranslation(availableOptions[selectedIndex], availableOptions[selectedIndex]);
+			var selectedName = getOptionDisplayName(availableOptions[selectedIndex]);
+			return Language.getPhrase("Selected: ", "Selected: ") + resolveTranslation(selectedName, selectedName);
 		}
 		return "";
+	}
+
+	function getOptionDisplayName(optionName:String):String
+	{
+		if (parentOption.variable == "hitsound" && optionName.startsWith("hitsounds/"))
+			return optionName.substring("hitsounds/".length);
+		return optionName;
 	}
 
 	function resolveTranslation(key:String, defaultVal:String):String
@@ -463,7 +460,8 @@ class KEConfirmMenu extends MusicBeatSubstate
 		{
 			var optionText = optionTexts.members[i];
 			if (optionText == null) continue;
-			optionText.text = resolveTranslation(availableOptions[i], availableOptions[i]);
+			var optionName = getOptionDisplayName(availableOptions[i]);
+			optionText.text = resolveTranslation(optionName, optionName);
 		}
 		updateOptionPositions();
 		valueText.text = getSelectedName();
@@ -516,13 +514,9 @@ class KEConfirmMenu extends MusicBeatSubstate
 		isClosing = true;
 		FlxTween.tween(bg, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
 		FlxTween.tween(bodyBack, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(topEdge, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(bottomEdge, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(headerBack, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
 		FlxTween.tween(titleText, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
 		FlxTween.tween(typeText, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
 		FlxTween.tween(valueText, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(descBack, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
 		FlxTween.tween(confirmBack, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
 		FlxTween.tween(cancelBack, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
 		FlxTween.tween(confirmText, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});

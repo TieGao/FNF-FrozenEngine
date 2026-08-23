@@ -28,6 +28,7 @@ class FlashingState extends MusicBeatState
 			"Hey, watch out!\n
 			This Mod contains some flashing lights!\n
 			Do you wish to disable them?");
+		warnText.antialiasing = ClientPrefs.data.antialiasing;
 		warnText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER);
 		warnText.screenCenter(Y);
 		texts.add(warnText);
@@ -35,6 +36,7 @@ class FlashingState extends MusicBeatState
 		final keys = ["Yes", "No"];
 		for (i in 0...keys.length) {
 			final button = new FlxText(0, 0, FlxG.width, keys[i]);
+			button.antialiasing = ClientPrefs.data.antialiasing;
 			button.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER);
 			button.y = (warnText.y + warnText.height) + 24;
 			button.x += (128 * i) - 80;

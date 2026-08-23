@@ -2,7 +2,7 @@
 <project>
 	<!-- _________________________ Application Settings _________________________ -->
 
-	<app title="Friday Night Funkin': Frozen Engine" file="FrozenEngine" packageName="com.shadowmario.psychengine" package="com.shadowmario.psychengine" main="Main" version="0.2.8" company="ShadowMario" />
+	<app title="Friday Night Funkin': Frozen Engine" file="FrozenEngine" packageName="com.shadowmario.psychengine" package="com.shadowmario.psychengine" main="Main" version="0.5.2" company="ShadowMario" />
 
 	<!--Switch Export with Unique ApplicationID and Icon-->
 	<set name="APP_ID" value="0x0100f6c013bbc000" />
@@ -113,7 +113,7 @@
 
 	<!-- _______________________________ Libraries ______________________________ -->
 
-	<haxelib name="flixel" version="git"/>
+	<haxelib name="flixel" version="6.2.0"/>
 	<haxelib name="flixel-addons" version="git"/>
 	<haxelib name="tjson" version="1.4.0"/>
 
@@ -123,8 +123,6 @@
 	<haxelib name="hxvlc" if="VIDEOS_ALLOWED" version="2.2.5"/>
 	<haxelib name="hxdiscord_rpc" version="1.2.4" if="DISCORD_ALLOWED"/>
 	<haxelib name="flxanimate"/>
-	<!--chart converter [Frozen Engine Features]-->
-	<haxelib name="moonchart" />
 
 	<!-- Disable Discord IO Thread -->
 	<haxedef name="DISCORD_DISABLE_IO_THREAD" if="hxdiscord_rpc" />
@@ -183,11 +181,22 @@
 	<!-- pretty (haxeflixel default), indent, classic (haxe compiler default) -->
 	<haxedef name="message.reporting" value="pretty" />
 
+	<!-- 标准分代式 GC（hxcpp 默认行为） -->
+	<!-- haxedef name="HXCPP_GC_GENERATIONAL"/> -->
+
+	<!-- 启用 ZGC（低延迟 GC，hxcpp 4.x+） -->
+	<!-- <haxedef name="hxcpp_zgc"/> -->
+
 	<!--Macro fixes-->
 	<haxeflag name="--macro" value="allowPackage('flash')" />
 	<haxeflag name="--macro" value="include('my.pack')" />
 
 	<haxedef name="hscriptPos" if="HSCRIPT_ALLOWED" />
+
+	<haxedef name="HXCPP_TRACY" if="TRACY_ALLOWED"/>
+	<haxedef name="HXCPP_TELEMETRY" if="TRACY_ALLOWED"/>
+	<haxedef name="HXCPP_STACK_TRACE" if="TRACY_ALLOWED"/>
+	<haxedef name="HXCPP_STACK_LINES" if="TRACY_ALLOWED"/>
 
 	<!-- _________________________________ Custom _______________________________ -->
 
