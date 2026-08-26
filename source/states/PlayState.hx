@@ -795,8 +795,8 @@ class PlayState extends MusicBeatState
 			else
 			{
 				hitErrorBar = new HitErrorBar();
-				hitErrorBar.screenCenter();
-				hitErrorBar.x -= FlxG.width * 0.18 + ClientPrefs.data.hitErrorBarOffsetX;
+				hitErrorBar.screenCenter(X);
+				hitErrorBar.x += ClientPrefs.data.hitErrorBarOffsetX - 5;
 				hitErrorBar.y = FlxG.height * 0.3 + ClientPrefs.data.hitErrorBarOffsetY; // 顶部10%位置
 				if (ClientPrefs.data.downScroll)
         		 hitErrorBar.y = FlxG.height - 100 + ClientPrefs.data.hitErrorBarOffsetY;

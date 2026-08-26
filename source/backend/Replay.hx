@@ -183,18 +183,8 @@ class Replay
         
         // 如果 modName 为空或者是 "base"，都保存到 base 子目录
         if (modName != null && modName.length > 0 && modName != "base") {
-            // 清理Mod名称中的非法字符
-            var safeModName:String = StringTools.replace(modName, "/", "_");
-            safeModName = StringTools.replace(safeModName, "\\", "_");
-            safeModName = StringTools.replace(safeModName, ":", "_");
-            safeModName = StringTools.replace(safeModName, "*", "_");
-            safeModName = StringTools.replace(safeModName, "?", "_");
-            safeModName = StringTools.replace(safeModName, "\"", "_");
-            safeModName = StringTools.replace(safeModName, "<", "_");
-            safeModName = StringTools.replace(safeModName, ">", "_");
-            safeModName = StringTools.replace(safeModName, "|", "_");
-            
-            return rootDir + safeModName + "/";
+            // 直接返回原始 modName，不做任何字符替换
+            return rootDir + modName + "/";
         }
         #end
         

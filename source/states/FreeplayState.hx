@@ -116,7 +116,6 @@ class FreeplayState extends MusicBeatState
     var freeplaySongCache:Map<String, Dynamic> = new Map<String, Dynamic>();
     var freeplayCacheDirty:Bool = false;
     var difficultyPreloadQueue:Array<Dynamic> = [];
-    var difficultyPreloadQueued:Map<String, Bool> = new Map<String, Bool>();
     var menuBgGraphicCache:Map<String, Dynamic> = new Map<String, Dynamic>();
         
     var updateTimer:Float = 0;
@@ -180,12 +179,7 @@ class FreeplayState extends MusicBeatState
                 songsByFolder.get(folder).push(song);
             }
         }
-        
-        #if sys
-        if (ClientPrefs.data.saveFreeplayCache && freeplayCacheDirty)
-            saveFreeplaySongCache();
-        #end
-        
+
         Mods.loadTopMod();
 
         SongArtConfig.loadAllConfigs();
@@ -480,7 +474,6 @@ class FreeplayState extends MusicBeatState
         Difficulty.loadFromWeek();
         
         changeDiff();
-        queueSelectedSongInfo();
         showArtForIndex(curSelected, false);
         showCharacterForIndex(curSelected, false);
         updateCornerGlow();
@@ -544,50 +537,19 @@ class FreeplayState extends MusicBeatState
         if (cachedEntry != null)
         {
             song.difficultyInfo = buildSongInfoMapFromCache(cachedEntry, difficulties);
+            var missingDiffs:Array<String> = getMissingDifficulties(cachedEntry, difficulties);
+            if (missingDiffs.length == 0)
+            {
+                songs.push(song);
+                return;
+            }
+            difficultyPreloadQueue.push({ song: song, songName: songName, folder: song.folder, difficulties: missingDiffs, weekData: weekData, cacheKey: cacheKey });
             songs.push(song);
             return;
         }
 
+        difficultyPreloadQueue.push({ song: song, songName: songName, folder: song.folder, difficulties: difficulties, weekData: weekData, cacheKey: cacheKey });
         songs.push(song);
-    }
-
-    private function queueSelectedSongInfo():Void
-    {
-        if (curSelected < 0 || curSelected >= songs.length)
-            return;
-
-        var song = songs[curSelected];
-        var cacheKey:String = getFreeplaySongCacheKey(song.songName, song.folder);
-        if (difficultyPreloadQueued.exists(cacheKey))
-            return;
-
-        var weekData:WeekData = null;
-        if (song.week >= 0 && song.week < WeekData.weeksList.length)
-            weekData = WeekData.weeksLoaded.get(WeekData.weeksList[song.week]);
-
-        var difficulties:Array<String> = Difficulty.list.copy();
-        if (difficulties.length == 0)
-            difficulties = Difficulty.defaultList.copy();
-
-        var missingDiffs:Array<String> = [];
-        for (diffName in difficulties)
-        {
-            if (song.difficultyInfo.get(diffName) == null)
-                missingDiffs.push(diffName);
-        }
-
-        if (missingDiffs.length == 0)
-            return;
-
-        difficultyPreloadQueued.set(cacheKey, true);
-        difficultyPreloadQueue.push({
-            song: song,
-            songName: song.songName,
-            folder: song.folder,
-            difficulties: missingDiffs,
-            weekData: weekData,
-            cacheKey: cacheKey
-        });
     }
 
     private function getFreeplaySongCacheKey(songName:String, folder:String):String
@@ -608,10 +570,13 @@ class FreeplayState extends MusicBeatState
     private function buildSongInfoMapFromCache(entry:Dynamic, difficulties:Array<String>):Map<String, ParsedSongInfo>
     {
         var result:Map<String, ParsedSongInfo> = new Map();
+        if (entry == null || entry.data == null)
+            return result;
+
         for (diffName in difficulties)
         {
             var info:Dynamic = Reflect.field(entry.data, diffName);
-            if (info != null)
+            if (isParsedSongInfoValid(info))
                 result.set(diffName, cast info);
         }
         return result;
@@ -620,12 +585,34 @@ class FreeplayState extends MusicBeatState
     private function getMissingDifficulties(entry:Dynamic, difficulties:Array<String>):Array<String>
     {
         var missing:Array<String> = [];
+        if (entry == null || entry.data == null)
+            return difficulties.copy();
+
         for (diffName in difficulties)
         {
-            if (Reflect.field(entry.data, diffName) == null)
+            if (!isParsedSongInfoValid(Reflect.field(entry.data, diffName)))
                 missing.push(diffName);
         }
         return missing;
+    }
+
+    private function isParsedSongInfoValid(info:Dynamic):Bool
+    {
+        if (info == null)
+            return false;
+
+        var requiredFields:Array<String> = [
+            'bpm', 'length', 'formattedLength', 'noteCount',
+            'playerNoteCount', 'opponentNoteCount', 'difficultyRating',
+            'difficultyRatingPlayer', 'difficultyRatingOpponent',
+            'difficultyRatingCoop', 'ratingText', 'ratingColor'
+        ];
+        for (field in requiredFields)
+        {
+            if (!Reflect.hasField(info, field) || Reflect.field(info, field) == null)
+                return false;
+        }
+        return true;
     }
 
     private function buildFreeplayCacheEntry(infoMap:Map<String, ParsedSongInfo>):Dynamic
@@ -634,7 +621,24 @@ class FreeplayState extends MusicBeatState
         entry.data = {};
         for (diffName in infoMap.keys())
         {
-            Reflect.setField(entry.data, diffName, infoMap.get(diffName));
+            var info:ParsedSongInfo = infoMap.get(diffName);
+            if (info == null)
+                continue;
+
+            Reflect.setField(entry.data, diffName, {
+                bpm: info.bpm,
+                length: info.length,
+                formattedLength: info.formattedLength,
+                noteCount: info.noteCount,
+                playerNoteCount: info.playerNoteCount,
+                opponentNoteCount: info.opponentNoteCount,
+                difficultyRating: info.difficultyRating,
+                difficultyRatingPlayer: info.difficultyRatingPlayer,
+                difficultyRatingOpponent: info.difficultyRatingOpponent,
+                difficultyRatingCoop: info.difficultyRatingCoop,
+                ratingText: info.ratingText,
+                ratingColor: info.ratingColor
+            });
         }
         return entry;
     }
@@ -656,7 +660,11 @@ class FreeplayState extends MusicBeatState
                 if (parsed != null)
                 {
                     for (key in Reflect.fields(parsed))
-                        cache.set(key, Reflect.field(parsed, key));
+                    {
+                        var entry:Dynamic = Reflect.field(parsed, key);
+                        if (entry != null && entry.data != null)
+                            cache.set(key, entry);
+                    }
                 }
             }
             catch(e:Dynamic)
@@ -672,13 +680,40 @@ class FreeplayState extends MusicBeatState
     {
         if (!ClientPrefs.data.saveFreeplayCache)
             return;
-
+        
         #if sys 
-        var cacheObj:Dynamic = {};
-        for (key in freeplaySongCache.keys())
-            Reflect.setField(cacheObj, key, freeplaySongCache.get(key));
+        var cachePath:String = 'freeplaySongCache.json';
+        var tempPath:String = cachePath + '.tmp';
+        var output = File.write(tempPath, false);
+        try
+        {
+            output.writeString('{');
+            var isFirst:Bool = true;
+            for (key in freeplaySongCache.keys())
+            {
+                var entry:Dynamic = freeplaySongCache.get(key);
+                if (entry == null || entry.data == null)
+                    continue;
 
-        File.saveContent('freeplaySongCache.json', Json.stringify(cacheObj));
+                if (!isFirst)
+                    output.writeString(',');
+                output.writeString(Json.stringify(key));
+                output.writeString(':');
+                output.writeString(Json.stringify(entry));
+                isFirst = false;
+            }
+            output.writeString('}');
+        }
+        catch (e:Dynamic)
+        {
+            output.close();
+            throw e;
+        }
+        output.close();
+        if (FileSystem.exists(cachePath))
+            FileSystem.deleteFile(cachePath);
+        FileSystem.rename(tempPath, cachePath);
+        freeplayCacheDirty = false;
         #end
     }
 
@@ -1175,11 +1210,11 @@ class FreeplayState extends MusicBeatState
             {
                 var info = SongInfoParser.preloadAllDifficulties(item.songName, item.folder, item.difficulties, item.weekData);
                 item.song.difficultyInfo = info;
-                difficultyPreloadQueued.remove(item.cacheKey);
                 if (ClientPrefs.data.saveFreeplayCache)
                 {
                     freeplaySongCache.set(item.cacheKey, buildFreeplayCacheEntry(info));
                     freeplayCacheDirty = true;
+                    saveFreeplaySongCache();
                 }
                 if (item.song == songs[curSelected])
                 {
@@ -1189,7 +1224,6 @@ class FreeplayState extends MusicBeatState
             }
             catch(e:Dynamic)
             {
-                difficultyPreloadQueued.remove(item.cacheKey);
                 trace('Failed to preload song info: $e');
             }
         }
@@ -1802,11 +1836,6 @@ class FreeplayState extends MusicBeatState
 
     override function destroy():Void
     {
-        #if sys
-        if (ClientPrefs.data.saveFreeplayCache && freeplayCacheDirty)
-            saveFreeplaySongCache();
-        #end
-
         super.destroy();
 
         FlxG.autoPause = ClientPrefs.data.autoPause;
