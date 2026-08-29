@@ -12,7 +12,7 @@ class DraggableBar extends Bar
     public var onValueChanged:Float->Void = null;
     public var isDragging(default, null):Bool = false;
     public var draggable:Bool = true;
-    public var jumpOnClick:Bool = true;
+    public var jumpOnClick:Bool = true;   // 若为true，点击立即跳转并拖拽
     
     public var valueText:FlxText = null;
     
@@ -23,7 +23,6 @@ class DraggableBar extends Bar
     public function new(x:Float, y:Float, image:String = 'healthBar', valueFunction:Void->Float = null, boundX:Float = 0, boundY:Float = 1)
     {
         super(x, y, image, valueFunction, boundX, boundY);
-//        bg.useHandCursor = true;
     }
     
     override function update(elapsed:Float)
@@ -34,63 +33,10 @@ class DraggableBar extends Bar
         
         var mouseOverBg = FlxG.mouse.overlaps(bg, FlxG.camera);
         
-        // 开始拖拽
+        // --- 开始拖拽（按下时立即跳转） ---
         if (FlxG.mouse.justPressed && mouseOverBg && !isDragging)
         {
-            isDragging = true;
-            dragStartPercent = percent;
-            dragStartMouseScreenX = FlxG.mouse.screenX;
-            
-            // 获取当前鼠标在相机中的位置作为起始点
-            var mouseCamPos = FlxG.mouse.getPositionInCameraView(cameras[0]);
-            if (mouseCamPos != null)
-            {
-                var bgCamPos = bg.getScreenPosition(cameras[0]);
-                dragStartMouseX = mouseCamPos.x - bgCamPos.x - barOffset.x;
-            }
-            
-            leftBar.alpha = 0.7;
-            rightBar.alpha = 0.7;
-        }
-        
-        // 拖拽中
-        if (isDragging && FlxG.mouse.pressed)
-        {
-            var mouseCamPos = FlxG.mouse.getPositionInCameraView(cameras[0]);
-            if (mouseCamPos != null)
-            {
-                var bgCamPos = bg.getScreenPosition(cameras[0]);
-                var currentMouseX = mouseCamPos.x - bgCamPos.x - barOffset.x;
-                
-                // 方法1: 基于起始点的相对移动
-                var deltaX = currentMouseX - dragStartMouseX;
-                var newPercent = dragStartPercent + (deltaX / barWidth) * 100;
-                newPercent = Math.max(0, Math.min(100, newPercent));
-                
-                if (newPercent != percent)
-                {
-                    percent = newPercent;
-                    updateBar();
-                    
-                    if (onValueChanged != null)
-                    {
-                        onValueChanged(percent);
-                    }
-                }
-            }
-        }
-        
-        // 结束拖拽
-        if (FlxG.mouse.justReleased && isDragging)
-        {
-            isDragging = false;
-            leftBar.alpha = 1;
-            rightBar.alpha = 1;
-        }
-        
-        // 点击跳转（按下并释放，且没有拖拽过）
-        if (FlxG.mouse.justReleased && !isDragging && jumpOnClick && mouseOverBg)
-        {
+            // 1. 计算鼠标在条上的相对位置（百分比）
             var mouseCamPos = FlxG.mouse.getPositionInCameraView(cameras[0]);
             if (mouseCamPos != null)
             {
@@ -99,28 +45,57 @@ class DraggableBar extends Bar
                 var clickPercent = (relativeX / barWidth) * 100;
                 clickPercent = Math.max(0, Math.min(100, clickPercent));
                 
-                if (clickPercent != percent)
+                // 2. 如果允许点击跳转，立即将条设置到点击位置
+                if (jumpOnClick)
                 {
                     percent = clickPercent;
                     updateBar();
-                    
-                    if (onValueChanged != null)
-                    {
-                        onValueChanged(percent);
-                    }
+                    if (onValueChanged != null) onValueChanged(percent);
                 }
                 
-                // 视觉反馈
-                leftBar.alpha = 0.5;
-                rightBar.alpha = 0.5;
-                new FlxTimer().start(0.1, function(_) {
-                    if (!isDragging) {
-                        leftBar.alpha = 1;
-                        rightBar.alpha = 1;
-                    }
-                });
+                // 3. 记录拖拽起始数据（基于当前百分比）
+                isDragging = true;
+                dragStartPercent = percent;                  // 起始百分比（可能是新跳转后的值）
+                dragStartMouseX = relativeX;                // 当前鼠标相对位置
+                dragStartMouseScreenX = FlxG.mouse.screenX;
+                
+                leftBar.alpha = 0.7;
+                rightBar.alpha = 0.7;
             }
         }
+        
+        // --- 拖拽中（基于偏移量更新） ---
+        if (isDragging && FlxG.mouse.pressed)
+        {
+            var mouseCamPos = FlxG.mouse.getPositionInCameraView(cameras[0]);
+            if (mouseCamPos != null)
+            {
+                var bgCamPos = bg.getScreenPosition(cameras[0]);
+                var currentMouseX = mouseCamPos.x - bgCamPos.x - barOffset.x;
+                
+                var deltaX = currentMouseX - dragStartMouseX;
+                var newPercent = dragStartPercent + (deltaX / barWidth) * 100;
+                newPercent = Math.max(0, Math.min(100, newPercent));
+                
+                if (newPercent != percent)
+                {
+                    percent = newPercent;
+                    updateBar();
+                    if (onValueChanged != null) onValueChanged(percent);
+                }
+            }
+        }
+        
+        // --- 结束拖拽 ---
+        if (FlxG.mouse.justReleased && isDragging)
+        {
+            isDragging = false;
+            leftBar.alpha = 1;
+            rightBar.alpha = 1;
+        }
+        
+        // 注意：原来的“点击跳转”逻辑（justReleased）已移除，因为按下时已经处理了跳转和拖拽。
+        // 若jumpOnClick为false，则不会跳转，但按下时仍会进入拖拽（从当前百分比开始）。
         
         // 更新数值显示
         if (valueText != null)

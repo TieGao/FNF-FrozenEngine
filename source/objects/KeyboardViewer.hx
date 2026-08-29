@@ -46,7 +46,6 @@ class KeyboardViewer extends FlxSpriteGroup
 	{
 		super();
 		instance = this;
-
 		_x = X;
 		_y = Y;
 

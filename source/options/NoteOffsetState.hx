@@ -1,9 +1,10 @@
 package options;
 
 import objects.Character;
-import objects.DraggableBar;  // 改为导入 DraggableBar
+import objects.DraggableBar;
+import objects.KeyboardViewer;
+import objects.HitErrorBar;
 import flixel.addons.display.shapes.FlxShapeCircle;
-
 
 import states.stages.StageWeek1 as BackgroundStage;
 
@@ -25,7 +26,7 @@ class NoteOffsetState extends MusicBeatState
 	var barPercent:Float = 0;
 	var delayMin:Int = -500;
 	var delayMax:Int = 500;
-	var timeBar:DraggableBar;  // 改为 DraggableBar
+	var timeBar:DraggableBar;
 	var timeTxt:FlxText;
 	var beatText:Alphabet;
 	var beatTween:FlxTween;
@@ -34,6 +35,10 @@ class NoteOffsetState extends MusicBeatState
 
 	var controllerPointer:FlxSprite;
 	var _lastControllerMode:Bool = false;
+
+	// === KeyboardViewer 和 HitErrorBar 预览 ===
+	var keyboardViewer:KeyboardViewer;
+	var hitErrorBar:HitErrorBar;
 
 	override public function create()
 	{
@@ -89,6 +94,22 @@ class NoteOffsetState extends MusicBeatState
 		comboNums.cameras = [camHUD];
 		add(comboNums);
 
+		// === 创建 KeyboardViewer 预览 ===
+		var kbX:Float = FlxG.width/2 + ClientPrefs.data.kbOffsetX;
+		var kbY:Float = FlxG.height - 150 + ClientPrefs.data.kbOffsetY;
+		keyboardViewer = new KeyboardViewer(kbX, kbY, 4);
+		keyboardViewer.antialiasing = ClientPrefs.data.antialiasing;
+		keyboardViewer.cameras = [camHUD];
+		add(keyboardViewer);
+
+		// === 创建 HitErrorBar 预览 ===
+		hitErrorBar = new HitErrorBar();
+		hitErrorBar.screenCenter(X);
+		hitErrorBar.x += ClientPrefs.data.hitErrorBarOffsetX - 5;
+		hitErrorBar.y = FlxG.height * 0.3 + ClientPrefs.data.hitErrorBarOffsetY;
+		hitErrorBar.cameras = [camHUD];
+		add(hitErrorBar);
+
 		var seperatedScore:Array<Int> = [];
 		for (i in 0...3)
 		{
@@ -110,7 +131,7 @@ class NoteOffsetState extends MusicBeatState
 		dumbTexts = new FlxTypedGroup<FlxText>();
 		dumbTexts.cameras = [camHUD];
 		add(dumbTexts);
-		createTexts();
+		createTexts();  // 现在会创建 6 条文本
 
 		repositionCombo();
 
@@ -121,6 +142,7 @@ class NoteOffsetState extends MusicBeatState
 		beatText.alpha = 0;
 		beatText.acceleration.y = 250;
 		beatText.visible = false;
+		beatText.scrollFactor.set(0,0);
 		add(beatText);
 		
 		timeTxt = new FlxText(0, 600, FlxG.width, "", 32);
@@ -139,9 +161,7 @@ class NoteOffsetState extends MusicBeatState
 		timeBar.cameras = [camHUD];
 		timeBar.leftBar.color = FlxColor.LIME;
 
-		// 设置值变化回调
 		timeBar.onValueChanged = function(percentValue:Float) {
-			// percentValue 是 0~100，需要转换回 delayMin~delayMax
 			var newOffset = Math.round(FlxMath.lerp(delayMin, delayMax, percentValue / 100));
 			if (barPercent != newOffset) {
 				barPercent = newOffset;
@@ -149,7 +169,6 @@ class NoteOffsetState extends MusicBeatState
 			}
 		};
 
-		// 可选：显示数值的文本
 		timeBar.valueText = new FlxText(0, timeTxt.y + timeTxt.height + 10, FlxG.width, "", 24);
 		timeBar.valueText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		timeBar.valueText.scrollFactor.set();
@@ -160,12 +179,8 @@ class NoteOffsetState extends MusicBeatState
 		add(timeBar);
 		add(timeTxt);
 
-		// 设置初始百分比位置
 		var initialPercent = (barPercent - delayMin) / (delayMax - delayMin) * 100;
 		timeBar.setPercent(initialPercent, false);
-
-		add(timeBar);
-		add(timeTxt);
 
 		///////////////////////
 
@@ -206,6 +221,12 @@ class NoteOffsetState extends MusicBeatState
 
 	var startMousePos:FlxPoint = new FlxPoint();
 	var startComboOffset:FlxPoint = new FlxPoint();
+	
+	// 用于拖动 KeyboardViewer 和 HitErrorBar
+	var draggingTarget:String = "";
+	var startDragPos:FlxPoint = new FlxPoint();
+	var startKbOffset:FlxPoint = new FlxPoint();
+	var startHitBarOffset:FlxPoint = new FlxPoint();
 
 	override public function update(elapsed:Float)
 	{
@@ -218,20 +239,14 @@ class NoteOffsetState extends MusicBeatState
 				addNum = 3;
 		}
 
-		#if !mobile
-
-		#end
-
 		if(FlxG.gamepads.anyJustPressed(ANY)) controls.controllerMode = true;
 		else if(FlxG.mouse.justPressed) controls.controllerMode = false;
 
 		if(controls.controllerMode != _lastControllerMode)
 		{
-			//trace('changed controller mode');
 			FlxG.mouse.visible = !controls.controllerMode;
 			controllerPointer.visible = controls.controllerMode;
 
-			// changed to controller mid state
 			if(controls.controllerMode)
 			{
 				var mousePos = FlxG.mouse.getScreenPosition(camHUD);
@@ -244,6 +259,7 @@ class NoteOffsetState extends MusicBeatState
 
 		if(onComboMenu)
 		{
+			// 键盘/手柄控制 Combo Offset（Rating 和 Numbers）
 			if(FlxG.keys.justPressed.ANY || FlxG.gamepads.anyJustPressed(ANY))
 			{
 				var controlArray:Array<Bool> = null;
@@ -307,7 +323,7 @@ class NoteOffsetState extends MusicBeatState
 				}
 			}
 			
-			// controller things
+			// 控制器模拟鼠标
 			var analogX:Float = 0;
 			var analogY:Float = 0;
 			var analogMoved:Bool = false;
@@ -327,24 +343,25 @@ class NoteOffsetState extends MusicBeatState
 				gamepadPressed = !FlxG.gamepads.anyJustPressed(START) && controls.ACCEPT;
 				gamepadReleased = !FlxG.gamepads.anyJustReleased(START) && controls.justReleased('accept');
 			}
-			//
 
-			// probably there's a better way to do this but, oh well.
+			// 鼠标/手柄点击检测
 			if (FlxG.mouse.justPressed || gamepadPressed)
 			{
 				holdingObjectType = null;
+				draggingTarget = "";
+				
 				if(!controls.controllerMode)
 					FlxG.mouse.getScreenPosition(camHUD, startMousePos);
 				else
 					controllerPointer.getScreenPosition(startMousePos, camHUD);
 
+				// 检测点击了哪个可拖动元素
 				if (startMousePos.x - comboNums.x >= 0 && startMousePos.x - comboNums.x <= comboNums.width &&
 					startMousePos.y - comboNums.y >= 0 && startMousePos.y - comboNums.y <= comboNums.height)
 				{
 					holdingObjectType = true;
 					startComboOffset.x = ClientPrefs.data.comboOffset[2];
 					startComboOffset.y = ClientPrefs.data.comboOffset[3];
-					//trace('yo bro');
 				}
 				else if (startMousePos.x - rating.x >= 0 && startMousePos.x - rating.x <= rating.width &&
 						 startMousePos.y - rating.y >= 0 && startMousePos.y - rating.y <= rating.height)
@@ -352,14 +369,32 @@ class NoteOffsetState extends MusicBeatState
 					holdingObjectType = false;
 					startComboOffset.x = ClientPrefs.data.comboOffset[0];
 					startComboOffset.y = ClientPrefs.data.comboOffset[1];
-					//trace('heya');
+				}
+				else if (startMousePos.x - keyboardViewer._x >= 0
+					&& startMousePos.x - keyboardViewer._x <= keyboardViewer._width
+					&& startMousePos.y - keyboardViewer._y >= 0
+					&& startMousePos.y - keyboardViewer._y <= keyboardViewer._height)
+				{
+					draggingTarget = "keyboard";
+					startKbOffset.x = ClientPrefs.data.kbOffsetX;
+					startKbOffset.y = ClientPrefs.data.kbOffsetY;
+				}
+				else if (hitErrorBar != null && hitErrorBar.visible &&
+						 startMousePos.x >= hitErrorBar.x && startMousePos.x <= hitErrorBar.x + hitErrorBar.width &&
+						 startMousePos.y >= hitErrorBar.y && startMousePos.y <= hitErrorBar.y + hitErrorBar.height)
+				{
+					draggingTarget = "hiterrorbar";
+					startHitBarOffset.x = ClientPrefs.data.hitErrorBarOffsetX;
+					startHitBarOffset.y = ClientPrefs.data.hitErrorBarOffsetY;
 				}
 			}
+			
 			if(FlxG.mouse.justReleased || gamepadReleased) {
 				holdingObjectType = null;
-				//trace('dead');
+				draggingTarget = "";
 			}
 
+			// 拖拽 Combo 元素（Rating 和 Numbers）
 			if(holdingObjectType != null)
 			{
 				if(FlxG.mouse.justMoved || analogMoved)
@@ -377,20 +412,65 @@ class NoteOffsetState extends MusicBeatState
 				}
 			}
 
+			// 拖拽 KeyboardViewer
+			if (draggingTarget == "keyboard")
+			{
+				if(FlxG.mouse.justMoved || analogMoved)
+				{
+					var mousePos:FlxPoint = null;
+					if(!controls.controllerMode)
+						mousePos = FlxG.mouse.getScreenPosition(camHUD);
+					else
+						mousePos = controllerPointer.getScreenPosition(camHUD);
+
+					ClientPrefs.data.kbOffsetX = Math.round((mousePos.x - startMousePos.x) + startKbOffset.x);
+					ClientPrefs.data.kbOffsetY = Math.round((mousePos.y - startMousePos.y) + startKbOffset.y);
+					
+					updateKeyboardViewerPosition();
+					reloadTexts(); // 更新显示
+				}
+			}
+
+			// 拖拽 HitErrorBar
+			if (draggingTarget == "hiterrorbar")
+			{
+				if(FlxG.mouse.justMoved || analogMoved)
+				{
+					var mousePos:FlxPoint = null;
+					if(!controls.controllerMode)
+						mousePos = FlxG.mouse.getScreenPosition(camHUD);
+					else
+						mousePos = controllerPointer.getScreenPosition(camHUD);
+
+					ClientPrefs.data.hitErrorBarOffsetX = Math.round((mousePos.x - startMousePos.x) + startHitBarOffset.x);
+					ClientPrefs.data.hitErrorBarOffsetY = Math.round((mousePos.y - startMousePos.y) + startHitBarOffset.y);
+					
+					updateHitErrorBarPosition();
+					reloadTexts(); // 更新显示
+				}
+			}
+
 			if(controls.RESET)
 			{
+				// 重置所有偏移量
 				for (i in 0...ClientPrefs.data.comboOffset.length)
 				{
 					ClientPrefs.data.comboOffset[i] = 0;
 				}
+				ClientPrefs.data.kbOffsetX = 0;
+				ClientPrefs.data.kbOffsetY = 0;
+				ClientPrefs.data.hitErrorBarOffsetX = -5;
+				ClientPrefs.data.hitErrorBarOffsetY = 0;
+				
 				repositionCombo();
+				updateKeyboardViewerPosition();
+				updateHitErrorBarPosition();
+				reloadTexts();
 			}
 		}
 		else
 		{
-			// DraggableBar 现在会自己处理鼠标拖拽
-			// 但仍然保留键盘/手柄控制作为辅助
-			
+			// Note Delay 控制
 			if(controls.UI_LEFT_P)
 			{
 				barPercent = Math.max(delayMin, Math.min(ClientPrefs.data.noteOffset - 1, delayMax));
@@ -430,6 +510,7 @@ class NoteOffsetState extends MusicBeatState
 			}
 		}
 
+		// 切换模式 (Combo Offset <-> Note Delay)
 		if((!controls.controllerMode && controls.ACCEPT) ||
 		(controls.controllerMode && FlxG.gamepads.anyJustPressed(START)))
 		{
@@ -444,13 +525,13 @@ class NoteOffsetState extends MusicBeatState
 
 			persistentUpdate = false;
 			if(ClientPrefs.data.keOptions)
-		{
-			MusicBeatState.switchState(new options.KEOptionsMenu());
-		}
-		else
-		{
-			MusicBeatState.switchState(new options.OptionsState());
-		}
+			{
+				MusicBeatState.switchState(new options.KEOptionsMenu());
+			}
+			else
+			{
+				MusicBeatState.switchState(new options.OptionsState());
+			}
 			if(OptionsState.onPlayState)
 			{
 				if(ClientPrefs.data.pauseMusic != 'None')
@@ -466,14 +547,33 @@ class NoteOffsetState extends MusicBeatState
 		super.update(elapsed);
 	}
 
-	// 添加辅助函数：同步 DraggableBar 的显示位置
 	function updateDraggableBarPosition():Void
 	{
-		if (timeBar != null)
+		if (timeBar != null && !onComboMenu)
 		{
-			// 将 barPercent (实际偏移量) 转换为 0~1 的百分比
 			var percentValue = (barPercent - delayMin) / (delayMax - delayMin);
 			timeBar.setPercent(percentValue * 100, true);
+		}
+	}
+
+	// 更新 KeyboardViewer 位置
+	function updateKeyboardViewerPosition():Void
+	{
+		if (keyboardViewer != null)
+		{
+			keyboardViewer.x = ClientPrefs.data.kbOffsetX;
+			keyboardViewer.y = ClientPrefs.data.kbOffsetY;
+		}
+	}
+
+	// 更新 HitErrorBar 位置
+	function updateHitErrorBarPosition():Void
+	{
+		if (hitErrorBar != null)
+		{
+			hitErrorBar.screenCenter(X);
+			hitErrorBar.x += ClientPrefs.data.hitErrorBarOffsetX - 5;
+			hitErrorBar.y = FlxG.height * 0.3 + ClientPrefs.data.hitErrorBarOffsetY;
 		}
 	}
 
@@ -571,15 +671,23 @@ class NoteOffsetState extends MusicBeatState
 
 	function updateMode()
 	{
+		// Combo 元素
 		rating.visible = onComboMenu;
 		comboNums.visible = onComboMenu;
 		dumbTexts.visible = onComboMenu;
 		
+		// Note Delay 元素
 		timeBar.visible = !onComboMenu;
 		timeTxt.visible = !onComboMenu;
 		if (timeBar.valueText != null)
 			timeBar.valueText.visible = !onComboMenu;
 		beatText.visible = !onComboMenu;
+
+		// KeyboardViewer 和 HitErrorBar 只在 Combo Offset 模式下可见
+		if (keyboardViewer != null)
+			keyboardViewer.visible = onComboMenu;
+		if (hitErrorBar != null)
+			hitErrorBar.visible = onComboMenu;
 
 		controllerPointer.visible = false;
 		FlxG.mouse.visible = true;
@@ -590,7 +698,6 @@ class NoteOffsetState extends MusicBeatState
 		}
 		else
 		{
-			// 在偏移调节界面，显示鼠标便于拖拽
 			FlxG.mouse.visible = true;
 		}
 
@@ -606,6 +713,6 @@ class NoteOffsetState extends MusicBeatState
 		else
 			str2 = Language.getPhrase('switch_on_start', '(Press Start to Switch)');
 
-		changeModeText.text = '< ${str.toUpperCase()} ${str2.toUpperCase()} >';
+		changeModeText.text = '< ' + str.toUpperCase() + ' ' + str2.toUpperCase() + ' >';
 	}
 }

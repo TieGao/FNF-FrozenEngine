@@ -1240,8 +1240,8 @@ function onScrollChange()
 				KEOption.create("Hit Error Bar", "Show hit error bar", "hitErrorBarVisible", "bool"),
 				KEOption.create("Hit Bar Lines", "Number of lines on hit error bar", "hitBarLines", "int", 5, 0, 200, 1),
 				KEOption.create("Hit Bar Line Time", "Time (in seconds) each line represents", "hitBarLineTime", "float", 2.0, 0.1, 5.0, 0.1),
-				KEOption.create("Hit Error Bar Offset X", "Horizontal position of hit error bar", "hitErrorBarOffsetX", "int", 0, -500, 500, 10),
-				KEOption.create("Hit Error Bar Offset Y", "Vertical position of hit error bar", "hitErrorBarOffsetY", "int", 0, -300, 300, 10),
+				KEOption.create("Hit Error Bar Offset X", "Horizontal position of hit error bar", "hitErrorBarOffsetX", "int", 0, -500, 500, 1),
+				KEOption.create("Hit Error Bar Offset Y", "Vertical position of hit error bar", "hitErrorBarOffsetY", "int", 0, -300, 300, 1),
 				KEOption.create("Hit Error Bar MS", "Show MS on hit error bar rather than on ratings", "msInErrorBar", "bool")
 			],
 			"",
@@ -1256,8 +1256,8 @@ function onScrollChange()
 				KEOption.create("Keyboard Opacity", "Transparency of the keyboard display", "keyboardAlpha", "float", 1.0, 0.0, 1.0, 0.1),
 				KEOption.create("Keyboard BG Color", "Background color of the keyboard display", "keyboardBGColor", "color", FlxColor.BLACK),
 				KEOption.create("Keyboard Text Color", "Text color of the keyboard display", "keyboardTextColor", "color", FlxColor.WHITE),
-				KEOption.create("Keyboard Offset X", "Horizontal position of the keyboard display", "kbOffsetX", "int", 0, -750, 750, 10),
-				KEOption.create("Keyboard Offset Y", "Vertical position of the keyboard display", "kbOffsetY", "int", 0, -450, 750, 10),
+				KEOption.create("Keyboard Offset X", "Horizontal position of the keyboard display", "kbOffsetX", "int", 0, -750, 750, 1),
+				KEOption.create("Keyboard Offset Y", "Vertical position of the keyboard display", "kbOffsetY", "int", 0, -450, 750, 1),
 				KEOption.create("Keyboard Time Display", "Change the keyboard time should display or not", "keyboardTimeDisplay", "bool"),
 				KEOption.create("Keyboard Time Length", "Change the how long the keyboard is displayed", "keyboardTime", "float", 300, 0 , 2000, 20)
 			],
