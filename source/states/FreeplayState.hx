@@ -396,6 +396,7 @@ class FreeplayState extends MusicBeatState
             
             // 搜索提示文字
             searchLabel = new FlxText(0, 0, 0, "Search songs...", 18);
+            searchLabel.antialiasing = ClientPrefs.data.antialiasing;
             searchLabel.setFormat(Paths.font("vcr.ttf"), 18, 0xFFAAAAAA, LEFT);
             searchLabel.x = (FlxG.width - 240) / 2 + 38;
             searchLabel.y = 13;
