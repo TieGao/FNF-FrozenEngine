@@ -39,16 +39,16 @@ class OsuConverter
 		if (song == null) return false;
 		try
 		{
-			trace("========== Psych → OSU 转换开始 ==========");
+			//trace("========== Psych → OSU 转换开始 ==========");
 			
 			var lines:Array<String> = [];
 			var bpmChanges:Array<BpmChange> = extractBpmChanges(song);
 			var notes:Array<OsuNote> = extractNotes(song);
 
 			// 调试输出：转换前的数据统计
-			trace('【转换前】歌曲名称: ${song.song}');
-			trace('【转换前】BPM: ${song.bpm}');
-			trace('【转换前】小节数: ${song.notes.length}');
+			//trace('【转换前】歌曲名称: ${song.song}');
+			//trace('【转换前】BPM: ${song.bpm}');
+			//trace('【转换前】小节数: ${song.notes.length}');
 			
 			// 统计原始音符总数
 			var totalRawNotes:Int = 0;
@@ -56,10 +56,10 @@ class OsuConverter
 			{
 				totalRawNotes += section.sectionNotes.length;
 			}
-			trace('【转换前】原始音符总数: $totalRawNotes');
+			//trace('【转换前】原始音符总数: $totalRawNotes');
 			
 			// 调试输出：提取后的音符
-			trace('【提取后】提取到的 OsuNote 数量: ${notes.length}');
+			//trace('【提取后】提取到的 OsuNote 数量: ${notes.length}');
 			
 			// [General]
 			lines.push("[General]");
@@ -125,12 +125,12 @@ class OsuConverter
 				lines.push('$x, 0, $time, $type, $hitsound, $objectParams');
 				writtenNotes++;
 			}
-			trace('【写入】实际写入 HitObjects 数量: $writtenNotes');
+			//trace('【写入】实际写入 HitObjects 数量: $writtenNotes');
 
 			// 写入文件
 			File.saveContent(savePath, lines.join("\n"));
-			trace('【完成】文件已保存到: $savePath');
-			trace("========== Psych → OSU 转换完成 ==========");
+			//trace('【完成】文件已保存到: $savePath');
+			//trace("========== Psych → OSU 转换完成 ==========");
 			return true;
 		}
 		catch (e:Dynamic)
@@ -452,8 +452,6 @@ class OsuConverter
 		var keys = getKeyCount(song);
 		for (section in song.notes)
 		{
-			// 仅提取 mustHitSection 为 true 的音符（玩家侧）
-			if (!section.mustHitSection) continue;
 			for (note in section.sectionNotes)
 			{
 				var time:Float = note[0];

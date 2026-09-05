@@ -1,6 +1,5 @@
 package states.editors.content;
 
-import flixel.FlxSubState;
 import flixel.util.FlxColor;
 import flixel.text.FlxText;
 import flixel.group.FlxGroup.FlxTypedGroup;
@@ -13,7 +12,7 @@ import backend.Language;
  * OSU 导入确认对话框，允许用户选择转换选项
  * 提供两种导入方式：加载到编辑器 或 保存为文件
  */
-class OsuImportDialog extends FlxSubState implements PsychUIEventHandler.PsychUIEvent
+class OsuImportDialog extends MusicBeatSubstate implements PsychUIEventHandler.PsychUIEvent
 {
     public static inline var ACTION_LOAD_TO_EDITOR:Int = 0;
     public static inline var ACTION_SAVE_TO_FILE:Int = 1;

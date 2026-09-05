@@ -1,10 +1,21 @@
-// Gameplay
+// ============================================
+// KEngine - 简体中文语言文件
+// 基于 KEOptionsMenu.hx 和 ExtraSettingsSubState.hx 补全
+// ============================================
+
+// ============================================
+// 游戏玩法
+// ============================================
 botplay: "自动演奏"
 
-// Dialogues
+// ============================================
+// 对话
+// ============================================
 dialogue_skip: "按BACK跳过"
 
-// Pause Menu
+// ============================================
+// 暂停菜单
+// ============================================
 pause_resume: "继续"
 pause_restart_song: "重新开始歌曲"
 pause_leave_charting_mode: "退出制谱模式"
@@ -21,7 +32,9 @@ charting_mode: "制谱模式"
 blueballed: "死亡次数: {1}"
 charting_panel: "制谱面板"
 
-// Story Mode
+// ============================================
+// 故事模式
+// ============================================
 week_score: "最佳得分: {1}"
 
 storyname_tutorial: "教程"
@@ -33,7 +46,9 @@ storyname_week5: "红色暴雪"
 storyname_week6: "恨觉模拟器 ft. moawling"
 storyname_weekend1: "逾期债务"
 
-// Freeplay
+// ============================================
+// 自由游玩
+// ============================================
 personal_best: "最高分: {1} ({2}%)"
 freeplay_notes: "音符: {1}"
 freeplay_rating: "评级: {1}"
@@ -49,7 +64,9 @@ musicplayer_playing: "播放中: {1}"
 musicplayer_paused: "暂停: {1}"
 musicplayer_tip: "按SPACE暂停/按ESC退出/按R重播"
 
-// Mods Menu
+// ============================================
+// Mods 菜单
+// ============================================
 no_mods_installed: "未安装任何MOD\n按BACK退出或添加MOD"
 no_mods_found: "未找到MOD"
 mod_restart: "* 移动或切换MOD会重启游戏"
@@ -57,13 +74,17 @@ reload_button: "重新加载"
 enable_all_button: "全部启用"
 disable_all_button: "全部禁用"
 
-// Reset Score/Achievement
+// ============================================
+// 重置分数/成就
+// ============================================
 reset_score: "重置分数："
 reset_achievement: "重置成就："
 yes: "是"
 no: "否"
 
-// Achievements
+// ============================================
+// 成就
+// ============================================
 achievement_friday_night_play: "周五夜"
 description_friday_night_play: "在周五晚上游玩一次"
 achievement_week1_nomiss: "她也叫我Daddy"
@@ -102,6 +123,13 @@ achievement_pessy_easter_egg: "编程少女"
 description_pessy_easter_egg: "嘿嘿，你找到我啦~！"
 
 // ============================================
+// 难度
+// ============================================
+difficulty_easy: "简单"
+difficulty_normal: "普通"
+difficulty_hard: "困难"
+
+// ============================================
 // KEOptionsMenu 分类标题
 // ============================================
 Basics: "基础选项"
@@ -117,14 +145,17 @@ Open_Note_Colors: "自定义音符颜色"
 Customize_note_colors: "自定义音符颜色"
 Open_Controls: "自定义按键绑定"
 Customize_key_bindings: "自定义按键绑定"
-Open_EZ_KeyBinds: "KE风格按键绑定"
-Customize_key_bindings_in_KE_Styled_Menu: "KE风格按键绑定"
+Open_EK_Controls: "KE风格按键绑定"
+Customize_key_bindings_in_KE_Styled_Menu: "在KE风格菜单中自定义按键绑定"
 Adjust_Delay_and_Combo: "自定义游戏体验"
 Customize_ingame_experience: "自定义游戏内体验"
 Language: "语言"
 Change_the_games_language: "更改游戏的语言"
 Reset_KeyBinds: "恢复默认按键"
 Reset_all_key_bindings_to_default: "重置为默认按键"
+// 别名键（用于代码中的引用）
+Reset_Keybinds: "重置按键绑定"
+Reset_Key_Binds: "重置按键绑定"
 
 // ============================================
 // KEOptionsMenu 游玩选项 (Gameplay)
@@ -147,10 +178,18 @@ Fast_Restart: "快速重开"
 Fast_Restart_When_Dead_or_Press_R: "死亡或按R键时快速重开"
 Hitsound_Volume: "敲击音量"
 Volume_of_hit_sounds: "敲击音效的音量"
+Hitsound: "敲击音效"
+Choose_the_note_hit_sound: "选择敲击音效"
+Pause_Music: "暂停音乐"
+Choose_pause_screen_music: "暂停界面播放哪首歌？"
 Rating_Offset: "判定偏移"
 Adjust_note_hit_timing: "调整音符命中的时间偏移"
 Note_Sustains_Offset: "长音偏移"
 Adjust_the_timing_offset_for_note_sustains: "调整长音的时间偏移"
+KE_Style_Sustains: "KE风格长音"
+Enable_KE_style_note_sustains: "启用KE风格的长音"
+Show_Stage: "显示舞台"
+Show_the_stage: "显示舞台"
 
 // ---- Window Settings 子菜单 ----
 Window_Settings: "判定窗口设置"
@@ -158,7 +197,6 @@ Configure_window_and_timing_settings: "配置窗口和判定时间设置"
 Marvelous_Window: "Sick判定区间"
 Timing_window_for_SICK: "Sick判定窗口"
 Sick_Window: "Sick判定区间"
-Timing_window_for_SICK: "Sick判定窗口"
 Good_Window: "Good判定区间"
 Timing_window_for_GOOD: "Good判定窗口"
 Bad_Window: "Bad判定区间"
@@ -185,11 +223,10 @@ Note_transparency: "音符透明度"
 Note_Splash_Opacity: "溅射不透明度"
 Note_splash_transparency: "音符特效透明度"
 Note_HoldCover_Opacity: "长音溅射不透明度"
-Note_splash_transparency: "长音溅射透明度"
 Force_Number_Color: "强制数字颜色"
 Force_numbers_to_a_specific_color: "强制将数字设置为特定颜色"
 showEarlyLate: "显示快慢提示"
-Show_early/late_text_on_hit: "命中音符时显示提前/延后提示"
+Show_earlylate_text_on_hit: "命中音符时显示提前/延后提示"
 showCombo: "显示连击文字"
 Show_combo_text_when_combo_>_10: "连击数大于10时显示连击文字"
 Force_Note_Skin: "强制音符皮肤"
@@ -202,6 +239,8 @@ Force_using_the_RGB_shader_for_notes_and_splashes: "强制为音符和溅射使�
 // ---- Hit Error Bar 子菜单 ----
 Hit_Error_Bar: "命中误差条"
 Configure_hit_error_bar_display: "配置命中误差条显示"
+Hit_Error_Bar_Pointer_Style: "误差条指针样式"
+Style_of_the_hit_error_bar_pointer: "误差条指针的样式"
 Hit_Bar_Lines: "误差条线数"
 Number_of_lines_on_hit_error_bar: "命中误差条上的线条数量"
 Hit_Bar_Line_Time: "每线时间(秒)"
@@ -268,6 +307,8 @@ Change_the_relax_audio_range: "更改音频可视化范围"
 // ---- Judgements Counter 子菜单 ----
 Judgements_Counter: "判定计数器"
 Configure_Judgements_Counter_settings: "配置判定计数器设置"
+Judgements_Counter_Visible: "判定计数器"
+Show_judgements_counter: "显示判定计数器"
 Show_Highest_Combo: "显示最高连击"
 Show_highest_combo_in_judgements_counter: "显示最高连击"
 Show_Current_Combo: "显示当前连击"
@@ -304,8 +345,6 @@ Score_Zoom: "分数跳动"
 Grow_score_text_on_hit: "关闭后分数命中时不跳动"
 Time_Bar: "时间条"
 What_should_the_Time_Bar_display: "时间条应显示什么？"
-Pause_Music: "暂停音乐"
-Choose_pause_screen_music: "暂停界面播放哪首歌？"
 Health_Bar_Alpha: "血条透明度"
 Health_bar_transparency: "血条和头像的透明度"
 Combo_Stacking: "连击堆叠"
@@ -314,12 +353,14 @@ MS_Number: "显示判定偏移"
 Make_you_know_how_late_early_ur_when_hit_notes: "显示你命中音符的时机快慢(单位：毫秒)"
 Health_Text: "显示血量"
 Show_health_as_number: "显示剩余血量百分比"
-Song_Text: "显示歌曲信息"
-Show_song_info_watermark: "显示歌曲信息"
 Score_Screen: "显示结算界面"
 Show_Kade-style_results: "显示Kade风格的结算界面"
 Transition_Type: "过渡动画风格"
 Choose_the_transition_animation_style_when_switching_scenes: "选择场景切换时的过渡动画风格"
+Blur_Effect: "模糊效果"
+Enable_blur_effect_on_background_elements: "对背景元素启用模糊效果"
+Skip_Results_Screen_Fade_Out: "跳过结算界面退出动画"
+Skip_the_exit_results_screen_animation: "跳过退出结算界面的动画"
 Charm_Bar_Pause: "现代暂停界面"
 Modern_Pause_Sub_State: "使用现代化暂停界面"
 
@@ -343,8 +384,12 @@ Anti-Aliasing: "抗锯齿"
 Smoother_visuals: "关闭后提升性能，但画面会变得不平滑"
 Resolution: "分辨率"
 Change_the_games_render_resolution.: "更改游戏渲染分辨率"
+dpiScale: "DPI缩放"
+Scale_the_game_based_on_your_screens_DPI: "根据屏幕DPI缩放游戏"
 Shaders: "着色器"
 Enable_shader_effects: "关闭后禁用特效着色器，适合低性能CPU"
+Wide_Screen: "宽屏"
+Enable_21:9_widescreen_mode: "启用21:9宽屏模式"
 GPU_Caching: "GPU缓存"
 Use_GPU_for_texture_caching: "开启后允许GPU缓存贴图，减少内存占用，显卡较差请勿开启"
 Devide_Draw_And_Update: "拆分渲染和游戏速率"
@@ -367,6 +412,8 @@ Beta_Updates: "测试版更新"
 Change_the_channel_to_beta: "切换到测试版通道"
 Loading_Screen: "加载界面"
 Show_loading_screen: "显示加载界面"
+Lua_Text_Antialiasing: "Lua文本抗锯齿"
+Enable_antialiasing_on_lua_texts: "在Lua文本上启用抗锯齿"
 Enable_LUA_Debug_Printer: "启用LUA调试"
 Uncheck_it_if_u_dont_want_to_see_them: "取消勾选以隐藏Lua调试输出"
 Discord_RPC: "Discord状态"
@@ -381,6 +428,10 @@ Reset_Settings: "重置所有设置"
 Reset_all_settings_to_default: "重置所有设置"
 Reset_Scores: "重置所有分数"
 Clear_all_high_scores_and_ratings: "重置所有分数"
+About: "关于"
+View_information_about_the_game: "查看游戏相关信息"
+Use_Default_Mouse_Cursor: "使用系统鼠标光标"
+Use_ur_systems_default_mouse_cursor_in_game: "在游戏中使用系统默认鼠标光标"
 
 // ---- Options Particle 子菜单 ----
 Options_Particle: "粒子设置"
@@ -395,7 +446,29 @@ Particle_Trail_Length: "粒子拖尾长度"
 Length_of_particle_trails: "粒子拖尾长度"
 
 // ============================================
-// 重置选项的警告消息（使用下划线替换空格）
+// ExtraSettingsSubState - 额外设置
+// ============================================
+Extra_Settings: "额外设置"
+Configure_custom_chart_playback_settings: "配置自定义谱面播放设置"
+Custom_Chart_Folder: "自定义谱面文件夹"
+Chart_category_used_by_custom_chart_mode: "自定义谱面模式使用的图表类别"
+Asset_Mod_Folder: "资源MOD文件夹"
+Mod_folder_used_for_custom_chart_stages_characters_and_other_assets: "用于自定义谱面舞台、角色和其他资产的MOD文件夹"
+Stage: "舞台"
+Stage_used_by_custom_charts: "自定义谱面使用的舞台"
+Player: "玩家角色"
+Boyfriend_character_used_by_custom_charts: "自定义谱面使用的男友角色"
+Girlfriend: "女友角色"
+Girlfriend_character_used_by_custom_charts: "自定义谱面使用的女友角色"
+Opponent: "对手角色"
+Dad_character_used_by_custom_charts: "自定义谱面使用的老爹角色"
+Play_8K_as_4K: "8K转4K"
+Map_8-key_charts_onto_four_playable_columns: "将8键谱面映射到4个可玩列"
+Swap_Player/Opponent_Lanes: "交换玩家/对手轨道"
+Swap_the_player_and_opponent_note_tracks_without_enabling_Opponent_Mode: "在不启用对手模式的情况下交换玩家和对手的音轨"
+
+// ============================================
+// 重置选项的警告消息
 // ============================================
 Are_you_sure_you_want_to_reset_ALL_key_bindings_to_default?\nThis_action_cannot_be_undone!: "确定要将所有按键绑定重置为默认值吗？\n此操作无法撤销！"
 Are_you_sure_you_want_to_reset_ALL_settings_to_default?\nThis_will_reset_graphics,_gameplay,_and_other_preferences!\nThis_action_cannot_be_undone!: "确定要将所有设置重置为默认值吗？\n这将重置图形、游戏和其他偏好！\n此操作无法撤销！"
@@ -448,12 +521,6 @@ Confirm: "确认"
 Type: "类型"
 SelectOption: "选择一个选项"
 Return_to_previous_menu: "返回上一级页面"
-Configure_Freeplay_settings: "配置Freeplay选项"
-Unlimited_FPS: "解除帧率限制"
-Devide_Draw_And_Update: "拆分渲染和游戏速率"
-Update_Rate: "游戏速率"
-Reset_all_settings_to_default: "重置所有设置"
-Reset_all_key_bindings_to_default: "重置所有键位"
 
 // ============================================
 // 字体
@@ -485,13 +552,6 @@ stats_shits: "糟糕"
 stats_misses: "失误"
 stats_total_notes: "命中音符"
 stats_total_judgements: "总音符数"
-
-// ============================================
-// 难度
-// ============================================
-difficulty_easy: "简单"
-difficulty_normal: "普通"
-difficulty_hard: "困难"
 
 // ============================================
 // 其他菜单
@@ -651,7 +711,9 @@ description_safe_frames: "调整提前/延后判定的容错时间"
 setting_sustains_as_one_note: "长音合并"
 description_sustains_as_one_note: "如果开启，未按完整段长音只算一个失误"
 
-// Mobile Settings 子菜单
+// ============================================
+// 移动端设置 (Mobile Settings)
+// ============================================
 Mobile_Settings: "移动设备设置"
 Configure_mobile_specific_settings: "配置移动设备专属选项"
 Extra_Controls: "额外按钮"
@@ -678,9 +740,34 @@ If_checked_the_mobile_controls_color_will_be_set_to_the_notes_color: "开启后�
 Customize_Mobile_Controls: "自定义移动按钮布局"
 Customize_mobile_controls_layout_and_appearance: "自定义移动按钮的布局与外观"
 
-osu_import_title:OSU 导入选项
-osu_import_convert_prompt:检测到 {1}K ({2} 键 mania)。\n是否转换为 4K (3 键 mania)？
-osu_import_keep_prompt:检测到 {1}K ({2} 键 mania)。\n保持原始键数导入。
-osu_import_convert_check:转换为 4K (3 键 mania)
-osu_import_confirm:确认导入
-osu_import_cancel:取消
+// ============================================
+// OSU 导入
+// ============================================
+osu_import_title: "OSU 导入选项"
+osu_import_convert_prompt: "检测到 {1}K ({2} 键 mania)。\n是否转换为 4K (3 键 mania)？"
+osu_import_keep_prompt: "检测到 {1}K ({2} 键 mania)。\n保持原始键数导入。"
+osu_import_convert_check: "转换为 4K (3 键 mania)"
+osu_import_confirm: "确认导入"
+osu_import_cancel: "取消"
+
+// ============================================
+// 评分文本 (PlayState)
+// ============================================
+score_text: "分数: {1} | 失误: {2} | 评级: {3}"
+score_text_instakill: "分数: {1} | 评级: {2}"
+
+rating_you_suck: "太糟糕了！"
+rating_shit: "垃圾"
+rating_bad: "差"
+rating_bruh: "一般"
+rating_meh: "还行"
+rating_nice: "不错"
+rating_good: "好"
+rating_great: "很棒"
+rating_sick: "完美！"
+rating_perfect: "完美！！"
+
+// ============================================
+// 加载界面
+// ============================================
+now_loading: "加载中{1}"

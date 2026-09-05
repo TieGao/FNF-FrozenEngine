@@ -1,5 +1,6 @@
 package backend;
 
+import objects.HitErrorBar;
 import flixel.util.FlxSave;
 import flixel.input.keyboard.FlxKey;
 import flixel.input.gamepad.FlxGamepadInputID;
@@ -135,6 +136,7 @@ import states.TitleState;
 	public var customChartSwapSides:Bool = false;
 
 	public var msInErrorBar:Bool = false; // 是否在误差条上显示ms文本
+	public var pointerType:String = "triangle"; // 误差条指针样式
 	
 	public var totalPlaytime:Float = 0;        // 累计总时长（秒）
 	public var sessionStartTime:Float = 0;     // 本次会话开始时间（毫秒时间戳）

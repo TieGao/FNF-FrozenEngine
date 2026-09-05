@@ -13,7 +13,7 @@ haxelib install flixel-tools 1.5.1 --skip-dependencies
 haxelib install hscript-iris 1.1.3 --skip-dependencies
 haxelib install tjson 1.4.0 --skip-dependencies
 haxelib install hxdiscord_rpc 1.2.4 --skip-dependencies
-haxelib install hxvlc 2.3.0 --skip-dependencies
+haxelib install hxvlc 2.3.1 --skip-dependencies
 haxelib install moonchart --skip-dependencies
 haxelib git lime https://github.com/TieGao/lime --skip-dependencies
 haxelib git openfl https://github.com/TieGao/openfl --skip-dependencies

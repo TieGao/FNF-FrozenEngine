@@ -21,7 +21,6 @@ import haxe.io.Bytes;
 import states.editors.content.MetaNote;
 import states.editors.content.VSlice;
 import states.editors.content.Prompt;
-import states.editors.content.OsuConverter;
 import states.editors.content.*;
 
 import substates.ChartSourceSelectSubstate;
@@ -4267,6 +4266,72 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		}, btnWid);
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
+		// === StepMania 导入 ===
+		btnY += 20;
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Import StepMania...', function()
+		{
+			if(!fileDialog.completed) return;
+			upperBox.isMinimized = true;
+			upperBox.bg.visible = false;
+
+			fileDialog.open('*.sm;*.ssc', 'Open StepMania Chart (.sm / .ssc)', function()
+			{
+				try
+				{
+					var filePath:String = fileDialog.path.replace('\\', '/');
+					
+					// 检测键数
+					var keys:Int = StepManiaConverter.detectStepManiaKeys(filePath);
+					
+					// 显示导入对话框
+					ClientPrefs.toggleVolumeKeys(false);
+					var dialog:StepManiaDialog = new StepManiaDialog(StepManiaDialog.ACTION_IMPORT, keys, keys);
+					dialog.onConfirm = function(action:Int, format:String, convertKeys:Bool, targetKeys:Int)
+					{
+						performStepManiaImport(filePath, targetKeys);
+					};
+					dialog.onCancel = function()
+					{
+						showOutput('StepMania import cancelled');
+					};
+					openSubState(dialog);
+				}
+				catch(e:Exception)
+				{
+					showOutput('Error: ${e.message}', true);
+					trace(e.stack);
+				}
+			});
+		}, btnWid);
+		btn.text.alignment = LEFT;
+		tab_group.add(btn);
+
+		// === StepMania 导出 ===
+		btnY += 20;
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Export to StepMania...', function()
+		{
+			if(!fileDialog.completed) return;
+			upperBox.isMinimized = true;
+			upperBox.bg.visible = false;
+
+			updateChartData();
+			var keys:Int = GRID_COLUMNS_PER_PLAYER;
+			
+			// 显示导出对话框
+			ClientPrefs.toggleVolumeKeys(false);
+			var dialog:StepManiaDialog = new StepManiaDialog(StepManiaDialog.ACTION_EXPORT, keys, keys);
+			dialog.onConfirm = function(action:Int, format:String, convertKeys:Bool, targetKeys:Int)
+			{
+				performStepManiaExport(format);
+			};
+			dialog.onCancel = function()
+			{
+				showOutput('StepMania export cancelled');
+			};
+			openSubState(dialog);
+		}, btnWid);
+		btn.text.alignment = LEFT;
+		tab_group.add(btn);
 
 		btnY += 20;
 		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Update (Legacy)...', function()
@@ -6051,6 +6116,131 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		var parts:Array<String> = normalized.substr(markerIndex + marker.length).split('/');
 		if (parts.length < 3) return [null, null];
 		return [parts[0], parts[1]];
+	}
+
+	function getKeyCountFromSong(song:SwagSong):Int
+	{
+		if (Reflect.hasField(song, "mania")) return Reflect.field(song, "mania") + 1;
+		if (Reflect.hasField(song, "keyCount")) return Reflect.field(song, "keyCount");
+		if (Reflect.hasField(song, "keycount")) return Reflect.field(song, "keycount");
+		return 4;
+	}
+
+	/**
+	 * 执行 StepMania 导入
+	 */
+	function performStepManiaImport(filePath:String, targetKeys:Int):Void
+	{
+		try
+		{
+			var loadedChart:SwagSong = StepManiaConverter.convertStepManiaToPsych(filePath);
+			if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
+			{
+				showOutput('Error: Unable to read StepMania file', true);
+				return;
+			}
+
+			// 如果需要转换键数
+			var sourceKeys:Int = getKeyCountFromSong(loadedChart);
+			if (sourceKeys != targetKeys)
+			{
+				// 重新映射音符列
+				remapSongKeys(loadedChart, sourceKeys, targetKeys);
+				// 更新 mania 字段
+				Reflect.setField(loadedChart, 'mania', targetKeys - 1);
+				Reflect.setField(loadedChart, 'keyCount', targetKeys);
+				Reflect.setField(loadedChart, 'keycount', targetKeys);
+				showOutput('Converted from ${sourceKeys}K to ${targetKeys}K');
+			}
+
+			var func:Void->Void = function()
+			{
+				GRID_COLUMNS_PER_PLAYER = targetKeys;
+				loadChart(loadedChart);
+				Song.chartPath = filePath;
+				reloadNotesDropdowns();
+				rebuildChartLayout();
+				prepareReload();
+				showOutput('StepMania chart loaded from: ' + filePath);
+			};
+			
+			if (!ignoreProgressCheckBox.checked)
+				openSubState(new Prompt('Warning: Any unsaved progress\nwill be lost.', func));
+			else
+				func();
+		}
+		catch(e:Exception)
+		{
+			showOutput('Error: ${e.message}', true);
+			trace(e.stack);
+		}
+	}
+
+	/**
+	 * 执行 StepMania 导出
+	 */
+	function performStepManiaExport(format:String):Void
+	{
+		fileDialog.openDirectory('Save StepMania File', function()
+		{
+			try
+			{
+				var path:String = fileDialog.path.replace('\\', '/');
+				if(!path.endsWith('/')) path += '/';
+				
+				var ext = (format == "ssc") ? "ssc" : "sm";
+				var fileName:String = Paths.formatToSongPath(PlayState.SONG.song) + '.' + ext;
+				var savePath:String = path + fileName;
+				
+				overwriteCheck(savePath, fileName, '', function()
+				{
+					var smText:String = StepManiaConverter.convertPsychToStepMania(PlayState.SONG, format);
+					File.saveContent(savePath, smText);
+					showOutput('StepMania file saved successfully: $savePath');
+				});
+			}
+			catch(e:Exception)
+			{
+				showOutput('Error: ${e.message}', true);
+				trace(e.stack);
+			}
+		});
+	}
+
+	/**
+	 * 重新映射歌曲的键数
+	 */
+	function remapSongKeys(song:SwagSong, sourceKeys:Int, targetKeys:Int):Void
+	{
+		if (sourceKeys == targetKeys) return;
+		
+		var scale:Float = (targetKeys - 1) / (sourceKeys - 1);
+		var halfScale:Bool = (targetKeys > sourceKeys);
+		
+		for (section in song.notes)
+		{
+			for (note in section.sectionNotes)
+			{
+				if (note == null || note[1] == null) continue;
+				var data:Int = Std.int(note[1]);
+				var player = Math.floor(data / sourceKeys);
+				var col = data % sourceKeys;
+				
+				// 重新映射列
+				var newCol:Int;
+				if (halfScale)
+				{
+					newCol = Math.round(col * scale);
+				}
+				else
+				{
+					newCol = Math.floor(col * scale);
+				}
+				newCol = Std.int(Math.max(0, Math.min(newCol, targetKeys - 1)));
+				
+				note[1] = player * targetKeys + newCol;
+			}
+		}
 	}
 }
 

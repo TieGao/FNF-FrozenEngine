@@ -1238,6 +1238,7 @@ function onScrollChange()
 			"Configure hit error bar display",
 			[
 				KEOption.create("Hit Error Bar", "Show hit error bar", "hitErrorBarVisible", "bool"),
+				KEOption.create("Hit Error Bar Pointer Style", "Style of the hit error bar pointer", "pointerType", "string", ["triangle", "inverted", "thick_line"]),
 				KEOption.create("Hit Bar Lines", "Number of lines on hit error bar", "hitBarLines", "int", 5, 0, 200, 1),
 				KEOption.create("Hit Bar Line Time", "Time (in seconds) each line represents", "hitBarLineTime", "float", 2.0, 0.1, 5.0, 0.1),
 				KEOption.create("Hit Error Bar Offset X", "Horizontal position of hit error bar", "hitErrorBarOffsetX", "int", 0, -500, 500, 1),

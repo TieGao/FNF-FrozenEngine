@@ -153,16 +153,44 @@ class HitErrorBar extends FlxSpriteGroup
     
     function createPointer()
     {
-        pointer = new FlxSprite().makeGraphic(12, 16, FlxColor.TRANSPARENT);
-        FlxSpriteUtil.drawPolygon(pointer, [
-            FlxPoint.get(0, 16),
-            FlxPoint.get(6, 0),
-            FlxPoint.get(12, 16)
-        ], FlxColor.WHITE);
+        var style = ClientPrefs.data.pointerType;
+        var pointerColor = FlxColor.WHITE;
+        
+        pointer = new FlxSprite().makeGraphic(16, 20, FlxColor.TRANSPARENT);
+        
+        switch(style)
+        {
+        case 'inverted': // 倒三角
+            FlxSpriteUtil.drawPolygon(pointer, [
+                FlxPoint.get(0, 0),
+                FlxPoint.get(8, 20),
+                FlxPoint.get(16, 0)
+            ], pointerColor);
+            // 倒三角向下移动更多
+            pointer.y = timingBar.y - pointer.height + 6; // 原来是 +2，改为 +6
+            
+        case 'thick_line': // 粗竖线 I形
+            var lineWidth = 6;
+            var lineHeight = 20;
+            var centerX = Std.int((pointer.width - lineWidth) / 2);
+            
+            FlxSpriteUtil.drawRect(pointer, centerX, 0, lineWidth, lineHeight, pointerColor);
+            FlxSpriteUtil.drawRect(pointer, 0, 0, pointer.width, 3, pointerColor);
+            FlxSpriteUtil.drawRect(pointer, 0, lineHeight - 3, pointer.width, 3, pointerColor);
+            // 粗竖线向下移动
+            pointer.y = timingBar.y - pointer.height + 10; // 原来是 +2，改为 +5
+                
+            default: // 原三角 (default)
+                FlxSpriteUtil.drawPolygon(pointer, [
+                    FlxPoint.get(0, 20),
+                    FlxPoint.get(8, 0),
+                    FlxPoint.get(16, 20)
+                ], pointerColor);
+                pointer.y = timingBar.y - pointer.height + 2;
+        }
+        
         pointer.updateHitbox();
-        // 指向 timingBar 的中心
         pointer.x = (timingBar.width / 2) - (pointer.width / 2);
-        pointer.y = timingBar.y - pointer.height + 2;
         add(pointer);
     }
     
@@ -246,7 +274,7 @@ class HitErrorBar extends FlxSpriteGroup
             }
         }
         currentMsText.x = (timingBar.width / 2) - (currentMsText.width / 2);
-        currentMsText.y = timingBar.y - currentMsText.height - 185;
+        currentMsText.y = 25;
 
         add(currentMsText);
         
