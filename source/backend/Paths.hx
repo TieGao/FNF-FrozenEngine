@@ -18,6 +18,10 @@ import flash.media.Sound;
 
 import haxe.Json;
 
+#if sys
+import sys.FileSystem;
+#end
+
 
 #if MODS_ALLOWED
 import backend.Mods;
@@ -257,15 +261,176 @@ class Paths
 	inline static public function music(key:String, ?modsAllowed:Bool = true):Sound
 		return returnSound('music/$key', modsAllowed);
 
-	inline static public function inst(song:String, ?modsAllowed:Bool = true):Sound
-		return returnSound('${formatToSongPath(song)}/Inst', 'songs', modsAllowed);
-
-	inline static public function voices(song:String, postfix:String = null, ?modsAllowed:Bool = true):Sound
+	public static function inst(song:String, ?modsAllowed:Bool = true, ?chartCategory:String = null):Sound
 	{
-		var songKey:String = '${formatToSongPath(song)}/Voices';
-		if(postfix != null) songKey += '-' + postfix;
-		//trace('songKey test: $songKey');
-		return returnSound(songKey, 'songs', modsAllowed, false);
+		var songPath:String = formatToSongPath(song);
+		var candidates:Array<String> = [];
+
+		// Keep the normal Psych Engine path first, then support chart-pack layouts.
+		candidates.push(getPath('$songPath/Inst.$SOUND_EXT', SOUND, 'songs', modsAllowed));
+		candidates.push(getPath('data/$songPath/inst.ogg', SOUND, null, modsAllowed));
+		candidates.push(getPath('data/$songPath/song/inst.ogg', SOUND, null, modsAllowed));
+		candidates.push(getPath('data/$songPath/audio.mp3', SOUND, null, modsAllowed));
+		candidates.push(getPath('data/$songPath/audio.ogg', SOUND, null, modsAllowed));
+
+		#if MODS_ALLOWED
+		if (chartCategory != null && chartCategory.length > 0)
+		{
+			var chartDir:String = (currentChartDirectory != null && currentChartDirectory.length > 0)
+				? currentChartDirectory : 'mods/charts/$chartCategory/$songPath';
+			#if sys
+			var actualCategory:String = findCaseInsensitiveDirectory('mods/charts', chartCategory);
+			if (actualCategory != null)
+			{
+				var actualSong:String = findCaseInsensitiveDirectory(actualCategory, songPath);
+				if (actualSong != null) chartDir = actualSong;
+			}
+			#end
+			chartDir += '/';
+			if (currentChartHasVSliceMetadata && currentChartAudioSuffix != null && currentChartAudioSuffix.length > 0)
+			{
+				candidates.push(chartDir + 'Inst-' + currentChartAudioSuffix + '.ogg');
+				candidates.push(chartDir + 'Inst-' + currentChartAudioSuffix + '.mp3');
+				candidates.push(chartDir + 'inst-' + currentChartAudioSuffix + '.ogg');
+				candidates.push(chartDir + 'inst-' + currentChartAudioSuffix + '.mp3');
+			}
+			candidates.push(chartDir + 'inst.ogg');
+			candidates.push(chartDir + 'inst.mp3');
+			candidates.push(chartDir + 'audio.ogg');
+			candidates.push(chartDir + 'audio.mp3');
+			candidates.push(chartDir + 'Inst-erect.ogg');
+			candidates.push(chartDir + 'Inst-erect.mp3');
+			candidates.push(chartDir + 'Inst-pico.ogg');
+			candidates.push(chartDir + 'Inst-pico.mp3');
+			candidates.push(chartDir + 'inst-erect.ogg');
+			candidates.push(chartDir + 'inst-erect.mp3');
+			candidates.push(chartDir + 'inst-pico.ogg');
+			candidates.push(chartDir + 'inst-pico.mp3');
+		}
+		#end
+
+		for (candidate in candidates)
+		{
+			var sound:Sound = loadSoundCandidate(candidate);
+			if (sound != null)
+			{
+				localTrackedAssets.push(candidate);
+				return sound;
+			}
+		}
+
+		trace('SOUND NOT FOUND: $songPath');
+		FlxG.log.error('SOUND NOT FOUND: $songPath');
+		return FlxAssets.getSound('flixel/sounds/beep');
+	}
+
+	#if sys
+	static function findCaseInsensitiveDirectory(basePath:String, name:String):String
+	{
+		if (!FileSystem.exists(basePath)) return null;
+		var exactPath:String = '$basePath/$name';
+		if (FileSystem.isDirectory(exactPath)) return exactPath;
+		for (item in FileSystem.readDirectory(basePath))
+			if (item.toLowerCase() == name.toLowerCase() && FileSystem.isDirectory('$basePath/$item'))
+				return '$basePath/$item';
+		return null;
+	}
+	#end
+
+	static function loadSoundCandidate(file:String):Sound
+	{
+		if (file == null || file.length == 0 || currentTrackedSounds.exists(file))
+			return currentTrackedSounds.get(file);
+
+		#if sys
+		if (FileSystem.exists(file))
+		{
+			var sound:Sound = Sound.fromFile(file);
+			currentTrackedSounds.set(file, sound);
+			return sound;
+		}
+		#else
+		if (OpenFlAssets.exists(file, SOUND))
+		{
+			var sound:Sound = OpenFlAssets.getSound(file);
+			currentTrackedSounds.set(file, sound);
+			return sound;
+		}
+		#end
+		return null;
+	}
+
+	public static function voices(song:String, postfix:String = null, ?modsAllowed:Bool = true, ?chartCategory:String = null):Sound
+	{
+		var songPath:String = formatToSongPath(song);
+		var voiceName:String = 'Voices';
+		if (postfix != null && postfix.length > 0) voiceName += '-$postfix';
+		var candidates:Array<String> = [];
+
+		if (currentChartHasVSliceMetadata && currentChartAudioSuffix != null && currentChartAudioSuffix.length > 0)
+		{
+			candidates.push(getPath('$songPath/Voices-$currentChartAudioSuffix.$SOUND_EXT', SOUND, 'songs', modsAllowed));
+			candidates.push(getPath('data/$songPath/voices-$currentChartAudioSuffix.ogg', SOUND, null, modsAllowed));
+			candidates.push(getPath('data/$songPath/song/voices-$currentChartAudioSuffix.ogg', SOUND, null, modsAllowed));
+		}
+		candidates.push(getPath('$songPath/$voiceName.$SOUND_EXT', SOUND, 'songs', modsAllowed));
+		candidates.push(getPath('data/$songPath/${voiceName.toLowerCase()}.ogg', SOUND, null, modsAllowed));
+		candidates.push(getPath('data/$songPath/song/${voiceName.toLowerCase()}.ogg', SOUND, null, modsAllowed));
+
+		#if MODS_ALLOWED
+		if (chartCategory == null) chartCategory = currentChartCategory;
+		if (chartCategory != null && chartCategory.length > 0)
+		{
+			var chartDir:String = (currentChartDirectory != null && currentChartDirectory.length > 0)
+				? currentChartDirectory : 'mods/charts/$chartCategory/$songPath';
+			#if sys
+			var actualCategory:String = findCaseInsensitiveDirectory('mods/charts', chartCategory);
+			if (actualCategory != null)
+			{
+				var actualSong:String = findCaseInsensitiveDirectory(actualCategory, songPath);
+				if (actualSong != null) chartDir = actualSong;
+			}
+			#end
+			chartDir += '/';
+			if (currentChartHasVSliceMetadata && currentChartAudioSuffix != null && currentChartAudioSuffix.length > 0)
+			{
+				candidates.push(chartDir + 'Voices-' + currentChartAudioSuffix + '.ogg');
+				candidates.push(chartDir + 'Voices-' + currentChartAudioSuffix + '.mp3');
+				candidates.push(chartDir + 'voices-' + currentChartAudioSuffix + '.ogg');
+				candidates.push(chartDir + 'voices-' + currentChartAudioSuffix + '.mp3');
+			}
+			candidates.push(chartDir + '${voiceName.toLowerCase()}.ogg');
+			candidates.push(chartDir + '${voiceName.toLowerCase()}.mp3');
+
+			// 添加无后缀版本（需要修改）
+			candidates.push(chartDir + 'voices.ogg');   // ← 新增
+			candidates.push(chartDir + 'voices.mp3');   // ← 新增
+			
+			// ========== 新增 vocals 回退支持 ==========
+			// 添加 vocals.ogg/mp3 回退（无后缀版本）
+			candidates.push(chartDir + 'vocals.ogg');
+			candidates.push(chartDir + 'vocals.mp3');
+			// ==========================================
+		}
+		#end
+
+		// ========== 新增全局 vocals 回退支持 ==========
+		// 标准路径下的 vocals 回退
+		candidates.push(getPath('$songPath/vocals.$SOUND_EXT', SOUND, 'songs', modsAllowed));
+		candidates.push(getPath('data/$songPath/vocals.ogg', SOUND, null, modsAllowed));
+		candidates.push(getPath('data/$songPath/song/vocals.ogg', SOUND, null, modsAllowed));
+		// =============================================
+
+		for (candidate in candidates)
+		{
+			var sound:Sound = loadSoundCandidate(candidate);
+			if (sound != null)
+			{
+				localTrackedAssets.push(candidate);
+				return sound;
+			}
+		}
+		return null;
 	}
 
 	inline static public function soundRandom(key:String, min:Int, max:Int, ?modsAllowed:Bool = true)
@@ -515,6 +680,10 @@ class Paths
 	}
 
 	public static var currentTrackedSounds:Map<String, Sound> = [];
+	public static var currentChartCategory:String = null;
+	public static var currentChartDirectory:String = null;
+	public static var currentChartAudioSuffix:String = null;
+	public static var currentChartHasVSliceMetadata:Bool = false;
 	public static function returnSound(key:String, ?path:String, ?modsAllowed:Bool = true, ?beepOnNull:Bool = true)
 	{
 		var file:String = getPath(Language.getFileTranslation(key) + '.$SOUND_EXT', SOUND, path, modsAllowed);

@@ -344,9 +344,10 @@ class NoteHoldCover extends FlxTypedSpriteGroup<FlxSprite>
      */
     function setDefaultColors(noteData:Int):Void
     {
-        var arr:Array<FlxColor> = ClientPrefs.data.arrowRGB[noteData % 4];
-        if (PlayState.isPixelStage)
-            arr = ClientPrefs.data.arrowRGBPixel[noteData % 4];
+        var colorSets:Array<Array<FlxColor>> = (!PlayState.isPixelStage) ? 
+            ClientPrefs.data.arrowRGB : ClientPrefs.data.arrowRGBPixel;
+        var colorIndex:Int = Std.int(Math.abs(noteData) % colorSets.length);
+        var arr:Array<FlxColor> = colorSets[colorIndex];
         
         if (arr != null && arr.length >= 3)
         {

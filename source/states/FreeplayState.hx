@@ -6,6 +6,11 @@ import backend.Highscore;
 import backend.Song;
 import backend.SongArtConfig;
 import backend.SongInfoParser;
+import backend.CustomChartData;
+import backend.CustomChartMetadata;
+import states.editors.content.VSlice;
+import states.editors.content.OsuConverter;
+import substates.ChartSourceSelectSubstate;
 
 import objects.HealthIcon;
 import objects.MusicPlayerLegacy;
@@ -38,10 +43,12 @@ import openfl.filters.BitmapFilterQuality;
 
 #if sys
 import sys.io.File;
+import sys.FileSystem;
 #end
 
 class FreeplayState extends MusicBeatState
 {
+    public static var selectedCustomChartCategory:String = null;
     public var songs:Array<NewSongMetaData> = [];
     var cards:Array<FreeplayCard> = [];
     var allCards:Array<FreeplayCard> = [];
@@ -126,6 +133,14 @@ class FreeplayState extends MusicBeatState
     var searchHitbox:FlxSprite;
     var searchLabel:FlxText;
 
+    inline function isPureChartMode():Bool
+    {
+        if (Paths.currentChartCategory == null && selectedCustomChartCategory != null)
+            Paths.currentChartCategory = selectedCustomChartCategory;
+        return (Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0)
+            || (selectedCustomChartCategory != null && selectedCustomChartCategory.length > 0);
+    }
+
     override function create()
     {
         persistentUpdate = true;
@@ -139,7 +154,7 @@ class FreeplayState extends MusicBeatState
         DiscordClient.changePresence("In the Freeplay Menu", null);
         #end
 
-        if(WeekData.weeksList.length < 1)
+        if(WeekData.weeksList.length < 1 && !isPureChartMode())
         {
 			FlxTransitionableState.skipNextTransIn = true;
 			persistentUpdate = false;
@@ -167,10 +182,10 @@ class FreeplayState extends MusicBeatState
                 addSong(song[0], i, song[1], FlxColor.fromRGB(colors[0], colors[1], colors[2]));
             }
         }
-        
+
+        allSongs = songs.copy();
         if (ClientPrefs.data.freeplayModFolder)
         {
-            allSongs = songs.copy();
             for (song in allSongs)
             {
                 var folder = (song.folder == null || song.folder.length == 0) ? "base" : song.folder;
@@ -178,6 +193,26 @@ class FreeplayState extends MusicBeatState
                     songsByFolder.set(folder, []);
                 songsByFolder.get(folder).push(song);
             }
+
+        }
+
+        if (isPureChartMode())
+        {
+            songs = [];
+            Paths.currentChartDirectory = null;
+            #if sys
+            loadCustomChartSongs();
+            #end
+        }
+
+        if (songs.length == 0)
+        {
+            FlxTransitionableState.skipNextTransIn = true;
+            persistentUpdate = false;
+            MusicBeatState.switchState(new states.ErrorState("NO CUSTOM CHARTS FOUND.",
+                function() MusicBeatState.switchState(new states.MainMenuState()),
+                function() MusicBeatState.switchState(new states.MainMenuState())));
+            return;
         }
 
         Mods.loadTopMod();
@@ -470,8 +505,13 @@ class FreeplayState extends MusicBeatState
         add(musicPlayer);
 
         Mods.currentModDirectory = songs[curSelected].folder;
-        PlayState.storyWeek = songs[curSelected].week;
-        Difficulty.loadFromWeek();
+        if (isPureChartMode())
+            setCustomDifficultyList(songs[curSelected]);
+        else
+        {
+            PlayState.storyWeek = songs[curSelected].week;
+            Difficulty.loadFromWeek();
+        }
         
         changeDiff();
         showArtForIndex(curSelected, false);
@@ -489,14 +529,38 @@ class FreeplayState extends MusicBeatState
 
     override function closeSubState()
     {
-        changeSelection(0, false);
         persistentUpdate = true;
         super.closeSubState();
-        for (card in cards)
+
+        refreshCurrentSelectionAfterSubState();
+    }
+
+    private function refreshCurrentSelectionAfterSubState():Void
+    {
+        if (songs == null || songs.length == 0)
+            return;
+
+        if (curSelected < 0 || curSelected >= songs.length)
+            curSelected = 0;
+
+        updateSongInfoTexts();
+        updateCardDifficultyInfo();
+        updateTexts();
+
+        var start:Int = visibleCardMin;
+        var end:Int = visibleCardMax;
+        if (start < 0) start = 0;
+        if (end < start || end >= cards.length)
+            end = cards.length - 1;
+
+        for (i in start...end + 1)
         {
-            if (card != null)
-                card.updateRatingSprite();
+            if (i >= 0 && i < cards.length && cards[i] != null)
+                cards[i].updateRatingSprite();
         }
+
+        if (curSelected >= 0 && curSelected < cards.length && cards[curSelected] != null)
+            cards[curSelected].updateRatingSprite();
     }
 
     public function addSong(songName:String, weekNum:Int, songCharacter:String, color:Int)
@@ -552,6 +616,60 @@ class FreeplayState extends MusicBeatState
         songs.push(song);
     }
 
+    #if sys
+    private function loadCustomChartSongs():Void
+    {
+        var category:String = Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0
+            ? Paths.currentChartCategory : selectedCustomChartCategory;
+		if ((category == null || category.length == 0) && ClientPrefs.data.customChartFolder != null)
+			category = ClientPrefs.data.customChartFolder;
+        for (customSong in CustomChartData.load(category))
+        {
+            var chart:NewSongMetaData = new NewSongMetaData(customSong.name, -1, 'bf', FlxColor.fromRGB(146, 113, 253));
+            chart.folder = '';
+            chart.customChart = new CustomChartMetadata(customSong);
+            chart.difficultyInfo = cast chart.customChart.difficultyInfo;
+            songs.push(chart);
+        }
+    }
+
+    #end
+
+    private function loadCustomChart(index:Int):Bool
+    {
+        if (index < 0 || index >= songs.length || songs[index].customChart == null || !songs[index].customChart.isValid())
+            return false;
+
+        var chart:NewSongMetaData = songs[index];
+        try
+        {
+            Paths.currentChartCategory = chart.customChart.category;
+            if (chart.customChart.sourceFolder != null && chart.customChart.sourceFolder.length > 0)
+                Paths.currentChartCategory = chart.customChart.sourceFolder;
+            selectedCustomChartCategory = Paths.currentChartCategory;
+            Paths.currentChartDirectory = chart.customChart.directory;
+            Mods.currentModDirectory = ClientPrefs.data.customChartModFolder;
+            var difficultyName:String = Difficulty.getString(curDifficulty, false);
+            var lowerDifficulty:String = difficultyName == null ? '' : difficultyName.toLowerCase();
+			Paths.currentChartHasVSliceMetadata = chart.customChart.category.toLowerCase() == 'v_slice';
+            Paths.currentChartAudioSuffix = Paths.currentChartHasVSliceMetadata && (lowerDifficulty == 'erect' || lowerDifficulty == 'pico') ? lowerDifficulty : null;
+            PlayState.chartCategory = Paths.currentChartCategory;
+            PlayState.chartDirectory = Paths.currentChartDirectory;
+            PlayState.chartHasVSliceMetadata = Paths.currentChartHasVSliceMetadata;
+            PlayState.chartAudioSuffix = Paths.currentChartAudioSuffix;
+            var loaded:SwagSong = cast CustomChartData.loadChart(chart.customChart.song, difficultyName);
+
+            if (loaded == null) return false;
+            PlayState.SONG = loaded;
+            PlayState.SONG.song = chart.songName;
+            return true;
+        }
+        catch (e:Dynamic)
+        {
+            trace('Failed to load custom chart: $e');
+            return false;
+        }
+    }
     private function getFreeplaySongCacheKey(songName:String, folder:String):String
     {
         return (folder == null ? '' : folder) + '|' + songName;
@@ -680,7 +798,7 @@ class FreeplayState extends MusicBeatState
     {
         if (!ClientPrefs.data.saveFreeplayCache)
             return;
-        
+        trace('cache saved');
         #if sys 
         var cachePath:String = 'freeplaySongCache.json';
         var tempPath:String = cachePath + '.tmp';
@@ -777,10 +895,23 @@ class FreeplayState extends MusicBeatState
 
     function updateCardsRating()
     {
-        for (card in cards)
+        if (cards.length == 0)
+            return;
+
+        var start:Int = visibleCardMin;
+        var end:Int = visibleCardMax;
+        if (start < 0) start = 0;
+        if (end < start || end >= cards.length)
+            end = cards.length - 1;
+
+        for (i in start...end + 1)
         {
-            card.updateRatingSprite();
+            if (i >= 0 && i < cards.length && cards[i] != null)
+                cards[i].updateRatingSprite();
         }
+
+        if (curSelected >= 0 && curSelected < cards.length && cards[curSelected] != null)
+            cards[curSelected].updateRatingSprite();
     }
 
     inline function computeVisibleCardRange():Void
@@ -987,20 +1118,30 @@ class FreeplayState extends MusicBeatState
             destroyFreeplayVocals();
 
             Mods.currentModDirectory = songs[curSelected].folder;
+            Paths.currentChartDirectory = null;
             
             #if sys
-            var chartPath:String = Paths.modsJson(songLowercase + '/' + poop);
-            if (!sys.FileSystem.exists(chartPath))
+            if (songs[curSelected].customChart == null || !songs[curSelected].customChart.isValid())
             {
-                chartPath = Paths.json(songLowercase + '/' + poop);
+                var chartPath:String = Paths.modsJson(songLowercase + '/' + poop);
                 if (!sys.FileSystem.exists(chartPath))
                 {
-                    throw new haxe.Exception('Chart file not found: $poop');
+                    chartPath = Paths.json(songLowercase + '/' + poop);
+                    if (!sys.FileSystem.exists(chartPath))
+                        throw new haxe.Exception('Chart file not found: $poop');
                 }
             }
             #end
             
-            PlayState.SONG = Song.loadFromJson(poop, songLowercase);
+            if (songs[curSelected].customChart != null && songs[curSelected].customChart.isValid())
+            {
+                if (!loadCustomChart(curSelected))
+                    throw new haxe.Exception('Unable to convert custom chart');
+            }
+            else
+            {
+                PlayState.SONG = Song.loadFromJson(poop, songLowercase);
+            }
             PlayState.isStoryMode = false;
             PlayState.storyDifficulty = curDifficulty;
             
@@ -1013,7 +1154,7 @@ class FreeplayState extends MusicBeatState
                 FlxG.sound.music.stop();
             
             // 播放器音乐 (Inst)
-            FlxG.sound.playMusic(Paths.inst(PlayState.SONG.song), 0.7, false);
+            FlxG.sound.playMusic(Paths.inst(PlayState.SONG.song, true, Paths.currentChartCategory), 0.7, false);
             FlxG.sound.music.pause(); // 先暂停，等用户点击播放
             
             // 音乐结束回调
@@ -1164,7 +1305,9 @@ class FreeplayState extends MusicBeatState
 
     override function update(elapsed:Float)
     {
-        if(WeekData.weeksList.length < 1)
+        if(WeekData.weeksList.length < 1 && !isPureChartMode())
+            return;
+        if (musicPlayer == null)
             return;
         if (ClientPrefs.data.freeplayspace)
         {
@@ -1214,7 +1357,6 @@ class FreeplayState extends MusicBeatState
                 {
                     freeplaySongCache.set(item.cacheKey, buildFreeplayCacheEntry(info));
                     freeplayCacheDirty = true;
-                    saveFreeplaySongCache();
                 }
                 if (item.song == songs[curSelected])
                 {
@@ -1226,6 +1368,10 @@ class FreeplayState extends MusicBeatState
             {
                 trace('Failed to preload song info: $e');
             }
+        }
+        else if (freeplayCacheDirty)
+        {
+            saveFreeplaySongCache();
         }
 
         if (!musicPlayer.playingMusic)
@@ -1467,11 +1613,20 @@ class FreeplayState extends MusicBeatState
         {           
             Mods.currentModDirectory = songs[curSelected].folder;
             
-            Song.loadFromJson(poop, songLowercase);
+            if (songs[curSelected].customChart != null && songs[curSelected].customChart.isValid())
+            {
+                if (!loadCustomChart(curSelected))
+                    throw new haxe.Exception('Unable to convert custom chart');
+            }
+            else
+            {
+                Song.loadFromJson(poop, songLowercase);
+            }
             PlayState.isStoryMode = false;
             PlayState.storyDifficulty = curDifficulty;
 
-            trace('CURRENT WEEK: ' + WeekData.getWeekFileName());
+            if (!isPureChartMode())
+                trace('CURRENT WEEK: ' + WeekData.getWeekFileName());
         }
         catch(e:haxe.Exception)
         {
@@ -1592,6 +1747,7 @@ class FreeplayState extends MusicBeatState
         if (cardScroller != null && !inModFolderSelector)
             cardScroller.tweenData = cardScrollPos;
         Mods.currentModDirectory = songs[curSelected].folder;
+        Paths.currentChartDirectory = songs[curSelected].customChart == null ? null : songs[curSelected].customChart.directory;
         if (musicPlayer.playingMusic)
             return;
         _updateSongLastDifficulty();
@@ -1617,31 +1773,36 @@ class FreeplayState extends MusicBeatState
             }
         }
         
-        PlayState.storyWeek = songs[curSelected].week;
-        var weekData = WeekData.weeksLoaded.get(WeekData.weeksList[PlayState.storyWeek]);
-        if (weekData != null)
+        if (!isPureChartMode())
         {
-            WeekData.setDirectoryFromWeek(weekData);
-            
-            if (weekData.difficulties != null && weekData.difficulties.length > 0)
+            PlayState.storyWeek = songs[curSelected].week;
+            var weekData = WeekData.weeksLoaded.get(WeekData.weeksList[PlayState.storyWeek]);
+            if (weekData != null)
             {
-                var diffStr:String = weekData.difficulties;
-                var customDiffs:Array<String> = diffStr.split(',');
-                for (i in 0...customDiffs.length)
+                WeekData.setDirectoryFromWeek(weekData);
+
+                if (weekData.difficulties != null && weekData.difficulties.length > 0)
                 {
-                    customDiffs[i] = customDiffs[i].trim();
+                    var diffStr:String = weekData.difficulties;
+                    var customDiffs:Array<String> = diffStr.split(',');
+                    for (i in 0...customDiffs.length)
+                    {
+                        customDiffs[i] = customDiffs[i].trim();
+                    }
+                    Difficulty.copyFrom(customDiffs);
                 }
-                Difficulty.copyFrom(customDiffs);
+                else
+                {
+                    Difficulty.loadFromWeek(weekData);
+                }
             }
             else
             {
-                Difficulty.loadFromWeek(weekData);
+                Difficulty.loadFromWeek();
             }
         }
         else
-        {
-            Difficulty.loadFromWeek();
-        }
+            setCustomDifficultyList(songs[curSelected]);
         
         var savedDiff:String = songs[curSelected].lastDifficulty;
         var lastDiff:Int = Difficulty.list.indexOf(lastDifficultyName);
@@ -1751,6 +1912,14 @@ class FreeplayState extends MusicBeatState
         }
     }
 
+    private function setCustomDifficultyList(song:NewSongMetaData):Void
+    {
+        if (song != null && song.customChart != null && song.customChart.difficulties.length > 0)
+            Difficulty.copyFrom(song.customChart.difficulties);
+        else
+            Difficulty.resetList();
+    }
+
     function openModFolderSelector()
     {
         var modFolder = new ModFolderSubstate(this);
@@ -1760,8 +1929,18 @@ class FreeplayState extends MusicBeatState
 
     public function onModFolderChanged()
     {
-        if (ClientPrefs.data.freeplayModFolder)
+        selectedCustomChartCategory = Paths.currentChartCategory;
+        if (Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0)
         {
+            songs = [];
+            Paths.currentChartDirectory = null;
+            #if sys
+            loadCustomChartSongs();
+            #end
+        }
+        else if (ClientPrefs.data.freeplayModFolder)
+        {
+            Paths.currentChartDirectory = null;
             var folder:String = Mods.currentModDirectory;
             if (folder == null || folder.length == 0)
             {
@@ -1809,7 +1988,11 @@ class FreeplayState extends MusicBeatState
         }
 
         var modDisplayText:String = "Mod: ";
-        if (ClientPrefs.data.freeplayModFolder)
+        if (Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0)
+        {
+            modDisplayText = "Chart Folder:" + Paths.currentChartCategory;
+        }
+        else if (ClientPrefs.data.freeplayModFolder)
         {
             modDisplayText += (Mods.currentModDirectory == null || Mods.currentModDirectory.length == 0 ? "ALL" : Mods.currentModDirectory);
         }
@@ -1827,15 +2010,21 @@ class FreeplayState extends MusicBeatState
 
         updateCornerGlow();
         updateCardsPosition();
+        setCustomDifficultyList(songs[curSelected]);
+        changeDiff();
         updateCardsRating();
         updateSongInfoTexts();
-        changeDiff();
         showArtForIndex(curSelected, false);
         showCharacterForIndex(curSelected, false);
+		if (toolBar != null)
+			toolBar.refreshChartModeButtons();
     }
 
     override function destroy():Void
     {
+        if (freeplayCacheDirty)
+            saveFreeplaySongCache();
+
         super.destroy();
 
         FlxG.autoPause = ClientPrefs.data.autoPause;
@@ -1860,6 +2049,7 @@ class NewSongMetaData
     public var lastDifficulty:String = null;
     
     public var difficultyInfo:Map<String, ParsedSongInfo> = new Map<String, ParsedSongInfo>();
+    public var customChart:CustomChartMetadata = null;
     
     public function new(song:String, week:Int, songCharacter:String, color:Int)
     {

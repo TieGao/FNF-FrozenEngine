@@ -1,6 +1,7 @@
 package substates;
 
 import backend.Mods;
+import backend.CustomChartData;
 import backend.MusicBeatState;
 import backend.MouseMove;
 
@@ -53,6 +54,9 @@ class ModFolderSubstate extends MusicBeatSubstate
 	var dragStartY:Float = 0;
 	var dragStartScroll:Float = 0;
 	var cardScroller:MouseMove;
+	static final customChartCategories:Array<{name:String, category:Null<String>, desc:String}> = [
+		{name: 'CUSTOM CHARTS', category: 'custom', desc: 'Show all custom charts'}
+	];
 
 	// 面板内部边距
 	static inline var PADDING_TOP:Int = 20;
@@ -75,7 +79,12 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 		// 加载模组列表
 		var modsListData:ModsList = Mods.parseList();
-		totalItems = modsListData.all.length + 1; // +1 为 "ALL" 选项
+		var chartFolders:Array<String> = [];
+		#if sys
+		chartFolders = CustomChartData.listChartCategories();
+		#end
+		var customChartItemCount:Int = chartFolders.length > 0 ? customChartCategories.length : 0;
+		totalItems = modsListData.all.length + 1 + customChartItemCount + chartFolders.length;
 
 		// 计算可见项目数量
 		var panelHeight:Int = FlxG.height;
@@ -121,14 +130,40 @@ class ModFolderSubstate extends MusicBeatSubstate
 		var startY:Float = bgList.y + PADDING_TOP;
 
 		// 添加"所有歌曲"选项
-		var allSongsItem = new ModFolderItem("ALL", "Show all songs", 0xFFFFFFFF, null, 0);
+		var allSongsItem = new ModFolderItem("ALL", "Show all songs", 0xFFFFFFFF, null, 0, null);
 		allSongsItem.setPosition(bgList.x + 10, startY);
-		if (Mods.currentModDirectory == null)
+		if (Mods.currentModDirectory == null && Paths.currentChartCategory == null)
 			curSelected = 0;
 		modsGroup.add(allSongsItem);
 
-		// 添加每个模组
+		// 添加自定义谱面分类。该页面状态决定 Freeplay 显示全部模组歌曲还是谱面分类。
 		var itemIndex:Int = 1;
+		if (chartFolders.length > 0)
+		{
+			for (chartCategory in customChartCategories)
+			{
+				var chartItem = new ModFolderItem(chartCategory.name, chartCategory.desc, 0xFF4488FF, null, itemIndex, chartCategory.category);
+				chartItem.setPosition(bgList.x + 10, startY + (itemIndex * (itemHeight + ITEM_SPACING)));
+				modsGroup.add(chartItem);
+				if (Paths.currentChartCategory == chartCategory.category && Mods.currentModDirectory == null)
+					curSelected = itemIndex;
+				itemIndex++;
+			}
+		}
+
+		#if sys
+		// charts 下的一级目录就是自定义谱面的分类/来源。
+		for (folder in chartFolders)
+		{
+			var chartItem = new ModFolderItem(folder, 'Show charts from mods/charts/$folder', 0xFF4488FF, null, itemIndex, folder);
+			chartItem.setPosition(bgList.x + 10, startY + (itemIndex * (itemHeight + ITEM_SPACING)));
+			modsGroup.add(chartItem);
+			if (Paths.currentChartCategory == folder && Mods.currentModDirectory == null) curSelected = itemIndex;
+			itemIndex++;
+		}
+		#end
+
+		// 添加每个模组
 		for (mod in modsListData.all)
 		{
 			// 获取模组描述
@@ -141,7 +176,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 				if (pack.description != null) modDesc = pack.description;
 			}
 			
-			var modItem = new ModFolderItem(modName, modDesc, 0xFF888888, mod, itemIndex);
+			var modItem = new ModFolderItem(modName, modDesc, 0xFF888888, mod, itemIndex, null);
 			modItem.setPosition(bgList.x + 10, startY + (itemIndex * (itemHeight + ITEM_SPACING)));
 			modsGroup.add(modItem);
 			
@@ -470,8 +505,11 @@ class ModFolderSubstate extends MusicBeatSubstate
 		var selectedItem = modsGroup.members[curSelected];
 		if (selectedItem != null)
 		{
+			Paths.currentChartCategory = selectedItem.chartCategory;
 			// 如果是"ALL"或空字符串则设置为null
-			if (selectedItem.folder == null || selectedItem.folder.length == 0)
+			if (selectedItem.chartCategory != null)
+				Mods.currentModDirectory = null;
+			else if (selectedItem.folder == null || selectedItem.folder.length == 0)
 				Mods.currentModDirectory = null;
 			else
 				Mods.currentModDirectory = selectedItem.folder;
@@ -549,19 +587,21 @@ class ModFolderItem extends FlxSpriteGroup
 	public var name:String = 'Unknown';
 	public var desc:String = 'No description';
 	public var folder:Null<String>;
+	public var chartCategory:Null<String>;
 	public var isSelected:Bool = false;
 	public var isHovered:Bool = false;
 
 	static inline var WIDTH:Int = 450;
 	static inline var HEIGHT:Int = 80;
 
-	public function new(name:String, desc:String, color:Int, ?folder:String, index:Int)
+	public function new(name:String, desc:String, color:Int, ?folder:String, index:Int, ?chartCategory:Null<String>)
 	{
 		super();
 
 		this.name = name;
 		this.desc = desc;
 		this.folder = folder;
+		this.chartCategory = chartCategory;
 
 		// 背景选择框
 		selectBg = new FlxFilteredSprite();

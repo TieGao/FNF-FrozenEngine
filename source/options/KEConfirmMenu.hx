@@ -484,7 +484,8 @@ class KEConfirmMenu extends MusicBeatSubstate
 		} else {
 			parentOption.value = availableOptions[selectedIndex];
 		}
-		KEOptionsMenu.instance.doSelectCurrentOption();
+		if (KEOptionsMenu.instance != null)
+			KEOptionsMenu.instance.doSelectCurrentOption();
 
 		if (KEOptionsMenu.instance != null && KEOptionsMenu.instance.subState != null && Std.is(KEOptionsMenu.instance.subState, KESubMenu))
 		{

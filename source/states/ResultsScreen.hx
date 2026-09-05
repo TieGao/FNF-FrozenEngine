@@ -737,6 +737,13 @@ class ResultsScreen extends MusicBeatSubstate
         
         // 设置回放录制模式
         var rep = new Replay("");
+        if (PlayState.chartCategory != null)
+        {
+            Paths.currentChartCategory = PlayState.chartCategory;
+            Paths.currentChartDirectory = PlayState.chartDirectory;
+            Paths.currentChartHasVSliceMetadata = PlayState.chartHasVSliceMetadata;
+            Paths.currentChartAudioSuffix = PlayState.chartAudioSuffix;
+        }
         PlayState.rep = rep;
         PlayState.loadRep = false;
         PlayState.inReplay = false;
@@ -794,6 +801,13 @@ class ResultsScreen extends MusicBeatSubstate
         
         // 重新开始游戏
         PlayState.isStoryMode = false;
+        if (PlayState.chartCategory != null)
+        {
+            Paths.currentChartCategory = PlayState.chartCategory;
+            Paths.currentChartDirectory = PlayState.chartDirectory;
+            Paths.currentChartHasVSliceMetadata = PlayState.chartHasVSliceMetadata;
+            Paths.currentChartAudioSuffix = PlayState.chartAudioSuffix;
+        }
         LoadingState.loadAndSwitchState(new PlayState());
     }
 

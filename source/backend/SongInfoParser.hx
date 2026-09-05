@@ -23,6 +23,13 @@ typedef ParsedSongInfo = {
 
 class SongInfoParser
 {
+    public static function getSongInfoFromChart(chart:SwagSong, ?difficulty:String = null):ParsedSongInfo
+    {
+        if (chart == null)
+            return getDefaultInfo();
+        return parseChartData(Json.stringify(chart), difficulty);
+    }
+
     /**
      * 获取歌曲在指定难度的信息
      * @param songName 歌曲名称

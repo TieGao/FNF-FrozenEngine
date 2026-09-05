@@ -106,7 +106,7 @@ class OsuArchiveExtractor
      * @param songName 歌曲名称
      * @return 保存后的文件路径，失败返回 null
      */
-    public static function saveAudioToSong(sourcePath:String, songName:String):Null<String>
+    public static function saveAudioToSong(sourcePath:String, songName:String, ?chartCategory:String, ?chartSongDir:String):Null<String>
     {
         if (sourcePath == null || !FileSystem.exists(sourcePath))
         {
@@ -116,9 +116,10 @@ class OsuArchiveExtractor
 
         try
         {
-            // 构建目标路径: songs/歌曲名/
             var songPath = Paths.formatToSongPath(songName);
-            var targetDir = 'songs/$songPath/';
+            var targetDir = (chartCategory != null && chartSongDir != null)
+                ? 'mods/charts/$chartCategory/$chartSongDir/'
+                : 'songs/$songPath/';
 
             // 创建目录
             if (!FileSystem.exists(targetDir))
@@ -126,7 +127,7 @@ class OsuArchiveExtractor
 
             // 获取文件扩展名并复制
             var ext = sourcePath.substr(sourcePath.lastIndexOf('.'));
-            var targetPath = targetDir + 'Inst' + ext;
+            var targetPath = targetDir + 'inst' + ext;
 
             File.copy(sourcePath, targetPath);
             trace('[OsuArchiveExtractor] 音频已保存: $targetPath');

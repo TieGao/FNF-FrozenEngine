@@ -4,8 +4,8 @@ cd ..
 @echo on
 echo Installing dependencies...
 echo This might take a few moments depending on your internet speed.
-haxelib install flixel 6.2.0
-haxelib git flixel-addons https://github.com/TieGao/flixel-addons --skip-dependencies
+haxelib install flixel 6.2.0 --skip-dependencies
+haxelib install flixel-addons 4.0.1--skip-dependencies
 haxelib install flixel-tools 1.5.1 --skip-dependencies
 haxelib install hscript-iris 1.1.3 --skip-dependencies
 haxelib install tjson 1.4.0 --skip-dependencies

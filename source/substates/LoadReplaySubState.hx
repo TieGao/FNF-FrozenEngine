@@ -5,6 +5,8 @@ import backend.MusicBeatState;
 import backend.MouseMove;
 import backend.Mods;
 import backend.Song;
+import backend.Paths;
+import backend.CustomChartData;
 
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;
@@ -607,7 +609,38 @@ class LoadReplaySubState extends MusicBeatSubstate
             }
             var jsonToLoad = songName + diffSuffix;
             trace('Loading JSON: $jsonToLoad');
-            PlayState.SONG = Song.loadFromJson(jsonToLoad, songName);
+            if (rep.replay.chartCategory != null && rep.replay.chartCategory.length > 0)
+            {
+                Paths.currentChartCategory = rep.replay.chartCategory;
+                Paths.currentChartDirectory = rep.replay.chartDirectory != null && rep.replay.chartDirectory.length > 0
+                    ? rep.replay.chartDirectory : rep.replay.chartPath;
+                Paths.currentChartHasVSliceMetadata = rep.replay.chartHasVSliceMetadata;
+                Paths.currentChartAudioSuffix = rep.replay.chartAudioSuffix;
+                PlayState.chartCategory = Paths.currentChartCategory;
+                PlayState.chartDirectory = Paths.currentChartDirectory;
+                PlayState.chartHasVSliceMetadata = Paths.currentChartHasVSliceMetadata;
+                PlayState.chartAudioSuffix = Paths.currentChartAudioSuffix;
+
+                var customSongs = CustomChartData.load(Paths.currentChartCategory);
+                var customSong:CustomChartSong = null;
+                for (candidate in customSongs)
+                {
+                    if (candidate.name == songName || Paths.formatToSongPath(candidate.name) == Paths.formatToSongPath(songName))
+                    {
+                        customSong = candidate;
+                        break;
+                    }
+                }
+                if (customSong == null)
+                    throw 'Custom chart not found: $songName';
+
+                Paths.currentChartDirectory = customSong.directory;
+                PlayState.SONG = cast CustomChartData.loadChart(customSong, difficultyName);
+            }
+            else
+            {
+                PlayState.SONG = Song.loadFromJson(jsonToLoad, songName);
+            }
             
             if (PlayState.SONG == null) throw 'Failed to load song';
             

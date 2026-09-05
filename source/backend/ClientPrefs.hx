@@ -49,40 +49,45 @@ import states.TitleState;
 	public var oldFreeplay:Bool = false;
 	public var skipDeath:Bool = false;
 	public var noteOffset:Int = 0;
+	// 在 ClientPrefs.hx 的 SaveVariables 中
 	public var arrowRGB:Array<Array<FlxColor>> = [
-		[0xFFC24B99, 0xFFFFFFFF, 0xFF3C1F56],
-		[0xFF00FFFF, 0xFFFFFFFF, 0xFF1542B7],
-		[0xFF12FA05, 0xFFFFFFFF, 0xFF0A4447],
-		[0xFFF9393F, 0xFFFFFFFF, 0xFF651038],
-		[0xFFC24B99, 0xFFFFFFFF, 0xFF3C1F56],
-		[0xFF00FFFF, 0xFFFFFFFF, 0xFF1542B7],
-		[0xFF12FA05, 0xFFFFFFFF, 0xFF0A4447],
-		[0xFFF9393F, 0xFFFFFFFF, 0xFF651038],
-		[0xFFC24B99, 0xFFFFFFFF, 0xFF3C1F56],
-		[0xFF00FFFF, 0xFFFFFFFF, 0xFF1542B7],
-		[0xFF12FA05, 0xFFFFFFFF, 0xFF0A4447],
-		[0xFFF9393F, 0xFFFFFFFF, 0xFF651038],
-		[0xFFC24B99, 0xFFFFFFFF, 0xFF3C1F56],
-		[0xFF00FFFF, 0xFFFFFFFF, 0xFF1542B7],
-		[0xFF12FA05, 0xFFFFFFFF, 0xFF0A4447],
-		[0xFFF9393F, 0xFFFFFFFF, 0xFF651038]];
+		[0xFFC24B99, 0xFFFFFFFF, 0xFF3C1F56], // 0 - 左
+		[0xFF00FFFF, 0xFFFFFFFF, 0xFF1542B7], // 1 - 下
+		[0xFF12FA05, 0xFFFFFFFF, 0xFF0A4447], // 2 - 上
+		[0xFFF9393F, 0xFFFFFFFF, 0xFF651038], // 3 - 右
+		// 多K额外颜色 (4-15)
+		[0xFFFF8C00, 0xFFFFFFFF, 0xFF4A2800], // 4 - 橙色
+		[0xFFFF00FF, 0xFFFFFFFF, 0xFF4A004A], // 5 - 品红
+		[0xFFFFD700, 0xFFFFFFFF, 0xFF4A3F00], // 6 - 金色
+		[0xFF00FF7F, 0xFFFFFFFF, 0xFF004A25], // 7 - 春绿
+		[0xFF8B00FF, 0xFFFFFFFF, 0xFF29004A], // 8 - 紫色
+		[0xFFFF4500, 0xFFFFFFFF, 0xFF4A1400], // 9 - 橙红
+		[0xFF00CED1, 0xFFFFFFFF, 0xFF003E3F], // 10 - 深天蓝
+		[0xFFFF1493, 0xFFFFFFFF, 0xFF4A062C], // 11 - 深粉
+		[0xFFFFFF00, 0xFFFFFFFF, 0xFF4A4A00], // 12 - 黄色
+		[0xFF7FFF00, 0xFFFFFFFF, 0xFF264A00], // 13 - 亮绿
+		[0xFF1E90FF, 0xFFFFFFFF, 0xFF092B4A], // 14 - 道奇蓝
+		[0xFFFF6EB4, 0xFFFFFFFF, 0xFF4A2136]  // 15 - 热粉
+	];
 	public var arrowRGBPixel:Array<Array<FlxColor>> = [
-		[0xFFE276FF, 0xFFFFF9FF, 0xFF60008D],
-		[0xFF3DCAFF, 0xFFF4FFFF, 0xFF003060],
-		[0xFF71E300, 0xFFF6FFE6, 0xFF003100],
-		[0xFFFF884E, 0xFFFFFAF5, 0xFF6C0000],
-		[0xFFE276FF, 0xFFFFF9FF, 0xFF60008D],
-		[0xFF3DCAFF, 0xFFF4FFFF, 0xFF003060],
-		[0xFF71E300, 0xFFF6FFE6, 0xFF003100],
-		[0xFFFF884E, 0xFFFFFAF5, 0xFF6C0000],
-		[0xFFE276FF, 0xFFFFF9FF, 0xFF60008D],
-		[0xFF3DCAFF, 0xFFF4FFFF, 0xFF003060],
-		[0xFF71E300, 0xFFF6FFE6, 0xFF003100],
-		[0xFFFF884E, 0xFFFFFAF5, 0xFF6C0000],
-		[0xFFE276FF, 0xFFFFF9FF, 0xFF60008D],
-		[0xFF3DCAFF, 0xFFF4FFFF, 0xFF003060],
-		[0xFF71E300, 0xFFF6FFE6, 0xFF003100],
-		[0xFFFF884E, 0xFFFFFAF5, 0xFF6C0000]];
+		// 4K 基础颜色 (像素风格 - 更鲜艳/亮眼)
+		[0xFFE276FF, 0xFFFFF9FF, 0xFF60008D], // 0 - 左 (紫色)
+		[0xFF3DCAFF, 0xFFF4FFFF, 0xFF003060], // 1 - 下 (蓝色)
+		[0xFF71E300, 0xFFF6FFE6, 0xFF003100], // 2 - 上 (绿色)
+		[0xFFFF884E, 0xFFFFFAF5, 0xFF6C0000], // 3 - 右 (红色)
+		[0xFFFFA500, 0xFFFFF5E6, 0xFF4A2F00], // 4 - 橙色
+		[0xFFFF6B9D, 0xFFFFF0F5, 0xFF4A001F], // 5 - 粉色
+		[0xFF00E5FF, 0xFFF0FFFF, 0xFF00454A], // 6 - 青色
+		[0xFFB8FF00, 0xFFF5FFE6, 0xFF354A00], // 7 - 黄绿
+		[0xFFFF00D4, 0xFFFFF0FC, 0xFF4A003D], // 8 - 洋红
+		[0xFF4DD0FF, 0xFFF0FAFF, 0xFF00334A], // 9 - 天蓝
+		[0xFFFFD740, 0xFFFFFCF0, 0xFF4A3C00], // 10 - 金色
+		[0xFF69F0AE, 0xFFF0FFF5, 0xFF004A25], // 11 - 薄荷
+		[0xFFD9A0FF, 0xFFFCF0FF, 0xFF3D004A], // 12 - 薰衣草
+		[0xFFFF8A80, 0xFFFFF5F5, 0xFF4A1A00], // 13 - 珊瑚
+		[0xFF80D8A0, 0xFFF0FFF5, 0xFF004A2F], // 14 - 翡翠
+		[0xFFFF80B0, 0xFFFFF0F5, 0xFF4A0020], // 15 - 玫瑰
+	];
 
 	public var ghostTapping:Bool = true;
 	public var timeBarType:String = 'Time Left';
@@ -120,6 +125,14 @@ import states.TitleState;
 	public var forceSplashSkin:Bool = false;
 	public var forceNoteSkin:Bool = false;
 	public var forceRGBShader:Bool = false;
+	public var customChartFolder:String = 'custom';
+	public var customChartModFolder:String = '';
+	public var customChartStage:String = 'audiostage';
+	public var customChartPlayer:String = 'bf';
+	public var customChartOpponent:String = 'dad';
+	public var customChartGirlfriend:String = 'gf';
+	public var customChart8KTo4K:Bool = false;
+	public var customChartSwapSides:Bool = false;
 
 	public var msInErrorBar:Bool = false; // 是否在误差条上显示ms文本
 	

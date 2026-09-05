@@ -281,7 +281,7 @@ class EditorPlayState extends MusicBeatSubstate
 		startingSong = false;
 		
 		// 使用新的 Flixel 6.2.0 API
-		var soundPath = Paths.inst(PlayState.SONG.song);
+		var soundPath = Paths.inst(PlayState.SONG.song, true, Paths.currentChartCategory);
 		if (soundPath != null) {
 			// 方法1: 使用 FlxSound.load()
 			inst = new FlxSound();

@@ -51,6 +51,10 @@ typedef ReplayJSON =
     public var songJudgements:Array<String>;
     public var noteSpeed:Float;
     public var chartPath:String;
+    public var chartCategory:String;
+    public var chartDirectory:String;
+    public var chartHasVSliceMetadata:Bool;
+    public var chartAudioSuffix:String;
     public var modDirectory:String;
     public var isDownscroll:Bool;
     public var sf:Int;
@@ -94,6 +98,10 @@ class Replay
             songNotes: [],
             replayGameVer: version,
             chartPath: "",
+            chartCategory: "",
+            chartDirectory: "",
+            chartHasVSliceMetadata: false,
+            chartAudioSuffix: "",
             modDirectory: "",
             sm: false,
             timestamp: Date.now(),
@@ -304,7 +312,7 @@ class Replay
         }
         #end
         
-        var chartPath:String = "";
+        var chartPath:String = Paths.currentChartDirectory != null ? Paths.currentChartDirectory : "";
         var modDirectory:String = currentMod;
         
         var missCount:Int = 0;
@@ -340,6 +348,10 @@ class Replay
             "songDiff": songDiff,
             "difficultyName": difficultyName,
             "chartPath": chartPath,
+            "chartCategory": Paths.currentChartCategory != null ? Paths.currentChartCategory : "",
+            "chartDirectory": chartPath,
+            "chartHasVSliceMetadata": Paths.currentChartHasVSliceMetadata,
+            "chartAudioSuffix": Paths.currentChartAudioSuffix != null ? Paths.currentChartAudioSuffix : "",
             "modDirectory": modDirectory,
             "sm": false,
             "timestamp": Date.now(),

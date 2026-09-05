@@ -18,6 +18,7 @@ import substates.ResetScoreSubState;
 import states.FreeplayState;
 import objects.MusicPlayerLegacy;
 import options.KEOptionsMenu;
+import options.ExtraSettingsSubState;
 import backend.ui.PsychUIButton; 
 
 
@@ -68,6 +69,7 @@ class ToolBar extends FlxSpriteGroup
     
     // ★★★ 音频谱重建标记 ★★★
     private var needsAudioDisplayRebuild:Bool = false;
+    private var hasExtraButton:Bool = false;
 
     public var blurFilter:BlurFilter;  // 模糊滤镜
     public var blurAmount:Float = 40;   // 模糊强度
@@ -195,15 +197,24 @@ class ToolBar extends FlxSpriteGroup
     
     private function createButtons():Void
     {
+        for (button in buttons)
+        {
+            remove(button);
+            button.destroy();
+        }
+        buttons = [];
+
         var buttonY:Float = background.y + (background.height - 40) / 2 - 20;
-        var startX:Float = (FlxG.width - (buttonWidth * 4 + buttonSpacing * 3)) / 2;
-        
         var buttonData:Array<{label:String, action:Void->Void}> = [
             {label: Language.getPhrase("options", "OPTIONS"), action: openOptions},
             {label: Language.getPhrase("gameplay", "GAMEPLAY"), action: openGameplayChangers},
             {label: Language.getPhrase("reset", "RESET"), action: resetScore},
             {label: Language.getPhrase("listen", "LISTEN"), action: toggleListenMode}
         ];
+        hasExtraButton = Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0;
+        if (hasExtraButton)
+			buttonData.insert(1, {label: "EXTRA", action: openExtraSettings});
+		var startX:Float = (FlxG.width - (buttonWidth * buttonData.length + buttonSpacing * (buttonData.length - 1))) / 2;
         
         for (i in 0...buttonData.length)
         {
@@ -226,6 +237,13 @@ class ToolBar extends FlxSpriteGroup
             add(btn);
             buttons.push(btn);
         }
+    }
+
+    public function refreshChartModeButtons():Void
+    {
+        var shouldShowExtra:Bool = Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0;
+        if (shouldShowExtra != hasExtraButton)
+            createButtons();
     }
     
     private function createButtonGraphic(width:Int, height:Int, color:Int):FlxGraphic
@@ -683,6 +701,15 @@ class ToolBar extends FlxSpriteGroup
         {
             freeplayState.persistentUpdate = false;
             freeplayState.openSubState(new GameplayChangersSubstate());
+        }
+    }
+
+    private function openExtraSettings():Void
+    {
+        if (freeplayState != null && freeplayState.persistentUpdate)
+        {
+            freeplayState.persistentUpdate = false;
+            freeplayState.openSubState(new ExtraSettingsSubState());
         }
     }
     

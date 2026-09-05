@@ -265,6 +265,9 @@ class KEOption
 				case "Open EK Controls":
 					KEOptionsMenu.instance.openSubState(new options.ExtraKeybindSubState());
 					return false;
+				case "Open Extra Settings":
+					openInCurrentSubState(new options.ExtraSettingsSubState());
+					return false;
 				//case "Replay Manager":
 				//	MusicBeatState.switchState(new states.LoadReplayState());
 				//	return false;  
