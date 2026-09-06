@@ -216,6 +216,8 @@ class FreeplayState extends MusicBeatState
         }
 
         Mods.loadTopMod();
+        if (isPureChartMode())
+            Mods.currentModDirectory = ClientPrefs.data.customChartModFolder;
 
         SongArtConfig.loadAllConfigs();
         //preloadConfiguredArts();
@@ -631,6 +633,15 @@ class FreeplayState extends MusicBeatState
             chart.customChart = new CustomChartMetadata(customSong);
             chart.difficultyInfo = cast chart.customChart.difficultyInfo;
             songs.push(chart);
+
+            var missingInfo:Array<String> = [];
+            for (difficulty in chart.customChart.difficulties)
+            {
+                if (!isParsedSongInfoValid(chart.difficultyInfo.get(difficulty)))
+                    missingInfo.push(difficulty);
+            }
+            if (missingInfo.length > 0)
+                difficultyPreloadQueue.push({customChart: chart.customChart});
         }
     }
 
@@ -1352,14 +1363,34 @@ class FreeplayState extends MusicBeatState
             var item = difficultyPreloadQueue.shift();
             try
             {
-                var info = SongInfoParser.preloadAllDifficulties(item.songName, item.folder, item.difficulties, item.weekData);
-                item.song.difficultyInfo = info;
-                if (ClientPrefs.data.saveFreeplayCache)
+                #if sys
+                if (item.customChart != null)
                 {
-                    freeplaySongCache.set(item.cacheKey, buildFreeplayCacheEntry(info));
-                    freeplayCacheDirty = true;
+                    CustomChartData.preloadInfo(item.customChart.song);
+                    item.customChart.difficultyInfo = item.customChart.song.info;
+                    for (i in 0...songs.length)
+                    {
+                        if (songs[i].customChart == item.customChart)
+                        {
+                            songs[i].difficultyInfo = cast item.customChart.difficultyInfo;
+                            if (i < cards.length)
+                                cards[i].updateRatingSprite();
+                            break;
+                        }
+                    }
                 }
-                if (item.song == songs[curSelected])
+                else
+                #end
+                {
+                    var info = SongInfoParser.preloadAllDifficulties(item.songName, item.folder, item.difficulties, item.weekData);
+                    item.song.difficultyInfo = info;
+                    if (ClientPrefs.data.saveFreeplayCache)
+                    {
+                        freeplaySongCache.set(item.cacheKey, buildFreeplayCacheEntry(info));
+                        freeplayCacheDirty = true;
+                    }
+                }
+                if (item.customChart != null || item.song == songs[curSelected])
                 {
                     updateCardDifficultyInfo();
                     updateSongInfoTexts();
@@ -1851,7 +1882,10 @@ class FreeplayState extends MusicBeatState
         missingText.visible = false;
         missingTextBG.visible = false;
         
-        modFolderText.text = "Mod: " + songs[curSelected].folder;
+        if (songs[curSelected].customChart != null && songs[curSelected].customChart.isValid())
+            modFolderText.text = "Chart Folder:" + Paths.currentChartCategory;
+        else
+            modFolderText.text = "Mod: " + songs[curSelected].folder;
 
         for (i in 0...cards.length)
         {

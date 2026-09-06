@@ -22,7 +22,7 @@ import sys.FileSystem;
 
 /**
  * ModFolder 子界面 - 用于在 Freeplay 中选择模组
- * 从右侧弹出，使用 FlxTween 和 FlxEase.circOut 进行动画
+ * 从左侧弹出，使用 FlxTween 和 FlxEase.circOut 进行动画
  */
 class ModFolderSubstate extends MusicBeatSubstate
 {
@@ -191,13 +191,13 @@ class ModFolderSubstate extends MusicBeatSubstate
 		var targetScroll = selectedIndex * (itemHeight + ITEM_SPACING) - (visibleItemCount * (itemHeight + ITEM_SPACING)) / 2 + (itemHeight / 2);
 		scrollPos = Math.max(0, Math.min(targetScroll, maxScrollPos));
 
-		// 模组信息显示区域 - 调整位置
+		// 模组信息显示区域 - 调整位置（右侧显示）
 		selectedModIcon = new FlxSprite(FlxG.width * 0.2, 80);
 		selectedModIcon.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModIcon.scrollFactor.set();
 		add(selectedModIcon);
 
-		// mod名字下移40像素 (原来是200，现在改为240)
+		// mod名字下移40像素
 		selectedModName = new FlxText(FlxG.width * 0.2 + 100, 240, 300, "", 32);
 		selectedModName.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModName.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
@@ -205,7 +205,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 		selectedModName.borderSize = 2;
 		add(selectedModName);
 
-		// 描述在mod名字下20像素 (240 + 32 + 20 = 292)
+		// 描述在mod名字下20像素
 		selectedModDesc = new FlxText(FlxG.width * 0.2 + 100, 292, 300, "", 16);
 		selectedModDesc.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModDesc.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
@@ -213,30 +213,32 @@ class ModFolderSubstate extends MusicBeatSubstate
 		selectedModDesc.borderSize = 2;
 		add(selectedModDesc);
 
-		// 起始位置和目标位置
-		startX = FlxG.width;
-		targetX = FlxG.width - 420;
+		// ===== 关键修改：从左侧弹出 =====
+		// 起始位置：屏幕左侧之外（负的宽度）
+		startX = -panelWidth - 250;
+		// 目标位置：屏幕左侧，留一点边距
+		targetX = 10;
 
-		// 弹出动画
+		// 弹出动画 - 从左侧滑入
 		bgList.x = startX;
 		scrollBarTrack.x = startX + panelWidth - 20;
 		scrollBar.x = startX + panelWidth - 20;
-		selectedModIcon.x = startX + 50;
-		selectedModName.x = startX + 50;
-		selectedModDesc.x = startX + 50;
+		selectedModIcon.x = startX ; // 图标在面板右侧
+		selectedModName.x = startX ;
+		selectedModDesc.x = startX ;
 
 		for (item in modsGroup)
 		{
 			item.x = startX + 10;
 		}
 
-		// 使用 FlxTween 和 FlxEase.circOut 从右侧弹出
+		// 使用 FlxTween 和 FlxEase.circOut 从左侧弹出
 		FlxTween.tween(bgList, {x: targetX}, 0.6, {ease: FlxEase.circOut});
 		FlxTween.tween(scrollBarTrack, {x: targetX + panelWidth - 20}, 0.6, {ease: FlxEase.circOut});
 		FlxTween.tween(scrollBar, {x: targetX + panelWidth - 20}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModIcon, {x: targetX - 450}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModName, {x: targetX - 450}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModDesc, {x: targetX - 450}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModIcon, {x: targetX + panelWidth + 50}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModName, {x: targetX + panelWidth + 50}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModDesc, {x: targetX + panelWidth + 50}, 0.6, {ease: FlxEase.circOut});
 
 		for (item in modsGroup)
 		{
@@ -313,7 +315,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 		if (shouldClose)
 		{
 			closingTimer += elapsed;
-			if (closingTimer >= 0.65) // 动画时间 + 小余量
+			if (closingTimer >= 0.65)
 			{
 				_closeNow();
 				return;
@@ -346,7 +348,6 @@ class ModFolderSubstate extends MusicBeatSubstate
 			if (item.visible && FlxG.mouse.overlaps(item) && FlxG.mouse.justPressed)
 			{
 				curSelected = i;
-				// 滚动到选中项中间
 				scrollToItemMiddle(i);
 				updateSelection();
 				selectMod();
@@ -385,7 +386,6 @@ class ModFolderSubstate extends MusicBeatSubstate
 	 */
 	function scrollToItemMiddle(index:Int)
 	{
-		// 计算目标滚动位置，让选中的项目出现在可视区域的中间
 		var targetScroll = index * (itemHeight + ITEM_SPACING) - (visibleItemCount * (itemHeight + ITEM_SPACING)) / 2 + (itemHeight / 2);
 		targetScroll = Math.max(0, Math.min(targetScroll, maxScrollPos));
 		
@@ -431,7 +431,6 @@ class ModFolderSubstate extends MusicBeatSubstate
 		var selectedItem = modsGroup.members[curSelected];
 		if (selectedItem != null)
 		{
-			// 直接滚动到选中项的中间位置
 			scrollToItemMiddle(curSelected);
 		}
 		
@@ -506,7 +505,6 @@ class ModFolderSubstate extends MusicBeatSubstate
 		if (selectedItem != null)
 		{
 			Paths.currentChartCategory = selectedItem.chartCategory;
-			// 如果是"ALL"或空字符串则设置为null
 			if (selectedItem.chartCategory != null)
 				Mods.currentModDirectory = null;
 			else if (selectedItem.folder == null || selectedItem.folder.length == 0)
@@ -514,7 +512,6 @@ class ModFolderSubstate extends MusicBeatSubstate
 			else
 				Mods.currentModDirectory = selectedItem.folder;
 
-			// 通知parent状态改变
 			if (parent != null)
 			{
 				parent.onModFolderChanged();
@@ -549,13 +546,14 @@ class ModFolderSubstate extends MusicBeatSubstate
 		shouldClose = true;
 		closingTimer = 0;
 
-		// 收回动画
+		// ===== 关键修改：收回动画从左侧出去 =====
+		// 收回动画 - 滑向左侧
 		FlxTween.tween(bgList, {x: startX}, 0.6, {ease: FlxEase.circOut});
 		FlxTween.tween(scrollBarTrack, {x: startX + 400 - 20}, 0.6, {ease: FlxEase.circOut});
 		FlxTween.tween(scrollBar, {x: startX + 400 - 20}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModIcon, {x: startX + 50}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModName, {x: startX + 50}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModDesc, {x: startX + 50}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModIcon, {x: startX }, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModName, {x: startX }, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModDesc, {x: startX }, 0.6, {ease: FlxEase.circOut});
 
 		for (item in modsGroup)
 		{
@@ -564,7 +562,6 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 		FlxTween.tween(bgDim, {alpha: 0}, 0.6, {ease: FlxEase.circOut});
 		
-		// 移除 scroller
 		if (cardScroller != null)
 		{
 			remove(cardScroller);
@@ -603,7 +600,6 @@ class ModFolderItem extends FlxSpriteGroup
 		this.folder = folder;
 		this.chartCategory = chartCategory;
 
-		// 背景选择框
 		selectBg = new FlxFilteredSprite();
 		selectBg.makeGraphic(WIDTH, HEIGHT, FlxColor.WHITE);
 		selectBg.filters = [new BlurFilter(30,30,BitmapFilterQuality.HIGH)];
@@ -611,13 +607,11 @@ class ModFolderItem extends FlxSpriteGroup
 		selectBg.alpha = 0.3;
 		add(selectBg);
 
-		// 模组图标
 		icon = new FlxSprite(5, 5);
 		icon.antialiasing = ClientPrefs.data.antialiasing;
 		icon.scale.set(0.5, 0.5);
 		add(icon);
 
-		// 模组名称文本
 		text = new FlxText(75, 32, 280, name, 20);
 		text.antialiasing = ClientPrefs.data.antialiasing;
 		text.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
@@ -625,7 +619,6 @@ class ModFolderItem extends FlxSpriteGroup
 		text.y -= Std.int(text.height / 2);
 		add(text);
 
-		// 加载模组图标
 		if (folder != null)
 		{
 			#if MODS_ALLOWED

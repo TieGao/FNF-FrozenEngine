@@ -91,11 +91,10 @@ class VSlice
 	public static function convertToPsych(chart:VSliceChart, metadata:VSliceMetadata):PsychPackage
 	{
 		var songDifficulties:Map<String, SwagSong> = [];
-		var timeChanges:Array<VSliceTimeChange> = cast metadata.timeChanges;
+		var timeChanges:Array<VSliceTimeChange> = metadata.timeChanges == null ? [] : metadata.timeChanges.copy();
 		timeChanges.sort(sortByTime);
-		
-		var songBpm:Float = timeChanges[0].bpm;
-		timeChanges.shift();
+		var songBpm:Float = timeChanges.length > 0 ? timeChanges[0].bpm : 120;
+		if (timeChanges.length > 0) timeChanges.shift();
 
 		var stage:String = metadata.playData.stage;
 		switch(stage) //Psych and VSlice use different names for some stages
@@ -117,15 +116,20 @@ class VSlice
 		var notesMap:Map<String, Dynamic> = [];
 		for (diff in metadata.playData.difficulties)
 		{
-			var notes:Array<VSliceNote> = cast Reflect.field(chart.notes, diff);
+			var notes:Array<VSliceNote> = null;
+			for (field in Reflect.fields(chart.notes))
+				if (Paths.formatToSongPath(field) == Paths.formatToSongPath(diff))
+				{
+					notes = cast Reflect.field(chart.notes, field);
+					break;
+				}
 			if(notes == null) notes = [];
 			notes.sort(sortByTime);
 
 			notesMap.set(diff, notes);
 
-			var lastNote:Dynamic = notes[notes.length - 1];
-			if(notes.length > 0 && lastNote.t > lastNoteTime)
-				lastNoteTime = lastNote.t;
+			if(notes.length > 0 && notes[notes.length - 1].t > lastNoteTime)
+				lastNoteTime = notes[notes.length - 1].t;
 		}
 
 		var sectionMustHits:Array<Bool> = [];
@@ -217,6 +221,13 @@ class VSlice
 		for (diff in metadata.playData.difficulties)
 		{
 			var scrollSpeed:Float = Reflect.hasField(chart.scrollSpeed, diff) ? Reflect.field(chart.scrollSpeed, diff) : Reflect.field(chart.scrollSpeed, 'default');
+			if (!Reflect.hasField(chart.scrollSpeed, diff))
+				for (field in Reflect.fields(chart.scrollSpeed))
+					if (Paths.formatToSongPath(field) == Paths.formatToSongPath(diff))
+					{
+						scrollSpeed = Reflect.field(chart.scrollSpeed, field);
+						break;
+					}
 			var notes:Array<VSliceNote> = notesMap.get(diff);
 
 			var sectionData:Array<SwagSection> = [];

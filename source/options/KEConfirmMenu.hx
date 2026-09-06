@@ -494,6 +494,8 @@ class KEConfirmMenu extends MusicBeatSubstate
 		}
 
 		parentOption.saveCurrentValue();
+		if (parentOption.confirmCallback != null)
+			parentOption.confirmCallback();
 		FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
 		closeMenu();
 	}

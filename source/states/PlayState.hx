@@ -582,16 +582,16 @@ class PlayState extends MusicBeatState
 			gf = new Character(0, 0, SONG.gfVersion);
 			startCharacterPos(gf);
 			gfGroup.scrollFactor.set(0.95, 0.95);
-			gfGroup.add(gf);
+			if(ClientPrefs.data.customChartGirlfriend != "NONE")gfGroup.add(gf);
 		}
 
 		dad = new Character(0, 0, SONG.player2);
 		startCharacterPos(dad, true);
-		dadGroup.add(dad);
+		if(ClientPrefs.data.customChartOpponent != "NONE")dadGroup.add(dad);
 
 		boyfriend = new Character(0, 0, SONG.player1, true);
 		startCharacterPos(boyfriend);
-		boyfriendGroup.add(boyfriend);
+		if(ClientPrefs.data.customChartPlayer != "NONE")boyfriendGroup.add(boyfriend);
 		
 		if(stageData.objects != null && stageData.objects.length > 0)
 		{

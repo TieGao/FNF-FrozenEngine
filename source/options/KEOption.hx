@@ -109,6 +109,7 @@ class KEOption
 	public var hasWarning:Bool = false;
 	public var warningMessage:String = "";
 	public var warningCallback:Void->Void = null;
+	public var confirmCallback:Void->Void = null;
 
 	// 长按保护相关变量
 	public var lastPressTime:Float = 0; // 上次按下时间
@@ -495,7 +496,7 @@ class KEOption
 		});
 	}
 
-	private function updateDisplay():String
+	public function updateDisplay():String
 	{
 		var displayName = resolveTranslation(name, name);
 		
@@ -894,4 +895,44 @@ class KEOption
 		
 		return option;
 	}
+	// 更新字符串选项的列表
+	public function updateStringOptions(newOptions:Array<String>):Void
+	{
+		if (type != "string") return;
+		
+		this.options = newOptions;
+		
+		// 如果当前值不在新列表中，重置到第一个或默认值
+		if (options.length > 0) {
+			var found = false;
+			for (i in 0...options.length) {
+				if (options[i] == value) {
+					curOption = i;
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				curOption = 0;
+				value = options[0];
+				// 保存到 ClientPrefs
+				if (variable != "") {
+					Reflect.setProperty(ClientPrefs.data, variable, value);
+				}
+			}
+		} else {
+			curOption = -1;
+			value = "";
+		}
+		
+		// 更新显示
+		display = updateDisplay();
+	}
+
+	// 获取当前选项列表
+	public function getOptions():Array<String>
+	{
+		return options;
+	}
+
 }
