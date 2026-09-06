@@ -343,7 +343,7 @@ class PlayState extends MusicBeatState
 	public var introSoundsSuffix:String = '';
 
 	// Less laggy controls
-	private var keysArray:Array<String>;
+	public var keysArray:Array<String>;
 	public var songName:String;
 
 	// Callbacks for stages
@@ -3827,7 +3827,7 @@ public function reloadCounterColors()
 		}
 	}
 
-	private function keyPressed(key:Int, ?keyBindIndex:Int = -1)
+	public function keyPressed(key:Int, ?keyBindIndex:Int = -1)
 	{
 		if(cpuControlled || paused || inCutscene || key < 0 || !generatedMusic || endingSong || boyfriend.stunned) return;
 		if (!inReplay && (loadRep)) return; // 只在非replay模式下跳过loadRep
@@ -3910,7 +3910,7 @@ public function reloadCounterColors()
 		if(!controls.controllerMode && key > -1) keyReleased(key, PlayState.lastKeyBindIndex);
 	}
 
-	private function keyReleased(key:Int, ?keyBindIndex:Int = 0)
+	public function keyReleased(key:Int, ?keyBindIndex:Int = 0)
 	{
 		if(cpuControlled || !startedCountdown || paused || key < 0) return;
 
