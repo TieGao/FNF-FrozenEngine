@@ -99,6 +99,9 @@ There you can learn how to use the 212 PlayState funcions in your mod!
   * Hurt Notes: If Boyfriend hits this note, he plays a miss animation and loses some health.
   * GF Sing: Rather than the character hitting the note and singing, Girlfriend sings instead.
   * No Animation: Character just hits the note, no animation plays.
+![Custom Charts](docs/img/customcharts.png)
+* here, you can just import charts from a simple folder.
+* just EZ to use, right?
 
 ## Multiple editors to assist you in making your own Mod
 ![Master Editor Menu](docs/img/editors.png)
@@ -122,6 +125,15 @@ There you can learn how to use the 212 PlayState funcions in your mod!
  * On Preferences you can toggle Downscroll, Middlescroll, Anti-Aliasing, Framerate, Low Quality, Note Splashes, Flashing Lights, etc.
 ![Options](docs/img/Options.png)
 
+## Greate new Freatures FE brought to u
+* We add more and more in game hud stuffs or custom settings like note holdcover and msTexts.
+ * Hope they would bring a lot of fun to u!
+ ![More Hud Stuffs](docs/img/Skins.png)
+* We rebuild a new freeplay. It's now a complex menu with many great QOL Improvments.
+ ![Freeplay](docs/img/greatFreeplay.png)
+ ![Replay](docs/img/ReplayShit.png)
+ ![ModSelecter](docs/img/ModFolderShit.png)
+ ![MusicPlayer](docs/img/MusicPlayer.png)
 ## Other gameplay features:
 * When the enemy hits a note, their strum note also glows.
 * Lag doesn't impact the camera movement and player icon scaling anymore.
@@ -131,4 +143,4 @@ There you can learn how to use the 212 PlayState funcions in your mod!
 * You can enable "Combo Stacking" in Gameplay Options. This causes the combo sprites to just be one sprite with an animation rather than sprites spawning each note hit.
 
 
-#### Psych Engine by ShadowMario, Friday Night Funkin' by ninjamuffin99
+#### Psych Engine by ShadowMario, Friday Night Funkin' by ninjamuffin99, Frozen Engine by Ice_Axe
