@@ -195,6 +195,7 @@ import states.TitleState;
 
 	//FE Advanced Options
 	public var saveReplays:Bool = true;
+	public var legacyReplay:Bool = true;
 	public var luadebugPrint:Bool = true;
 
 	public var beamparticle:Bool = false;

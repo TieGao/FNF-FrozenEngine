@@ -11,6 +11,12 @@ import openfl.net.FileReference;
 import lime.utils.Assets;
 import haxe.Json;
 import flixel.input.keyboard.FlxKey;
+import flixel.FlxSprite;
+import flixel.text.FlxText;
+import flixel.util.FlxTimer;
+import flixel.util.FlxStringUtil;
+import objects.Note;
+import objects.StrumNote;
 import openfl.utils.Dictionary;
 import states.PlayState;
 
@@ -68,7 +74,7 @@ typedef ReplayJSON =
     public var ratingFC:String;
 }
 
-class Replay
+class LegacyReplay
 {
     public static var version:String = "1.5";
 
@@ -81,6 +87,10 @@ class Replay
     public var noteRecording:Array<Array<Dynamic>> = [];
     public var judgementRecording:Array<String> = [];
     public var anaRecording:Analysis;
+    public var replayNoteQueue:Array<Array<Dynamic>> = [];
+    public var repNoteIndex:Int = 0;
+    public var lastReplayTime:Float = 0;
+    public var legacyReplayTxt:FlxText;
     
     // 新增：存储Replay的完整路径（包含mod子文件夹）
     public var fullPath:String = "";
@@ -286,9 +296,9 @@ class Replay
 
     // ========== 修改：LoadReplay 支持子文件夹路径 ==========
     
-    public static function LoadReplay(path:String):Replay
+    public static function LoadReplay(path:String):LegacyReplay
     {
-        var rep:Replay = new Replay(path);
+        var rep:LegacyReplay = new LegacyReplay(path);
         rep.LoadFromJSON();
         return rep;
     }
@@ -601,6 +611,12 @@ class Replay
     {
         judgementRecording.push(judge);
     }
+
+    public function recordHit(strumTime:Float, noteData:Int, sustainLength:Float, diff:Float, judge:String):Void
+    {
+        recordJudgement(judge);
+        recordNote(strumTime, noteData, sustainLength, diff);
+    }
     
     public function finishRecording():Void
     {
@@ -639,6 +655,187 @@ class Replay
         trace('Total notes in replay: ' + replay.songNotes.length);
         currentIndex = 0;
         judgementIndex = 0;
+    }
+
+    public function initReplayData():Void
+    {
+        if (replay == null || replay.songNotes == null)
+        {
+            trace('ERROR: Replay data is null or invalid!');
+            PlayState.inReplay = false;
+            return;
+        }
+
+        replayNoteQueue = [];
+        repNoteIndex = 0;
+        lastReplayTime = 0;
+
+        for (noteData in replay.songNotes)
+        {
+            if (noteData == null || noteData.length < 4) continue;
+            replayNoteQueue.push([
+                noteData[0], noteData[1], Std.int(noteData[2] % 4), noteData[3], noteData[3] <= -9999, false
+            ]);
+        }
+
+        replayNoteQueue.sort(function(a:Array<Dynamic>, b:Array<Dynamic>):Int
+        {
+            return Std.int(a[0] - b[0]);
+        });
+    }
+
+    public function createReplayUI(state:PlayState):Void
+    {
+        if (!PlayState.inReplay || state.healthBar == null || !ClientPrefs.data.legacyReplay) return;
+
+        legacyReplayTxt = new FlxText(400, state.healthBar.y + (ClientPrefs.data.downScroll ? 100 : -150), FlxG.width - 800, "REPLAY MODE", 32);
+        legacyReplayTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, FlxTextAlign.CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+        legacyReplayTxt.scrollFactor.set();
+        legacyReplayTxt.borderSize = 1.25;
+        legacyReplayTxt.color = FlxColor.YELLOW;
+        legacyReplayTxt.alpha = 0.8;
+        legacyReplayTxt.visible = true;
+        state.uiGroup.add(legacyReplayTxt);
+    }
+
+    public function processReplayNotes(state:PlayState):Void
+    {
+        if (!PlayState.inReplay || replayNoteQueue.length == 0 || repNoteIndex >= replayNoteQueue.length) return;
+
+        var currentTime:Float = Conductor.songPosition;
+        var realCurrentTime:Float = currentTime + Conductor.offset;
+        updateReplayUI(currentTime);
+
+        #if debug
+        if (Math.floor(currentTime / 2000) > Math.floor(lastReplayTime / 2000))
+            trace('Replay status at ${currentTime}ms: ${repNoteIndex}/${replayNoteQueue.length} notes processed');
+        #end
+        lastReplayTime = currentTime;
+
+        var processedCount:Int = 0;
+        while (repNoteIndex < replayNoteQueue.length && processedCount < 100)
+        {
+            var replayNote:Array<Dynamic> = replayNoteQueue[repNoteIndex];
+            if (replayNote == null || replayNote.length < 6) { repNoteIndex++; continue; }
+
+            var noteStrTime:Float = replayNote[0];
+            var diff:Float = replayNote[3];
+            var actualHitTime:Float = noteStrTime - diff;
+            if (replayNote[5]) { repNoteIndex++; continue; }
+            if (actualHitTime > realCurrentTime + 2) break;
+            if (realCurrentTime - actualHitTime > Conductor.safeZoneOffset)
+            {
+                replayNote[5] = true;
+                repNoteIndex++;
+                continue;
+            }
+
+            if (!replayNote[4]) processReplayHit(state, replayNote, realCurrentTime);
+            replayNote[5] = true;
+            repNoteIndex++;
+            processedCount++;
+        }
+
+        if (repNoteIndex >= replayNoteQueue.length && PlayState.inReplay)
+            completeReplay();
+    }
+
+    private function processReplayHit(state:PlayState, replayNote:Array<Dynamic>, currentTime:Float):Void
+    {
+        var noteStrTime:Float = replayNote[0];
+        var sustainLength:Float = replayNote[1];
+        var column:Int = replayNote[2];
+        var diff:Float = replayNote[3];
+        var strum:StrumNote = state.playerStrums.members[column];
+        if (strum != null)
+        {
+            strum.playAnim('confirm', true);
+            strum.resetAnim = Conductor.stepCrochet * 1.25 / 1000 / state.playbackRate;
+        }
+
+        var targetNote:Note = findNoteAtOriginalTime(state, noteStrTime, column);
+        if (targetNote != null)
+        {
+            state.goodNoteHit(targetNote, diff);
+            if (sustainLength > 0) processSustainNotes(state, targetNote, replayNote);
+        }
+        else
+        {
+            var animations:Array<String> = ['singLEFT', 'singDOWN', 'singUP', 'singRIGHT'];
+            var animName:String = animations[Std.int(Math.abs(column) % animations.length)];
+            if (state.boyfriend != null && state.boyfriend.hasAnimation(animName))
+            {
+                state.boyfriend.playAnim(animName, true);
+                state.boyfriend.holdTimer = 0;
+            }
+        }
+    }
+
+    private function findNoteAtOriginalTime(state:PlayState, targetTime:Float, column:Int):Note
+    {
+        var bestNote:Note = null;
+        var minTimeDiff:Float = 9999;
+        state.notes.forEachAlive(function(note:Note)
+        {
+            if (!note.mustPress || note.wasGoodHit || note.tooLate || !note.canBeHit || note.noteData != column) return;
+            var timeDiff:Float = Math.abs(note.strumTime - targetTime);
+            if (timeDiff < minTimeDiff) { minTimeDiff = timeDiff; bestNote = note; }
+        });
+
+        if (bestNote == null)
+        {
+            var fallbackDiff:Float = Conductor.safeZoneOffset;
+            state.notes.forEachAlive(function(note:Note)
+            {
+                if (!note.mustPress || note.wasGoodHit || note.tooLate || note.noteData != column) return;
+                var timeDiff:Float = Math.abs(note.strumTime - targetTime);
+                if (timeDiff < fallbackDiff) { fallbackDiff = timeDiff; bestNote = note; }
+            });
+        }
+        return bestNote;
+    }
+
+    private function processSustainNotes(state:PlayState, parentNote:Note, replayNote:Array<Dynamic>):Void
+    {
+        if (parentNote == null || replayNote[1] <= 0) return;
+        var strum:StrumNote = state.playerStrums.members[replayNote[2]];
+        if (strum != null)
+        {
+            strum.playAnim('confirm', true);
+            strum.resetAnim = Conductor.stepCrochet * 1.25 / 1000 / state.playbackRate;
+        }
+    }
+
+    private function updateReplayUI(currentTime:Float):Void
+    {
+        if (legacyReplayTxt == null || !PlayState.inReplay) return;
+        var totalNotes:Int = replayNoteQueue.length;
+        var progress:Float = totalNotes > 0 ? (repNoteIndex / totalNotes) * 100 : 100;
+        var timeStr:String = FlxStringUtil.formatTime(Math.floor(currentTime / 1000), false);
+        legacyReplayTxt.text = 'REPLAY MODE\n${Math.round(progress)}% (${repNoteIndex}/${totalNotes})\n${timeStr}';
+        legacyReplayTxt.visible = true;
+    }
+
+    private function completeReplay():Void
+    {
+        trace('Completing replay...');
+        if (legacyReplayTxt != null)
+        {
+            legacyReplayTxt.text = 'REPLAY COMPLETE!';
+            legacyReplayTxt.color = FlxColor.GREEN;
+            new FlxTimer().start(3, function(_) {
+                if (legacyReplayTxt != null) legacyReplayTxt.visible = false;
+            });
+        }
+        PlayState.inReplay = false;
+    }
+
+    public function clearPlayback():Void
+    {
+        replayNoteQueue = [];
+        repNoteIndex = 0;
+        lastReplayTime = 0;
+        if (legacyReplayTxt != null) legacyReplayTxt.visible = false;
     }
     
     public function getNextNote(strumTime:Float):Array<Dynamic>

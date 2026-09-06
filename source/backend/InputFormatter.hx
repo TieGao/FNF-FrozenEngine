@@ -100,6 +100,20 @@ class InputFormatter {
 		}
 	}
 
+	public static function getKeyFromName(name:String):FlxKey {
+		if (name == null || name.length == 0) return FlxKey.NONE;
+
+		var direct:FlxKey = FlxKey.fromString(name);
+		if (direct != FlxKey.NONE) return direct;
+
+		for (keyName in FlxKey.toStringMap.keys()) {
+			var key:FlxKey = FlxKey.toStringMap.get(keyName);
+			if (getKeyName(key) == name) return key;
+		}
+
+		return FlxKey.NONE;
+	}
+
 	public static function getGamepadName(key:FlxGamepadInputID)
 	{
 		var gamepad:FlxGamepad = FlxG.gamepads.firstActive;

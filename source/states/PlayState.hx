@@ -50,17 +50,10 @@ import crowplexus.hscript.Expr.Error as IrisError;
 import crowplexus.hscript.Printer;
 #end
 
-import backend.Replay;
+import backend.LegacyReplay as LegacyReplay;
+import backend.Replay as FrameReplay;
 
-	typedef ReplayNote = 
-	{
-    var strumTime:Float;
-    var column:Int;
-    var sustainLength:Float;
-    var diff:Float;
-    var isMiss:Bool;
-    var processed:Bool;
-	}
+
 
 /**
  * This is where all the Gameplay stuff happens and is managed
@@ -254,7 +247,7 @@ class PlayState extends MusicBeatState
 
 	public var botplaySine:Float = 0;
 	public var botplayTxt:FlxText;
-	public var replayTxt:FlxText; 
+	public var frameReplayTxt:FlxText;
 
 	public var iconP1:HealthIcon;
 	public var iconP2:HealthIcon;
@@ -269,14 +262,12 @@ class PlayState extends MusicBeatState
 	public var scoreTxt:FlxText;
 
 	//KE replay system
-	public static var rep:Replay;
+	public static var rep:LegacyReplay;
+	public static var frameRep:FrameReplay;
 	public static var loadRep:Bool = false;
-	public var repNoteIndex:Int = 0; // 回放音符索引
-	private var replayMissTimer:FlxTimer; // 回放miss计时器
-	private var lastReplayTime:Float = 0; // 上一次回放时间
-	private var replayNoteQueue:Array<Array<Dynamic>> = []; // 回放音符队列（明确类型）
 	public static var inReplay:Bool = false; 
 	public static var replayFileName:String = "";
+
 	public static var chartCategory:String = null;
 	public static var chartDirectory:String = null;
 	public static var chartHasVSliceMetadata:Bool = false;
@@ -387,15 +378,17 @@ class PlayState extends MusicBeatState
 		}
 
 		 // ========== 回放系统初始化 ==========
-    if (loadRep && rep != null)
+	if (loadRep && (rep != null || frameRep != null))
     {
         trace('=== REPLAY MODE INITIALIZATION ===');
-        trace('Loading replay: ' + rep.path);
-        trace('Song: ' + rep.replay.songName);
+		var usingLegacyReplay:Bool = rep != null;
+		var replayData:Dynamic = usingLegacyReplay ? rep.replay : frameRep.replay;
+		trace('Loading replay: ' + (usingLegacyReplay ? rep.path : frameRep.path));
+		trace('Song: ' + replayData.songName);
         
         // 设置游戏模式（从replay数据中读取）
-        if (rep.replay.opponentMode != null)
-            opponentMode = rep.replay.opponentMode;
+		if (replayData.opponentMode != null)
+			opponentMode = replayData.opponentMode;
         else
             opponentMode = "player"; // 向后兼容
         
@@ -407,19 +400,17 @@ class PlayState extends MusicBeatState
         cpuControlled = false; // 回放模式下禁用自动播放
         practiceMode = false;
         
-        // 初始化回放数据
-        initReplayData();
+		// 初始化回放数据
+		if (usingLegacyReplay)
+			rep.initReplayData();
+		else
+			frameRep.startPlayback();
         
-        trace('Replay mode activated with ${replayNoteQueue.length} notes');
+        trace('Replay mode activated with ${usingLegacyReplay ? rep.replayNoteQueue.length : frameRep.replay.frameData.length} entries');
     }
 
 	FlxG.mouse.visible = false;
 	
-		if (inReplay)
-	{
-		createReplayUI();
-	}
-
 		//trace('Playback Rate: ' + playbackRate);
 		_lastLoadedModDirectory = Mods.currentModDirectory;
 		Paths.clearStoredMemory();
@@ -582,16 +573,16 @@ class PlayState extends MusicBeatState
 			gf = new Character(0, 0, SONG.gfVersion);
 			startCharacterPos(gf);
 			gfGroup.scrollFactor.set(0.95, 0.95);
-			if(ClientPrefs.data.customChartGirlfriend != "NONE")gfGroup.add(gf);
+			if((ClientPrefs.data.customChartGirlfriend != "NONE" && pureChartMode) || !pureChartMode)gfGroup.add(gf);
 		}
 
 		dad = new Character(0, 0, SONG.player2);
 		startCharacterPos(dad, true);
-		if(ClientPrefs.data.customChartOpponent != "NONE")dadGroup.add(dad);
+		if((ClientPrefs.data.customChartOpponent != "NONE" && pureChartMode) || !pureChartMode)dadGroup.add(dad);
 
 		boyfriend = new Character(0, 0, SONG.player1, true);
 		startCharacterPos(boyfriend);
-		if(ClientPrefs.data.customChartPlayer != "NONE")boyfriendGroup.add(boyfriend);
+		if((ClientPrefs.data.customChartPlayer != "NONE" && pureChartMode) || !pureChartMode)boyfriendGroup.add(boyfriend);
 		
 		if(stageData.objects != null && stageData.objects.length > 0)
 		{
@@ -782,14 +773,18 @@ class PlayState extends MusicBeatState
 		botplayTxt.scrollFactor.set();
 		botplayTxt.borderSize = 1.25;
 		botplayTxt.visible = cpuControlled;
+		botplayTxt.antialiasing = ClientPrefs.data.antialiasing;
 		uiGroup.add(botplayTxt);
 
-		replayTxt = new FlxText(400, healthBar.y + (ClientPrefs.data.downScroll ? 100 : -150), FlxG.width - 800, "REPLAY MODE", 32);
-		replayTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, OUTLINE, FlxColor.BLACK);
-		replayTxt.scrollFactor.set();
-		replayTxt.borderSize = 1.25;
-		replayTxt.visible = false;
-		uiGroup.add(replayTxt);
+		if (inReplay && ClientPrefs.data.legacyReplay && rep != null)
+			rep.createReplayUI(this);
+
+		frameReplayTxt = new FlxText(400, healthBar.y - 90, FlxG.width - 800, "REPLAY", 32);
+		frameReplayTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		frameReplayTxt.scrollFactor.set();
+		frameReplayTxt.borderSize = 1.25;
+		frameReplayTxt.visible = inReplay && frameRep != null;
+		uiGroup.add(frameReplayTxt);
 
 		// Instantiate modular UI objects (migrated to objects/)
 		healthTextObj = new objects.HealthText(this);
@@ -842,7 +837,10 @@ class PlayState extends MusicBeatState
 		createModInfoBox();
 
 		if(ClientPrefs.data.downScroll)
+		{
 			botplayTxt.y = healthBar.y + 70;
+			frameReplayTxt.y = healthBar.y + 70;
+		}
 		
 		videoGroup.cameras = [camHUD];
 		uiGroup.cameras = [camHUD];
@@ -928,7 +926,18 @@ class PlayState extends MusicBeatState
 
 		super.create();
 		if (!loadRep && !inReplay)
-			rep = new Replay("");
+		{
+			if (ClientPrefs.data.legacyReplay)
+			{
+				rep = new LegacyReplay("");
+				rep.startRecording();
+			}
+			else
+			{
+				frameRep = new FrameReplay("");
+				frameRep.startRecording();
+			}
+		}
 
 		// 使用新的 JudgementCounter 模块替代旧的 createCounterUI
 		if (judgementCounterObj == null && !isSplitCoopMode()) judgementCounterObj = new objects.JudgementCounter(this);
@@ -2115,11 +2124,6 @@ public function reloadCounterColors()
 
 	override public function update(elapsed:Float)
 	{
-	if (inReplay && !paused && !endingSong && !startingSong && generatedMusic)
-    {
-        processReplayNotes(elapsed);
-    }
-    
 	if(ClientPrefs.data.skipDeath&& health <=0)  
 	{	
 		openPauseMenu();
@@ -2142,12 +2146,27 @@ public function reloadCounterColors()
 
 		super.update(elapsed);
 
+		if (loadRep && frameRep != null && !paused && !endingSong && !startingSong && generatedMusic && rep == null)
+		{
+			frameRep.processReplayFrames(Conductor.songPosition, this);
+		}
+		else if (loadRep && rep != null && !paused && !endingSong && !startingSong && generatedMusic && frameRep == null)
+		{
+			rep.processReplayNotes(this);
+		}
+
+		if (!loadRep && !inReplay && frameRep != null && !practiceMode && !cpuControlled && generatedMusic)
+			frameRep.recordFrame(Conductor.songPosition, songSpeed, playbackRate, keysArray);
+
 		setOnScripts('curDecStep', curDecStep);
 		setOnScripts('curDecBeat', curDecBeat);
 
 		if(botplayTxt != null && botplayTxt.visible) {
 			botplaySine += 180 * elapsed;
 			botplayTxt.alpha = 1 - Math.sin((Math.PI * botplaySine) / 180);
+		}
+		if (frameReplayTxt != null && frameReplayTxt.visible) {
+			frameReplayTxt.alpha = 1 - Math.sin((Math.PI * botplaySine) / 180);
 		}
 
  		if (controls.PAUSE && startedCountdown && canPause || FlxG.mouse.justPressedRight || FlxG.mouse.justPressedMiddle)
@@ -2946,14 +2965,23 @@ public function reloadCounterColors()
 			}
 
 			// ========== 保存回放数据（普通游戏模式） ==========
-			if (!loadRep && !inReplay && rep != null && !practiceMode && !cpuControlled && ClientPrefs.data.saveReplays)
+			if (!loadRep && !inReplay && !practiceMode && !cpuControlled && ClientPrefs.data.saveReplays)
 			{
 				try
 				{
-					rep.replay.opponentMode = opponentMode; // 设置游戏模式
-					rep.finishRecording();
-					rep.SaveReplay(rep.replay.songNotes, rep.replay.songJudgements, rep.replay.ana);
-					trace('Replay saved successfully with ' + rep.replay.songNotes.length + ' notes');
+						if (ClientPrefs.data.legacyReplay)
+						{
+							rep.replay.opponentMode = opponentMode;
+							rep.finishRecording();
+							rep.SaveReplay(rep.replay.songNotes, rep.replay.songJudgements, rep.replay.ana);
+							trace('Legacy replay saved successfully with ' + rep.replay.songNotes.length + ' notes');
+						}
+						else
+						{
+							frameRep.finishRecording(this);
+							frameRep.SaveReplay();
+							trace('Frame replay saved successfully with ' + frameRep.replay.frameData.length + ' frames');
+						}
 				}
 				catch (e:Dynamic)
 				{
@@ -3033,9 +3061,9 @@ public function reloadCounterColors()
 					}
 				});
 				
-				// 找到第一个.kadeReplay文件
+				// 找到第一个新版或旧版回放文件
 				for (file in files) {
-					if (file.endsWith(".kadeReplay")) {
+					if (file.endsWith(".replay") || file.endsWith(".kadeReplay")) {
 						trace('Found latest replay: $file');
 						return file;
 					}
@@ -3060,16 +3088,15 @@ public function reloadCounterColors()
 		// 清理回放相关变量
 		if (loadRep || inReplay)
 		{
+			if (rep != null) rep.clearPlayback();
 			loadRep = false;
 			inReplay = false;
 			rep = null;
-			replayNoteQueue = [];
-			repNoteIndex = 0;
+			frameRep = null;
 			replayFileName = null;
-			
-			if (replayTxt != null)
+			if (frameReplayTxt != null)
 			{
-				replayTxt.visible = false;
+				frameReplayTxt.visible = false;
 			}
 		}
 		
@@ -3831,6 +3858,7 @@ public function reloadCounterColors()
 	{
 		if(cpuControlled || paused || inCutscene || key < 0 || !generatedMusic || endingSong || boyfriend.stunned) return;
 		if (!inReplay && (loadRep)) return; // 只在非replay模式下跳过loadRep
+		recordFrameInput(key, keyBindIndex, true);
 
 		if (keyboardViewer != null) {
 			keyboardViewer.pressed(key, keyBindIndex >= 0 ? keyBindIndex : 0);
@@ -3913,6 +3941,7 @@ public function reloadCounterColors()
 	public function keyReleased(key:Int, ?keyBindIndex:Int = 0)
 	{
 		if(cpuControlled || !startedCountdown || paused || key < 0) return;
+		recordFrameInput(key, keyBindIndex, false);
 
 		if (keyboardViewer != null) {
 			keyboardViewer.released(key, keyBindIndex >= 0 ? keyBindIndex : 0);
@@ -3927,6 +3956,21 @@ public function reloadCounterColors()
 			spr.resetAnim = 0;
 		}
 		callOnScripts('onKeyRelease', [key]);
+	}
+
+	private function recordFrameInput(key:Int, keyBindIndex:Int, pressed:Bool):Void
+	{
+		if (loadRep || inReplay || frameRep == null || ClientPrefs.data.legacyReplay ||
+			key < 0 || key >= keysArray.length) return;
+
+		var bindNames:Array<String> = keysArray.length == 4
+			? ['note_left', 'note_down', 'note_up', 'note_right']
+			: keysArray;
+		var binds:Array<FlxKey> = Controls.instance.keyboardBinds.get(bindNames[key]);
+		if (binds == null || binds.length == 0) return;
+
+		var bindIndex:Int = keyBindIndex >= 0 && keyBindIndex < binds.length ? keyBindIndex : 0;
+		frameRep.recordInput(binds[bindIndex], pressed);
 	}
 
 	public static function getKeyFromEvent(arr:Array<String>, key:FlxKey):Int
@@ -4100,9 +4144,13 @@ public function reloadCounterColors()
 		}
 		
 		// ========== 回放录制 ==========
-		if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
+		if (!loadRep && !cpuControlled && !practiceMode && !inReplay &&
+			((ClientPrefs.data.legacyReplay && rep != null) || (!ClientPrefs.data.legacyReplay && frameRep != null)))
 		{
-			rep.recordMiss(daNote.noteData, daNote.strumTime);
+			if (ClientPrefs.data.legacyReplay)
+				rep.recordMiss(daNote.noteData, daNote.strumTime);
+			else
+				frameRep.recordMiss(daNote.noteData, daNote.strumTime);
 			//trace('Replay recorded miss at strumTime: ' + daNote.strumTime);
 		}
 	}
@@ -4117,9 +4165,13 @@ public function reloadCounterColors()
 		callOnScripts('noteMissPress', [direction]);
 
 		    // ========== 回放录制 ==========
-        if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
+		if (!loadRep && !cpuControlled && !practiceMode && !inReplay &&
+			((ClientPrefs.data.legacyReplay && rep != null) || (!ClientPrefs.data.legacyReplay && frameRep != null)))
     {
-        rep.recordMiss(direction, Conductor.songPosition);
+		if (ClientPrefs.data.legacyReplay)
+			rep.recordMiss(direction, Conductor.songPosition);
+		else
+			frameRep.recordMiss(direction, Conductor.songPosition);
     }
 	}
 
@@ -4458,15 +4510,21 @@ public function reloadCounterColors()
 				targetHitErrorBar.registerHit(hitTime);
 			}
 		}
-		if (rep != null && !loadRep && !cpuControlled && !practiceMode && !inReplay)
+		if (!loadRep && !cpuControlled && !practiceMode && !inReplay &&
+			((ClientPrefs.data.legacyReplay && rep != null) || (!ClientPrefs.data.legacyReplay && frameRep != null)))
 		{
 			// 记录真实击打时差，sustain note 也应保留实际偏移
 			var diffToRecord = rawNoteDiff;
 			if (isSus)
 			{
 				var judge = "";
-				rep.judgementRecording.push(judge);
-				rep.noteRecording.push([note.strumTime, note.sustainLength, note.noteData, diffToRecord]);
+				if (ClientPrefs.data.legacyReplay)
+					rep.recordHit(note.strumTime, note.noteData, note.sustainLength, diffToRecord, judge);
+				else
+				{
+					frameRep.recordJudgement(judge);
+					frameRep.recordNote(note.strumTime, note.noteData, note.sustainLength, diffToRecord);
+				}
 			}
 			
 			if (!isSus)
@@ -4483,8 +4541,13 @@ public function reloadCounterColors()
 				else if (absDiff <= badWindow) judge = "bad";
 				else judge = "shit";
 				
-				rep.judgementRecording.push(judge);
-				rep.noteRecording.push([note.strumTime, note.sustainLength, note.noteData, rawNoteDiff]);
+				if (ClientPrefs.data.legacyReplay)
+					rep.recordHit(note.strumTime, note.noteData, note.sustainLength, rawNoteDiff, judge);
+				else
+				{
+					frameRep.recordJudgement(judge);
+					frameRep.recordNote(note.strumTime, note.noteData, note.sustainLength, rawNoteDiff);
+				}
 			}
 		}
 	}
@@ -4564,9 +4627,6 @@ public function reloadCounterColors()
 
 		NoteSplash.configs.clear();
 		instance = null;
-
-		inReplay = false;
-		loadRep = false;
 
 		if (modInfoBox != null)
 		{
@@ -5072,331 +5132,6 @@ public function reloadCounterColors()
         trace('No ModInfoBox for song: ${SONG.song}');
     }
 }
-
-	private function initReplayData():Void
-	{
-		if (rep == null || rep.replay == null || rep.replay.songNotes == null)
-		{
-			trace('ERROR: Replay data is null or invalid!');
-			inReplay = false;
-			return;
-		}
-		
-		// 清空队列
-		replayNoteQueue = [];
-		repNoteIndex = 0;
-		lastReplayTime = 0;
-		
-		// 解析回放音符数据
-		for (i in 0...rep.replay.songNotes.length)
-		{
-			var noteData:Array<Dynamic> = rep.replay.songNotes[i];
-			if (noteData == null || noteData.length < 4) continue;
-			
-			// 数组格式: [strumTime, sustainLength, column, diff, isMiss, processed]
-			var replayNote:Array<Dynamic> = [
-				noteData[0],                     // 0: strumTime (音符出现时间)
-				noteData[1],                     // 1: sustainLength (长条长度)
-				Std.int(noteData[2] % 4),        // 2: column (按键列)
-				noteData[3],                     // 3: diff (击打时间差)
-				(noteData[3] >= 9999),           // 4: isMiss (是否失误)
-				false                            // 5: processed (是否已处理)
-			];
-			
-			replayNoteQueue.push(replayNote);
-			
-			//trace('Replay Note ${i}: time=${replayNote[0]}, col=${replayNote[2]}, ' +
-				// 'sus=${replayNote[1]}, diff=${replayNote[3]}, ' +
-				// 'miss=${replayNote[4]}');
-		}
-		
-		// 按时间排序
-		replayNoteQueue.sort(function(a:Array<Dynamic>, b:Array<Dynamic>):Int
-		{
-			return Std.int(a[0] - b[0]); // 按strumTime排序
-		});
-		
-		//trace('Loaded ${replayNoteQueue.length} replay notes');
-	}
-
-	/**
-	 * 创建回放UI界面
-	 */
-	private function createReplayUI():Void
-	{
-		if (!inReplay) return;
-		
-		//trace('Creating replay UI...');
-		
-		try {
-			// 创建回放文字显示
-			replayTxt = new FlxText(0, 0, FlxG.width, "REPLAY MODE", 32);
-			replayTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.YELLOW, CENTER, 
-							OUTLINE, FlxColor.BLACK);
-			replayTxt.scrollFactor.set();
-			replayTxt.borderSize = 2;
-			replayTxt.alpha = 0.8;
-			
-			// 添加文字到组
-			uiGroup.add(replayTxt);
-			replayTxt.visible = true;
-			
-			// 根据滚动方向调整位置
-			if (ClientPrefs.data.downScroll) {
-				replayTxt.y = healthBar != null ? healthBar.y - 100 : FlxG.height - 150;
-			} else {
-				replayTxt.y = healthBar != null ? healthBar.y + 100 : 50;
-			}
-			
-			//trace('Replay UI created successfully at y=${replayTxt.y}');
-		} catch (e:Dynamic) {
-			trace('ERROR creating replay UI: $e');
-			trace('Stack: ${e.stack}');
-		}
-	}
-
-	/**
-	 * 主回放处理函数 - 每帧调用
-	 */
-	private function processReplayNotes(elapsed:Float):Void
-	{
-		if (!inReplay || !generatedMusic) {
-			return;
-		}
-		
-		if (replayNoteQueue.length == 0 || repNoteIndex >= replayNoteQueue.length) {
-			return;
-		}
-		
-		var currentTime:Float = Conductor.songPosition;
-		var realCurrentTime:Float = currentTime + Conductor.offset; // 考虑offset
-		
-		// 每50个音符更新一次UI，避免过于频繁
-		updateReplayUI(currentTime);
-		
-		// 调试信息：每2秒打印一次状态
-		#if debug
-		if (Math.floor(currentTime / 2000) > Math.floor(lastReplayTime / 2000)) {
-			trace('Replay status at ${currentTime}ms: ${repNoteIndex}/${replayNoteQueue.length} notes processed');
-		}
-		#end
-		
-		lastReplayTime = currentTime;
-		
-		// 处理所有到期的回放音符
-		var processedCount:Int = 0;
-		while (repNoteIndex < replayNoteQueue.length && processedCount < 100)
-		{
-			var replayNote:Array<Dynamic> = replayNoteQueue[repNoteIndex];
-			if (replayNote == null || replayNote.length < 6) {
-				repNoteIndex++;
-				continue;
-			}
-
-			var noteStrTime:Float = replayNote[0];
-			var diff:Float = replayNote[3];
-			var actualHitTime:Float = noteStrTime + diff;
-			var isMiss:Bool = replayNote[4];
-			var processed:Bool = replayNote[5];
-
-			if (processed) {
-				repNoteIndex++;
-				continue;
-			}
-
-			// 先根据实际击打时间决定是否继续处理
-			if (actualHitTime > realCurrentTime + 2) {
-				break;
-			}
-
-			if (realCurrentTime - actualHitTime > Conductor.safeZoneOffset) {
-				replayNoteQueue[repNoteIndex][5] = true;
-				repNoteIndex++;
-				continue;
-			}
-
-			if (!isMiss) {
-				processReplayHit(replayNote, realCurrentTime);
-			}
-
-			replayNoteQueue[repNoteIndex][5] = true;
-			repNoteIndex++;
-			processedCount++;
-		}
-		
-		// 如果没有更多音符，结束回放
-		if (repNoteIndex >= replayNoteQueue.length && inReplay)
-		{
-			trace('Replay finished! All notes processed.');
-			completeReplay();
-		}
-	}
-
-	/**
-	 * 处理回放打击 (hit)
-	 */
-	private function processReplayHit(replayNote:Array<Dynamic>, currentTime:Float):Void
-	{
-		var noteStrTime:Float = replayNote[0];
-		var sustainLength:Float = replayNote[1];
-		var column:Int = replayNote[2];
-		var diff:Float = replayNote[3];
-	var actualHitTime:Float = noteStrTime - diff;
-
-		var strum:StrumNote = playerStrums.members[column];
-		if (strum != null)
-		{
-			strumPlayAnim(false, Std.int(Math.abs(column)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
-		}
-
-		var targetNote:Note = findNoteAtOriginalTime(noteStrTime, column);
-		if (targetNote != null)
-		{
-			var timeDiff:Float = currentTime - targetNote.strumTime;
-			if (Math.abs(timeDiff) < Conductor.safeZoneOffset)
-			{
-				goodNoteHit(targetNote, diff);
-			}
-			else
-			{
-				goodNoteHit(targetNote, diff);
-			}
-			if (sustainLength > 0)
-			{
-				processSustainNotes(targetNote, replayNote);
-			}
-		}
-		else
-		{
-			var animName:String = singAnimations[column];
-			if (boyfriend != null && boyfriend.hasAnimation(animName))
-			{
-				boyfriend.playAnim(animName, true);
-				boyfriend.holdTimer = 0;
-			}
-		}
-	}
-
-	/**
-	 * 基于音符的原始出现时间查找音符（关键修复）
-	 */
-	private function findNoteAtOriginalTime(targetTime:Float, column:Int):Note
-	{
-		var bestNote:Note = null;
-		var minTimeDiff:Float = 9999;
-		
-		notes.forEachAlive(function(daNote:Note)
-		{
-			if (!daNote.mustPress ||
-				daNote.wasGoodHit ||
-				daNote.tooLate ||
-				!daNote.canBeHit ||
-				daNote.noteData != column)
-				return;
-			
-			var timeDiff:Float = Math.abs(daNote.strumTime - targetTime);
-			if (timeDiff < minTimeDiff)
-			{
-				minTimeDiff = timeDiff;
-				bestNote = daNote;
-			}
-		});
-		
-		if (bestNote == null)
-		{
-			var fallbackDiff:Float = Conductor.safeZoneOffset;
-			notes.forEachAlive(function(daNote:Note)
-			{
-				if (!daNote.mustPress ||
-					daNote.wasGoodHit ||
-					daNote.tooLate ||
-					daNote.noteData != column)
-					return;
-				
-				var timeDiff:Float = Math.abs(daNote.strumTime - targetTime);
-				if (timeDiff < fallbackDiff)
-				{
-					fallbackDiff = timeDiff;
-					bestNote = daNote;
-				}
-			});
-		}
-		
-		return bestNote;
-	}
-
-
-	/**
-	 * 处理长条音符
-	 */
-	private function processSustainNotes(parentNote:Note, replayNote:Array<Dynamic>):Void
-	{
-		if (parentNote == null || replayNote[1] <= 0)
-			return;
-		
-		// 处理长条音符
-		var sustainTime:Float = replayNote[1];
-		var column:Int = replayNote[2];
-		var strum:StrumNote = playerStrums.members[column];
-		if (sustainTime > 0)
-		{
-		strumPlayAnim(false, Std.int(Math.abs(column)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
-			//trace('Note has sustain: ${sustainTime}ms');
-		}
-	}
-
-	/**
-	 * 更新回放UI显示
-	 */
-	private function updateReplayUI(currentTime:Float):Void
-	{
-		if (replayTxt == null) {
-			// 尝试重新创建UI
-			if (inReplay) {
-				createReplayUI();
-			}
-			return;
-		}
-		
-		try {
-			var totalNotes:Int = replayNoteQueue.length;
-			var progress:Float = totalNotes > 0 ? (repNoteIndex / totalNotes) * 100 : 100;
-			
-			// 添加时间信息
-			var timeStr:String = FlxStringUtil.formatTime(Math.floor(currentTime / 1000), false);
-			
-			replayTxt.text = 'REPLAY MODE\n${Math.round(progress)}% (${repNoteIndex}/${totalNotes})\n${timeStr}';
-			replayTxt.screenCenter(X);
-			replayTxt.visible = true;
-		} catch (e:Dynamic) {
-			trace('ERROR updating replay UI: $e');
-		}
-	}
-
-	/**
-	 * 完成回放
-	 */
-	private function completeReplay():Void
-	{
-		trace('Completing replay...');
-		
-		if (replayTxt != null)
-		{
-			replayTxt.text = 'REPLAY COMPLETE!';
-			replayTxt.color = FlxColor.GREEN;
-			
-			// 3秒后隐藏
-			new FlxTimer().start(3, function(tmr:FlxTimer)
-			{
-				if (replayTxt != null) {
-					replayTxt.visible = false;
-				}
-			});
-		}
-		
-		// 可以选择自动退出回放模式
-		inReplay = false;
-	}
 
 	/**
 	 * 获取UI文件夹路径和抗锯齿设置

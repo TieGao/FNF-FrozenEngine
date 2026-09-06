@@ -8,7 +8,8 @@ import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
 import flixel.sound.FlxSound;
 
-import backend.Replay;
+import backend.LegacyReplay as LegacyReplay;
+import backend.Replay as FrameReplay;
 import backend.HitGraph;
 import backend.OFLSprite;
 
@@ -40,7 +41,8 @@ class ResultsScreen extends MusicBeatSubstate
     
     // 模式标识
     var mode:ResultsMode;
-    var loadedReplay:Replay = null;
+    var loadedReplay:LegacyReplay = null;
+    var loadedFrameReplay:FrameReplay = null;
     
     // 存储游戏统计数据
     var gameStats:Dynamic = null;
@@ -307,9 +309,10 @@ class ResultsScreen extends MusicBeatSubstate
         // 根据模式加载数据
         switch(mode) {
             case NORMAL, REPLAY_END:
-                if (mode == REPLAY_END && PlayState.rep != null) {
+                if (mode == REPLAY_END && (PlayState.rep != null || PlayState.frameRep != null)) {
                     loadReplayData();
-                } else if (PlayState.rep != null && PlayState.rep.replay != null) {
+                } else if ((PlayState.rep != null && PlayState.rep.replay != null) ||
+                    (PlayState.frameRep != null && PlayState.frameRep.replay != null)) {
                     loadRealHitData();
                 }
                 updateUIForGameResults();
@@ -326,17 +329,22 @@ class ResultsScreen extends MusicBeatSubstate
     {
         trace('Loading replay data for REPLAY_END mode');
         
-        // 从 PlayState.rep 获取回放数据
         loadedReplay = PlayState.rep;
-        
-        if (loadedReplay == null || !loadedReplay.isValid()) {
+        loadedFrameReplay = PlayState.frameRep;
+
+        if (loadedReplay != null && loadedReplay.isValid()) {
+            loadRealHitData();
+            buildStatsFromReplay();
+        }
+        else if (loadedFrameReplay != null && loadedFrameReplay.isValid()) {
+            loadRealHitData();
+            buildStatsFromFrameReplay();
+        }
+        else {
             trace('Cannot load replay from PlayState.rep');
             showError("Cannot load replay data!");
             return;
         }
-        
-        // 加载数据到图表
-        loadRealHitData();
         
         trace('Replay data loaded successfully');
     }
@@ -347,6 +355,9 @@ class ResultsScreen extends MusicBeatSubstate
             // 如果 gameStats 为空，尝试从回放数据构建
             if (loadedReplay != null) {
                 buildStatsFromReplay();
+            }
+            else if (loadedFrameReplay != null) {
+                buildStatsFromFrameReplay();
             }
             return;
         }
@@ -453,6 +464,55 @@ class ResultsScreen extends MusicBeatSubstate
         }
     }
 
+    function buildStatsFromFrameReplay():Void
+    {
+        if (loadedFrameReplay == null) return;
+
+        var rep = loadedFrameReplay.replay;
+        var marvelous:Int = 0;
+        var sicks:Int = 0;
+        var goods:Int = 0;
+        var bads:Int = 0;
+        var shits:Int = 0;
+        if (rep.songJudgements != null) {
+            for (judge in rep.songJudgements) {
+                switch (judge.toLowerCase()) {
+                    case "marvelous": marvelous++;
+                    case "sick": sicks++;
+                    case "good": goods++;
+                    case "bad": bads++;
+                    case "shit": shits++;
+                }
+            }
+        }
+
+        var misses:Int = rep.finalMisses;
+        var totalNotes:Int = marvelous + sicks + goods + bads + shits + misses;
+        var totalHits:Int = totalNotes - misses;
+        gameStats = {
+            songName: rep.songName,
+            score: rep.finalScore,
+            accuracy: rep.finalAccuracy,
+            marvelous: marvelous,
+            sicks: sicks,
+            goods: goods,
+            bads: bads,
+            shits: shits,
+            misses: misses,
+            highestCombo: totalHits,
+            totalNotes: totalNotes,
+            totalNotesHit: totalHits,
+            ratingName: rep.finalRating,
+            ratingFC: rep.finalRatingFC,
+            playbackRate: 1.0,
+            difficultyName: rep.difficultyName,
+            isFullCombo: misses == 0,
+            isPerfectClear: misses == 0 && shits == 0 && bads == 0
+        };
+
+        if (mode == REPLAY_END) text.text = 'REPLAY FINISHED: ${rep.songName}';
+    }
+
     function initMusic()
     {
         // 停止当前音乐
@@ -535,7 +595,7 @@ class ResultsScreen extends MusicBeatSubstate
 
     function loadRealHitData()
     {
-        var rep = PlayState.rep.replay;
+        var rep:Dynamic = PlayState.rep != null ? PlayState.rep.replay : PlayState.frameRep.replay;
         var playbackRate = PlayState.instance != null ? PlayState.instance.playbackRate : 1.0;
         
         for (i in 0...rep.songNotes.length)
@@ -736,7 +796,7 @@ class ResultsScreen extends MusicBeatSubstate
         FlxG.cameras.remove(camResults);
         
         // 设置回放录制模式
-        var rep = new Replay("");
+        var rep = new LegacyReplay("");
         if (PlayState.chartCategory != null)
         {
             Paths.currentChartCategory = PlayState.chartCategory;
