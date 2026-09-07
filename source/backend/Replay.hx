@@ -10,6 +10,7 @@ import flixel.input.FlxInput;
 
 import haxe.Json;
 import states.PlayState;
+import objects.Note;
 
 // ========== 数据结构 ==========
 
@@ -20,6 +21,18 @@ typedef FrameSave = {
     var time:Float;
     var pressKey:Array<String>;
     var releaseKey:Array<String>;
+    @:optional var noteJudgments:Array<NoteJudgment>; // 高保真模式：预录制判定
+}
+
+/**
+ * 单条判定记录
+ */
+typedef NoteJudgment = {
+    var strumTime:Float;
+    var noteData:Int;
+    var hitDiff:Float;
+    var rating:String;
+    var isSustain:Bool;
 }
 
 /**
@@ -38,10 +51,8 @@ typedef ReplayData = {
     var noteSpeed:Float;
     var sf:Float;
     
-    // 核心数据 - 帧序列
+    // 核心数据 - 帧序列 (包含判定)
     var frameData:Array<FrameSave>;
-    var songNotes:Array<Array<Dynamic>>;
-    var songJudgements:Array<String>;
     
     // 结果统计 (仅用于显示，不作为判定依据)
     var finalScore:Int;
@@ -79,15 +90,24 @@ class Replay
     
     /** 上一次回放的时间 (用于速度同步) */
     private var lastReplayTime:Float = Math.NaN;
+
+        /** 高保真判定映射 */
+    public var hasJudgments(default, null):Bool = false;
+    private var judgmentMap:Map<String, NoteJudgment> = new Map<String, NoteJudgment>();
+    public var replayVersion(default, null):Int = 1;
     
     /** 录制相关 */
     private var isRecording:Bool = false;
     private var frameData:Array<FrameSave> = [];
     private var recordTick:Int = 0;
-    private var noteRecording:Array<Array<Dynamic>> = [];
-    private var judgementRecording:Array<String> = [];
     private var pendingPressKeys:Array<String> = [];
     private var pendingReleaseKeys:Array<String> = [];
+    private var pendingJudgments:Array<NoteJudgment> = [];
+    private var frameBuffer:Array<FrameSave> = [];
+    
+    /** 键名到lane的映射 (用于回放) */
+    private var keyToLane:Map<FlxKey, Int> = null;
+    private var laneCount:Int = 0;
     
     /** 缓存的键名列表 (用于快速遍历) */
     private static var cachedKeyNames:Array<String> = null;
@@ -116,8 +136,6 @@ class Replay
             noteSpeed: 1.5,
             sf: 10.0,
             frameData: [],
-            songNotes: [],
-            songJudgements: [],
             finalScore: 0,
             finalMisses: 0,
             finalAccuracy: 0,
@@ -142,21 +160,69 @@ class Replay
     {
         isRecording = true;
         frameData = [];
+        frameBuffer = [];
         recordTick = 0;
-        noteRecording = [];
-        judgementRecording = [];
         pendingPressKeys = [];
         pendingReleaseKeys = [];
-        trace('Started recording replay');
+        pendingJudgments = [];
+        judgmentMap = new Map<String, NoteJudgment>();
+        trace('Started recording replay v${version}');
     }
     
     public function stopRecording():Void
     {
         isRecording = false;
-        trace('Stopped recording replay, ${frameData.length} frames recorded');
+        flushFrameBuffer();
+        trace('Stopped recording replay, ${frameData.length} frames recorded, ${getTotalJudgments()} judgments');
     }
     
-    public function recordFrame(currentTime:Float, songSpeed:Float, playbackRate:Float, keysArray:Array<String>):Void
+    /**
+     * 刷新帧缓冲区 - 将缓冲的输入写入帧数据
+     */
+    private function flushFrameBuffer():Void
+    {
+        if (frameBuffer.length > 0) {
+            mergeFrames(frameBuffer);
+            frameData = frameData.concat(frameBuffer);
+            frameBuffer = [];
+        }
+    }
+    
+    /**
+     * 合并连续的帧 (减少冗余数据)
+     */
+    private function mergeFrames(frames:Array<FrameSave>):Void
+    {
+        if (frames.length <= 1) return;
+        
+        var merged:Array<FrameSave> = [];
+        var current:FrameSave = frames[0];
+        
+        for (i in 1...frames.length) {
+            var next = frames[i];
+            if (Math.abs(next.time - current.time) < 5) {
+                for (key in next.pressKey) {
+                    if (!current.pressKey.contains(key)) current.pressKey.push(key);
+                }
+                for (key in next.releaseKey) {
+                    if (!current.releaseKey.contains(key)) current.releaseKey.push(key);
+                }
+                if (next.noteJudgments != null) {
+                    if (current.noteJudgments == null) current.noteJudgments = [];
+                    current.noteJudgments = current.noteJudgments.concat(next.noteJudgments);
+                }
+            } else {
+                merged.push(current);
+                current = next;
+            }
+        }
+        merged.push(current);
+        
+        frames.resize(0);
+        for (f in merged) frames.push(f);
+    }
+    
+    public function recordFrame(currentTime:Float, keysArray:Array<String>):Void
     {
         if (!isRecording) return;
 
@@ -194,7 +260,17 @@ class Replay
             releaseKey: releaseKey
         };
         
-        frameData.push(frame);
+        // 高保真模式：携带判定数据
+        if (pendingJudgments.length > 0 && ClientPrefs.data.replayQuality) {
+            frame.noteJudgments = pendingJudgments.copy();
+            pendingJudgments = [];
+        }
+        
+        frameBuffer.push(frame);
+        
+        if (frameBuffer.length >= 60) {
+            flushFrameBuffer();
+        }
     }
 
     public function recordInput(key:FlxKey, pressed:Bool):Void
@@ -206,28 +282,22 @@ class Replay
         if (!target.contains(keyName)) target.push(keyName);
     }
 
-    public function recordNote(strumTime:Float, noteData:Int, sustainLength:Float, diff:Float):Void
+    /**
+     * 记录Note判定 (高保真)
+     */
+    public function recordJudgment(strumTime:Float, noteData:Int, hitDiff:Float, rating:String, isSustain:Bool):Void
     {
-        if (isRecording) noteRecording.push([
-            roundToTwo(strumTime),
-            roundToTwo(sustainLength),
-            noteData,
-            roundToTwo(diff)
-        ]);
+        if (!isRecording || !ClientPrefs.data.replayQuality) return;
+        
+        pendingJudgments.push({
+            strumTime: roundToTwo(strumTime),
+            noteData: noteData,
+            hitDiff: roundToTwo(hitDiff),
+            rating: rating,
+            isSustain: isSustain
+        });
     }
 
-    public function recordMiss(noteData:Int, strumTime:Float):Void
-    {
-        if (!isRecording) return;
-        noteRecording.push([roundToTwo(strumTime), 0, noteData, -10000]);
-        judgementRecording.push("miss");
-    }
-
-    public function recordJudgement(judge:String):Void
-    {
-        if (isRecording) judgementRecording.push(judge);
-    }
-    
     private function isGameKey(keyName:String, keysArray:Array<String>):Bool
     {
         var targetKey:FlxKey = FlxKey.toStringMap.get(keyName);
@@ -259,6 +329,7 @@ class Replay
     public function finishRecording(playState:PlayState):Void
     {
         isRecording = false;
+        flushFrameBuffer();
         
         if (playState != null && PlayState.SONG != null) {
             replay.songName = PlayState.SONG.song;
@@ -289,12 +360,19 @@ class Replay
         }
         
         replay.frameData = frameData;
-        replay.songNotes = noteRecording;
-        replay.songJudgements = judgementRecording;
         replay.timestamp = Date.now();
         replay.replayGameVer = version;
         
-        trace('Finished recording replay: ${frameData.length} frames');
+        trace('Finished recording replay: ${frameData.length} frames, ${getTotalJudgments()} judgments');
+    }
+    
+    private function getTotalJudgments():Int
+    {
+        var count:Int = 0;
+        for (frame in frameData) {
+            if (frame.noteJudgments != null) count += frame.noteJudgments.length;
+        }
+        return count;
     }
     
     // ========== 保存方法 ==========
@@ -333,6 +411,7 @@ class Replay
             trace('File: $fileName');
             trace('Full Path: $fullFilePath');
             trace('Frames: ${replay.frameData.length}');
+            trace('Judgments: ${getTotalJudgments()}');
             trace('Mod: ${replay.modDirectory}');
             trace('====================');
             
@@ -362,6 +441,9 @@ class Replay
             replay = data;
             this.fullPath = filePath;
             
+            // 构建判定映射
+            buildJudgmentMap();
+            
             if (data.replayGameVer != version) {
                 trace('Warning: Replay version mismatch. Replay: ${data.replayGameVer}, Current: $version');
             }
@@ -374,6 +456,7 @@ class Replay
             trace('  Difficulty: ${data.difficultyName}');
             trace('  Mod: ${data.modDirectory}');
             trace('  Frames: ${data.frameData.length}');
+            trace('  Judgments: ${getTotalJudgments()}');
             trace('  Accuracy: ${data.finalAccuracy}%');
             trace('  File: $filePath');
             
@@ -381,6 +464,35 @@ class Replay
             trace('Failed to load replay: ' + e);
         }
         #end
+    }
+    
+    /**
+     * 构建判定映射 (用于快速查找)
+     */
+    private function buildJudgmentMap():Void
+    {
+        judgmentMap.clear();
+        hasJudgments = false;
+        
+        for (frame in replay.frameData) {
+            if (frame.noteJudgments != null) {
+                for (j in frame.noteJudgments) {
+                    var key:String = '${j.strumTime}_${j.noteData}';
+                    if (!judgmentMap.exists(key)) {
+                        judgmentMap.set(key, j);
+                    }
+                }
+                hasJudgments = true;
+            }
+        }
+    }
+    
+    /**
+     * 获取录制的判定 (用于回放时覆盖)
+     */
+    public function getRecordedJudgment(strumTime:Float, noteData:Int):NoteJudgment
+    {
+        return judgmentMap.get('${roundToTwo(strumTime)}_${noteData}');
     }
     
     private function findReplayFile(path:String):String
@@ -573,6 +685,33 @@ class Replay
         @:privateAccess
         FlxG.keys.update();
     }
+
+    public function shouldUseRecordedJudgment(note:Note):Bool
+    {
+        if (!hasJudgments || !ClientPrefs.data.replayQuality) return false;
+        return getRecordedJudgment(note.strumTime, note.noteData) != null;
+    }
+    
+    /**
+     * 获取强制判定并应用到 note
+     * 返回 true 表示使用了录制判定
+     */
+    public function applyRecordedJudgment(note:Note, ratingsData:Array<Rating>):Bool
+    {
+        var recorded:NoteJudgment = getRecordedJudgment(note.strumTime, note.noteData);
+        if (recorded == null) return false;
+        
+        // 查找对应的 Rating 对象
+        for (rating in ratingsData) {
+            if (rating.name == recorded.rating) {
+                note.rating = recorded.rating;
+                note.ratingMod = rating.ratingMod;
+                note.ratingDisabled = true; // 防止被重新计算
+                return true;
+            }
+        }
+        return false;
+    }
     
     // ========== 文件管理 ==========
     
@@ -627,11 +766,11 @@ class Replay
             
             if (FileSystem.isDirectory(fullPath)) {
                 for (file in FileSystem.readDirectory(fullPath)) {
-                    if (file.endsWith(".replay") || file.endsWith(".kadeReplay")) {
+                    if (file.endsWith(".replay")) {
                         allFiles.push(entry + "/" + file);
                     }
                 }
-            } else if (entry.endsWith(".replay") || entry.endsWith(".kadeReplay")) {
+            } else if (entry.endsWith(".replay")) {
                 allFiles.push(entry);
             }
         }
@@ -653,7 +792,7 @@ class Replay
         }
         
         for (file in FileSystem.readDirectory(dir)) {
-            if (file.endsWith(".replay") || file.endsWith(".kadeReplay")) {
+            if (file.endsWith(".replay")) {
                 var modDirName:String = (modName != null && modName.length > 0) ? modName : "";
                 if (modDirName.length > 0) {
                     files.push(modDirName + "/" + file);

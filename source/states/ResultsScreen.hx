@@ -313,7 +313,7 @@ class ResultsScreen extends MusicBeatSubstate
                     loadReplayData();
                 } else if ((PlayState.rep != null && PlayState.rep.replay != null) ||
                     (PlayState.frameRep != null && PlayState.frameRep.replay != null)) {
-                    loadRealHitData();
+                    loadHitData();
                 }
                 updateUIForGameResults();
         }
@@ -333,11 +333,11 @@ class ResultsScreen extends MusicBeatSubstate
         loadedFrameReplay = PlayState.frameRep;
 
         if (loadedReplay != null && loadedReplay.isValid()) {
-            loadRealHitData();
+            loadHitData();
             buildStatsFromReplay();
         }
         else if (loadedFrameReplay != null && loadedFrameReplay.isValid()) {
-            loadRealHitData();
+            loadHitData();
             buildStatsFromFrameReplay();
         }
         else {
@@ -468,20 +468,29 @@ class ResultsScreen extends MusicBeatSubstate
     {
         if (loadedFrameReplay == null) return;
 
+        // 使用新的 ReplayData 结构
         var rep = loadedFrameReplay.replay;
         var marvelous:Int = 0;
         var sicks:Int = 0;
         var goods:Int = 0;
         var bads:Int = 0;
         var shits:Int = 0;
-        if (rep.songJudgements != null) {
-            for (judge in rep.songJudgements) {
-                switch (judge.toLowerCase()) {
-                    case "marvelous": marvelous++;
-                    case "sick": sicks++;
-                    case "good": goods++;
-                    case "bad": bads++;
-                    case "shit": shits++;
+        
+        // 从 frameData 中提取判定信息
+        if (rep.frameData != null) {
+            for (frame in rep.frameData) {
+                if (frame.noteJudgments != null) {
+                    for (judgment in frame.noteJudgments) {
+                        var rating = judgment.rating.toLowerCase();
+                        switch (rating) {
+                            case "marvelous": marvelous++;
+                            case "sick": sicks++;
+                            case "good": goods++;
+                            case "bad": bads++;
+                            case "shit": shits++;
+                            default: // ignore
+                        }
+                    }
                 }
             }
         }
@@ -489,6 +498,7 @@ class ResultsScreen extends MusicBeatSubstate
         var misses:Int = rep.finalMisses;
         var totalNotes:Int = marvelous + sicks + goods + bads + shits + misses;
         var totalHits:Int = totalNotes - misses;
+        
         gameStats = {
             songName: rep.songName,
             score: rep.finalScore,
@@ -499,18 +509,20 @@ class ResultsScreen extends MusicBeatSubstate
             bads: bads,
             shits: shits,
             misses: misses,
-            highestCombo: totalHits,
+            highestCombo: totalHits, // 从FrameReplay无法精确计算连击，使用总命中数
             totalNotes: totalNotes,
             totalNotesHit: totalHits,
-            ratingName: rep.finalRating,
-            ratingFC: rep.finalRatingFC,
+            ratingName: rep.finalRating != null ? rep.finalRating : "N/A",
+            ratingFC: rep.finalRatingFC != null ? rep.finalRatingFC : "N/A",
             playbackRate: 1.0,
-            difficultyName: rep.difficultyName,
+            difficultyName: rep.difficultyName != null ? rep.difficultyName : "Normal",
             isFullCombo: misses == 0,
             isPerfectClear: misses == 0 && shits == 0 && bads == 0
         };
 
-        if (mode == REPLAY_END) text.text = 'REPLAY FINISHED: ${rep.songName}';
+        if (mode == REPLAY_END) {
+            text.text = 'REPLAY FINISHED: ${rep.songName}';
+        }
     }
 
     function initMusic()
@@ -593,42 +605,69 @@ class ResultsScreen extends MusicBeatSubstate
         return null;
     }
 
-    function loadRealHitData()
+    function loadHitData()
     {
-        var rep:Dynamic = PlayState.rep != null ? PlayState.rep.replay : PlayState.frameRep.replay;
-        var playbackRate = PlayState.instance != null ? PlayState.instance.playbackRate : 1.0;
-        
-        for (i in 0...rep.songNotes.length)
-        {
-            var obj = rep.songNotes[i];
-            if (obj == null) continue;
-
-            // safe-get judgement
-            var obj2:Dynamic = "";
-            if (rep.songJudgements != null && i < rep.songJudgements.length) obj2 = rep.songJudgements[i];
-
-            // ensure types and defaults
-            var diff:Float = 0;
-            var time:Float = 0;
-            var judge:String = "";
-
-            try {
-                if (obj.length > 3 && obj[3] != null) diff = Std.parseFloat(Std.string(obj[3]));
-            } catch(e:Dynamic) { diff = 0; }
-
-            try {
-                if (obj.length > 0 && obj[0] != null) time = Std.parseFloat(Std.string(obj[0]));
-            } catch(e:Dynamic) { time = 0; }
-
-            if (obj2 != null) {
-                try { judge = Std.string(obj2); } catch(e:Dynamic) { judge = ""; }
-            }
-
-            // only add if note is not a special -1 sustain marker
-            if (obj.length > 1 && obj[1] != -1) {
-                graph.addToHistory(diff / playbackRate, judge, time / playbackRate);
+        // 处理 LegacyReplay
+        if (PlayState.rep != null && PlayState.rep.replay != null) {
+            var rep = PlayState.rep.replay;
+            var playbackRate = PlayState.instance != null ? PlayState.instance.playbackRate : 1.0;
+            
+            if (rep.songNotes != null) {
+                for (i in 0...rep.songNotes.length) {
+                    var obj = rep.songNotes[i];
+                    if (obj == null) continue;
+                    
+                    // safe-get judgement
+                    var obj2:Dynamic = "";
+                    if (rep.songJudgements != null && i < rep.songJudgements.length) {
+                        obj2 = rep.songJudgements[i];
+                    }
+                    
+                    // ensure types and defaults
+                    var diff:Float = 0;
+                    var time:Float = 0;
+                    var judge:String = "";
+                    
+                    try {
+                        if (obj.length > 3 && obj[3] != null) diff = Std.parseFloat(Std.string(obj[3]));
+                    } catch(e:Dynamic) { diff = 0; }
+                    
+                    try {
+                        if (obj.length > 0 && obj[0] != null) time = Std.parseFloat(Std.string(obj[0]));
+                    } catch(e:Dynamic) { time = 0; }
+                    
+                    if (obj2 != null) {
+                        try { judge = Std.string(obj2); } catch(e:Dynamic) { judge = ""; }
+                    }
+                    
+                    // only add if note is not a special -1 sustain marker
+                    if (obj.length > 1 && obj[1] != -1) {
+                        graph.addToHistory(diff / playbackRate, judge, time / playbackRate);
+                    }
+                }
             }
         }
+        // 处理 FrameReplay (新的 Replay 系统)
+        else if (PlayState.frameRep != null && PlayState.frameRep.replay != null) {
+            var rep = PlayState.frameRep.replay;
+            var playbackRate = PlayState.instance != null ? PlayState.instance.playbackRate : 1.0;
+            
+            if (rep.frameData != null) {
+                for (frame in rep.frameData) {
+                    if (frame.noteJudgments != null) {
+                        for (judgment in frame.noteJudgments) {
+                            // 使用判定数据中的偏移和判定
+                            var diff = -judgment.hitDiff;
+                            var time = judgment.strumTime;
+                            var judge = judgment.rating;
+                            
+                            graph.addToHistory(diff / playbackRate, judge, time / playbackRate);
+                        }
+                    }
+                }
+            }
+        }
+        
         graph.update();
         if (graphSprite != null) {
             graphSprite.updateDisplay();
@@ -795,19 +834,38 @@ class ResultsScreen extends MusicBeatSubstate
         // 移除相机
         FlxG.cameras.remove(camResults);
         
-        // 设置回放录制模式
-        var rep = new LegacyReplay("");
-        if (PlayState.chartCategory != null)
-        {
-            Paths.currentChartCategory = PlayState.chartCategory;
-            Paths.currentChartDirectory = PlayState.chartDirectory;
-            Paths.currentChartHasVSliceMetadata = PlayState.chartHasVSliceMetadata;
-            Paths.currentChartAudioSuffix = PlayState.chartAudioSuffix;
+        // 根据配置选择回放类型
+        if (ClientPrefs.data.legacyReplay) {
+            // 使用 LegacyReplay
+            var rep = new LegacyReplay("");
+            if (PlayState.chartCategory != null)
+            {
+                Paths.currentChartCategory = PlayState.chartCategory;
+                Paths.currentChartDirectory = PlayState.chartDirectory;
+                Paths.currentChartHasVSliceMetadata = PlayState.chartHasVSliceMetadata;
+                Paths.currentChartAudioSuffix = PlayState.chartAudioSuffix;
+            }
+            PlayState.rep = rep;
+            PlayState.frameRep = null;
+            PlayState.loadRep = false;
+            PlayState.inReplay = false;
+            PlayState.replayFileName = null;
+        } else {
+            // 使用 FrameReplay (新系统)
+            var frameRep = new FrameReplay("");
+            if (PlayState.chartCategory != null)
+            {
+                Paths.currentChartCategory = PlayState.chartCategory;
+                Paths.currentChartDirectory = PlayState.chartDirectory;
+                Paths.currentChartHasVSliceMetadata = PlayState.chartHasVSliceMetadata;
+                Paths.currentChartAudioSuffix = PlayState.chartAudioSuffix;
+            }
+            PlayState.frameRep = frameRep;
+            PlayState.rep = null;
+            PlayState.loadRep = false;
+            PlayState.inReplay = false;
+            PlayState.replayFileName = null;
         }
-        PlayState.rep = rep;
-        PlayState.loadRep = false;
-        PlayState.inReplay = false;
-        PlayState.replayFileName = null;
         
         // 保留当前歌曲数据
         PlayState.isStoryMode = false;
