@@ -3239,11 +3239,27 @@ public function reloadCounterColors()
 			Paths.image(uiFolder + 'combo' + uiPostfix);
 		}
 	}
+
+	private function getReplayAwareNoteDiff(note:Note, suppliedDiff:Null<Float>):Float
+	{
+		if (suppliedDiff != null)
+			return suppliedDiff;
+
+		if (inReplay && frameRep != null && frameRep.hasJudgments)
+		{
+			var recorded:backend.Replay.NoteJudgment = frameRep.getRecordedJudgment(note.strumTime, note.noteData);
+			if (recorded != null)
+				return recorded.hitDiff;
+		}
+
+		return note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+	}
+
     private function popUpScore(note:Note = null, rawNoteDiff:Null<Float> = null, ?side:String):Void 
 	{
         if (combo >= highestCombo) highestCombo = combo;
 		var noteDiff:Float;
-		var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+		var effectiveNoteDiff:Float = getReplayAwareNoteDiff(note, rawNoteDiff);
         if(ClientPrefs.data.legacyReplay)
 		{
 		noteDiff = Math.abs(effectiveNoteDiff);
@@ -3251,18 +3267,17 @@ public function reloadCounterColors()
 		else
 		{
 		var recordedJudgment:backend.Replay.NoteJudgment = null;
-		if (inReplay && frameRep.hasJudgments)
+		if (inReplay && frameRep != null && frameRep.hasJudgments)
 			recordedJudgment = frameRep.getRecordedJudgment(note.strumTime, note.noteData);
 
 		if (recordedJudgment != null)
 		{
 			// Use the original player's actual hit timing from recording
-			noteDiff = recordedJudgment.hitDiff * playbackRate;
+			noteDiff = Math.abs(recordedJudgment.hitDiff);
 		}
 		else
 		{
-			noteDiff = inReplay ? note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset :
-			note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+			noteDiff = Math.abs(effectiveNoteDiff);
 		}
 		}
         vocals.volume = 1;
@@ -3462,7 +3477,7 @@ public function reloadCounterColors()
 				msText.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 			}
             
-            var msTiming:Float = Math.round(effectiveNoteDiff * 100) / 100;
+			var msTiming:Float = Math.round(-effectiveNoteDiff * 100) / 100;
             msText.text = (msTiming >= 0 ? "+" : "") + msTiming + Language.getPhrase('ms', 'ms');
             
             if (ClientPrefs.data.customColor)
@@ -4518,16 +4533,16 @@ public function reloadCounterColors()
 
 		if(!note.isSustainNote) invalidateNote(note);
 
-		var rawNoteDiff:Float = (replayRawNoteDiff != null) ? replayRawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+		var rawNoteDiff:Float = getReplayAwareNoteDiff(note, replayRawNoteDiff);
 
 		if (ClientPrefs.data.hitErrorBarVisible) {
 			var targetHitErrorBar:HitErrorBar = getSideHitErrorBar(note);
 			if (targetHitErrorBar != null && (!isSus)) {
 				var hitTime:Float = -rawNoteDiff;
-			if (inReplay && frameRep.hasJudgments)
+			if (inReplay && frameRep != null && frameRep.hasJudgments)
 			{
 				var recordedJudgment:backend.Replay.NoteJudgment = frameRep.getRecordedJudgment(note.strumTime, note.noteData);
-				hitTime = recordedJudgment != null ? recordedJudgment.hitDiff : hitTime;
+				hitTime = recordedJudgment != null ? -recordedJudgment.hitDiff : hitTime;
 			}
 			targetHitErrorBar.registerHit(hitTime);
 			}
@@ -5151,28 +5166,7 @@ public function reloadCounterColors()
 	 */
 	private function getUIFolderInfo():{folder:String, antialias:Bool}
 	{
-		var uiFolder:String = "";
-		var customUIPath:String = "";
-		var antialias:Bool = ClientPrefs.data.antialiasing;
-		
-		// 获取自定义UI路径（如果存在）
-		if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI != "")
-		{
-			customUIPath = ClientPrefs.data.customUI + "/";
-		}
-		
-		if (stageUI != "normal")
-		{
-			// 优先使用自定义UI路径，否则使用默认路径
-			uiFolder = (customUIPath != "") ? 'ratings/' + customUIPath + uiPrefix + "UI/" : uiPrefix + "UI/";
-			antialias = !isPixelStage;
-		}
-		else if (customUIPath != "")
-		{
-			uiFolder = 'ratings/' + customUIPath;
-		}
-		
-		return {folder: uiFolder, antialias: antialias};
+		return JudgementPopup.getUIFolderInfo(stageUI, isPixelStage);
 	}
 
 	/**
@@ -5181,33 +5175,7 @@ public function reloadCounterColors()
 	 */
 	private function processForeverUILogic(daRating:Rating, noteDiff:Float, rawNoteDiff:Float):{imageName:String, useGoldenNumbers:Bool}
 	{
-		var imageName:String = daRating.image;
-		var useGoldenNumbers:Bool = false;
-		
-		// 检查是否为Forever套系
-		var isForever:Bool = (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI.toLowerCase().contains("forever"));
-		if (!isForever) return {imageName: imageName, useGoldenNumbers: useGoldenNumbers};
-		
-		// 检查ratingFC是否为MFC或SFC
-		var isMFCOrSFC:Bool = (ratingFC == "MFC" || ratingFC == "SFC");
-		
-		// 如果ratingFC为MFC或SFC，始终使用Marvelous
-		// 否则只在22.5ms内使用Marvelous
-		if (isMFCOrSFC || (noteDiff <= ClientPrefs.data.marvelousWindow && daRating.name != "shit" && daRating.name != "bad" && daRating.name != "good"))
-		{
-			imageName = "marvelous";
-			useGoldenNumbers = true;
-		}
-		else
-		{
-			// 对于good/bad/shit评级，添加Early/Late后缀
-			if (daRating.name == "good" || daRating.name == "bad" || daRating.name == "shit")
-			{
-				imageName = daRating.image + (rawNoteDiff > 0 ? "-e" : "-l");
-			}
-		}
-		
-		return {imageName: imageName, useGoldenNumbers: useGoldenNumbers};
+		return JudgementPopup.resolveRating(daRating, ratingFC, noteDiff, rawNoteDiff);
 	}
 
 	/**
@@ -5215,27 +5183,7 @@ public function reloadCounterColors()
 	 */
 	private function applyStageVelocity(sprite:FlxSprite, multiplier:Float = 1.0):Void
 	{
-		switch(SONG.stage)
-		{
-			case "ejected":
-				sprite.velocity.y -= FlxG.random.int(540, 600) * playbackRate * multiplier;
-				if (multiplier == 1.0) // rating
-					sprite.velocity.x -= FlxG.random.int(-10, 20) * playbackRate;
-				else // numbers
-					sprite.velocity.x = FlxG.random.float(-15, 15) * playbackRate;
-					
-			case "airship":
-				sprite.velocity.y -= FlxG.random.int(140, 160) * playbackRate * multiplier;
-				sprite.velocity.x = FlxG.random.float(-250, -300) * playbackRate;
-				
-			case "turbulence":
-				sprite.velocity.y -= FlxG.random.int(140, 160) * playbackRate * multiplier;
-				sprite.velocity.x = FlxG.random.float(250, 300) * playbackRate;
-				
-			default:
-				sprite.velocity.y -= FlxG.random.int(140, 175) * playbackRate * multiplier;
-				sprite.velocity.x -= FlxG.random.int(0, 10) * playbackRate;
-		}
+		JudgementPopup.applyStageVelocity(sprite, SONG.stage, playbackRate, multiplier);
 	}
  	private function initObjectPools():Void {
         ratingPool = new SpritePool(maxPoolSize);
