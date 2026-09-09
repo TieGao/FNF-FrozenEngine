@@ -3239,11 +3239,47 @@ public function reloadCounterColors()
 			Paths.image(uiFolder + 'combo' + uiPostfix);
 		}
 	}
+
+	private function getReplayAwareNoteDiff(note:Note, suppliedDiff:Null<Float>):Float
+	{
+		if (suppliedDiff != null)
+			return suppliedDiff;
+
+		if (inReplay && frameRep != null && frameRep.hasJudgments)
+		{
+			var recorded:backend.Replay.NoteJudgment = frameRep.getRecordedJudgment(note.strumTime, note.noteData);
+			if (recorded != null)
+				return recorded.hitDiff;
+		}
+
+		return note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+	}
+
     private function popUpScore(note:Note = null, rawNoteDiff:Null<Float> = null, ?side:String):Void 
 	{
         if (combo >= highestCombo) highestCombo = combo;
-        var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
-	var noteDiff:Float = Math.abs(effectiveNoteDiff);
+		var noteDiff:Float;
+		var effectiveNoteDiff:Float = getReplayAwareNoteDiff(note, rawNoteDiff);
+        if(ClientPrefs.data.legacyReplay)
+		{
+		noteDiff = Math.abs(effectiveNoteDiff);
+		}
+		else
+		{
+		var recordedJudgment:backend.Replay.NoteJudgment = null;
+		if (inReplay && frameRep != null && frameRep.hasJudgments)
+			recordedJudgment = frameRep.getRecordedJudgment(note.strumTime, note.noteData);
+
+		if (recordedJudgment != null)
+		{
+			// Use the original player's actual hit timing from recording
+			noteDiff = Math.abs(recordedJudgment.hitDiff);
+		}
+		else
+		{
+			noteDiff = Math.abs(effectiveNoteDiff);
+		}
+		}
         vocals.volume = 1;
 		if(opponentMode != 'player' && opponentVocals != null)
 			opponentVocals.volume = 1;
@@ -3292,6 +3328,8 @@ public function reloadCounterColors()
         if(!note.ratingDisabled) daRating.hits++;
         note.rating = daRating.name;
         
+		if(frameRep != null) frameRep.recordJudgment(note.strumTime, note.noteData, noteDiff / playbackRate, daRating.name, note.isSustainNote);
+		
         if(daRating.noteSplash && !note.noteSplashData.disabled)
             spawnNoteSplashOnNote(note);
         
@@ -3439,7 +3477,7 @@ public function reloadCounterColors()
 				msText.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 			}
             
-            var msTiming:Float = Math.round(effectiveNoteDiff * 100) / 100;
+			var msTiming:Float = Math.round(-effectiveNoteDiff * 100) / 100;
             msText.text = (msTiming >= 0 ? "+" : "") + msTiming + Language.getPhrase('ms', 'ms');
             
             if (ClientPrefs.data.customColor)
@@ -3667,15 +3705,12 @@ public function reloadCounterColors()
                 });
             }
        } else {
-    // 非combo stacking模式 - 保持原有销毁逻辑
-    // 数字动画 - 参考popUpScore中数字的动画方式
     for (i in 0...createdNumbers.length) {
         var numScore = createdNumbers[i];
         // 保存原始缩放
         var originalScaleX:Float = numScore.scale.x;
         var originalScaleY:Float = numScore.scale.y;
         
-        // 先瞬间放大（与popUpScore中的 scale + 0.07 效果一致）
         numScore.scale.x += 0.07;
         numScore.scale.y += 0.07;
         
@@ -3690,7 +3725,6 @@ public function reloadCounterColors()
             numAlpha[i].cancel();
         }
         
-        // 回缩动画（与popUpScore中的0.2秒动画一致）
         numScaleX[i] = FlxTween.tween(numScore.scale, {x: originalScaleX}, 0.2 / playbackRate);
         numScaleY[i] = FlxTween.tween(numScore.scale, {y: originalScaleY}, 0.2 / playbackRate);
         
@@ -4149,8 +4183,6 @@ public function reloadCounterColors()
 		{
 			if (ClientPrefs.data.legacyReplay)
 				rep.recordMiss(daNote.noteData, daNote.strumTime);
-			else
-				frameRep.recordMiss(daNote.noteData, daNote.strumTime);
 			//trace('Replay recorded miss at strumTime: ' + daNote.strumTime);
 		}
 	}
@@ -4170,8 +4202,6 @@ public function reloadCounterColors()
     {
 		if (ClientPrefs.data.legacyReplay)
 			rep.recordMiss(direction, Conductor.songPosition);
-		else
-			frameRep.recordMiss(direction, Conductor.songPosition);
     }
 	}
 
@@ -4248,6 +4278,8 @@ public function reloadCounterColors()
 		if(!endingSong) songMisses++;
 		totalPlayed++;
 		RecalculateRating(true);
+
+		if(!ClientPrefs.data.legacyReplay && ClientPrefs.data.replayQuality) frameRep.recordJudgment(note.strumTime, note.noteData, 0, 'miss', note.isSustainNote);
 
 		// play character anims
 		var char:Character = boyfriend;
@@ -4501,13 +4533,18 @@ public function reloadCounterColors()
 
 		if(!note.isSustainNote) invalidateNote(note);
 
-		var rawNoteDiff:Float = (replayRawNoteDiff != null) ? replayRawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+		var rawNoteDiff:Float = getReplayAwareNoteDiff(note, replayRawNoteDiff);
 
 		if (ClientPrefs.data.hitErrorBarVisible) {
 			var targetHitErrorBar:HitErrorBar = getSideHitErrorBar(note);
 			if (targetHitErrorBar != null && (!isSus)) {
 				var hitTime:Float = -rawNoteDiff;
-				targetHitErrorBar.registerHit(hitTime);
+			if (inReplay && frameRep != null && frameRep.hasJudgments)
+			{
+				var recordedJudgment:backend.Replay.NoteJudgment = frameRep.getRecordedJudgment(note.strumTime, note.noteData);
+				hitTime = recordedJudgment != null ? -recordedJudgment.hitDiff : hitTime;
+			}
+			targetHitErrorBar.registerHit(hitTime);
 			}
 		}
 		if (!loadRep && !cpuControlled && !practiceMode && !inReplay &&
@@ -4520,11 +4557,6 @@ public function reloadCounterColors()
 				var judge = "";
 				if (ClientPrefs.data.legacyReplay)
 					rep.recordHit(note.strumTime, note.noteData, note.sustainLength, diffToRecord, judge);
-				else
-				{
-					frameRep.recordJudgement(judge);
-					frameRep.recordNote(note.strumTime, note.noteData, note.sustainLength, diffToRecord);
-				}
 			}
 			
 			if (!isSus)
@@ -4543,12 +4575,8 @@ public function reloadCounterColors()
 				
 				if (ClientPrefs.data.legacyReplay)
 					rep.recordHit(note.strumTime, note.noteData, note.sustainLength, rawNoteDiff, judge);
-				else
-				{
-					frameRep.recordJudgement(judge);
-					frameRep.recordNote(note.strumTime, note.noteData, note.sustainLength, rawNoteDiff);
-				}
 			}
+
 		}
 	}
 
@@ -5138,28 +5166,7 @@ public function reloadCounterColors()
 	 */
 	private function getUIFolderInfo():{folder:String, antialias:Bool}
 	{
-		var uiFolder:String = "";
-		var customUIPath:String = "";
-		var antialias:Bool = ClientPrefs.data.antialiasing;
-		
-		// 获取自定义UI路径（如果存在）
-		if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI != "")
-		{
-			customUIPath = ClientPrefs.data.customUI + "/";
-		}
-		
-		if (stageUI != "normal")
-		{
-			// 优先使用自定义UI路径，否则使用默认路径
-			uiFolder = (customUIPath != "") ? 'ratings/' + customUIPath + uiPrefix + "UI/" : uiPrefix + "UI/";
-			antialias = !isPixelStage;
-		}
-		else if (customUIPath != "")
-		{
-			uiFolder = 'ratings/' + customUIPath;
-		}
-		
-		return {folder: uiFolder, antialias: antialias};
+		return JudgementPopup.getUIFolderInfo(stageUI, isPixelStage);
 	}
 
 	/**
@@ -5168,33 +5175,7 @@ public function reloadCounterColors()
 	 */
 	private function processForeverUILogic(daRating:Rating, noteDiff:Float, rawNoteDiff:Float):{imageName:String, useGoldenNumbers:Bool}
 	{
-		var imageName:String = daRating.image;
-		var useGoldenNumbers:Bool = false;
-		
-		// 检查是否为Forever套系
-		var isForever:Bool = (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI.toLowerCase().contains("forever"));
-		if (!isForever) return {imageName: imageName, useGoldenNumbers: useGoldenNumbers};
-		
-		// 检查ratingFC是否为MFC或SFC
-		var isMFCOrSFC:Bool = (ratingFC == "MFC" || ratingFC == "SFC");
-		
-		// 如果ratingFC为MFC或SFC，始终使用Marvelous
-		// 否则只在22.5ms内使用Marvelous
-		if (isMFCOrSFC || (noteDiff <= ClientPrefs.data.marvelousWindow && daRating.name != "shit" && daRating.name != "bad" && daRating.name != "good"))
-		{
-			imageName = "marvelous";
-			useGoldenNumbers = true;
-		}
-		else
-		{
-			// 对于good/bad/shit评级，添加Early/Late后缀
-			if (daRating.name == "good" || daRating.name == "bad" || daRating.name == "shit")
-			{
-				imageName = daRating.image + (rawNoteDiff > 0 ? "-e" : "-l");
-			}
-		}
-		
-		return {imageName: imageName, useGoldenNumbers: useGoldenNumbers};
+		return JudgementPopup.resolveRating(daRating, ratingFC, noteDiff, rawNoteDiff);
 	}
 
 	/**
@@ -5202,27 +5183,7 @@ public function reloadCounterColors()
 	 */
 	private function applyStageVelocity(sprite:FlxSprite, multiplier:Float = 1.0):Void
 	{
-		switch(SONG.stage)
-		{
-			case "ejected":
-				sprite.velocity.y -= FlxG.random.int(540, 600) * playbackRate * multiplier;
-				if (multiplier == 1.0) // rating
-					sprite.velocity.x -= FlxG.random.int(-10, 20) * playbackRate;
-				else // numbers
-					sprite.velocity.x = FlxG.random.float(-15, 15) * playbackRate;
-					
-			case "airship":
-				sprite.velocity.y -= FlxG.random.int(140, 160) * playbackRate * multiplier;
-				sprite.velocity.x = FlxG.random.float(-250, -300) * playbackRate;
-				
-			case "turbulence":
-				sprite.velocity.y -= FlxG.random.int(140, 160) * playbackRate * multiplier;
-				sprite.velocity.x = FlxG.random.float(250, 300) * playbackRate;
-				
-			default:
-				sprite.velocity.y -= FlxG.random.int(140, 175) * playbackRate * multiplier;
-				sprite.velocity.x -= FlxG.random.int(0, 10) * playbackRate;
-		}
+		JudgementPopup.applyStageVelocity(sprite, SONG.stage, playbackRate, multiplier);
 	}
  	private function initObjectPools():Void {
         ratingPool = new SpritePool(maxPoolSize);
@@ -5486,6 +5447,77 @@ public function reloadCounterColors()
 		var result2:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
 		if(result2 != LuaUtils.Function_Stop && result2 != LuaUtils.Function_StopHScript && result2 != LuaUtils.Function_StopAll)
 			callOnHScript('opponentNoteHit', [note]);
+	}
+
+	/**
+	* 回放系统专用 - 应用录制的按键输入
+	* 使用与正常按键处理相同的逻辑
+	*/
+	public function replayApplyInput(frameTime:Float, pressLanes:Array<Int>, releaseLanes:Array<Int>, heldLanes:Array<Bool>):Void
+	{
+		if (cpuControlled || paused || inCutscene || !generatedMusic || endingSong || boyfriend.stunned) return;
+		if (!inReplay && !loadRep) return; // 只在回放模式下工作
+		
+		var originalSongPos:Float = Conductor.songPosition;
+
+		// 处理长按 (Hold) - 使用与 keysCheck 相同的逻辑
+		if (heldLanes != null && startedCountdown && !boyfriend.stunned) {
+			var len:Int = notes.length;
+			var i:Int = 0;
+			while (i < len) {
+				var daNote:Note = cast notes.members[i];
+				if (daNote != null && daNote.exists && daNote.alive) {
+					var canHit:Bool = (daNote != null && !strumsBlocked[daNote.noteData] && daNote.canBeHit
+						&& noteIsHuman(daNote) && !daNote.tooLate && !daNote.wasGoodHit && !daNote.blockHit);
+					
+					if (guitarHeroSustains)
+						canHit = canHit && daNote.parent != null && daNote.parent.wasGoodHit;
+					
+					if (canHit && daNote.isSustainNote) {
+						var released:Bool = !heldLanes[daNote.noteData];
+						if (!released) {
+							// 使用录制的时间差
+							var diff:Float = frameTime - daNote.strumTime + ClientPrefs.data.ratingOffset;
+							goodNoteHit(daNote, diff);
+						}
+					}
+				}
+				i++;
+			}
+		}
+	}
+
+	/**
+	* 辅助方法：查找指定键位和时间点可以击打的Note
+	*/
+	private function findNoteToHit(lane:Int, frameTime:Float):Note
+	{
+		var bestNote:Note = null;
+		var i:Int = 0;
+		while (i < notes.length) {
+			var n:Note = notes.members[i];
+			if (n != null && n.exists && n.alive) {
+				var tooLateAt:Bool = n.strumTime < frameTime - Conductor.safeZoneOffset && !n.wasGoodHit;
+				var canBeHitAt:Bool = (n.strumTime > frameTime - (Conductor.safeZoneOffset * n.lateHitMult)
+					&& n.strumTime < frameTime + (Conductor.safeZoneOffset * n.earlyHitMult));
+				
+				if (strumsBlocked[n.noteData] != true
+					&& noteIsHuman(n)
+					&& canBeHitAt
+					&& !tooLateAt
+					&& !n.wasGoodHit
+					&& !n.blockHit
+					&& !n.isSustainNote
+					&& n.noteData == lane)
+				{
+					if (bestNote == null || n.strumTime < bestNote.strumTime) {
+						bestNote = n;
+					}
+				}
+			}
+			i++;
+		}
+		return bestNote;
 	}
 
 }
