@@ -261,6 +261,17 @@ class LoadReplaySubState extends MusicBeatSubstate
             return;
         }
 
+        // 规范化歌曲名：移除特殊字符，统一转为小写
+        function normalizeSongName(name:String):String {
+            if (name == null) return "";
+            return StringTools.replace(StringTools.replace(StringTools.replace(
+                name.toLowerCase().trim(),
+                " ", ""
+            ), "-", ""), "_", "");
+        }
+
+        var normalizedCurrent:String = normalizeSongName(currentSongName);
+
         var files = FileSystem.readDirectory(replayDir);
         for (file in files)
         {
@@ -274,9 +285,12 @@ class LoadReplaySubState extends MusicBeatSubstate
                 
                 if (json == null) continue;
                 
-                // 检查歌曲名是否匹配（不区分大小写）
+                // 检查歌曲名是否匹配（规范化后比较）
                 var replaySongName = json.songName != null ? json.songName : "";
-                if (replaySongName.toLowerCase() != currentSongName.toLowerCase()) continue;
+                var normalizedReplay:String = normalizeSongName(replaySongName);
+                
+                // 模糊匹配：规范化后相同即可
+                if (normalizedReplay != normalizedCurrent) continue;
                 
                 var entry:ReplayEntry = {
                     filename: file,
@@ -316,7 +330,7 @@ class LoadReplaySubState extends MusicBeatSubstate
         });
         #end
     }
-
+    
     function extractDateFromReplay(json:Dynamic):String
     {
         var timestamp = json.timestamp;

@@ -25,6 +25,7 @@ import states.editors.CharacterEditorState;
 import substates.NewPauseSubState;
 import substates.PauseSubState;
 import substates.GameOverSubstate;
+import substates.ResultsScreen;
 
 #if !flash
 #end
@@ -3258,14 +3259,7 @@ public function reloadCounterColors()
     private function popUpScore(note:Note = null, rawNoteDiff:Null<Float> = null, ?side:String):Void 
 	{
         if (combo >= highestCombo) highestCombo = combo;
-		var noteDiff:Float;
-		var effectiveNoteDiff:Float = getReplayAwareNoteDiff(note, rawNoteDiff);
-        if(ClientPrefs.data.legacyReplay)
-		{
-		noteDiff = Math.abs(effectiveNoteDiff);
-		}
-		else
-		{
+		var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
 		var recordedJudgment:backend.Replay.NoteJudgment = null;
 		if (inReplay && frameRep != null && frameRep.hasJudgments)
 			recordedJudgment = frameRep.getRecordedJudgment(note.strumTime, note.noteData);
@@ -3273,13 +3267,13 @@ public function reloadCounterColors()
 		if (recordedJudgment != null)
 		{
 			// Use the original player's actual hit timing from recording
-			noteDiff = Math.abs(recordedJudgment.hitDiff);
+			effectiveNoteDiff = recordedJudgment.hitDiff * playbackRate;
 		}
 		else
 		{
-			noteDiff = Math.abs(effectiveNoteDiff);
+			effectiveNoteDiff = note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
 		}
-		}
+		var noteDiff = Math.abs(effectiveNoteDiff);
         vocals.volume = 1;
 		if(opponentMode != 'player' && opponentVocals != null)
 			opponentVocals.volume = 1;
@@ -3328,7 +3322,7 @@ public function reloadCounterColors()
         if(!note.ratingDisabled) daRating.hits++;
         note.rating = daRating.name;
         
-		if(frameRep != null) frameRep.recordJudgment(note.strumTime, note.noteData, noteDiff / playbackRate, daRating.name, note.isSustainNote);
+		if(frameRep != null) frameRep.recordJudgment(note.strumTime, note.noteData, effectiveNoteDiff / playbackRate, daRating.name, note.isSustainNote);
 		
         if(daRating.noteSplash && !note.noteSplashData.disabled)
             spawnNoteSplashOnNote(note);
@@ -3477,7 +3471,7 @@ public function reloadCounterColors()
 				msText.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 			}
             
-			var msTiming:Float = Math.round(-effectiveNoteDiff * 100) / 100;
+			var msTiming:Float = Math.round(effectiveNoteDiff * 100) / 100;
             msText.text = (msTiming >= 0 ? "+" : "") + msTiming + Language.getPhrase('ms', 'ms');
             
             if (ClientPrefs.data.customColor)
@@ -4533,7 +4527,7 @@ public function reloadCounterColors()
 
 		if(!note.isSustainNote) invalidateNote(note);
 
-		var rawNoteDiff:Float = getReplayAwareNoteDiff(note, replayRawNoteDiff);
+		var rawNoteDiff:Float = (replayRawNoteDiff != null) ? replayRawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
 
 		if (ClientPrefs.data.hitErrorBarVisible) {
 			var targetHitErrorBar:HitErrorBar = getSideHitErrorBar(note);
@@ -4542,7 +4536,7 @@ public function reloadCounterColors()
 			if (inReplay && frameRep != null && frameRep.hasJudgments)
 			{
 				var recordedJudgment:backend.Replay.NoteJudgment = frameRep.getRecordedJudgment(note.strumTime, note.noteData);
-				hitTime = recordedJudgment != null ? -recordedJudgment.hitDiff : hitTime;
+				hitTime = recordedJudgment != null ? -recordedJudgment.hitDiff * playbackRate : hitTime;
 			}
 			targetHitErrorBar.registerHit(hitTime);
 			}
