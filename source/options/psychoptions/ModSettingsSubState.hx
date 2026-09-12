@@ -1,11 +1,11 @@
-package options;
+package options.psychoptions;
 
 import flixel.input.keyboard.FlxKey;
 import flixel.input.gamepad.FlxGamepadInputID;
 
 import objects.Character;
 
-import options.Option.OptionType;
+import options.psychoptions.Option.OptionType;
 
 class ModSettingsSubState extends BaseOptionsMenu
 {

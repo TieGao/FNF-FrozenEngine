@@ -1,4 +1,4 @@
-package options;
+package options.psychoptions;
 
 import objects.Note;
 import objects.StrumNote;
@@ -476,7 +476,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 
 	override function destroy()
 	{
-		if(changedMusic && !OptionsState.onPlayState) FlxG.sound.playMusic(Paths.music('freakyMenu'), 1, true);
+		if(changedMusic && !PsychOptionsState.onPlayState) FlxG.sound.playMusic(Paths.music('freakyMenu'), 1, true);
 		Note.globalRgbShaders = [];
 		super.destroy();
 	}

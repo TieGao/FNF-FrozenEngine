@@ -1,9 +1,9 @@
-package options;
+package options.psychoptions;
 
 import states.MainMenuState;
 import backend.StageData;
 
-class OptionsState extends MusicBeatState
+class PsychOptionsState extends MusicBeatState
 {
 	var options:Array<String> = [
 		'Note Colors',
@@ -23,19 +23,19 @@ class OptionsState extends MusicBeatState
 		switch(label)
 		{
 			case 'Note Colors':
-				openSubState(new options.NotesColorSubState());
+				openSubState(new options.psychoptions.NotesColorSubState());
 			case 'Controls':
-				openSubState(new options.ControlsSubState());
+				openSubState(new options.psychoptions.ControlsSubState());
 			case 'Graphics':
-				openSubState(new options.GraphicsSettingsSubState());
+				openSubState(new options.psychoptions.GraphicsSettingsSubState());
 			case 'Visuals':
-				openSubState(new options.VisualsSettingsSubState());
+				openSubState(new options.psychoptions.VisualsSettingsSubState());
 			case 'Gameplay':
-				openSubState(new options.GameplaySettingsSubState());
+				openSubState(new options.psychoptions.GameplaySettingsSubState());
 			case 'Adjust Delay and Combo':
-				MusicBeatState.switchState(new options.NoteOffsetState());
+				MusicBeatState.switchState(new options.psychoptions.NoteOffsetState());
 			case 'Language':
-				openSubState(new options.LanguageSubState());
+				openSubState(new options.psychoptions.LanguageSubState());
 		}
 	}
 

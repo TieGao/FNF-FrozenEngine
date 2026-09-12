@@ -1,4 +1,4 @@
-package options;
+package options.keoptions;
 
 import flixel.math.FlxRect;
 import flixel.math.FlxMath;

@@ -1,4 +1,4 @@
-package options;
+package options.psychoptions;
 
 import objects.Character;
 import objects.DraggableBar;
@@ -526,13 +526,13 @@ class NoteOffsetState extends MusicBeatState
 			persistentUpdate = false;
 			if(ClientPrefs.data.keOptions)
 			{
-				MusicBeatState.switchState(new options.KEOptionsMenu());
+				MusicBeatState.switchState(new options.keoptions.KEOptionsMenu());
 			}
 			else
 			{
-				MusicBeatState.switchState(new options.OptionsState());
+				MusicBeatState.switchState(new options.psychoptions.PsychOptionsState());
 			}
-			if(OptionsState.onPlayState)
+			if(PsychOptionsState.onPlayState)
 			{
 				if(ClientPrefs.data.pauseMusic != 'None')
 					FlxG.sound.playMusic(Paths.music(Paths.formatToSongPath(ClientPrefs.data.pauseMusic)));

@@ -1,4 +1,4 @@
-package options;
+package options.psychoptions;
 
 import objects.Character;
 import openfl.Lib;

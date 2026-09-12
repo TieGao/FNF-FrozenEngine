@@ -4,8 +4,8 @@ import flixel.FlxObject;
 import flixel.effects.FlxFlicker;
 import lime.app.Application;
 import states.editors.MasterEditorMenu;
-import options.OptionsState;
-import options.KEOptionsMenu;
+import options.psychoptions.PsychOptionsState;
+import options.keoptions.KEOptionsMenu;
 import backend.Highscore;
 
 enum MainMenuColumn {
@@ -383,10 +383,10 @@ class MainMenuState extends MusicBeatState
 							}
 							else
 							{
-							MusicBeatState.switchState(new OptionsState());
+							MusicBeatState.switchState(new PsychOptionsState());
 							}
 
-							OptionsState.onPlayState = false;
+							PsychOptionsState.onPlayState = false;
 							KEOptionsMenu.onPlayState = false;
 							
 							if (PlayState.SONG != null)

@@ -10,24 +10,20 @@ class SpritePool {
     }
     
     public function get():FlxSprite {
-    if (pool.length > 0) {
-        var obj = pool.shift();
-        return obj;
+        return pool.length > 0 ? pool.pop() : null;  // 改成 LIFO
     }
-    return null;
-}
 
     public function put(obj:FlxSprite):Void {
+        if (pool == null || obj == null) return;
         if (pool.length < maxSize) {
             resetObject(obj);
-            pool.push(obj); // 加入队列末尾
+            pool.push(obj);
         } else {
             obj.destroy();
         }
     }
-    
+
     private function resetObject(obj:FlxSprite):Void {
-        // 重置基本属性
         obj.alpha = 1;
         obj.visible = true;
         obj.exists = true;
@@ -36,10 +32,11 @@ class SpritePool {
         obj.velocity.set(0, 0);
         obj.acceleration.set(0, 0);
         obj.scale.set(1, 1);
-        obj.color = 0xFFFFFF; // 重置颜色
+        obj.offset.set(0, 0);
+        obj.flipX = false;
+        obj.flipY = false;
+        obj.color = 0xFFFFFF;
         obj.angle = 0;
-        
-        // 取消所有动画
         FlxTween.cancelTweensOf(obj);
     }
     

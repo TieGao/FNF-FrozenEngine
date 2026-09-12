@@ -1,4 +1,4 @@
-package options;
+package options.psychoptions;
 
 typedef Keybind = {
 	keyboard:String,

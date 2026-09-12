@@ -299,7 +299,7 @@ class PlayState extends MusicBeatState
     private var notePool:SpritePool;
 	private var earlyLatePool:SpritePool; // early/late对象池
 
-    private var maxPoolSize:Int = 15;
+    private var maxPoolSize:Int = 50;
 
 	// how big to stretch the pixel art assets
 	public static var daPixelZoom:Float = 6;
@@ -915,15 +915,38 @@ class PlayState extends MusicBeatState
 		
 		splashPool = new SpritePool(maxPoolSize);
 		NoteSplash.pool = splashPool;
-		for (i in 0...maxPoolSize) {
-			var preloadSplash:NoteSplash = new NoteSplash();
-			splashPool.put(preloadSplash);
+
+		// 真正预热：每一列都 spawn 一次
+		var splashColumns:Int = Note.getColumnsPerPlayer(SONG);
+		if (isCoopMode()) splashColumns *= 2;
+
+		var warmupSplashes:Array<NoteSplash> = [];
+		for (i in 0...splashColumns)
+		{
+			var s:NoteSplash = new NoteSplash();
+			s.spawnSplashNote(0, 0, i);   // 关键，让它加载该列贴图/动画
+			s.alpha = 0.000001;           // 不能用 0，否则不渲染、不预热
+			s.update(0.0001);             // 强制走一帧动画初始化
+			grpNoteSplashes.add(s);
+			warmupSplashes.push(s);
 		}
 
-		var splash:NoteSplash = cast splashPool.get();
-		if (splash == null) splash = new NoteSplash();
-		grpNoteSplashes.add(splash);
-		splash.alpha = 0.000001; //cant make it invisible or it won't allow precaching
+		// 池里预置空白对象
+		for (i in 0...maxPoolSize)
+			splashPool.put(new NoteSplash());
+
+		// 下一帧把预热用的 splash 收回去
+		new FlxTimer().start(0.05, function(_) {
+			for (s in warmupSplashes)
+			{
+				if (s != null && grpNoteSplashes.members.contains(s))
+				{
+					grpNoteSplashes.remove(s, false);
+					splashPool.put(s);
+				}
+			}
+			warmupSplashes = null;
+		});
 
 		super.create();
 		if (!loadRep && !inReplay)
@@ -3241,25 +3264,14 @@ public function reloadCounterColors()
 		}
 	}
 
-	private function getReplayAwareNoteDiff(note:Note, suppliedDiff:Null<Float>):Float
-	{
-		if (suppliedDiff != null)
-			return suppliedDiff;
-
-		if (inReplay && frameRep != null && frameRep.hasJudgments)
-		{
-			var recorded:backend.Replay.NoteJudgment = frameRep.getRecordedJudgment(note.strumTime, note.noteData);
-			if (recorded != null)
-				return recorded.hitDiff;
-		}
-
-		return note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
-	}
-
     private function popUpScore(note:Note = null, rawNoteDiff:Null<Float> = null, ?side:String):Void 
 	{
         if (combo >= highestCombo) highestCombo = combo;
-		var effectiveNoteDiff:Float = (rawNoteDiff != null) ? rawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+		var effectiveNoteDiff:Float = 0;
+		if (!cpuControlled)
+		{
+			effectiveNoteDiff = (rawNoteDiff != null) ? rawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+		}
 		var recordedJudgment:backend.Replay.NoteJudgment = null;
 		if (inReplay && frameRep != null && frameRep.hasJudgments)
 			recordedJudgment = frameRep.getRecordedJudgment(note.strumTime, note.noteData);
@@ -3271,7 +3283,13 @@ public function reloadCounterColors()
 		}
 		else
 		{
-			effectiveNoteDiff = note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+			effectiveNoteDiff = cpuControlled ? 0 : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
+		}
+		var isSus:Bool = note.isSustainNote;
+		if (ClientPrefs.data.hitErrorBarVisible) 
+		{
+			var targetHitErrorBar:HitErrorBar = getSideHitErrorBar(note);
+			if (targetHitErrorBar != null && (!isSus)) targetHitErrorBar.registerHit(effectiveNoteDiff);
 		}
 		var noteDiff = Math.abs(effectiveNoteDiff);
         vocals.volume = 1;
@@ -3315,6 +3333,12 @@ public function reloadCounterColors()
 			var sideRatings:Array<Rating> = getSideRatingsData(side);
 			var sideRatingIndex:Int = getRatingIndexByName(daRating.name, sideRatings);
 			if (sideRatingIndex >= 0) sideRatings[sideRatingIndex].hits++;
+		}
+		
+		if (!loadRep && !cpuControlled && !practiceMode && !inReplay && ClientPrefs.data.legacyReplay && rep != null)
+		{
+			if (isSus) rep.recordHit(note.strumTime, note.noteData, note.sustainLength, rawNoteDiff, "");
+			else rep.recordHit(note.strumTime, note.noteData, note.sustainLength, rawNoteDiff, daRating.name);
 		}
         
         totalNotesHit += daRating.ratingMod;
@@ -4356,6 +4380,7 @@ public function reloadCounterColors()
 		var isDadStrum:Bool = !(opponentMode == "opponent" && note.mustPress);
 		strumPlayAnim(isDadStrum, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate);
 		note.hitByOpponent = true;
+		note.wasGoodHit = true; 
 		
 		stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
 		var result:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
@@ -4376,7 +4401,7 @@ public function reloadCounterColors()
 		if(note.wasGoodHit) return;
 		if(cpuControlled && note.ignoreNote) return;
 
-		if (isCoopMode() && songName != "tutorial") camZooming = true;
+		if ((isCoopMode() || opponentMode == "opponent") && songName != "tutorial") camZooming = true;
 
 		var isSus:Bool = note.isSustainNote; //GET OUT OF MY HEAD, GET OUT OF MY HEAD, GET OUT OF MY HEAD
 		var leData:Int = Math.round(Math.abs(note.noteData));
@@ -4526,52 +4551,6 @@ public function reloadCounterColors()
 			triggerOpponentEventsForHumanHit(note);
 
 		if(!note.isSustainNote) invalidateNote(note);
-
-		var rawNoteDiff:Float = (replayRawNoteDiff != null) ? replayRawNoteDiff : note.strumTime - Conductor.songPosition + ClientPrefs.data.ratingOffset;
-
-		if (ClientPrefs.data.hitErrorBarVisible) {
-			var targetHitErrorBar:HitErrorBar = getSideHitErrorBar(note);
-			if (targetHitErrorBar != null && (!isSus)) {
-				var hitTime:Float = -rawNoteDiff;
-			if (inReplay && frameRep != null && frameRep.hasJudgments)
-			{
-				var recordedJudgment:backend.Replay.NoteJudgment = frameRep.getRecordedJudgment(note.strumTime, note.noteData);
-				hitTime = recordedJudgment != null ? -recordedJudgment.hitDiff * playbackRate : hitTime;
-			}
-			targetHitErrorBar.registerHit(hitTime);
-			}
-		}
-		if (!loadRep && !cpuControlled && !practiceMode && !inReplay &&
-			((ClientPrefs.data.legacyReplay && rep != null) || (!ClientPrefs.data.legacyReplay && frameRep != null)))
-		{
-			// 记录真实击打时差，sustain note 也应保留实际偏移
-			var diffToRecord = rawNoteDiff;
-			if (isSus)
-			{
-				var judge = "";
-				if (ClientPrefs.data.legacyReplay)
-					rep.recordHit(note.strumTime, note.noteData, note.sustainLength, diffToRecord, judge);
-			}
-			
-			if (!isSus)
-			{
-				var absDiff = Math.abs(rawNoteDiff);
-				var judge = "marvelous";
-				var marvelousWindow:Float = ClientPrefs.data.marvelousWindow;
-				var sickWindow:Float = ClientPrefs.data.sickWindow;
-				var goodWindow:Float = ClientPrefs.data.goodWindow;
-				var badWindow:Float = ClientPrefs.data.badWindow;
-				if (absDiff <= marvelousWindow) judge = "marvelous";
-				else if (absDiff <= sickWindow) judge = "sick";
-				else if (absDiff <= goodWindow) judge = "good";
-				else if (absDiff <= badWindow) judge = "bad";
-				else judge = "shit";
-				
-				if (ClientPrefs.data.legacyReplay)
-					rep.recordHit(note.strumTime, note.noteData, note.sustainLength, rawNoteDiff, judge);
-			}
-
-		}
 	}
 
 	public function invalidateNote(note:Note):Void {
@@ -5115,45 +5094,45 @@ public function reloadCounterColors()
 	}
 
 	function createModInfoBox():Void
-{
-    if (SONG == null) return;
-    
-    // 获取对手颜色
-    var opponentColor:FlxColor;
-    
-    if (dad != null && dad.healthColorArray != null && dad.healthColorArray.length >= 3)
-    {
-        // 使用 dad 的血条颜色
-        opponentColor = FlxColor.fromRGB(
-            dad.healthColorArray[0],
-            dad.healthColorArray[1],
-            dad.healthColorArray[2]
-        );
-        trace('Using dad color: R=${dad.healthColorArray[0]}, G=${dad.healthColorArray[1]}, B=${dad.healthColorArray[2]}');
-    }
-    else
-    {
-        // 默认颜色
-        opponentColor = FlxColor.fromString('#7E1C4A');
-        trace('Using default color for info box');
-    }
-    
-    // 创建 ModInfoBox
-    modInfoBox = new ModInfoBox(SONG.song, opponentColor);
-    
-    // 只有需要显示时才添加到舞台
-    if (modInfoBox.shouldDisplay)
-    {
-        modInfoBox.cameras = [camOther];
-        add(modInfoBox);
-        trace('ModInfoBox created for song: ${SONG.song}');
-    }
-    else
-    {
-        modInfoBox = null; // 如果不显示，设为 null
-        trace('No ModInfoBox for song: ${SONG.song}');
-    }
-}
+	{
+		if (SONG == null) return;
+		
+		// 获取对手颜色
+		var opponentColor:FlxColor;
+		
+		if (dad != null && dad.healthColorArray != null && dad.healthColorArray.length >= 3)
+		{
+			// 使用 dad 的血条颜色
+			opponentColor = FlxColor.fromRGB(
+				dad.healthColorArray[0],
+				dad.healthColorArray[1],
+				dad.healthColorArray[2]
+			);
+			trace('Using dad color: R=${dad.healthColorArray[0]}, G=${dad.healthColorArray[1]}, B=${dad.healthColorArray[2]}');
+		}
+		else
+		{
+			// 默认颜色
+			opponentColor = FlxColor.fromString('#7E1C4A');
+			trace('Using default color for info box');
+		}
+		
+		// 创建 ModInfoBox
+		modInfoBox = new ModInfoBox(SONG.song, opponentColor);
+		
+		// 只有需要显示时才添加到舞台
+		if (modInfoBox.shouldDisplay)
+		{
+			modInfoBox.cameras = [camOther];
+			add(modInfoBox);
+			trace('ModInfoBox created for song: ${SONG.song}');
+		}
+		else
+		{
+			modInfoBox = null; // 如果不显示，设为 null
+			trace('No ModInfoBox for song: ${SONG.song}');
+		}
+	}
 
 	/**
 	 * 获取UI文件夹路径和抗锯齿设置
@@ -5179,6 +5158,7 @@ public function reloadCounterColors()
 	{
 		JudgementPopup.applyStageVelocity(sprite, SONG.stage, playbackRate, multiplier);
 	}
+
  	private function initObjectPools():Void {
         ratingPool = new SpritePool(maxPoolSize);
         comboNumPool = new SpritePool(maxPoolSize);
@@ -5187,14 +5167,15 @@ public function reloadCounterColors()
     }
     
     // 清理对象池
-    private function clearObjectPools():Void {
-        if (ratingPool != null) ratingPool.clear();
-        if (comboNumPool != null) comboNumPool.clear();
-        if (comboSpritePool != null) comboSpritePool.clear();
-        if (splashPool != null) splashPool.clear();
-        if (notePool != null) notePool.clear();
-        NoteSplash.pool = null;
-    }
+	private function clearObjectPools():Void {
+		if (ratingPool != null) { ratingPool.clear(); ratingPool = null; }
+		if (comboNumPool != null) { comboNumPool.clear(); comboNumPool = null; }
+		if (comboSpritePool != null) { comboSpritePool.clear(); comboSpritePool = null; }
+		if (splashPool != null) { splashPool.clear(); splashPool = null; }
+		if (notePool != null) { notePool.clear(); notePool = null; }
+		if (earlyLatePool != null) { earlyLatePool.clear(); earlyLatePool = null; }
+		NoteSplash.pool = null;
+	}
 
 	  // 预创建池对象
     private function precreatePoolObjects():Void {

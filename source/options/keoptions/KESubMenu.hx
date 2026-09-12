@@ -1,4 +1,4 @@
-package options;
+package options.keoptions;
 
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -34,6 +34,7 @@ class KESubMenu extends MusicBeatSubstate
 	
 	// 动画相关
 	var isClosing:Bool = false;
+	var isFadingIn:Bool = true;
 	var tweenDuration:Float = 0.2;
 	
 	// 长按相关变量
@@ -199,9 +200,20 @@ class KESubMenu extends MusicBeatSubstate
 		FlxTween.tween(descBack, {alpha: descAlpha}, tweenDuration, {ease: FlxEase.sineOut});
 		FlxTween.tween(descText, {alpha: 1}, tweenDuration, {ease: FlxEase.sineOut});
 		
-		for (i in 0...optionTexts.length) {
-			FlxTween.tween(optionTexts.members[i], {alpha: optionAlpha}, tweenDuration, {ease: FlxEase.sineOut});
+		for (i in 0...optionTexts.length)
+		{
+			var text = optionTexts.members[i];
+			if (text == null) continue;
+			if (isOptionVisible(i)) {
+				var targetAlpha:Float = (i == selectedOptionIndex) ? 1.0 : optionAlpha;
+				text.alpha = 0;
+				FlxTween.tween(text, {alpha: targetAlpha}, tweenDuration, {ease: FlxEase.sineOut});
+			} else {
+				text.alpha = 0;
+			}
 		}
+
+		new flixel.util.FlxTimer().start(tweenDuration + 0.05, function(_) isFadingIn = false);
 		
 		// 创建鼠标拖拽滚动器
 		setupMouseScroller();
@@ -213,6 +225,12 @@ class KESubMenu extends MusicBeatSubstate
 		updateDisplay();
 	}
 	
+	function isOptionVisible(i:Int):Bool
+	{
+		var displayIndex = i - scrollOffset;
+		return displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS;
+	}
+
 	function setupMouseScroller():Void
 	{
 		var totalOptionsHeight:Float = options.length * 46;
@@ -302,7 +320,7 @@ class KESubMenu extends MusicBeatSubstate
 		for (i in 0...optionTexts.length)
 		{
 			var optionText = optionTexts.members[i];
-			if (optionText != null && optionText.alpha > 0 && FlxG.mouse.overlaps(optionText))
+			if (optionText != null && isOptionVisible(i) && FlxG.mouse.overlaps(optionText))
 			{
 				hoveredIndex = i;
 				break;
@@ -313,23 +331,27 @@ class KESubMenu extends MusicBeatSubstate
 		for (i in 0...optionTexts.length)
 		{
 			var optionText = optionTexts.members[i];
-			if (optionText != null && optionText.alpha > 0)
+			if (optionText == null) continue;
+
+			if (!isOptionVisible(i)) {
+				optionText.alpha = 0;
+				continue;
+			}
+
+			if (i == selectedOptionIndex)
 			{
-				if (i == selectedOptionIndex)
-				{
-					optionText.alpha = 1.0;
-					optionText.color = FlxColor.WHITE;
-				}
-				else if (i == hoveredIndex)
-				{
-					optionText.color = FlxColor.YELLOW;
-					optionText.alpha = optionAlpha;
-				}
-				else
-				{
-					optionText.color = FlxColor.WHITE;
-					optionText.alpha = optionAlpha;
-				}
+				optionText.color = FlxColor.WHITE;
+				if (!isFadingIn) optionText.alpha = 1.0;
+			}
+			else if (i == hoveredIndex)
+			{
+				optionText.color = FlxColor.YELLOW;
+				if (!isFadingIn) optionText.alpha = optionAlpha;
+			}
+			else
+			{
+				optionText.color = FlxColor.WHITE;
+				if (!isFadingIn) optionText.alpha = optionAlpha;
 			}
 		}
 		

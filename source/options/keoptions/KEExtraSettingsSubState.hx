@@ -1,4 +1,4 @@
-package options;
+package options.keoptions;
 
 import backend.CustomChartData;
 import backend.Paths;
@@ -10,7 +10,7 @@ import flixel.FlxG;
 import sys.FileSystem;
 #end
 
-class ExtraSettingsSubState extends KESubMenu
+class KEExtraSettingsSubState extends KESubMenu
 {
     // 保存需要动态更新的选项引用
     var modFolderOption:KEOption;

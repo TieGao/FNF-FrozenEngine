@@ -10,7 +10,7 @@ import haxe.Json;
 
 import flixel.util.FlxSpriteUtil;
 import objects.AttachedSprite;
-import options.ModSettingsSubState;
+import options.psychoptions.ModSettingsSubState;
 
 import openfl.display.BitmapData;
 import lime.utils.Assets;

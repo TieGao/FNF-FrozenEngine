@@ -1,4 +1,4 @@
-package options;
+package options.psychoptions;
 
 import backend.InputFormatter;
 import flixel.addons.display.FlxBackdrop;

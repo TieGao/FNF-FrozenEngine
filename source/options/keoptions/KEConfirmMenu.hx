@@ -1,6 +1,5 @@
-package options;
+package options.keoptions;
 
-import options.KEOption;
 import backend.Language;
 
 import flixel.FlxG;
@@ -40,19 +39,24 @@ class KEConfirmMenu extends MusicBeatSubstate
 	var confirmText:FlxText;
 	var cancelText:FlxText;
 
-	static var VISIBLE_OPTIONS:Int = 5;
+	// 与 KESubMenu 对齐的行高 / 可视行数 / 动画时长
+	static var OPTION_HEIGHT:Int = 48;
+	static var VISIBLE_OPTIONS:Int = 8;
+	var tweenDuration:Float = 0.2;
+
 	var scrollOffset:Int = 0;
 	var maxScrollOffset:Int = 0;
 
 	var optionClickCooldown:Float = 0;
 	var optionClickProtected:Bool = false;
 	var isClosing:Bool = false;
+	var isFadingIn:Bool = true;
 	public var closeParentSubMenu:Bool = false;
 
 	var holdUpTime:Float = 0;
 	var holdDownTime:Float = 0;
 	var scrollHoldTime:Float = 0;
-	
+
 	// 鼠标拖拽滚动
 	var optionScroller:MouseMove;
 	public static var optionScrollPos:Float = 0;
@@ -66,7 +70,7 @@ class KEConfirmMenu extends MusicBeatSubstate
 		this.availableOptions = this.isConfirmMode ? [] : (this.isColorMode ? KEOption.COLOR_NAMES.copy() : parentOption.options.copy());
 		this.selectedIndex = this.isConfirmMode ? 0 : Std.int(Math.max(0, parentOption.curOption));
 		this.originalIndex = this.selectedIndex;
-		
+
 		optionScrollPos = 0;
 	}
 
@@ -91,7 +95,7 @@ class KEConfirmMenu extends MusicBeatSubstate
 		var bodyHeight = Std.int(screenHeight * 0.5);
 		bodyBack = new FlxFilteredSprite(0, bodyY);
 		bodyBack.makeGraphic(screenWidth, bodyHeight, FlxColor.BLACK);
-		if (ClientPrefs.data.blurEffects)bodyBack.filters = [new BlurFilter(50, 50, BitmapFilterQuality.HIGH)];
+		if (ClientPrefs.data.blurEffects) bodyBack.filters = [new BlurFilter(50, 50, BitmapFilterQuality.HIGH)];
 		bodyBack.alpha = 0.7;
 		bodyBack.scrollFactor.set();
 		add(bodyBack);
@@ -116,7 +120,7 @@ class KEConfirmMenu extends MusicBeatSubstate
 		valueText.borderSize = 2;
 		add(valueText);
 
-		var buttonY = Std.int(bodyY + bodyHeight - 70);
+		var buttonY = Std.int(bodyY + bodyHeight + 30);
 		var buttonWidth = Std.int(screenWidth * 0.24);
 		var buttonHeight = 44;
 
@@ -139,7 +143,7 @@ class KEConfirmMenu extends MusicBeatSubstate
 		if (!isConfirmMode) {
 			for (i in 0...availableOptions.length)
 			{
-				var optionText = new FlxText(0, listStartY + (48 * i), screenWidth, availableOptions[i]);
+				var optionText = new FlxText(0, listStartY + (OPTION_HEIGHT * i), screenWidth, availableOptions[i]);
 				optionText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 				optionText.borderSize = 2;
 				optionText.alpha = 0;
@@ -165,18 +169,67 @@ class KEConfirmMenu extends MusicBeatSubstate
 		}
 
 		updateDisplay();
+
+		// ===== 淡入动画（只对可见项做，防止列表外的项闪出）=====
+		isFadingIn = true;
+
+		var bgTarget:Float = bg.alpha;
+		var bodyTarget:Float = bodyBack.alpha;
+		var confirmBackTarget:Float = confirmBack.alpha;
+		var cancelBackTarget:Float = cancelBack.alpha;
+
+		bg.alpha = 0;
+		bodyBack.alpha = 0;
+		titleText.alpha = 0;
+		typeText.alpha = 0;
+		valueText.alpha = 0;
+		confirmBack.alpha = 0;
+		cancelBack.alpha = 0;
+		confirmText.alpha = 0;
+		cancelText.alpha = 0;
+
+		FlxTween.tween(bg,          {alpha: bgTarget},          tweenDuration, {ease: FlxEase.sineOut});
+		FlxTween.tween(bodyBack,    {alpha: bodyTarget},        tweenDuration, {ease: FlxEase.sineOut});
+		FlxTween.tween(titleText,   {alpha: 1},                 tweenDuration, {ease: FlxEase.sineOut});
+		FlxTween.tween(typeText,    {alpha: 1},                 tweenDuration, {ease: FlxEase.sineOut});
+		FlxTween.tween(valueText,   {alpha: 1},                 tweenDuration, {ease: FlxEase.sineOut});
+		FlxTween.tween(confirmBack, {alpha: confirmBackTarget}, tweenDuration, {ease: FlxEase.sineOut});
+		FlxTween.tween(cancelBack,  {alpha: cancelBackTarget},  tweenDuration, {ease: FlxEase.sineOut});
+		FlxTween.tween(confirmText, {alpha: 1},                 tweenDuration, {ease: FlxEase.sineOut});
+		FlxTween.tween(cancelText,  {alpha: 1},                 tweenDuration, {ease: FlxEase.sineOut});
+
+		for (i in 0...optionTexts.length)
+		{
+			var text = optionTexts.members[i];
+			if (text == null) continue;
+			if (isOptionVisible(i)) {
+				var targetAlpha:Float = (i == selectedIndex) ? 1.0 : 0.85;
+				text.alpha = 0;
+				FlxTween.tween(text, {alpha: targetAlpha}, tweenDuration, {ease: FlxEase.sineOut});
+			} else {
+				text.alpha = 0; // 列表外的项锁死在 0
+			}
+		}
+
+		new FlxTimer().start(tweenDuration + 0.05, function(_) isFadingIn = false);
 	}
-	
+
+	function isOptionVisible(i:Int):Bool
+	{
+    	var displayIndex = i - scrollOffset;
+    	return displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS;
+	}
+
 	function setupMouseScroller():Void
 	{
-		var totalOptionsHeight:Float = availableOptions.length * 48;
-		var visibleHeight:Float = screenHeight - marginTop - marginBottom - 400;
+		var visibleHeight:Float = VISIBLE_OPTIONS * OPTION_HEIGHT;
+		var totalOptionsHeight:Float = availableOptions.length * OPTION_HEIGHT;
 		var minScroll:Float = 0;
 		var maxScroll:Float = Math.max(0, totalOptionsHeight - visibleHeight);
-		
+
 		var contentStartY:Float = listStartY;
 		var contentHeight:Float = visibleHeight;
-		
+
 		optionScroller = new MouseMove(
 			KEConfirmMenu,
 			'optionScrollPos',
@@ -193,10 +246,10 @@ class KEConfirmMenu extends MusicBeatSubstate
 		optionScroller.deceleration = 0.94;
 		add(optionScroller);
 	}
-	
+
 	function onScrollChange():Void
 	{
-		var newScrollOffset = Math.round(optionScrollPos / 48);
+		var newScrollOffset = Math.round(optionScrollPos / OPTION_HEIGHT);
 		if (newScrollOffset != scrollOffset)
 		{
 			scrollOffset = newScrollOffset;
@@ -205,17 +258,17 @@ class KEConfirmMenu extends MusicBeatSubstate
 			updateOptionPositions();
 		}
 	}
-	
+
 	function updateOptionPositions():Void
 	{
 		for (i in 0...optionTexts.length)
 		{
 			var optionText = optionTexts.members[i];
 			if (optionText == null) continue;
-			
+
 			var displayIndex = i - scrollOffset;
-			optionText.y = listStartY + (48 * displayIndex);
-			
+			optionText.y = listStartY + (OPTION_HEIGHT * displayIndex);
+
 			var isVisible = (displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS);
 			optionText.alpha = isVisible ? 1 : 0;
 			if (isVisible && this.isColorMode) {
@@ -250,7 +303,7 @@ class KEConfirmMenu extends MusicBeatSubstate
 		for (i in 0...optionTexts.length)
 		{
 			var optionText = optionTexts.members[i];
-			if (optionText == null || optionText.alpha <= 0) continue;
+			if (optionText == null || !isOptionVisible(i)) continue;
 			if (FlxG.mouse.overlaps(optionText))
 			{
 				hoveredIndex = i;
@@ -264,17 +317,24 @@ class KEConfirmMenu extends MusicBeatSubstate
 		for (i in 0...optionTexts.length)
 		{
 			var optionText = optionTexts.members[i];
-			if (optionText == null || optionText.alpha <= 0) continue;
+			if (optionText == null) continue;
+
+			// 列表外的项强制隐藏，避免 tween 期间闪出
+			if (!isOptionVisible(i)) {
+				optionText.alpha = 0;
+				continue;
+			}
+
 			var baseColor = this.isColorMode ? KEOption.COLOR_PALETTE[i] : FlxColor.WHITE;
 			if (i == selectedIndex) {
 				optionText.color = FlxColor.YELLOW;
-				optionText.alpha = 1;
+				if (!isFadingIn) optionText.alpha = 1;
 			} else if (i == hoveredIndex) {
 				optionText.color = FlxColor.fromRGB(255, 215, 0);
-				optionText.alpha = 1;
+				if (!isFadingIn) optionText.alpha = 1;
 			} else {
 				optionText.color = baseColor;
-				optionText.alpha = 0.85;
+				if (!isFadingIn) optionText.alpha = 0.85;
 			}
 		}
 
@@ -299,8 +359,8 @@ class KEConfirmMenu extends MusicBeatSubstate
 		// 鼠标滚轮：只滚动列表，不改变选中项
 		if (FlxG.mouse.wheel != 0 && !isConfirmMode)
 		{
-             var wheelDelta = -FlxG.mouse.wheel;  // 反转方向
-        	scrollOptions(wheelDelta, false);
+			var wheelDelta = -FlxG.mouse.wheel;  // 反转方向
+			scrollOptions(wheelDelta, false);
 		}
 		// 鼠标点击
 		if (FlxG.mouse.justPressed && !optionClickProtected && (optionScroller == null || !optionScroller.isDragging))
@@ -369,22 +429,22 @@ class KEConfirmMenu extends MusicBeatSubstate
 
 		if (accept) confirmSelection();
 	}
-	
+
 	function scrollOptions(change:Int, isLongPress:Bool = false):Void
 	{
 		var newOffset = scrollOffset - change; // 注意方向
 		if (newOffset < 0) newOffset = 0;
 		if (newOffset > maxScrollOffset) newOffset = maxScrollOffset;
-		
+
 		if (newOffset == scrollOffset) return;
-		
+
 		scrollOffset = newOffset;
-		optionScrollPos = scrollOffset * 48;
+		optionScrollPos = scrollOffset * OPTION_HEIGHT;
 		if (optionScroller != null) {
 			optionScroller.target = optionScrollPos;
 		}
 		updateOptionPositions();
-		
+
 		if (!isLongPress) {
 			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
 		}
@@ -421,7 +481,7 @@ class KEConfirmMenu extends MusicBeatSubstate
 	function moveSelection(change:Int):Void
 	{
 		if (isConfirmMode) return;
-		
+
 		selectedIndex += change;
 		if (selectedIndex < 0) selectedIndex = availableOptions.length - 1;
 		if (selectedIndex >= availableOptions.length) selectedIndex = 0;
@@ -433,20 +493,20 @@ class KEConfirmMenu extends MusicBeatSubstate
 	function ensureOptionVisible():Void
 	{
 		if (isConfirmMode) return;
-		
+
 		var oldOffset = scrollOffset;
-		
+
 		if (selectedIndex < scrollOffset) {
 			scrollOffset = selectedIndex;
 		} else if (selectedIndex >= scrollOffset + VISIBLE_OPTIONS) {
 			scrollOffset = selectedIndex - (VISIBLE_OPTIONS - 1);
 		}
-		
+
 		if (scrollOffset < 0) scrollOffset = 0;
 		if (scrollOffset > maxScrollOffset) scrollOffset = maxScrollOffset;
-		
+
 		if (oldOffset != scrollOffset) {
-			optionScrollPos = scrollOffset * 48;
+			optionScrollPos = scrollOffset * OPTION_HEIGHT;
 			if (optionScroller != null) {
 				optionScroller.target = optionScrollPos;
 			}
@@ -515,17 +575,20 @@ class KEConfirmMenu extends MusicBeatSubstate
 	{
 		if (isClosing) return;
 		isClosing = true;
-		FlxTween.tween(bg, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(bodyBack, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(titleText, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(typeText, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(valueText, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(confirmBack, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(cancelBack, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(confirmText, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		FlxTween.tween(cancelText, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		for (text in optionTexts) FlxTween.tween(text, {alpha: 0}, 0.2, {ease: FlxEase.sineIn});
-		new FlxTimer().start(0.25, function(tmr:FlxTimer) {
+
+		FlxTween.tween(bg,          {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
+		FlxTween.tween(bodyBack,    {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
+		FlxTween.tween(titleText,   {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
+		FlxTween.tween(typeText,    {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
+		FlxTween.tween(valueText,   {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
+		FlxTween.tween(confirmBack, {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
+		FlxTween.tween(cancelBack,  {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
+		FlxTween.tween(confirmText, {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
+		FlxTween.tween(cancelText,  {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
+		for (text in optionTexts)
+			if (text != null) FlxTween.tween(text, {alpha: 0}, tweenDuration, {ease: FlxEase.sineIn});
+
+		new FlxTimer().start(tweenDuration + 0.1, function(tmr:FlxTimer) {
 			close();
 			if (closeParent) {
 				KEOptionsMenu.instance.closeSubState();

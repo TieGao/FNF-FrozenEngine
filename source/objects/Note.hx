@@ -343,7 +343,6 @@ class Note extends FlxSprite
 		rating = 'unknown';
 		ratingMod = 0;
 		ratingDisabled = false;
-		texture = null;
 		noAnimation = false;
 		noMissAnimation = false;
 		hitCausesMiss = false;
@@ -373,6 +372,7 @@ class Note extends FlxSprite
 			b: -1,
 			a: ClientPrefs.data.splashAlpha
 		};
+		clipRect = null;
 	}
 
 	private function initializeNote(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?inEditor:Bool = false, ?createdFrom:Dynamic = null)
@@ -624,20 +624,25 @@ class Note extends FlxSprite
 	{
 		super.update(elapsed);
 
+		var allowHumanHit:Bool = mustPress;
+		if (PlayState.instance != null)
+		{
+			var mode:String = PlayState.instance.opponentMode;
+			if (mode == "opponent")
+				allowHumanHit = !mustPress;                    // 对手模式：只有原本对手的 note 是人类打击
+			else if (mode == "coop" || mode == "coop_split")
+				allowHumanHit = true;                          // coop：全都可以人类打击
+		}
 
-var allowHumanHit:Bool = mustPress;
-	if (PlayState.instance != null)
-		allowHumanHit = allowHumanHit || (PlayState.instance.opponentMode == "opponent" || PlayState.instance.opponentMode == "coop" || PlayState.instance.opponentMode == "coop_split");
+		if (allowHumanHit)
+		{
+			canBeHit = (strumTime > Conductor.songPosition - (Conductor.safeZoneOffset * lateHitMult) &&
+					strumTime < Conductor.songPosition + (Conductor.safeZoneOffset * earlyHitMult));
 
-	if (allowHumanHit)
-	{
-		canBeHit = (strumTime > Conductor.songPosition - (Conductor.safeZoneOffset * lateHitMult) &&
-				strumTime < Conductor.songPosition + (Conductor.safeZoneOffset * earlyHitMult));
-
-		if (strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !wasGoodHit)
-			tooLate = true;
-	}
-	else
+			if (strumTime < Conductor.songPosition - Conductor.safeZoneOffset && !wasGoodHit)
+				tooLate = true;
+		}
+		else
 		{
 			canBeHit = false;
 

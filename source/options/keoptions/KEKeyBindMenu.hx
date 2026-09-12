@@ -1,4 +1,4 @@
-package options;
+package options.keoptions;
 
 import flixel.input.keyboard.FlxKey;
 import flixel.input.gamepad.FlxGamepad;

@@ -8,9 +8,6 @@ import backend.SongArtConfig;
 import backend.SongInfoParser;
 import backend.CustomChartData;
 import backend.CustomChartMetadata;
-import states.editors.content.VSlice;
-import states.editors.content.OsuConverter;
-import substates.ChartSourceSelectSubstate;
 
 import objects.HealthIcon;
 import objects.MusicPlayerLegacy;
@@ -18,18 +15,13 @@ import objects.CharacterArtDisplay;
 import objects.SongArtDisplay;
 import objects.ToolBar;
 
-import options.GameplayChangersSubstate;
+import options.psychoptions.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
 import substates.ModFolderSubstate;
 import substates.SearchSubState;
 
 import flixel.math.FlxMath;
 import flixel.util.FlxDestroyUtil;
-import flixel.group.FlxGroup.FlxTypedGroup;
-import flixel.FlxSprite;
-import flixel.text.FlxText;
-import flixel.tweens.FlxTween;
-import flixel.FlxG;
 
 import shaders.MosaicEffect;
 
@@ -147,8 +139,8 @@ class FreeplayState extends MusicBeatState
         PlayState.isStoryMode = false;
         freeplaySongCache = loadFreeplaySongCache();
         WeekData.reloadWeekFiles(false);
-        options.KEOptionsMenu.isFreeplay = true;
-        options.KEOptionsMenu.onPlayState = false;
+        options.keoptions.KEOptionsMenu.isFreeplay = true;
+        options.keoptions.KEOptionsMenu.onPlayState = false;
 
         #if DISCORD_ALLOWED
         DiscordClient.changePresence("In the Freeplay Menu", null);
@@ -1771,13 +1763,13 @@ class FreeplayState extends MusicBeatState
 
         difficultyRatingText.color = DifficultyCalculator.getRatingColor(0);
         
-           curSelected = FlxMath.wrap(curSelected + change, 0, songs.length-1);
-            cardScrollPos = curSelected * CARD_SPACING;
-            // 添加边界限制
-            var maxScroll = Math.max(0, (songs.length - 1) * CARD_SPACING);
-            cardScrollPos = Math.max(0, Math.min(cardScrollPos, maxScroll));
+        curSelected = FlxMath.wrap(curSelected + change, 0, songs.length-1);
+        var targetScroll:Float = curSelected * CARD_SPACING;
+        var maxScroll = Math.max(0, (songs.length - 1) * CARD_SPACING);
+        targetScroll = Math.max(0, Math.min(targetScroll, maxScroll));
         if (cardScroller != null && !inModFolderSelector)
-            cardScroller.tweenData = cardScrollPos;
+            cardScroller.tweenData = targetScroll;
+
         Mods.currentModDirectory = songs[curSelected].folder;
         Paths.currentChartDirectory = songs[curSelected].customChart == null ? null : songs[curSelected].customChart.directory;
         if (musicPlayer.playingMusic)
@@ -1990,16 +1982,7 @@ class FreeplayState extends MusicBeatState
             }
         }
 
-        if (songs.length == 0)
-        {
-            curSelected = 0;
-            return;
-        }
-
-        curSelected = 0;
-        cardScrollPos = 0;
-        lerpSelected = 0;
-
+        // 清理旧卡片
         for (card in cards)
         {
             remove(card);
@@ -2007,6 +1990,15 @@ class FreeplayState extends MusicBeatState
         }
         cards = [];
         allCards = [];
+
+        if (songs.length == 0)
+        {
+            curSelected = 0;
+            resetCardScroller();
+            return;
+        }
+
+        curSelected = 0;
 
         for (i in 0...songs.length)
         {
@@ -2021,6 +2013,9 @@ class FreeplayState extends MusicBeatState
 
             Mods.currentModDirectory = oldModDir;
         }
+
+        // 重置滚动控制器
+        resetCardScroller();
 
         var modDisplayText:String = "Mod: ";
         if (Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0)
@@ -2051,8 +2046,33 @@ class FreeplayState extends MusicBeatState
         updateSongInfoTexts();
         showArtForIndex(curSelected, false);
         showCharacterForIndex(curSelected, false);
-		if (toolBar != null)
-			toolBar.refreshChartModeButtons();
+        if (toolBar != null)
+            toolBar.refreshChartModeButtons();
+    }
+
+    function resetCardScroller():Void
+    {
+        if (cardScroller != null)
+        {
+            remove(cardScroller);
+            cardScroller.destroy();
+            cardScroller = null;
+        }
+        
+        cardScrollPos = 0;
+        lerpSelected = 0;
+        
+        if (songs.length > 0)
+        {
+            cardScroller = new backend.MouseMove(this, 'cardScrollPos', [0, Math.max(0, (songs.length - 1) * CARD_SPACING)], [[0, FlxG.width], [0, FlxG.height]], function() { computeVisibleCardRange(); updateCardsPosition(); });
+            cardScroller.useLerp = true;
+            cardScroller.lerpSmooth = 12;
+            cardScroller.dragSensitivity = 1.6;
+            cardScroller.deceleration = 0.94;
+            cardScroller.mouseWheelSensitivity = -200.0;
+            add(cardScroller);
+            cardScroller.tweenData = 0;
+        }
     }
 
     override function destroy():Void

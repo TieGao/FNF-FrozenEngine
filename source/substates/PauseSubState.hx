@@ -11,8 +11,8 @@ import flixel.addons.display.FlxGridOverlay;
 import states.StoryMenuState;
 import states.FreeplayState;
 import states.OldFreeplayState;
-import options.OptionsState;
-import options.KEOptionsMenu;
+import options.psychoptions.PsychOptionsState;
+import options.keoptions.KEOptionsMenu;
 
 class PauseSubState extends MusicBeatSubstate
 {
@@ -499,7 +499,7 @@ class PauseSubState extends MusicBeatSubstate
 				PlayState.instance.vocals.volume = 0;
 				PlayState.instance.canResync = false;
 				if (ClientPrefs.data.keOptions) MusicBeatState.switchState(new KEOptionsMenu());
-				else MusicBeatState.switchState(new OptionsState());
+				else MusicBeatState.switchState(new PsychOptionsState());
 				if(ClientPrefs.data.pauseMusic != 'None')
 				{
 					if (songName != null && Paths.formatToSongPath(songName) != 'none')
@@ -509,7 +509,7 @@ class PauseSubState extends MusicBeatSubstate
 					FlxTween.tween(FlxG.sound.music, {volume: 1}, 0.8);
 					FlxG.sound.music.time = pauseMusic.time;
 				}
-				OptionsState.onPlayState = true;
+				PsychOptionsState.onPlayState = true;
 				KEOptionsMenu.onPlayState = true;
 			case "Exit to menu":
 				#if DISCORD_ALLOWED DiscordClient.resetClientID(); #end

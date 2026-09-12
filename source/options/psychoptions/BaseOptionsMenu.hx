@@ -1,4 +1,4 @@
-package options;
+package options.psychoptions;
 
 import flixel.input.keyboard.FlxKey;
 import flixel.input.gamepad.FlxGamepad;
@@ -6,7 +6,7 @@ import flixel.input.gamepad.FlxGamepadInputID;
 
 import objects.CheckboxThingie;
 import objects.AttachedText;
-import options.Option;
+import options.psychoptions.Option;
 import backend.InputFormatter;
 import backend.MouseMove;
 

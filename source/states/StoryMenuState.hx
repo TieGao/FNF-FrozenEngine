@@ -11,7 +11,7 @@ import flixel.graphics.FlxGraphic;
 import objects.MenuItem;
 import objects.MenuCharacter;
 
-import options.GameplayChangersSubstate;
+import options.psychoptions.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
 
 import backend.StageData;

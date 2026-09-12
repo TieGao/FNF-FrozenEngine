@@ -1,11 +1,10 @@
-package options;
+package options.keoptions;
 
 import backend.Language;
 
 import flixel.FlxG;
 import flixel.FlxSubState;
 import flixel.util.FlxColor;
-import options.KEConfirmMenu;
 
 class KEOption
 {
@@ -26,9 +25,6 @@ class KEOption
 	public var holdTime:Float = 0;
 	public var holdValue:Float = 0;
 	public var isHolding:Bool = false;
-
-	// Psych Engine选项引用
-	public var psychOption:Option = null;
 	
 	// 直接KEOption属性
 	public var name:String = "";
@@ -191,8 +187,6 @@ class KEOption
 		var maybeDesc:String = resolveTranslation(nameDescKey, nameDescKey);
 		if(maybeDesc != nameDescKey) return maybeDesc;
 
-		if(psychOption != null) return resolveTranslation(psychOption.description, psychOption.description);
-
 		// Fallback to a generic localized string
 		return resolveTranslation("no description available", "No description available.");
 	}
@@ -255,19 +249,19 @@ class KEOption
 			// 处理特殊动作 - 现在包含警告检查
 			switch(name) {
 				case "Open Note Colors":
-					KEOptionsMenu.instance.openSubState(new options.NotesColorSubState());
+					KEOptionsMenu.instance.openSubState(new options.psychoptions.NotesColorSubState());
 					return false;
 				case "Open Controls":
-					KEOptionsMenu.instance.openSubState(new options.ControlsSubState());
+					KEOptionsMenu.instance.openSubState(new options.psychoptions.ControlsSubState());
 					return false;
 				case "Open EZ KeyBinds":
-					KEOptionsMenu.instance.openSubState(new options.KEKeyBindMenu());
+					KEOptionsMenu.instance.openSubState(new KEKeyBindMenu());
 					return false;   
 				case "Open EK Controls":
-					KEOptionsMenu.instance.openSubState(new options.ExtraKeybindSubState());
+					KEOptionsMenu.instance.openSubState(new options.psychoptions.ExtraKeybindSubState());
 					return false;
 				case "Open Extra Settings":
-					openInCurrentSubState(new options.ExtraSettingsSubState());
+					openInCurrentSubState(new KEExtraSettingsSubState());
 					return false;
 				//case "Replay Manager":
 				//	MusicBeatState.switchState(new states.LoadReplayState());
@@ -288,7 +282,7 @@ class KEOption
 					#end
 					return true;
 				case "Adjust Delay and Combo":
-					MusicBeatState.switchState(new options.NoteOffsetState());
+					MusicBeatState.switchState(new options.psychoptions.NoteOffsetState());
 					return false;
 				case "About":
 					KEOptionsMenu.instance.openSubState(new substates.AboutSubState());

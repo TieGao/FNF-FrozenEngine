@@ -11,8 +11,8 @@ import flixel.math.FlxPoint;
 import states.StoryMenuState;
 import states.OldFreeplayState;
 import states.FreeplayState;
-import options.OptionsState;
-import options.KEOptionsMenu;
+import options.psychoptions.PsychOptionsState;
+import options.keoptions.KEOptionsMenu;
 
 class NewPauseSubState extends MusicBeatSubstate
 {
@@ -1147,7 +1147,7 @@ class NewPauseSubState extends MusicBeatSubstate
 		if(ClientPrefs.data.keOptions)
 			MusicBeatState.switchState(new KEOptionsMenu());
 		else
-			MusicBeatState.switchState(new OptionsState());
+			MusicBeatState.switchState(new PsychOptionsState());
 		
 		if(ClientPrefs.data.pauseMusic != 'None')
 		{
@@ -1156,7 +1156,7 @@ class NewPauseSubState extends MusicBeatSubstate
 			FlxG.sound.music.time = pauseMusic.time;
 		}
 		
-		OptionsState.onPlayState = KEOptionsMenu.onPlayState = true;
+		PsychOptionsState.onPlayState = KEOptionsMenu.onPlayState = true;
 	}
 	
 	function restartSong(noTrans:Bool = false)

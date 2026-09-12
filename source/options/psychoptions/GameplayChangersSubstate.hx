@@ -1,9 +1,9 @@
-package options;
+package options.psychoptions;
 
 import objects.AttachedText;
 import objects.CheckboxThingie;
 
-import options.Option.OptionType;
+import options.psychoptions.Option.OptionType;
 
 class GameplayChangersSubstate extends MusicBeatSubstate
 {

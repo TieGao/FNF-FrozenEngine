@@ -1,4 +1,4 @@
-package options;
+package options.psychoptions;
 
 class GameplaySettingsSubState extends BaseOptionsMenu
 {

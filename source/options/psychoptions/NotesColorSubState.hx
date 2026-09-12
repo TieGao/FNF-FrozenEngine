@@ -1,4 +1,4 @@
-package options;
+package options.psychoptions;
 
 import flixel.addons.display.FlxBackdrop;
 import flixel.addons.display.FlxGridOverlay;

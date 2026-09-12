@@ -13,12 +13,12 @@ import flixel.ui.FlxButton;
 import flixel.math.FlxRect;
 import flixel.util.FlxStringUtil;
 import backend.Paths;
-import options.GameplayChangersSubstate;
+import options.psychoptions.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
 import states.FreeplayState;
 import objects.MusicPlayerLegacy;
-import options.KEOptionsMenu;
-import options.ExtraSettingsSubState;
+import options.keoptions.KEOptionsMenu;
+import options.keoptions.KEExtraSettingsSubState;
 import backend.ui.PsychUIButton; 
 
 
@@ -709,7 +709,7 @@ class ToolBar extends FlxSpriteGroup
         if (freeplayState != null && freeplayState.persistentUpdate)
         {
             freeplayState.persistentUpdate = false;
-            freeplayState.openSubState(new ExtraSettingsSubState());
+            freeplayState.openSubState(new KEExtraSettingsSubState());
         }
     }
     

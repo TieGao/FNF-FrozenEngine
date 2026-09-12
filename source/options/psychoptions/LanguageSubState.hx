@@ -1,4 +1,4 @@
-package options;
+package options.psychoptions;
 
 
 class LanguageSubState extends MusicBeatSubstate
