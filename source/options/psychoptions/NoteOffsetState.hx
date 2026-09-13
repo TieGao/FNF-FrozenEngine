@@ -524,7 +524,12 @@ class NoteOffsetState extends MusicBeatState
 			if(beatTween != null) beatTween.cancel();
 
 			persistentUpdate = false;
-			if(ClientPrefs.data.keOptions)
+			var optionType:String = ClientPrefs.getOptionType();
+			if(optionType == 'new')
+			{
+				MusicBeatState.switchState(new options.OptionsState());
+			}
+			else if(optionType == 'ke')
 			{
 				MusicBeatState.switchState(new options.keoptions.KEOptionsMenu());
 			}

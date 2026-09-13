@@ -8,7 +8,7 @@ import backend.Mods;
 import backend.Song;
 import backend.Paths;
 import backend.CustomChartData;
-import backend.ClientPrefs;
+
 
 import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.math.FlxMath;

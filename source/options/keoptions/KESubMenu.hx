@@ -227,8 +227,8 @@ class KESubMenu extends MusicBeatSubstate
 	
 	function isOptionVisible(i:Int):Bool
 	{
-		var displayIndex = i - scrollOffset;
-		return displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS;
+		var displayIndex = i - (optionScrollPos / 46);
+		return displayIndex > -1 && displayIndex < VISIBLE_OPTIONS;
 	}
 
 	function setupMouseScroller():Void
@@ -238,7 +238,6 @@ class KESubMenu extends MusicBeatSubstate
 		var minScroll:Float = 0;
 		var maxScroll:Float = Math.max(0, totalOptionsHeight - visibleHeight);
 		
-		// 选项区域范围
 		var contentStartY:Float = marginTop + 80;
 		var contentHeight:Float = visibleHeight;
 		
@@ -253,39 +252,82 @@ class KESubMenu extends MusicBeatSubstate
 			onScrollChange
 		);
 		optionScroller.useLerp = true;
-		optionScroller.lerpSmooth = 12;
+		optionScroller.lerpSmooth = 18;        // 从 12 提高到 18，滚动更跟手
 		optionScroller.dragSensitivity = 1.2;
 		optionScroller.deceleration = 0.94;
+		optionScroller.enableMouseWheel = false; // ★ 禁用内部滚轮，走手动逻辑
 		add(optionScroller);
 	}
 	
 	function onScrollChange():Void
 	{
-		// 根据滚动位置计算新的 scrollOffset
-		var newScrollOffset = Math.round(optionScrollPos / 46);
-		if (newScrollOffset != scrollOffset)
-		{
-			scrollOffset = newScrollOffset;
-			if (scrollOffset < 0) scrollOffset = 0;
-			if (scrollOffset > maxScrollOffset) scrollOffset = maxScrollOffset;
-			// 直接更新选项位置，不改变选中项
-			updateOptionPositions();
-		}
+		updateOptionPositions();
 	}
 	
 	function updateOptionPositions():Void
 	{
+		var baseY = marginTop + 80;
+		var scrollPixels = optionScrollPos;
+		
 		for (i in 0...optionTexts.length)
 		{
 			var optionText = optionTexts.members[i];
 			if (optionText == null) continue;
 			
-			var displayIndex = i - scrollOffset;
-			optionText.y = marginTop + 80 + (46 * displayIndex);
+			// ★ 用浮点像素差值，文字平滑移动
+			optionText.y = baseY + (46 * i) - scrollPixels;
 			
-			// 判断是否在可见区域内
-			var isVisible = (displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS);
+			var displayIndex = i - (scrollPixels / 46);
+			var isVisible = (displayIndex > -1 && displayIndex < VISIBLE_OPTIONS);
 			optionText.alpha = isVisible ? (i == selectedOptionIndex ? 1.0 : optionAlpha) : 0;
+		}
+	}
+
+	function scrollOptions(change:Int, isLongPress:Bool = false):Void
+	{
+		var newOffset = scrollOffset - change;
+		if (newOffset < 0) newOffset = 0;
+		if (newOffset > maxScrollOffset) newOffset = maxScrollOffset;
+		
+		if (newOffset == scrollOffset) return;
+		
+		scrollOffset = newOffset;
+		
+		var targetPos = scrollOffset * 46;
+		if (optionScroller != null) {
+			// ★ 用 tweenData 而不是 target，触发 MouseMove 的 lerp 平滑
+			optionScroller.tweenData = targetPos;
+		} else {
+			optionScrollPos = targetPos;
+			updateOptionPositions();
+		}
+		
+		if (!isLongPress) {
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
+		}
+	}
+
+	function ensureOptionVisible():Void
+	{
+		var oldOffset = scrollOffset;
+		
+		if (selectedOptionIndex < scrollOffset) {
+			scrollOffset = selectedOptionIndex;
+		} else if (selectedOptionIndex >= scrollOffset + VISIBLE_OPTIONS) {
+			scrollOffset = selectedOptionIndex - (VISIBLE_OPTIONS - 1);
+		}
+		
+		if (scrollOffset < 0) scrollOffset = 0;
+		if (scrollOffset > maxScrollOffset) scrollOffset = maxScrollOffset;
+		
+		if (oldOffset != scrollOffset) {
+			var targetPos = scrollOffset * 46;
+			if (optionScroller != null) {
+				optionScroller.tweenData = targetPos;
+			} else {
+				optionScrollPos = targetPos;
+				updateOptionPositions();
+			}
 		}
 	}
 	
@@ -469,27 +511,7 @@ class KESubMenu extends MusicBeatSubstate
 			}
 		}
 	}
-	
-	function scrollOptions(change:Int, isLongPress:Bool = false):Void
-	{
-		var newOffset = scrollOffset - change; // 注意方向：正滚轮向下滚动
-		if (newOffset < 0) newOffset = 0;
-		if (newOffset > maxScrollOffset) newOffset = maxScrollOffset;
-		
-		if (newOffset == scrollOffset) return;
-		
-		scrollOffset = newOffset;
-		optionScrollPos = scrollOffset * 46;
-		if (optionScroller != null) {
-			optionScroller.target = optionScrollPos;
-		}
-		updateOptionPositions();
-		
-		if (!isLongPress) {
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
-		}
-	}
-	
+
 	public function updateDisplay():Void
 	{
 		// 更新所有选项文本
@@ -536,40 +558,40 @@ class KESubMenu extends MusicBeatSubstate
 	return snapOptionValue(Std.parseFloat(Std.string(selectedOption.value)), selectedOption);
 }
 
-function updateValueBar():Void
-{
-	if (selectedOption != null && isNumericOption(selectedOption))
+	function updateValueBar():Void
 	{
-		valueBar.visible = true;
-		valueBarText.visible = true;
-		valueBar.setBounds(selectedOption.minValue, selectedOption.maxValue);
-		var currentValue:Float = snapOptionValue(Std.parseFloat(Std.string(selectedOption.value)), selectedOption);
-		valueBar.setPercent(FlxMath.remapToRange(currentValue, selectedOption.minValue, selectedOption.maxValue, 0, 100), false);
-		valueBarText.text = selectedOption.getValue();
+		if (selectedOption != null && isNumericOption(selectedOption))
+		{
+			valueBar.visible = true;
+			valueBarText.visible = true;
+			valueBar.setBounds(selectedOption.minValue, selectedOption.maxValue);
+			var currentValue:Float = snapOptionValue(Std.parseFloat(Std.string(selectedOption.value)), selectedOption);
+			valueBar.setPercent(FlxMath.remapToRange(currentValue, selectedOption.minValue, selectedOption.maxValue, 0, 100), false);
+			valueBarText.text = selectedOption.getValue();
+		}
+		else
+		{
+			valueBar.visible = false;
+			valueBarText.visible = false;
+		}
 	}
-	else
+
+	function getStepDecimals(step:Float):Int
 	{
-		valueBar.visible = false;
-		valueBarText.visible = false;
+		var s:String = Std.string(step);
+		var index:Int = s.indexOf('.');
+		if (index == -1) return 0;
+		return s.length - index - 1;
 	}
-}
 
-function getStepDecimals(step:Float):Int
-{
-	var s:String = Std.string(step);
-	var index:Int = s.indexOf('.');
-	if (index == -1) return 0;
-	return s.length - index - 1;
-}
+	function roundToDecimals(value:Float, decimals:Int):Float
+	{
+		var factor:Float = Math.pow(10, decimals);
+		return Math.round(value * factor) / factor;
+	}
 
-function roundToDecimals(value:Float, decimals:Int):Float
-{
-	var factor:Float = Math.pow(10, decimals);
-	return Math.round(value * factor) / factor;
-}
-
-function snapOptionValue(value:Float, option:KEOption):Float
-{
+	function snapOptionValue(value:Float, option:KEOption):Float
+	{
 	if (option == null) return value;
 	var step:Float = option.changeValue;
 	if (step <= 0) return value;
@@ -581,29 +603,6 @@ function snapOptionValue(value:Float, option:KEOption):Float
 	if (snapped > option.maxValue) snapped = option.maxValue;
 	return snapped;
 	}
-
-function ensureOptionVisible():Void
-{
-	var oldOffset = scrollOffset;
-	
-	if (selectedOptionIndex < scrollOffset) {
-		scrollOffset = selectedOptionIndex;
-	} else if (selectedOptionIndex >= scrollOffset + VISIBLE_OPTIONS) {
-		scrollOffset = selectedOptionIndex - (VISIBLE_OPTIONS - 1);
-	}
-	
-	if (scrollOffset < 0) scrollOffset = 0;
-	if (scrollOffset > maxScrollOffset) scrollOffset = maxScrollOffset;
-	
-	if (oldOffset != scrollOffset) {
-		optionScrollPos = scrollOffset * 46;
-		if (optionScroller != null) {
-			optionScroller.target = optionScrollPos;
-		}
-		updateOptionPositions();
-	}
-}
-
 	
 	function handleUpKey():Void
 	{

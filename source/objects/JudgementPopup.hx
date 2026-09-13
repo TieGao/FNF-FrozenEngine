@@ -1,6 +1,6 @@
 package objects;
 
-import backend.ClientPrefs;
+
 import backend.Paths;
 import backend.Rating;
 import flixel.FlxG;

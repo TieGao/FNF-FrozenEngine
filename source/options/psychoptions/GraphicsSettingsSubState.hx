@@ -52,13 +52,13 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		boyfriend.animation.finishCallback = function (name:String) boyfriend.dance();
 		boyfriend.visible = false;
 
-		var option:Option = new Option('Low Quality',
+		var option:PsychOption = new PsychOption('Low Quality',
 			'If checked, disables some background details,\ndecreases loading times and improves performance.',
 			'lowQuality',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Anti-Aliasing',
+		var option:PsychOption = new PsychOption('Anti-Aliasing',
 			'If unchecked, disables anti-aliasing, increases performance\nat the cost of sharper visuals.',
 			'antialiasing',
 			BOOL);
@@ -66,7 +66,7 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		addOption(option);
 		antialiasingOption = optionsArray.length-1;
 
-		var option:Option = new Option('Resolution',
+		var option:PsychOption = new PsychOption('Resolution',
 			'Changes the game\'s render resolution.\nHigher resolution = sharper image but worse performance.',
 			'renderResolution',
 			INT);
@@ -77,7 +77,7 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		addOption(option);
 		resolutionOption = optionsArray.length - 1;
 
-		var wideScreenOption:Option = new Option('Wide Screen',
+		var wideScreenOption:PsychOption = new PsychOption('Wide Screen',
 			'Enable 21:9 widescreen mode for the game viewport width.',
 			'wideScreen',
 			BOOL);
@@ -88,20 +88,20 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 			ClientPrefs.data.renderResolution = 0;
 		}
 
-		var option:Option = new Option('Shaders',
+		var option:PsychOption = new PsychOption('Shaders',
 			"If unchecked, disables shaders.\nIt's used for some visual effects, and also CPU intensive for weaker.",
 			'shaders',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('GPU Caching',
+		var option:PsychOption = new PsychOption('GPU Caching',
 			"If checked, allows the GPU to be used for caching textures, decreasing RAM usage.\nDon't turn this on if you have a shitty Graphics Card.",
 			'cacheOnGPU',
 			BOOL);
 		addOption(option);
 
 		#if !html5
-		var option:Option = new Option('Framerate',
+		var option:PsychOption = new PsychOption('Framerate',
 			"Pretty self explanatory, isn't it?",
 			'framerate',
 			INT);
@@ -115,7 +115,7 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		option.onChange = onChangeFramerate;
 		#end
 
-		var option:Option = new Option('FPS Rework',
+		var option:PsychOption = new PsychOption('FPS Rework',
 			"If checked, this works around the game becoming \"slow\" and \"smooth\" when the current FPS is lower than the FPS cap.",
 			'fpsRework',
 			BOOL);

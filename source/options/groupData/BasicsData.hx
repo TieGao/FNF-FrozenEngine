@@ -1,0 +1,52 @@
+package options.groupData;
+
+import options.objects.OptionCategory;
+import options.psychoptions.PsychOption;
+import options.psychoptions.PsychOption.OptionType;
+
+class BasicsData
+{
+    public static function build():OptionCategory
+    {
+        var cat = new OptionCategory('Basics', 'Basics', 'specIcon');
+
+        var openControls = new PsychOption('Open Controls', 'Customize key bindings', '', ACTION);
+        openControls.actionLabel = 'Open';
+        openControls.action = function() {
+            if (OptionsPageState.instance != null)
+                OptionsPageState.instance.openSubState(new options.psychoptions.ControlsSubState());
+            else if (options.keoptions.KEOptionsMenu.instance != null)
+                options.keoptions.KEOptionsMenu.instance.openSubState(new options.psychoptions.ControlsSubState());
+        };
+        cat.add(openControls);
+
+        var openEKControls = new PsychOption('Open EK Controls', 'Customize key bindings for EK mode', '', ACTION);
+        openEKControls.actionLabel = 'Open';
+        openEKControls.action = function() {
+            if (OptionsPageState.instance != null)
+                OptionsPageState.instance.openSubState(new options.psychoptions.ExtraKeybindSubState());
+            else if (options.keoptions.KEOptionsMenu.instance != null)
+                options.keoptions.KEOptionsMenu.instance.openSubState(new options.psychoptions.ExtraKeybindSubState());
+        };
+        cat.add(openEKControls);
+
+        var adjustDelay = new PsychOption('Adjust Delay and Combo', 'Customize ingame experience', '', ACTION);
+        adjustDelay.actionLabel = 'Open';
+        adjustDelay.action = function() {
+            MusicBeatState.switchState(new options.psychoptions.NoteOffsetState());
+        };
+        cat.add(adjustDelay);
+
+        cat.add(new PsychOption('Language', 'Change the game\'s language', 'language', STRING, ['en-US', 'pt-BR', 'zh-CN', 'zh-TW']));
+
+        var resetKeyBinds = new PsychOption('Reset KeyBinds', 'Reset key bindings', 'keybinds', ACTION);
+        resetKeyBinds.actionLabel = 'Reset';
+        resetKeyBinds.action = function() {
+            ClientPrefs.resetKeys();
+            ClientPrefs.saveSettings();
+        };
+        cat.add(resetKeyBinds);
+
+        return cat;
+    }
+}

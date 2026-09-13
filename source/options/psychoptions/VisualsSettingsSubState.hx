@@ -40,7 +40,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 				ClientPrefs.data.noteSkin = ClientPrefs.defaultData.noteSkin; //Reset to default if saved noteskin couldnt be found
 
 			noteSkins.insert(0, ClientPrefs.defaultData.noteSkin); //Default skin always comes first
-			var option:Option = new Option('Note Skins:',
+			var option:PsychOption = new PsychOption('Note Skins:',
 				"Select your prefered Note skin.",
 				'noteSkin',
 				STRING,
@@ -57,7 +57,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 				ClientPrefs.data.splashSkin = ClientPrefs.defaultData.splashSkin; //Reset to default if saved splashskin couldnt be found
 
 			noteSplashes.insert(0, ClientPrefs.defaultData.splashSkin); //Default skin always comes first
-			var option:Option = new Option('Note Splashes:',
+			var option:PsychOption = new PsychOption('Note Splashes:',
 				"Select your prefered Note Splash variation.",
 				'splashSkin',
 				STRING,
@@ -73,7 +73,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 				ClientPrefs.data.holdCoverSkin = ClientPrefs.defaultData.holdCoverSkin; //Reset to default if saved splashskin couldnt be found
 
 			holdCovers.insert(0, ClientPrefs.defaultData.holdCoverSkin); //Default skin always comes first
-			var option:Option = new Option('Note holdCovers:',
+			var option:PsychOption = new PsychOption('Note holdCovers:',
 				"Select your prefered Note holdCover variation.",
 				'holdCoverSkin',
 				STRING,
@@ -81,12 +81,12 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			addOption(option);
 		}
 
-		var option:Option = new Option('Note Opacity',
+		var option:PsychOption = new PsychOption('Note Opacity',
 			'How much transparent should the Note be.',
 			'noteAlpha',
 			PERCENT);
 
-		var option:Option = new Option('Note Splash Opacity',
+		var option:PsychOption = new PsychOption('Note Splash Opacity',
 			'How much transparent should the Note Splashes be.',
 			'splashAlpha',
 			PERCENT);
@@ -99,20 +99,20 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		option.onChange = playNoteSplashes;
 
 		// KEOptions: 强制数字颜色（forceNumberColor）
-		var option:Option = new Option('Force Number Color',
+		var option:PsychOption = new PsychOption('Force Number Color',
 			'Force numbers to a specific color instead of team color',
 			'forceNumberColor',
 			BOOL);
 		addOption(option);
 
 		// 粒子设置（从 KEOptions 反向移植）
-		var optParticle:Option = new Option('Show Particles in Menu',
+		var optParticle:PsychOption = new PsychOption('Show Particles in Menu',
 			"Show particle effects inside menus",
 			'particle',
 			BOOL);
 		addOption(optParticle);
 
-		var optParticleAmount:Option = new Option('Particle Amount',
+		var optParticleAmount:PsychOption = new PsychOption('Particle Amount',
 			"Amount of particles used in menu effects",
 			'particleAmount',
 			INT);
@@ -122,7 +122,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		optParticleAmount.changeValue = 1;
 		addOption(optParticleAmount);
 
-		var optParticleSpeed:Option = new Option('Particle Speed',
+		var optParticleSpeed:PsychOption = new PsychOption('Particle Speed',
 			"Speed multiplier for particles",
 			'particleSpeed',
 			FLOAT);
@@ -133,7 +133,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		optParticleSpeed.decimals = 2;
 		addOption(optParticleSpeed);
 
-		var optParticleTrail:Option = new Option('Particle Trail Length',
+		var optParticleTrail:PsychOption = new PsychOption('Particle Trail Length',
 			"Length of particle trails",
 			'particleTrail',
 			INT);
@@ -143,38 +143,38 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		optParticleTrail.changeValue = 1;
 		addOption(optParticleTrail);
 
-		var option:Option = new Option('Hide HUD',
+		var option:PsychOption = new PsychOption('Hide HUD',
 			'If checked, hides most HUD elements.',
 			'hideHud',
 			BOOL);
 		addOption(option);
 		
-		var option:Option = new Option('Time Bar:',
+		var option:PsychOption = new PsychOption('Time Bar:',
 			"What should the Time Bar display?",
 			'timeBarType',
 			STRING,
 			['Time Left', 'Time Elapsed', 'Song Name', 'Disabled']);
 		addOption(option);
 
-		var option:Option = new Option('Flashing Lights',
+		var option:PsychOption = new PsychOption('Flashing Lights',
 			"Uncheck this if you're sensitive to flashing lights!",
 			'flashing',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Camera Zooms',
+		var option:PsychOption = new PsychOption('Camera Zooms',
 			"If unchecked, the camera won't zoom in on a beat hit.",
 			'camZooms',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Score Text Grow on Hit',
+		var option:PsychOption = new PsychOption('Score Text Grow on Hit',
 			"If unchecked, disables the Score text growing\neverytime you hit a note.",
 			'scoreZoom',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Health Bar Opacity',
+		var option:PsychOption = new PsychOption('Health Bar Opacity',
 			'How much transparent should the health bar and icons be.',
 			'healthBarAlpha',
 			PERCENT);
@@ -186,7 +186,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		addOption(option);
 		
 		#if !mobile
-		var option:Option = new Option('FPS Counter',
+		var option:PsychOption = new PsychOption('FPS Counter',
 			'If unchecked, hides FPS Counter.',
 			'showFPS',
 			BOOL);
@@ -212,7 +212,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			pauseMusicList = ['None', 'Tea Time', 'Breakfast', 'Breakfast (Pico)'];
 		}
 
-		var option:Option = new Option('Pause Music:',
+		var option:PsychOption = new PsychOption('Pause Music:',
 			"What song do you prefer for the Pause Screen?",
 			'pauseMusic',
 			STRING,
@@ -221,7 +221,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		option.onChange = onChangePauseMusic;
 		
 		#if CHECK_FOR_UPDATES
-		var option:Option = new Option('Check for Updates',
+		var option:PsychOption = new PsychOption('Check for Updates',
 			'On Release builds, turn this on to check for updates when you start the game.',
 			'checkForUpdates',
 			BOOL);
@@ -229,27 +229,27 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		#end
 
 		#if DISCORD_ALLOWED
-		var option:Option = new Option('Discord Rich Presence',
+		var option:PsychOption = new PsychOption('Discord Rich Presence',
 			"Uncheck this to prevent accidental leaks, it will hide the Application from your \"Playing\" box on Discord",
 			'discordRPC',
 			BOOL);
 		addOption(option);
 		#end
 
-			var option:Option = new Option('NoteHits Counter',
+			var option:PsychOption = new PsychOption('NoteHits Counter',
 			"If checked, a counter will show your notehits ",
 			'Counter',
 			BOOL);
 		addOption(option);	
 
 			// 键盘显示设置（部分来自 KEOptions）
-			var option:Option = new Option('Show Keyboard',
+			var option:PsychOption = new PsychOption('Show Keyboard',
 				"Display keyboard on screen",
 				'kb',
 				BOOL);
 			addOption(option);
 
-			var option:Option = new Option('Keyboard Opacity',
+			var option:PsychOption = new PsychOption('Keyboard Opacity',
 				"Transparency of the keyboard display",
 				'keyboardAlpha',
 				PERCENT);
@@ -260,7 +260,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			option.decimals = 2;
 			addOption(option);
 
-			var option:Option = new Option('Keyboard Offset X',
+			var option:PsychOption = new PsychOption('Keyboard Offset X',
 				"Horizontal position of the keyboard display",
 				'kbOffsetX',
 				INT);
@@ -269,7 +269,7 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			option.changeValue = 10;
 			addOption(option);
 
-			var option:Option = new Option('Keyboard Offset Y',
+			var option:PsychOption = new PsychOption('Keyboard Offset Y',
 				"Vertical position of the keyboard display",
 				'kbOffsetY',
 				INT);
@@ -278,13 +278,13 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			option.changeValue = 10;
 			addOption(option);
 
-			var option:Option = new Option('Keyboard Time Display',
+			var option:PsychOption = new PsychOption('Keyboard Time Display',
 				"Show time on keyboard display",
 				'keyboardTimeDisplay',
 				BOOL);
 			addOption(option);
 
-			var option:Option = new Option('Keyboard Time Length',
+			var option:PsychOption = new PsychOption('Keyboard Time Length',
 				"How long the keyboard is displayed (ms)",
 				'keyboardTime',
 				FLOAT);
@@ -294,64 +294,64 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			option.decimals = 0;
 			addOption(option);
 
-		var option:Option = new Option('Combo Stacking',
+		var option:PsychOption = new PsychOption('Combo Stacking',
 			"If unchecked, Ratings and Combo won't stack, saving on System Memory and making them easier to read",
 			'comboStacking',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Center Pause',
+		var option:PsychOption = new PsychOption('Center Pause',
 			"If checked, pause menu will stay in the screen center",
 			'centerPause',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Cool Backdrops',
+		var option:PsychOption = new PsychOption('Cool Backdrops',
 			"If checked, some states will have special effect",
 			'coolBackdrop',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Custom Color',
+		var option:PsychOption = new PsychOption('Custom Color',
 			"If checked, timeBar and Scoretxt will change to opponent's icon color",
 			'customColor',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Gradient TimeBar',
+		var option:PsychOption = new PsychOption('Gradient TimeBar',
 			"If checked, timeBar will be Gradient Color",
 			'gradientTimeBar',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Health Text',
+		var option:PsychOption = new PsychOption('Health Text',
 			"Show ur health as a value!",
 			'healthText',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('KE Style Watermark',
+		var option:PsychOption = new PsychOption('KE Style Watermark',
 			"Add a text that will show song info",
 			'songText',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Score Screen',
+		var option:PsychOption = new PsychOption('Score Screen',
 			"Show ur results like Kade Engine!",
 			'scoreScreen',
 			BOOL);
 		addOption(option);
 
-		var option:Option = new Option('Impostor Story(V3)',
+		var option:PsychOption = new PsychOption('Impostor Story(V3)',
 		"If checked, storymenu will change to Impostor V3 style",
 		'ImpStory',
 		BOOL);
 		addOption(option);
 
-		var option:Option = new Option('KE Styled Options',
-		"If checked, options will change to KE style",
-		'keOptions',
-		BOOL);
+		var option:PsychOption = new PsychOption('Options Style',
+		"Choose which options menu style to use",
+		'optionstype',
+		STRING, ['new', 'psych', 'ke']);
 		addOption(option);
 
 		super();

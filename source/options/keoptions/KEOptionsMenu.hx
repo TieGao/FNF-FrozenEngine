@@ -760,11 +760,6 @@ function scrollOptions(change:Int, isLongPress:Bool = false)
             LoadingState.loadAndSwitchState(new PlayState());
             FlxG.sound.music.volume = 0;
         }
-        else if(!ClientPrefs.data.keOptions && onMainMenuState)
-        {
-            MusicBeatState.switchState(new MainMenuState());
-            onMainMenuState = false;
-        }
 		else if (isFreeplay)
 			MusicBeatState.switchState(new states.FreeplayState());
 		else
@@ -1376,7 +1371,7 @@ function onScrollChange()
 			KEOption.create("Legacy Replay", "Use the legacy note-based replay system", "legacyReplay", "bool"),
 			KEOption.create("High Quality Replays", "Enable high-quality replays", "replayQuality", "bool"),
 			//KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
-			KEOption.create("NewOptions", "Disable it if u dont like current options menu", "keOptions", "bool"),
+			KEOption.create("Options Style", "Choose which options menu style to use", "optionstype", "string", ["new", "psych", "ke"]),
 			KEOption.createResetOption("Reset Settings", "settings"),
 			KEOption.createResetOption("Reset Scores", "scores"),
 			KEOption.create("About", "View information about the game", "", "action"),

@@ -2,6 +2,64 @@
 // 繁體中文翻譯 - KEngine Options Menu
 // ============================================
 
+// ============================================
+// 選項菜單 UI
+// ============================================
+searchhint: "搜尋設定"
+options.action.open: "開啟"
+options.action.reset: "重設"
+options.action.confirm: "確認？"
+
+options.category.basics.title: "基礎設定"
+options.category.basics.tags: "語言 · 按鍵 · 音符顏色"
+options.category.gameplay.title: "遊戲玩法"
+options.category.gameplay.tags: "下落式 · 幽靈敲擊 · 計時"
+options.category.skin.title: "外觀"
+options.category.skin.tags: "音符皮膚 · 特效 · 判定"
+options.category.components.title: "元件"
+options.category.components.tags: "命中錯誤列 · 鍵盤 · 計數器"
+options.category.gameui.title: "遊戲介面"
+options.category.gameui.tags: "HUD · 時間條 · 結果介面"
+options.category.outerui.title: "外部介面"
+options.category.outerui.tags: "自由遊玩 · 主選單 · 過渡"
+options.category.graphics.title: "圖形"
+options.category.graphics.tags: "解析度 · 幀率 · 著色器"
+options.category.advanced.title: "進階"
+options.category.advanced.tags: "更新 · Discord · 重設"
+
+setting_open_controls: "開啟控制"
+setting_open_ek_controls: "開啟 EK 控制"
+setting_adjust_delay_and_combo: "調整延遲與連擊"
+setting_language: "語言"
+description_language: "變更遊戲語言"
+setting_reset_keybinds: "重設按鍵綁定"
+description_reset_keybinds: "重設所有按鍵綁定"
+
+setting_check_for_updates: "檢查更新"
+description_check_for_updates: "檢查遊戲更新"
+setting_beta_updates: "測試更新"
+description_beta_updates: "將更新頻道切換到測試版"
+setting_loading_screen: "載入畫面"
+description_loading_screen: "顯示載入畫面"
+setting_lua_text_antialiasing: "Lua 文字抗鋸齒"
+description_lua_text_antialiasing: "啟用 Lua 文字抗鋸齒"
+setting_lua_debug_print: "啟用 LUA 除錯列印"
+description_lua_debug_print: "關閉後不顯示除錯輸出"
+setting_discord_rpc: "Discord RPC"
+description_discord_rpc: "啟用 Discord Rich Presence"
+setting_replay: "重播"
+description_replay: "啟用分數選單與重播功能"
+setting_legacy_replay: "經典重播"
+description_legacy_replay: "使用傳統的按音符重播系統"
+setting_high_quality_replays: "高品質重播"
+description_high_quality_replays: "啟用高品質重播"
+setting_newoptions: "新選項選單"
+description_newoptions: "關閉後使用舊選項選單"
+setting_use_default_mouse_cursor: "使用預設滑鼠游標"
+description_use_default_mouse_cursor: "在遊戲中使用系統預設滑鼠游標"
+setting_reset_settings: "重設設定"
+description_reset_settings: "將所有設定重設為預設值"
+
 // Gameplay
 botplay: "自動演奏"
 

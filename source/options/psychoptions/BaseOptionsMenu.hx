@@ -6,15 +6,15 @@ import flixel.input.gamepad.FlxGamepadInputID;
 
 import objects.CheckboxThingie;
 import objects.AttachedText;
-import options.psychoptions.Option;
+import options.psychoptions.PsychOption;
 import backend.InputFormatter;
 import backend.MouseMove;
 
 class BaseOptionsMenu extends MusicBeatSubstate
 {
-	private var curOption:Option = null;
+	private var curOption:PsychOption = null;
 	private var curSelected:Int = 0;
-	private var optionsArray:Array<Option>;
+	private var optionsArray:Array<PsychOption>;
 
 	private var grpOptions:FlxTypedGroup<Alphabet>;
 	private var checkboxGroup:FlxTypedGroup<CheckboxThingie>;
@@ -82,7 +82,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		add(titleText);
 
 		descText = new FlxText(50, 600, 1180, "", 32);
-		descText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		descText.setFormat(Paths.font("montserrat.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		descText.antialiasing = ClientPrefs.data.antialiasing;
 		descText.scrollFactor.set();
 		descText.borderSize = 2.4;
@@ -129,7 +129,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		setupOptionScroller();
 	}
 
-	public function addOption(option:Option) {
+	public function addOption(option:PsychOption) {
 		if(optionsArray == null || optionsArray.length < 1) optionsArray = [];
 		optionsArray.push(option);
 		return option;
@@ -195,7 +195,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 							changeSelection(checkbox.ID - curSelected);
 						}
 						// 点击复选框切换布尔值
-						var option:Option = optionsArray[checkbox.ID];
+						var option:PsychOption = optionsArray[checkbox.ID];
 						if (option.type == BOOL)
 						{
 							FlxG.sound.play(Paths.sound('scrollMenu'));
@@ -260,7 +260,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 
 			if(controls.RESET)
 			{
-				var leOption:Option = optionsArray[curSelected];
+				var leOption:PsychOption = optionsArray[curSelected];
 				if(leOption.type != KEYBIND)
 				{
 					leOption.setValue(leOption.defaultValue);
@@ -607,7 +607,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 	}
 
 	final MAX_KEYBIND_WIDTH = 320;
-	function updateBind(?text:String = null, ?option:Option = null)
+	function updateBind(?text:String = null, ?option:PsychOption = null)
 	{
 		if(option == null) option = curOption;
 		if(text == null)
@@ -675,7 +675,7 @@ class BaseOptionsMenu extends MusicBeatSubstate
 		FlxG.mouse.visible = true;
 	}
 
-	function updateTextFrom(option:Option) {
+	function updateTextFrom(option:PsychOption) {
 		if(option.type == KEYBIND)
 		{
 			updateBind(option);

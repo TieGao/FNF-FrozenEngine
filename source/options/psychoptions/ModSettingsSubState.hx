@@ -5,7 +5,7 @@ import flixel.input.gamepad.FlxGamepadInputID;
 
 import objects.Character;
 
-import options.psychoptions.Option.OptionType;
+import options.psychoptions.PsychOption.OptionType;
 
 class ModSettingsSubState extends BaseOptionsMenu
 {
@@ -32,7 +32,7 @@ class ModSettingsSubState extends BaseOptionsMenu
 		{
 			for (option in options)
 			{
-				var newOption = new Option(
+				var newOption = new PsychOption(
 					option.name != null ? option.name : option.save,
 					option.description != null ? option.description : 'No description provided.',
 					option.save,

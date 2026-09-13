@@ -7,7 +7,7 @@ import flixel.util.FlxColor;
 import flixel.util.FlxTimer;
 
 import backend.Paths;
-import backend.ClientPrefs;
+
 import backend.animation.PsychAnimationController;
 
 import states.PlayState;

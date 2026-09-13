@@ -376,14 +376,19 @@ class MainMenuState extends MusicBeatState
 						case 'credits':
 							MusicBeatState.switchState(new CreditsState());
 						case 'options':
-							if(ClientPrefs.data.keOptions)
+							var optionType:String = ClientPrefs.getOptionType();
+							if(optionType == 'new')
 							{
-							MusicBeatState.switchState(new KEOptionsMenu());
-							KEOptionsMenu.onMainMenuState = true;
+								MusicBeatState.switchState(new options.OptionsState());
+								KEOptionsMenu.onMainMenuState = true;
+							}
+							else if(optionType == 'ke')
+							{
+								MusicBeatState.switchState(new KEOptionsMenu());
 							}
 							else
 							{
-							MusicBeatState.switchState(new PsychOptionsState());
+								MusicBeatState.switchState(new PsychOptionsState());
 							}
 
 							PsychOptionsState.onPlayState = false;

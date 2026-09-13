@@ -1,6 +1,6 @@
 package backend;
 
-import backend.ClientPrefs;
+
 
 class Rating
 {

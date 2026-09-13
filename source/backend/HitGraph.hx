@@ -10,7 +10,7 @@ import openfl.text.TextFieldAutoSize;
 import flixel.math.FlxMath;
 import flixel.util.FlxColor;
 import flixel.FlxG;
-import backend.ClientPrefs;
+
 
 class HitGraph extends Sprite
 {

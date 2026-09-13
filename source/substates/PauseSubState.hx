@@ -498,7 +498,9 @@ class PauseSubState extends MusicBeatSubstate
 				PlayState.instance.paused = true;
 				PlayState.instance.vocals.volume = 0;
 				PlayState.instance.canResync = false;
-				if (ClientPrefs.data.keOptions) MusicBeatState.switchState(new KEOptionsMenu());
+				var optionType:String = ClientPrefs.getOptionType();
+				if (optionType == 'new') MusicBeatState.switchState(new options.OptionsState());
+				else if (optionType == 'ke') MusicBeatState.switchState(new KEOptionsMenu());
 				else MusicBeatState.switchState(new PsychOptionsState());
 				if(ClientPrefs.data.pauseMusic != 'None')
 				{

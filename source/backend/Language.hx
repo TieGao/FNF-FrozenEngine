@@ -111,7 +111,7 @@ class Language
 		var spaces = ~/\s+/g;
 		k = spaces.replace(k, '_');
 		// 移除常见的标点符号
-		final hideChars = ~/[~&\\\/;:<>#.,'"%?!\(\)\[\]]/g;
+		final hideChars = ~/[~&\\\/;:<>#,'"%?!\(\)\[\]]/g;
 		k = hideChars.replace(k, '');
 		return k.toLowerCase().trim();
 	}

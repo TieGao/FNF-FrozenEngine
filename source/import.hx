@@ -68,5 +68,8 @@ import flixel.addons.display.FlxBackdrop;
 import backend.FlxFilteredSprite;
 import openfl.filters.BlurFilter;
 import openfl.filters.BitmapFilterQuality;
+
+import shapeEx.Rect;
+
 using StringTools;
 #end

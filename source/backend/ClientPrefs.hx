@@ -107,7 +107,6 @@ import states.TitleState;
 	public var coolBackdrop:Bool = true;
 	public var customColor:Bool = true;
 	public var healthText:Bool = true;
-	public var songText:Bool = true;
 	public var ImpStory:Bool = false;
 	public var freeplayspace:Bool = false;
 	public var saveFreeplayCache:Bool = true;
@@ -115,7 +114,7 @@ import states.TitleState;
 	public var cardGlow:Bool = true; // 新增：在 Freeplay 卡片下显示呼吸发光
 	public var freeplayModFolder:Bool = true; // 使用模组文件夹管理器隔离歌曲
 	public var scoreScreen:Bool = true;
-	public var keOptions:Bool = true;
+	public var optionstype:String = #if mobile 'new' #else 'ke' #end;
 	public var gradientTimeBar:Bool = true;
 	public var guideLineAlpha:Float = 0.0;
 	public var modInfoBox:Bool = true;
@@ -230,6 +229,9 @@ import states.TitleState;
 	public var blurEffects:Bool = true;
 	public var skipResultExitAnim:Bool = false;
 
+	public var songText:Bool = true;
+	public var songInfoTextSize:Float = 1.0;
+	
 	public var showHC:Bool = true;
 	public var showCB:Bool = true;
 	public var showMiss:Bool = true;
@@ -657,6 +659,20 @@ class ClientPrefs {
 		for (key in Reflect.fields(data))
 			if (key != 'gameplaySettings' && Reflect.hasField(FlxG.save.data, key))
 				Reflect.setField(data, key, Reflect.field(FlxG.save.data, key));
+
+		if (Reflect.hasField(FlxG.save.data, 'keOptions') && !Reflect.hasField(FlxG.save.data, 'optionstype'))
+		{
+			var oldValue:Dynamic = Reflect.field(FlxG.save.data, 'keOptions');
+			data.optionstype = normalizeOptionType(oldValue == true ? 'new' : 'psych');
+		}
+		else if (Reflect.hasField(FlxG.save.data, 'optionstype'))
+		{
+			data.optionstype = normalizeOptionType(Reflect.field(FlxG.save.data, 'optionstype'));
+		}
+		else
+		{
+			data.optionstype = normalizeOptionType(data.optionstype);
+		}
 		
 		if(Main.fpsVar != null)
 			Main.fpsVar.visible = data.showFPS;
@@ -762,6 +778,26 @@ class ClientPrefs {
 		}
 
 		return /*PlayState.isStoryMode ? defaultValue : */ value;
+	}
+
+	public static function normalizeOptionType(type:Dynamic):String
+	{
+		if (type == null)
+			return 'new';
+
+		var normalized = Std.string(type).trim().toLowerCase();
+		switch (normalized)
+		{
+			case 'psych', 'classic', 'legacy': return 'psych';
+			case 'ke', 'keoptions', 'keoptionsmenu': return 'ke';
+			case 'new', 'optionsstate', 'options', 'win10', 'win10style': return 'new';
+			default: return 'new';
+		}
+	}
+
+	public static function getOptionType():String
+	{
+		return normalizeOptionType(data.optionstype);
 	}
 
 	public static function reloadVolumeKeys()
