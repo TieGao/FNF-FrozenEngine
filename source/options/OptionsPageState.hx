@@ -4,6 +4,7 @@ import options.psychoptions.PsychOption;
 
 import backend.MusicBeatState;
 import backend.MouseEvent;
+import backend.MouseMove;
 import backend.ui.PsychUIInputText;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
@@ -72,6 +73,14 @@ class OptionsPageState extends MusicBeatState
 
     // 当前悬浮的项（用于刷新描述）
     var hoveredOption:PsychOption = null;
+
+    var backButton:Win10BackButton;
+
+    // ---------- MouseMove 滚动控制 ----------
+    var navScroller:MouseMove;
+    var contentScroller:MouseMove;
+    var navScrollHolder:{value:Float} = {value: 0};
+    var scrollHolder:{value:Float} = {value: 0};
 
     public function new(categories:Array<OptionCategory>, initialCat:OptionCategory, ?onClose:Void->Void)
     {
@@ -174,6 +183,10 @@ class OptionsPageState extends MusicBeatState
         overlayContainer = new FlxSpriteGroup();
         add(overlayContainer);
 
+        // ---------- MouseMove 滚动控制（必须在 navViewTop/Bottom 确定后再建）----------
+        buildScrollers();
+        buildBackButton();
+
         selectCategory(selectedCat);
     }
 
@@ -192,8 +205,76 @@ class OptionsPageState extends MusicBeatState
         };
         searchComp.scrollFactor.set();
         add(searchComp);
-
     }
+
+    // =========================================================
+    // MouseMove 初始化
+    // =========================================================
+    function buildScrollers()
+    {
+        // 左侧导航滚动区
+        navScroller = new MouseMove(
+            navScrollHolder, 'value',
+            [0, 0], // 空范围 -> 后续动态设置 moveLimit
+            [
+                [0, NAV_W + 1],                       // X 严格不等，+1 防止边界打架
+                [HEADER_H + NAV_PAD, FlxG.height]     // Y 覆盖整个左侧下半部
+            ],
+            function()
+            {
+                navScroll = navScrollHolder.value;
+                applyNavScrollVisual();
+            },
+            true
+        );
+        navScroller.infScroll = false;
+        navScroller.dragSensitivity = 1.0;
+        navScroller.deceleration = 0.92;
+        navScroller.mouseWheelSensitivity = -1000.0;
+        navScroller.dragStartDelayMs = 100;
+        navScroller.dragStartDistance = 10;
+        add(navScroller);
+
+        // 右侧内容滚动区
+        contentScroller = new MouseMove(
+            scrollHolder, 'value',
+            [0, 0],
+            [
+                [NAV_W, FlxG.width + 1],
+                [HEADER_H, FlxG.height - 60]
+            ],
+            function()
+            {
+                scroll = scrollHolder.value;
+                applyContentScrollVisual();
+            },
+            true
+        );
+        contentScroller.infScroll = false;
+        contentScroller.dragSensitivity = 1.0;
+        contentScroller.deceleration = 0.92;
+        contentScroller.mouseWheelSensitivity = -1000.0;
+        contentScroller.dragStartDelayMs = 100;
+        contentScroller.dragStartDistance = 10;
+        add(contentScroller);
+    }
+
+    function buildBackButton()
+    {
+        var btnW = NAV_W - NAV_PAD * 2;
+        var btnH = 44;
+        var btnX = NAV_PAD;
+        var btnY = FlxG.height - btnH - NAV_PAD;
+
+        backButton = new Win10BackButton(
+            btnX, btnY, btnW, btnH,
+            Language.getPhrase('options.back', 'back'),
+            function() { closePage(); }
+        );
+        backButton.scrollFactor.set();
+        add(backButton);
+    }
+
 
     // =========================================================
     // 导航
@@ -230,12 +311,35 @@ class OptionsPageState extends MusicBeatState
         var viewH = navViewBottom - navViewTop;
         navMaxScroll = Math.max(0, contentH - viewH);
 
+        // 动态同步 MouseMove 的可滚动范围
+        if (navScroller != null)
+        {
+            navScroller.moveLimit = [0, navMaxScroll];
+            navScroller.velocity = 0;
+            navScrollHolder.value = FlxMath.bound(navScrollHolder.value, 0, navMaxScroll);
+        }
+
         updateNavScroll(0);
     }
 
+    /**
+     * 兼容旧调用：外部直接改 delta 时，写回 holder 并刷新视觉
+     */
     function updateNavScroll(delta:Float)
     {
         navScroll = FlxMath.bound(navScroll + delta, 0, navMaxScroll);
+        navScrollHolder.value = navScroll;
+        applyNavScrollVisual();
+    }
+
+    /**
+     * 纯视觉刷新：把当前 navScroll 应用到每个 item 的 y 坐标
+     */
+    function applyNavScrollVisual()
+    {
+        // 把 holder 的值夹紧在合法范围内，防止越界
+        navScroll = FlxMath.bound(navScrollHolder.value, 0, navMaxScroll);
+        navScrollHolder.value = navScroll;
 
         for (i in 0...navItems.length)
         {
@@ -288,7 +392,11 @@ class OptionsPageState extends MusicBeatState
         hoverDesc.text = '';
 
         buildRows();
+
+        // 重置右侧滚动
         scroll = 0;
+        scrollHolder.value = 0;
+        if (contentScroller != null) contentScroller.velocity = 0;
         updateScroll(0);
     }
 
@@ -307,6 +415,11 @@ class OptionsPageState extends MusicBeatState
         if (currentSub == null)
         {
             maxScroll = 0;
+            if (contentScroller != null)
+            {
+                contentScroller.moveLimit = [0, 0];
+                contentScroller.velocity = 0;
+            }
             return;
         }
 
@@ -348,6 +461,13 @@ class OptionsPageState extends MusicBeatState
         var contentH = curY - (HEADER_H + NAV_PAD) - ROW_GAP;
         var viewH = FlxG.height - HEADER_H - NAV_PAD - 60;
         maxScroll = Math.max(0, contentH - viewH);
+
+        // 动态同步 MouseMove 的可滚动范围
+        if (contentScroller != null)
+        {
+            contentScroller.moveLimit = [0, maxScroll];
+            scrollHolder.value = FlxMath.bound(scrollHolder.value, 0, maxScroll);
+        }
     }
 
     function optionMatchesSearch(opt:PsychOption, query:String):Bool
@@ -395,9 +515,23 @@ class OptionsPageState extends MusicBeatState
     // =========================================================
     // 右侧滚动
     // =========================================================
+    /**
+     * 兼容旧调用：外部直接改 delta 时，写回 holder 并刷新视觉
+     */
     function updateScroll(delta:Float)
     {
         scroll = FlxMath.bound(scroll + delta, 0, maxScroll);
+        scrollHolder.value = scroll;
+        applyContentScrollVisual();
+    }
+
+    /**
+     * 纯视觉刷新：把当前 scroll 应用到每行的 y 坐标
+     */
+    function applyContentScrollVisual()
+    {
+        scroll = FlxMath.bound(scrollHolder.value, 0, maxScroll);
+        scrollHolder.value = scroll;
 
         for (i in 0...rows.length)
         {
@@ -410,7 +544,6 @@ class OptionsPageState extends MusicBeatState
             row.active = visible;
         }
     }
-    
 
     // =========================================================
     // 检测鼠标悬浮的行，更新顶部描述
@@ -449,19 +582,16 @@ class OptionsPageState extends MusicBeatState
     {
         super.update(elapsed);
 
-        var wheel = FlxG.mouse.wheel;
-        var overNav = FlxG.mouse.x < NAV_W
-                   && FlxG.mouse.y > navViewTop
-                   && FlxG.mouse.y < navViewBottom;
-
-        if (wheel != 0)
-        {
-            if (overNav) updateNavScroll(-wheel * 30);
-            else         updateScroll(-wheel * 30);
-        }
-
+        // 鼠标滚轮/拖拽已由 navScroller / contentScroller 内部处理，
+        // 这里只保留键盘控制。
         if (controls.UI_DOWN_P) updateScroll(30);
         if (controls.UI_UP_P)   updateScroll(-30);
+
+        // 键盘/外部改动 scroll 后，把值写回 holder 供 MouseMove 继续驱动惯性
+        if (scrollHolder.value != scroll)
+            scrollHolder.value = scroll;
+        if (navScrollHolder.value != navScroll)
+            navScrollHolder.value = navScroll;
 
         updateHoverDescription();
 

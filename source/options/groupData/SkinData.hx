@@ -15,10 +15,10 @@ class SkinData
         var holdCovers:Array<String> = Mods.mergeAllTextsNamed('images/holdCover/list.txt');
         var ratings:Array<String> = Mods.mergeAllTextsNamed('images/ratings/list.txt');
 
-        if (notes.length == 0) notes = ['Default'];
-        if (splashes.length == 0) splashes = ['Psych'];
-        if (holdCovers.length == 0) holdCovers = ['Default'];
-        if (ratings.length == 0) ratings = ['Default'];
+        notes.insert(0, 'Default');
+        splashes.insert(0, 'Psych');
+        holdCovers.insert(0, 'Default');
+        ratings.insert(0, 'Default');
         var sub = cat.section('Notes and Splashes', 'Note and Splashes');
 
         var openNoteColors = new PsychOption('Note Colors', 'Customize note colors', '', ACTION);

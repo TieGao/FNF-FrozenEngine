@@ -42,7 +42,7 @@ class OptionsState extends MusicBeatState
     var categoryData:Array<CategoryData> = [];
 
     // 底部返回按钮
-    // var backButton:GeneralBack;   // 预留
+    var backButton:Win10BackButton;
 
     // 返回状态
     public static var stateType:Int = 0;
@@ -106,6 +106,8 @@ class OptionsState extends MusicBeatState
         cardContainer.scrollFactor.set();
         add(cardContainer);
         buildCards();
+
+        buildBackButton();
 
         // ---------- 底部返回按钮 ----------
         // 预留：backButton = new GeneralBack(...);
@@ -208,6 +210,22 @@ class OptionsState extends MusicBeatState
             cardGroup.push(card);
             cardContainer.add(card);
         }
+    }
+
+    function buildBackButton()
+    {
+        var btnW = 220;
+        var btnH = 44;
+        var btnX = 0;
+        var btnY = FlxG.height - btnH - 20;
+
+        backButton = new Win10BackButton(
+            btnX, btnY, btnW, btnH,
+            Language.getPhrase('options.back', 'back'),
+            function() { backMenu(); }
+        );
+        backButton.scrollFactor.set();
+        add(backButton);
     }
 
     function categoryMatchesQuery(data:CategoryData, query:String):Bool

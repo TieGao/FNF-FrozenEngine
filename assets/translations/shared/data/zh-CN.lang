@@ -10,6 +10,7 @@ searchhint: "搜索设置"
 options.action.open: "打开"
 options.action.reset: "重置"
 options.action.confirm: "确认？"
+options.back: "返回"
 
 options.category.basics.title: "基础设置"
 options.category.basics.tags: "语言 · 按键 · 音符颜色"
