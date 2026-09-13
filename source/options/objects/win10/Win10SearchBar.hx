@@ -1,4 +1,4 @@
-package options.objects;
+package options.objects.win10;
 
 import backend.ui.PsychUIInputText;
 import shapeEx.Rect;

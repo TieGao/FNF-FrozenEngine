@@ -5,17 +5,19 @@ import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
 
-class StringSelect extends FlxSpriteGroup
+class ColorSelect extends FlxSpriteGroup
 {
     var follow:PsychOption;
 
-    var bg:Rect;          // 当前值的条
+    var bg:Rect;          // 当前颜色的条
+    var swatch:FlxSprite; // 左侧颜色块
     var dis:FlxText;
 
-    var popup:FlxSpriteGroup;   // 展开的下拉
+    var popup:FlxSpriteGroup;   // 展开的调色板
     var popupBg:Rect;
     var popupItems:Array<Rect> = [];
     var popupTexts:Array<FlxText> = [];
+    var popupSwatches:Array<FlxSprite> = [];
 
     var topLayer:FlxSpriteGroup;
 
@@ -23,7 +25,6 @@ class StringSelect extends FlxSpriteGroup
     var mainW:Float;
     var mainH:Float;
 
-    // 状态
     var hover:Bool = false;
     var pressing:Bool = false;
 
@@ -37,7 +38,11 @@ class StringSelect extends FlxSpriteGroup
     static inline var ITEM_NORMAL:Int = 0xFF3A3A3A;
     static inline var ITEM_HOVER:Int  = 0xFF4A4A4A;
 
-    // 手动绘制的箭头
+    // 调色板每行列数
+    static inline var COLS:Int = 4;
+    static inline var CELL:Float = 40.0;
+    static inline var CELL_PAD:Float = 6.0;
+
     var arrowGfx:FlxSprite;
 
     public function new(X:Float, Y:Float, width:Float, height:Float, follow:PsychOption, ?topLayer:FlxSpriteGroup)
@@ -51,7 +56,13 @@ class StringSelect extends FlxSpriteGroup
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
 
-        dis = new FlxText(10, 0, width - 30, '', 16);
+        // 左侧色块
+        swatch = new FlxSprite(6, (height - (height - 12)) * 0.5);
+        swatch.makeGraphic(Std.int(height - 12), Std.int(height - 12), 0xFFFFFFFF);
+        swatch.antialiasing = ClientPrefs.data.antialiasing;
+        add(swatch);
+
+        dis = new FlxText(Std.int(height) + 4, 0, width - Std.int(height) - 30, '', 16);
         dis.setFormat(Paths.font('montserrat.ttf'), 16,
             0xFFFFFF, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
         dis.borderStyle = NONE;
@@ -59,17 +70,15 @@ class StringSelect extends FlxSpriteGroup
         dis.y = (height - dis.height) * 0.5;
         add(dis);
 
-        // 手动绘制箭头：位置在这里固定一次
         arrowGfx = new FlxSprite();
         arrowGfx.antialiasing = ClientPrefs.data.antialiasing;
-        arrowGfx.x = width - arrowGfx.width - 16;   // 先占位，redraw 会重设尺寸
+        arrowGfx.x = width - arrowGfx.width - 16;
         arrowGfx.y = height * 0.4;
         add(arrowGfx);
         redrawArrow();
 
         refreshText();
 
-        // popup 默认隐藏
         popup = new FlxSpriteGroup();
         popup.visible = false;
         popup.x = this.x;
@@ -83,45 +92,52 @@ class StringSelect extends FlxSpriteGroup
 
     function refreshText()
     {
-        var v = follow.getValue();
-        dis.text = follow.getOptionText(v);
+        var v:Int = cast follow.getValue();
+        swatch.color = v;
+        var name = PsychOption.colorName(v);
+        var hex = PsychOption.intToHex(v);
+        dis.text = name + '   ' + hex;
+        dis.color = (hover || isOpen) ? ACCENT : 0xFFFFFF;
     }
 
     function syncPopupPosition()
     {
         if (popup == null) return;
 
+        // popup 的尺寸（buildPopup 后会更新）
         var pw = popup.width;
         var ph = popup.height;
 
+        // 世界坐标下主条的位置
         var worldX = this.x;
         var worldY = this.y;
         if (topLayer != null)
         {
+            // topLayer 自身可能带有偏移，这里取其在父级中的位置
             worldX += topLayer.x;
             worldY += topLayer.y;
         }
 
-        // 垂直
+        // ---- 垂直：默认在下方，放不下就放到上方 ----
         var belowY = worldY + mainH + 4;
         var aboveY = worldY - ph - 4;
 
         var finalWorldY:Float;
         if (belowY + ph <= FlxG.height)
-            finalWorldY = belowY;
+            finalWorldY = belowY;                    // 下方放得下
         else if (aboveY >= 0)
-            finalWorldY = aboveY;
+            finalWorldY = aboveY;                    // 下方放不下，改放上方
         else
-            finalWorldY = Math.max(0, FlxG.height - ph);
+            finalWorldY = Math.max(0, FlxG.height - ph); // 上下都放不下，贴底
 
-        // 水平
+        // ---- 水平：默认对齐左边，右边超出就左移 ----
         var finalWorldX = worldX;
         if (finalWorldX + pw > FlxG.width)
             finalWorldX = FlxG.width - pw;
         if (finalWorldX < 0)
             finalWorldX = 0;
 
-        // 回写局部坐标
+        // ---- 换算回 popup 所属容器的局部坐标 ----
         if (topLayer != null)
         {
             popup.x = finalWorldX - topLayer.x;
@@ -129,6 +145,7 @@ class StringSelect extends FlxSpriteGroup
         }
         else
         {
+            // 挂在 this 上时，popup 坐标是相对 this 的
             popup.x = finalWorldX - this.x;
             popup.y = finalWorldY - this.y;
         }
@@ -165,6 +182,8 @@ class StringSelect extends FlxSpriteGroup
         arrowGfx.origin.set(0, 0);
         arrowGfx.scale.set(1, 1);
         arrowGfx.updateHitbox();
+
+        arrowGfx.x = mainW - arrowGfx.width - 16;
     }
 
     function drawThickLine(bmd:openfl.display.BitmapData,
@@ -179,14 +198,12 @@ class StringSelect extends FlxSpriteGroup
         var ny = dy / len;
         var half = thickness * 0.5;
 
-        // 用矩形填充近似粗线
         var steps = Std.int(len);
         for (i in 0...steps + 1)
         {
             var t = i / steps;
             var px = x1 + dx * t;
             var py = y1 + dy * t;
-            // 沿线垂直方向填充厚度
             var perpX = -ny;
             var perpY = nx;
             for (j in 0...Std.int(thickness) + 1)
@@ -202,40 +219,55 @@ class StringSelect extends FlxSpriteGroup
 
     function buildPopup()
     {
-        // 清空
         for (m in popup.members) popup.remove(m, true);
         popupItems = [];
         popupTexts = [];
+        popupSwatches = [];
 
-        var opts = follow.options;
-        if (opts == null) return;
+        var pal = PsychOption.COLOR_PALETTE;
+        var rows = Math.ceil(pal.length / COLS);
+        var gridW = COLS * CELL + (COLS - 1) * CELL_PAD;
+        var gridH = rows * CELL + (rows - 1) * CELL_PAD;
+        var popupW = gridW + CELL_PAD * 2;
+        var popupH = gridH + CELL_PAD * 2;
 
-        var itemH = 32.0;
-        popupBg = new Rect(0, 0, mainW, opts.length * itemH + 8, 4, 4, 0xFF2B2B2B, 1);
+        popupBg = new Rect(0, 0, popupW, popupH, 4, 4, 0xFF2B2B2B, 1);
         popupBg.antialiasing = ClientPrefs.data.antialiasing;
         popup.add(popupBg);
 
-        for (i in 0...opts.length)
+        for (i in 0...pal.length)
         {
-            var item = new Rect(4, 4 + i * itemH, mainW - 8, itemH, 3, 3, ITEM_NORMAL, 0);
-            item.antialiasing = ClientPrefs.data.antialiasing;
-            popup.add(item);
-            popupItems.push(item);
+            var col = i % COLS;
+            var row = Std.int(i / COLS);
+            var cx = CELL_PAD + col * (CELL + CELL_PAD);
+            var cy = CELL_PAD + row * (CELL + CELL_PAD);
 
-            var t = new FlxText(12, 4 + i * itemH, mainW - 24, follow.getOptionText(opts[i]), 15);
-            t.setFormat(Paths.font('montserrat.ttf'), 15,
-                0xFFFFFF, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+            // 色块
+            var cell = new Rect(cx, cy, CELL, CELL, 3, 3, pal[i], 1);
+            cell.antialiasing = ClientPrefs.data.antialiasing;
+            popup.add(cell);
+            popupItems.push(cell);
+
+            // 选中/悬浮高亮描边
+            var outline = new Rect(cx - 2, cy - 2, CELL + 4, CELL + 4, 4, 4, ACCENT, 0);
+            outline.antialiasing = ClientPrefs.data.antialiasing;
+            popup.add(outline);
+            popupSwatches.push(outline);
+
+            // 名称（画在色块中心，用对比色）
+            var t = new FlxText(cx, cy, CELL, PsychOption.COLOR_NAMES[i], 10);
+            t.setFormat(Paths.font('montserrat.ttf'), 10,
+                PsychOption.contrastText(pal[i]), CENTER, FlxTextBorderStyle.OUTLINE, 0xFF000000);
             t.borderStyle = NONE;
             t.antialiasing = ClientPrefs.data.antialiasing;
-            t.y += (itemH - t.height) * 0.5;
+            t.x = cx + (CELL - t.width) * 0.5;
+            t.y = cy + (CELL - t.height) * 0.5;
             popup.add(t);
             popupTexts.push(t);
         }
-
         syncPopupPosition();
     }
 
-    // 主条目标颜色
     function computeMainColor():Int
     {
         return pressing ? PRESS : (hover ? HOVER : NORMAL);
@@ -247,7 +279,6 @@ class StringSelect extends FlxSpriteGroup
         syncPopupPosition();
         var mouse = FlxG.mouse;
 
-        // ---- 主条悬浮/按下反馈 ----
         var wasHover = hover;
         hover = mouse.overlaps(bg);
 
@@ -255,13 +286,10 @@ class StringSelect extends FlxSpriteGroup
         {
             FlxTween.cancelTweensOf(bg);
             FlxTween.color(bg, 0.12, bg.color, computeMainColor(), {ease: FlxEase.quadOut});
-            redrawArrow(); // 箭头颜色/方向跟随状态
+            redrawArrow();
+            refreshText();
         }
 
-        // 文字颜色随悬浮变化
-        dis.color = (hover || isOpen) ? ACCENT : 0xFFFFFF;
-
-        // 点击主条
         if (hover && mouse.justPressed)
         {
             pressing = true;
@@ -280,7 +308,8 @@ class StringSelect extends FlxSpriteGroup
             else popup.visible = false;
             FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
 
-            redrawArrow(); // 翻转箭头
+            redrawArrow();
+            refreshText();
         }
 
         if (!hover && pressing)
@@ -290,19 +319,22 @@ class StringSelect extends FlxSpriteGroup
             FlxTween.color(bg, 0.1, bg.color, computeMainColor(), {ease: FlxEase.quadOut});
         }
 
-        // ---- 下拉项反馈 ----
         if (!isOpen) return;
 
+        // 下拉项反馈
         for (i in 0...popupItems.length)
         {
             var it = popupItems[i];
             var itHover = mouse.overlaps(it);
 
-            it.alpha = itHover ? 1.0 : 0.0;
+            // 高亮描边
+            popupSwatches[i].alpha = itHover ? 1.0 : 0.0;
 
             if (itHover && mouse.justReleased)
             {
-                follow.setValue(follow.options[i]);
+                var newColor:Int = PsychOption.COLOR_PALETTE[i];
+                follow.setValue(newColor);
+                follow.curOption = i;
                 follow.change();
                 follow.saveCurrentValue();
                 refreshText();
@@ -322,7 +354,7 @@ class StringSelect extends FlxSpriteGroup
             {
                 if (mouse.overlaps(it)) { inPopup = true; break; }
             }
-            if (!inPopup) { isOpen = false; popup.visible = false; redrawArrow(); }
+            if (!inPopup) { isOpen = false; popup.visible = false; redrawArrow(); refreshText(); }
         }
     }
 }

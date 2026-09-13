@@ -1,4 +1,4 @@
-package options.objects;
+package options.objects.win10;
 
 import shapeEx.Rect;
 import flixel.tweens.FlxTween;

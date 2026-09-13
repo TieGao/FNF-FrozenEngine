@@ -259,6 +259,7 @@ import states.TitleState;
 	public var keLike:Bool = false;
 	public var clipoffset:Float = 0;
 	public var betaUpdates:Bool = false;
+	public var optionPreview:Bool = true;
 }
 
 class ClientPrefs {

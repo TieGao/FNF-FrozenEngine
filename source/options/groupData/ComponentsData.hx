@@ -72,6 +72,9 @@ class ComponentsData
         keyboardTime.decimals = 2;
         sub2.add(keyboardTime);
 
+        sub2.add(new PsychOption('Keyboard BG Color', 'Background color of the keyboard display', 'keyboardBGColor', COLOR));
+        sub2.add(new PsychOption('Keyboard Text Color', 'Text color of the keyboard display', 'keyboardTextColor', COLOR));
+
         
         var sub3 = cat.section('JudgementsCounter', 'Judgements Counter');
         sub3.add(new PsychOption('Judgements Counter', 'Show judgements counter', 'Counter', BOOL));
