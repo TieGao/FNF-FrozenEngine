@@ -11,7 +11,7 @@ class HealthText extends FlxText {
     public function new(state:PlayState) {
         super(0, 0, 300, "", 30);
         this.state = state;
-        this.setFormat(Paths.font("vcr.ttf"), 30, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+        this.setFormat(Paths.font("playvcr.ttf"), 30, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         this.scrollFactor.set();
         this.borderSize = 1.25;
         this.visible = !ClientPrefs.data.hideHud && ClientPrefs.data.healthText;

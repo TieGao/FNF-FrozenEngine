@@ -140,14 +140,14 @@ class OptionsPageState extends MusicBeatState
         var leftW = (FlxG.width - leftX - NAV_PAD) * 0.5;
 
         headerTitle = new FlxText(leftX, 6, leftW, selectedCat.displayName, 22);
-        headerTitle.setFormat(Paths.font('montserrat.ttf'), 24,
+        headerTitle.setFormat(Paths.font('vcr.ttf'), 24,
             0xFFFFFF, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
         headerTitle.borderStyle = NONE;
         headerTitle.antialiasing = ClientPrefs.data.antialiasing;
         add(headerTitle);
 
         headerSubDesc = new FlxText(leftX, 36, leftW, selectedCat.description, 14);
-        headerSubDesc.setFormat(Paths.font('montserrat.ttf'), 16,
+        headerSubDesc.setFormat(Paths.font('vcr.ttf'), 16,
             0xAAAAAA, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
         headerSubDesc.borderStyle = NONE;
         headerSubDesc.antialiasing = ClientPrefs.data.antialiasing;
@@ -157,7 +157,7 @@ class OptionsPageState extends MusicBeatState
         var rightW = FlxG.width - rightX - NAV_PAD;
 
         hoverDesc = new FlxText(rightX, 0, rightW, '', 14);
-        hoverDesc.setFormat(Paths.font('montserrat.ttf'), 14,
+        hoverDesc.setFormat(Paths.font('vcr.ttf'), 14,
             0x4CC2FF, RIGHT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
         hoverDesc.borderStyle = NONE;
         hoverDesc.antialiasing = ClientPrefs.data.antialiasing;

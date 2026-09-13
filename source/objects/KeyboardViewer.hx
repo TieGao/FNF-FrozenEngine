@@ -95,7 +95,7 @@ class KeyboardViewer extends FlxSpriteGroup
 		{
 			var textX:Float = getButtonX(i);
 			var obj:FlxText = new FlxText(textX, Y, KeyButton.size, textArray[i], 16);
-			obj.setFormat("assets/fonts/vcr.ttf", 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+			obj.setFormat("assets/fonts/playvcr.ttf", 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 			obj.x = textX + (KeyButton.size - obj.width) / 2;
 			obj.y = Y + (KeyButton.size - obj.height) / 2;
 			obj.color = ClientPrefs.data.keyboardTextColor;
@@ -120,7 +120,7 @@ class KeyboardViewer extends FlxSpriteGroup
 		for (i in 0...2)
 		{
 			var obj:FlxText = new FlxText(startX + (bigButtonWidth + 4) * i, Y + KeyButton.size + 4, bigButtonWidth, textArray2[i], 16);
-			obj.setFormat("assets/fonts/vcr.ttf", 25, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+			obj.setFormat("assets/fonts/playvcr.ttf", 25, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 			obj.x = startX + (bigButtonWidth + 4) * i + (bigButtonWidth - obj.width) / 2;
 			obj.y = Y + KeyButton.size + 4 + (KeyButton.size - obj.height) / 4;
 			obj.color = ClientPrefs.data.keyboardTextColor;
@@ -131,7 +131,7 @@ class KeyboardViewer extends FlxSpriteGroup
 
 		// 创建KPS数值文本
 		kpsText = new FlxText(startX, Y + KeyButton.size + 4, bigButtonWidth, '0', 16);
-		kpsText.setFormat("assets/fonts/vcr.ttf", 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		kpsText.setFormat("assets/fonts/playvcr.ttf", 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		kpsText.borderSize = 1;
 		kpsText.x = startX + (bigButtonWidth - kpsText.width) / 2;
 		kpsText.y = Y + KeyButton.size + 4 + KeyButton.size / 5 * 3;
@@ -145,7 +145,7 @@ class KeyboardViewer extends FlxSpriteGroup
 			total = FlxG.save.data.keyboardtotal;
 			
 		totalText = new FlxText(startX + bigButtonWidth + 4, Y + KeyButton.size + 4, bigButtonWidth, Std.string(total), 16);
-		totalText.setFormat("assets/fonts/vcr.ttf", 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		totalText.setFormat("assets/fonts/playvcr.ttf", 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		totalText.borderSize = 1;
 		totalText.x = startX + bigButtonWidth + 4 + (bigButtonWidth - totalText.width) / 2;
 		totalText.y = Y + KeyButton.size + 4 + KeyButton.size / 5 * 3;
