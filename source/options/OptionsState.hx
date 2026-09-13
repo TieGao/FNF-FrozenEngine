@@ -320,21 +320,9 @@ class OptionsState extends MusicBeatState
     // =========================================================
     // 预留接口，供 Level 1 / Level 2 调用
     // =========================================================
-    public function changeTip(str:String) {}
-    public function resetData() {}
     public function changeLanguage() {
         for (card in cardGroup) card.changeLanguage();
     }
-
-    public function changeCata(cataSort:Int, memSort:Int) {}
-    public function addCata(type:String, follow:Dynamic, mem:Dynamic, extraPath:String = '') {}
-    public function addMove(tar:Dynamic) {}
-    public function cataMoveEvent() {}
-    public function cataMoveChange() {}
-    public function naviMoveEvent() {}
-    public function changeNavi(navi:Dynamic, isOpened:Bool, naviTime:Float = 0.45) {}
-    public function specChange() {}
-    public function moveState(type:Int) {}
 }
 
 // =========================================================

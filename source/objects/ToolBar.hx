@@ -18,6 +18,8 @@ import substates.ResetScoreSubState;
 import states.FreeplayState;
 import objects.MusicPlayerLegacy;
 import options.keoptions.KEOptionsMenu;
+import options.psychoptions.PsychOptionsState;
+import options.OptionsState;
 import options.keoptions.KEExtraSettingsSubState;
 import backend.ui.PsychUIButton; 
 
@@ -690,7 +692,15 @@ class ToolBar extends FlxSpriteGroup
     {
         if (freeplayState != null)
         {
+            if (ClientPrefs.data.optionstype == 'new')
+            {
+                MusicBeatState.switchState(new OptionsState());
+                OptionsState.stateType = 1;
+            }
+            else if (ClientPrefs.data.optionstype == 'ke')
             MusicBeatState.switchState(new KEOptionsMenu());
+            else
+            MusicBeatState.switchState(new PsychOptionsState());
             FlxG.sound.play(Paths.sound('scrollMenu'));
         }
     }

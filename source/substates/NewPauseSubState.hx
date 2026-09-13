@@ -1145,8 +1145,11 @@ class NewPauseSubState extends MusicBeatSubstate
 		PlayState.instance.canResync = false;
 		
 		var optionType:String = ClientPrefs.getOptionType();
-		if(optionType == 'new')
+		if (optionType == 'new')
+		{ 
 			MusicBeatState.switchState(new options.OptionsState());
+			options.OptionsState.stateType = 2;
+		}
 		else if(optionType == 'ke')
 			MusicBeatState.switchState(new KEOptionsMenu());
 		else
