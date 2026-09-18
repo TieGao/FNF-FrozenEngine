@@ -5,6 +5,7 @@ import flixel.effects.FlxFlicker;
 import lime.app.Application;
 import states.editors.MasterEditorMenu;
 import options.psychoptions.PsychOptionsState;
+import options.OptionsState;
 import options.keoptions.KEOptionsMenu;
 import backend.Highscore;
 

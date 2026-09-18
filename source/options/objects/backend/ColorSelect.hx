@@ -1,13 +1,13 @@
 package options.objects.backend;
 
-import options.psychoptions.PsychOption;
+import options.Option;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
 
 class ColorSelect extends FlxSpriteGroup
 {
-    var follow:PsychOption;
+    var follow:Option;
 
     var bg:Rect;          // 当前颜色的条
     var swatch:FlxSprite; // 左侧颜色块
@@ -45,7 +45,7 @@ class ColorSelect extends FlxSpriteGroup
 
     var arrowGfx:FlxSprite;
 
-    public function new(X:Float, Y:Float, width:Float, height:Float, follow:PsychOption, ?topLayer:FlxSpriteGroup)
+    public function new(X:Float, Y:Float, width:Float, height:Float, follow:Option, ?topLayer:FlxSpriteGroup)
     {
         super(X, Y);
         this.follow = follow;
@@ -94,8 +94,8 @@ class ColorSelect extends FlxSpriteGroup
     {
         var v:Int = cast follow.getValue();
         swatch.color = v;
-        var name = PsychOption.colorName(v);
-        var hex = PsychOption.intToHex(v);
+        var name = Option.colorName(v);
+        var hex = Option.intToHex(v);
         dis.text = name + '   ' + hex;
         dis.color = (hover || isOpen) ? ACCENT : 0xFFFFFF;
     }
@@ -224,7 +224,7 @@ class ColorSelect extends FlxSpriteGroup
         popupTexts = [];
         popupSwatches = [];
 
-        var pal = PsychOption.COLOR_PALETTE;
+        var pal = Option.COLOR_PALETTE;
         var rows = Math.ceil(pal.length / COLS);
         var gridW = COLS * CELL + (COLS - 1) * CELL_PAD;
         var gridH = rows * CELL + (rows - 1) * CELL_PAD;
@@ -255,9 +255,9 @@ class ColorSelect extends FlxSpriteGroup
             popupSwatches.push(outline);
 
             // 名称（画在色块中心，用对比色）
-            var t = new FlxText(cx, cy, CELL, PsychOption.COLOR_NAMES[i], 10);
+            var t = new FlxText(cx, cy, CELL, Option.COLOR_NAMES[i], 10);
             t.setFormat(Paths.font('montserrat.ttf'), 10,
-                PsychOption.contrastText(pal[i]), CENTER, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+                Option.contrastText(pal[i]), CENTER, FlxTextBorderStyle.OUTLINE, 0xFF000000);
             t.borderStyle = NONE;
             t.antialiasing = ClientPrefs.data.antialiasing;
             t.x = cx + (CELL - t.width) * 0.5;
@@ -332,7 +332,7 @@ class ColorSelect extends FlxSpriteGroup
 
             if (itHover && mouse.justReleased)
             {
-                var newColor:Int = PsychOption.COLOR_PALETTE[i];
+                var newColor:Int = Option.COLOR_PALETTE[i];
                 follow.setValue(newColor);
                 follow.curOption = i;
                 follow.change();

@@ -1,12 +1,12 @@
 package options.objects.backend;
 
-import options.psychoptions.PsychOption;
+import options.Option;
 import openfl.display.Shape;
 import openfl.display.BitmapData;
 
 class NumButton extends FlxSpriteGroup {
 
-    var follow:PsychOption;
+    var follow:Option;
 
     var innerX:Float;
     var innerY:Float;
@@ -25,7 +25,7 @@ class NumButton extends FlxSpriteGroup {
     static inline var COLOR_HOVER:Int  = 0xFFFFFF;
     static inline var COLOR_PRESS:Int  = 0x808080;
 
-    public function new(X:Float, Y:Float, width:Float, height:Float, follow:PsychOption) {
+    public function new(X:Float, Y:Float, width:Float, height:Float, follow:Option) {
         super(X, Y);
 
         this.follow = follow;
@@ -90,7 +90,9 @@ class NumButton extends FlxSpriteGroup {
         var curValue:Dynamic = follow.getValue();
         if (curValue == null) curValue = follow.defaultValue;
         var percent = (curValue - min) / (max - min);
-        var outputData = FlxMath.roundDecimal(curValue, follow.decimals);
+        // ★ 初始值也吸附一次
+        var stepped:Float = snapToStep(cast curValue, min, getStep());
+        var outputData = FlxMath.roundDecimal(stepped, follow.decimals);
         rectUpdate(percent, outputData);
     }
 
@@ -213,13 +215,17 @@ class NumButton extends FlxSpriteGroup {
 	}
 
     function rectUpdate(percent:Float, ?outputData)
-	{
-		moveDis._frame.frame.width = moveDis.width * percent;
-		if (moveDis._frame.frame.width < 1)
-			moveDis._frame.frame.width = 1;
-		rod.x = moveBG.x + (moveBG.width - rod.width) * percent;
+    {
+        moveDis._frame.frame.width = moveDis.width * percent;
+        if (moveDis._frame.frame.width < 1)
+            moveDis._frame.frame.width = 1;
+        rod.x = moveBG.x + (moveBG.width - rod.width) * percent;
 
         if (outputData == null) return;
+
+        // ★ 吸附到 changeValue 的倍数
+        var stepped:Float = snapToStep(cast outputData, min, getStep());
+        outputData = FlxMath.roundDecimal(stepped, follow.decimals);
 
         if (valueText != null)
         {
@@ -227,10 +233,10 @@ class NumButton extends FlxSpriteGroup {
         }
 
         follow.setValue(outputData);
-		follow.change();
+        follow.change();
         if (follow.updateDisText != null) follow.updateDisText();
         savePending = true;
-	}
+    }
 
     function formatValueText(value:Dynamic):String
     {
@@ -249,5 +255,18 @@ class NumButton extends FlxSpriteGroup {
             parts[1] += '0';
 
         return parts[0] + '.' + parts[1].substr(0, decimals);
+    }
+
+    inline function snapToStep(value:Float, base:Float, step:Float):Float
+    {
+        if (step <= 0) return value;
+        return base + Math.round((value - base) / step) * step;
+    }
+
+    inline function getStep():Float
+    {
+        var s:Float = Std.parseFloat(Std.string(follow.changeValue));
+        if (Math.isNaN(s) || s <= 0) return 0;
+        return s;
     }
 }

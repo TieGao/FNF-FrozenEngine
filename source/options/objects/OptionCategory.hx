@@ -1,6 +1,6 @@
 package options.objects;
 
-import options.psychoptions.PsychOption;
+import options.Option;
 
 class OptionCategory
 {
@@ -11,7 +11,7 @@ class OptionCategory
 
     public var description:String = '';
     /** 本级直接拥有的选项（顶层分类通常为空，子分类才放） */
-    public var options:Array<PsychOption> = [];
+    public var options:Array<Option> = [];
 
     /** 子分类（导航栏的每一项） */
     public var subCategories:Array<OptionCategory> = [];
@@ -37,7 +37,7 @@ class OptionCategory
     }
 
     /** 往本级添加选项 */
-    public function add(o:PsychOption):PsychOption
+    public function add(o:Option):Option
     {
         o.ownerCategory = this;
         options.push(o);
@@ -57,9 +57,9 @@ class OptionCategory
     }
 
     /** 递归收集本级 + 所有子分类的选项（搜索/统计用） */
-    public function allOptions():Array<PsychOption>
+    public function allOptions():Array<Option>
     {
-        var out:Array<PsychOption> = [];
+        var out:Array<Option> = [];
         for (o in options) out.push(o);
         for (sub in subCategories) for (o in sub.allOptions()) out.push(o);
         return out;

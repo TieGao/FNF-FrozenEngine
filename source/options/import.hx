@@ -9,5 +9,3 @@ import options.objects.*;
 import options.objects.win10.*;
 import options.objects.backend.*;
 import options.objects.others.*;
-
-import options.psychoptions.PsychOption;

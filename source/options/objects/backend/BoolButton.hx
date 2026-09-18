@@ -1,6 +1,6 @@
 package options.objects.backend;
 
-import options.psychoptions.PsychOption;
+import options.Option;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 
@@ -9,7 +9,7 @@ class BoolButton extends FlxSpriteGroup
     var bg:Rect;
     var dis:Rect;
 
-    var follow:PsychOption;
+    var follow:Option;
 
     var innerX:Float;
     var innerY:Float;
@@ -25,7 +25,7 @@ class BoolButton extends FlxSpriteGroup
     var hover:Bool = false;
     var pressing:Bool = false;
 
-    public function new(X:Float, Y:Float, width:Float, height:Float, follow:PsychOption)
+    public function new(X:Float, Y:Float, width:Float, height:Float, follow:Option)
     {
         super(X, Y);
 

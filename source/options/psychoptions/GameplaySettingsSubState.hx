@@ -8,50 +8,50 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		rpcTitle = 'Gameplay Settings Menu'; //for Discord Rich Presence
 
 		//I'd suggest using "Downscroll" as an example for making your own option since it is the simplest here
-		var option:PsychOption = new PsychOption('Downscroll', //Name
+		var option:Option = new Option('Downscroll', //Name
 			'If checked, notes go Down instead of Up, simple enough.', //Description
 			'downScroll', //Save data variable name
 			BOOL); //Variable type
 		addOption(option);
 
-		var option:PsychOption = new PsychOption('Middlescroll',
+		var option:Option = new Option('Middlescroll',
 			'If checked, your notes get centered.',
 			'middleScroll',
 			BOOL);
 		addOption(option);
 
-		var option:PsychOption = new PsychOption('Opponent Notes',
+		var option:Option = new Option('Opponent Notes',
 			'If unchecked, opponent notes get hidden.',
 			'opponentStrums',
 			BOOL);
 		addOption(option);
 
-		var option:PsychOption = new PsychOption('Ghost Tapping',
+		var option:Option = new Option('Ghost Tapping',
 			"If checked, you won't get misses from pressing keys\nwhile there are no notes able to be hit.",
 			'ghostTapping',
 			BOOL);
 		addOption(option);
 		
-		var option:PsychOption = new PsychOption('Auto Pause',
+		var option:Option = new Option('Auto Pause',
 			"If checked, the game automatically pauses if the screen isn't on focus.",
 			'autoPause',
 			BOOL);
 		addOption(option);
 		option.onChange = onChangeAutoPause;
 
-		var option:PsychOption = new PsychOption('Disable Reset Button',
+		var option:Option = new Option('Disable Reset Button',
 			"If checked, pressing Reset won't do anything.",
 			'noReset',
 			BOOL);
 		addOption(option);
 
-		var option:PsychOption = new PsychOption('Sustains as One Note',
+		var option:Option = new Option('Sustains as One Note',
 			"If checked, Hold Notes can't be pressed if you miss,\nand count as a single Hit/Miss.\nUncheck this if you prefer the old Input System.",
 			'guitarHeroSustains',
 			BOOL);
 		addOption(option);
 
-		var option:PsychOption = new PsychOption('Hitsound Volume',
+		var option:Option = new Option('Hitsound Volume',
 			'Funny notes does \"Tick!\" when you hit them.',
 			'hitsoundVolume',
 			PERCENT);
@@ -64,7 +64,7 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		option.decimals = 1;
 		option.onChange = onChangeHitsoundVolume;
 
-		var option:PsychOption = new PsychOption('Rating Offset',
+		var option:Option = new Option('Rating Offset',
 			'Changes how late/early you have to hit for a "Sick!"\nHigher values mean you have to hit later.',
 			'ratingOffset',
 			INT);
@@ -74,7 +74,7 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		option.maxValue = 30;
 		addOption(option);
 
-		var option:PsychOption = new PsychOption('Marvelous Hit Window',
+		var option:Option = new Option('Marvelous Hit Window',
 			'Changes the amount of time you have\nfor hitting a "Marvelous" in milliseconds.',
 			'marvelousWindow',
 			FLOAT);
@@ -85,7 +85,7 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		option.changeValue = 0.1;
 		addOption(option);
 
-		var option:PsychOption = new PsychOption('Sick! Hit Window',
+		var option:Option = new Option('Sick! Hit Window',
 			'Changes the amount of time you have\nfor hitting a "Sick!" in milliseconds.',
 			'sickWindow',
 			FLOAT);
@@ -96,7 +96,7 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		option.changeValue = 0.1;
 		addOption(option);
 
-		var option:PsychOption = new PsychOption('Good Hit Window',
+		var option:Option = new Option('Good Hit Window',
 			'Changes the amount of time you have\nfor hitting a "Good" in milliseconds.',
 			'goodWindow',
 			FLOAT);
@@ -107,7 +107,7 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		option.changeValue = 0.1;
 		addOption(option);
 
-		var option:PsychOption = new PsychOption('Bad Hit Window',
+		var option:Option = new Option('Bad Hit Window',
 			'Changes the amount of time you have\nfor hitting a "Bad" in milliseconds.',
 			'badWindow',
 			FLOAT);
@@ -118,7 +118,7 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		option.changeValue = 0.1;
 		addOption(option);
 
-		var option:PsychOption = new PsychOption('Safe Frames',
+		var option:Option = new Option('Safe Frames',
 			'Changes how many frames you have for\nhitting a note earlier or late.',
 			'safeFrames',
 			FLOAT);
@@ -129,7 +129,7 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		addOption(option);
 
 		// Note sustains offset (来自 KEOptions)
-		var option:PsychOption = new PsychOption('Note Sustains Offset',
+		var option:Option = new Option('Note Sustains Offset',
 			'Adjust the timing offset for note sustains.',
 			'noteSustainsOffset',
 			FLOAT);
@@ -141,7 +141,7 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		addOption(option);
 
 		// 简易 Note Offset 暴露（原有 NoteOffsetState 提供更完整界面）
-		var option:PsychOption = new PsychOption('Global Note Offset',
+		var option:Option = new Option('Global Note Offset',
 			'Adjust global note timing offset in ms.',
 			'noteOffset',
 			INT);

@@ -1,7 +1,7 @@
 package options.objects.win10;
 
-import options.psychoptions.PsychOption;
-import options.psychoptions.PsychOption.OptionType;
+import options.Option;
+import options.Option.OptionType;
 import shapeEx.Rect;
 
 class Win10OptionRow extends FlxSpriteGroup
@@ -9,7 +9,7 @@ class Win10OptionRow extends FlxSpriteGroup
     public var title:FlxText;
     public var desc:FlxText;
     public var widget:FlxSpriteGroup;
-    public var option:PsychOption;
+    public var option:Option;
     public var bg:Rect;
 
     public var baseY:Float = 0;
@@ -21,7 +21,7 @@ class Win10OptionRow extends FlxSpriteGroup
         this.rowH = rowH;
     }
 
-    public function new(x:Float, y:Float, w:Float, h:Float, opt:PsychOption, widget:FlxSpriteGroup)
+    public function new(x:Float, y:Float, w:Float, h:Float, opt:Option, widget:FlxSpriteGroup)
     {
         super(x, y);
         this.option = opt;

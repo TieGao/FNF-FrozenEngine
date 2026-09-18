@@ -1,13 +1,13 @@
 package options.objects.backend;
 
-import options.psychoptions.PsychOption;
+import options.Option;
 import shapeEx.Rect;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 
 class OptionButton extends FlxSpriteGroup
 {
-    var follow:PsychOption;
+    var follow:Option;
     var bg:Rect;
     var label:FlxText;
     var actionText:FlxText;
@@ -31,7 +31,7 @@ class OptionButton extends FlxSpriteGroup
     var confirmTimer:Float = 0;
 
     public function new(X:Float, Y:Float, width:Float, height:Float,
-                        follow:PsychOption, isReset:Bool = false, fontSize:Int = 16)
+                        follow:Option, isReset:Bool = false, fontSize:Int = 16)
     {
         super(X, Y);
         this.follow = follow;

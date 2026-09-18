@@ -3,7 +3,7 @@ package options.psychoptions;
 import objects.AttachedText;
 import objects.CheckboxThingie;
 
-import options.psychoptions.PsychOption.OptionType;
+import options.Option.OptionType;
 
 class GameplayChangersSubstate extends MusicBeatSubstate
 {

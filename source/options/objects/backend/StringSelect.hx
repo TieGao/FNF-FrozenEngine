@@ -1,13 +1,13 @@
 package options.objects.backend;
 
-import options.psychoptions.PsychOption;
+import options.Option;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
 
 class StringSelect extends FlxSpriteGroup
 {
-    var follow:PsychOption;
+    var follow:Option;
 
     var bg:Rect;          // 当前值的条
     var dis:FlxText;
@@ -37,10 +37,14 @@ class StringSelect extends FlxSpriteGroup
     static inline var ITEM_NORMAL:Int = 0xFF3A3A3A;
     static inline var ITEM_HOVER:Int  = 0xFF4A4A4A;
 
+    // 下拉项尺寸 / 边缘留白
+    static inline var ITEM_H:Float = 32.0;
+    static inline var EDGE_MARGIN:Float = 4.0;
+
     // 手动绘制的箭头
     var arrowGfx:FlxSprite;
 
-    public function new(X:Float, Y:Float, width:Float, height:Float, follow:PsychOption, ?topLayer:FlxSpriteGroup)
+    public function new(X:Float, Y:Float, width:Float, height:Float, follow:Option, ?topLayer:FlxSpriteGroup)
     {
         super(X, Y);
         this.follow = follow;
@@ -59,17 +63,15 @@ class StringSelect extends FlxSpriteGroup
         dis.y = (height - dis.height) * 0.5;
         add(dis);
 
-        // 手动绘制箭头：位置在这里固定一次
         arrowGfx = new FlxSprite();
         arrowGfx.antialiasing = ClientPrefs.data.antialiasing;
-        arrowGfx.x = width - arrowGfx.width - 16;   // 先占位，redraw 会重设尺寸
+        arrowGfx.x = width - arrowGfx.width - 16;
         arrowGfx.y = height * 0.4;
         add(arrowGfx);
         redrawArrow();
 
         refreshText();
 
-        // popup 默认隐藏
         popup = new FlxSpriteGroup();
         popup.visible = false;
         popup.x = this.x;
@@ -87,50 +89,62 @@ class StringSelect extends FlxSpriteGroup
         dis.text = follow.getOptionText(v);
     }
 
+    function getPopupHeight():Float
+    {
+        var opts = follow.options;
+        if (opts == null || opts.length == 0) return 0;
+        return opts.length * ITEM_H + 8;
+    }
+
     function syncPopupPosition()
     {
         if (popup == null) return;
 
-        var pw = popup.width;
-        var ph = popup.height;
+        var popupH = getPopupHeight();
+        if (popupH <= 0) return;
 
-        var worldX = this.x;
-        var worldY = this.y;
-        if (topLayer != null)
+        var screenX = this.x;
+        var screenY:Float;
+
+        var belowY = this.y + mainH + 4;
+        var aboveY = this.y - popupH - 4;
+        var maxBottom = FlxG.height - EDGE_MARGIN;
+
+        if (belowY + popupH <= maxBottom)
         {
-            worldX += topLayer.x;
-            worldY += topLayer.y;
+            // 1. 下方放得下
+            screenY = belowY;
         }
-
-        // 垂直
-        var belowY = worldY + mainH + 4;
-        var aboveY = worldY - ph - 4;
-
-        var finalWorldY:Float;
-        if (belowY + ph <= FlxG.height)
-            finalWorldY = belowY;
-        else if (aboveY >= 0)
-            finalWorldY = aboveY;
-        else
-            finalWorldY = Math.max(0, FlxG.height - ph);
-
-        // 水平
-        var finalWorldX = worldX;
-        if (finalWorldX + pw > FlxG.width)
-            finalWorldX = FlxG.width - pw;
-        if (finalWorldX < 0)
-            finalWorldX = 0;
-
-        // 回写局部坐标
-        if (topLayer != null)
+        else if (aboveY >= EDGE_MARGIN)
         {
-            popup.x = finalWorldX - topLayer.x;
-            popup.y = finalWorldY - topLayer.y;
+            // 2. 上方放得下
+            screenY = aboveY;
         }
         else
         {
-            popup.x = finalWorldX - this.x;
-            popup.y = finalWorldY - this.y;
+            // 3. 上下都放不下 → 直接覆盖在组件上，居中并夹取到屏幕内
+            screenY = this.y + mainH * 0.5 - popupH * 0.5;
+            if (screenY + popupH > maxBottom)
+                screenY = maxBottom - popupH;
+            if (screenY < EDGE_MARGIN)
+                screenY = EDGE_MARGIN;
+        }
+
+        // 水平方向夹取
+        if (screenX + mainW > FlxG.width - EDGE_MARGIN)
+            screenX = FlxG.width - mainW - EDGE_MARGIN;
+        if (screenX < EDGE_MARGIN)
+            screenX = EDGE_MARGIN;
+
+        if (topLayer != null)
+        {
+            popup.x = screenX;
+            popup.y = screenY;
+        }
+        else
+        {
+            popup.x = screenX - this.x;
+            popup.y = screenY - this.y;
         }
     }
 
@@ -179,14 +193,12 @@ class StringSelect extends FlxSpriteGroup
         var ny = dy / len;
         var half = thickness * 0.5;
 
-        // 用矩形填充近似粗线
         var steps = Std.int(len);
         for (i in 0...steps + 1)
         {
             var t = i / steps;
             var px = x1 + dx * t;
             var py = y1 + dy * t;
-            // 沿线垂直方向填充厚度
             var perpX = -ny;
             var perpY = nx;
             for (j in 0...Std.int(thickness) + 1)
@@ -202,7 +214,6 @@ class StringSelect extends FlxSpriteGroup
 
     function buildPopup()
     {
-        // 清空
         for (m in popup.members) popup.remove(m, true);
         popupItems = [];
         popupTexts = [];
@@ -210,32 +221,28 @@ class StringSelect extends FlxSpriteGroup
         var opts = follow.options;
         if (opts == null) return;
 
-        var itemH = 32.0;
-        popupBg = new Rect(0, 0, mainW, opts.length * itemH + 8, 4, 4, 0xFF2B2B2B, 1);
+        popupBg = new Rect(0, 0, mainW, opts.length * ITEM_H + 8, 4, 4, 0xFF2B2B2B, 1);
         popupBg.antialiasing = ClientPrefs.data.antialiasing;
         popup.add(popupBg);
 
         for (i in 0...opts.length)
         {
-            var item = new Rect(4, 4 + i * itemH, mainW - 8, itemH, 3, 3, ITEM_NORMAL, 0);
+            var item = new Rect(4, 4 + i * ITEM_H, mainW - 8, ITEM_H, 3, 3, ITEM_NORMAL, 0);
             item.antialiasing = ClientPrefs.data.antialiasing;
             popup.add(item);
             popupItems.push(item);
 
-            var t = new FlxText(12, 4 + i * itemH, mainW - 24, follow.getOptionText(opts[i]), 15);
+            var t = new FlxText(12, 4 + i * ITEM_H, mainW - 24, follow.getOptionText(opts[i]), 15);
             t.setFormat(Paths.font('montserrat.ttf'), 15,
                 0xFFFFFF, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
             t.borderStyle = NONE;
             t.antialiasing = ClientPrefs.data.antialiasing;
-            t.y += (itemH - t.height) * 0.5;
+            t.y += (ITEM_H - t.height) * 0.5;
             popup.add(t);
             popupTexts.push(t);
         }
-
-        syncPopupPosition();
     }
 
-    // 主条目标颜色
     function computeMainColor():Int
     {
         return pressing ? PRESS : (hover ? HOVER : NORMAL);
@@ -247,18 +254,20 @@ class StringSelect extends FlxSpriteGroup
         syncPopupPosition();
         var mouse = FlxG.mouse;
 
+        // 如果鼠标在下拉菜单上，主条不再抢悬停（避免覆盖时误判）
+        var overPopup = isOpen && popup.visible && popupBg != null && mouse.overlaps(popupBg);
+
         // ---- 主条悬浮/按下反馈 ----
         var wasHover = hover;
-        hover = mouse.overlaps(bg);
+        hover = mouse.overlaps(bg) && !overPopup;
 
         if (hover != wasHover)
         {
             FlxTween.cancelTweensOf(bg);
             FlxTween.color(bg, 0.12, bg.color, computeMainColor(), {ease: FlxEase.quadOut});
-            redrawArrow(); // 箭头颜色/方向跟随状态
+            redrawArrow();
         }
 
-        // 文字颜色随悬浮变化
         dis.color = (hover || isOpen) ? ACCENT : 0xFFFFFF;
 
         // 点击主条
@@ -269,6 +278,9 @@ class StringSelect extends FlxSpriteGroup
             FlxTween.color(bg, 0.05, bg.color, computeMainColor());
         }
 
+        // 本帧刚打开下拉时，消费这次释放事件，防止同一次点击被下拉项再次处理
+        var openedThisFrame:Bool = false;
+
         if (mouse.justReleased && pressing && hover)
         {
             pressing = false;
@@ -276,11 +288,20 @@ class StringSelect extends FlxSpriteGroup
             FlxTween.color(bg, 0.1, bg.color, computeMainColor(), {ease: FlxEase.quadOut});
 
             isOpen = !isOpen;
-            if (isOpen) { buildPopup(); popup.visible = true; }
-            else popup.visible = false;
+            if (isOpen)
+            {
+                buildPopup();
+                syncPopupPosition();
+                popup.visible = true;
+                openedThisFrame = true;
+            }
+            else
+            {
+                popup.visible = false;
+            }
             FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
 
-            redrawArrow(); // 翻转箭头
+            redrawArrow();
         }
 
         if (!hover && pressing)
@@ -292,6 +313,7 @@ class StringSelect extends FlxSpriteGroup
 
         // ---- 下拉项反馈 ----
         if (!isOpen) return;
+        if (openedThisFrame) return; // 打开那一帧不处理，避免误触
 
         for (i in 0...popupItems.length)
         {
@@ -314,15 +336,12 @@ class StringSelect extends FlxSpriteGroup
             }
         }
 
-        // 点外面关闭
-        if (mouse.justPressed && !mouse.overlaps(bg))
+        // 点外面关闭（主条和弹窗都不算外面）
+        if (mouse.justPressed && !mouse.overlaps(bg) && !overPopup)
         {
-            var inPopup = false;
-            for (it in popupItems)
-            {
-                if (mouse.overlaps(it)) { inPopup = true; break; }
-            }
-            if (!inPopup) { isOpen = false; popup.visible = false; redrawArrow(); }
+            isOpen = false;
+            popup.visible = false;
+            redrawArrow();
         }
     }
 }

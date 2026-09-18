@@ -1,6 +1,6 @@
 package options;
 
-import options.psychoptions.PsychOption;
+import options.Option;
 
 import backend.MusicBeatState;
 import backend.MouseEvent;
@@ -70,7 +70,7 @@ class OptionsPageState extends MusicBeatState
     var onClose:Void->Void = null;
     var langReloadCb:Void->Void = null;
 
-    var hoveredOption:PsychOption = null;
+    var hoveredOption:Option = null;
 
     var backButton:Win10BackButton;
 
@@ -179,7 +179,7 @@ class OptionsPageState extends MusicBeatState
         add(previewLayer);
 
         // 保存设置时通知预览
-        PsychOption.onValueSaved = function(opt:PsychOption) {
+        Option.onValueSaved = function(opt:Option) {
             if (previewLayer != null)
                 previewLayer.notifyValueSaved(opt);
         };
@@ -403,7 +403,7 @@ class OptionsPageState extends MusicBeatState
             return;
         }
 
-        var optionsToShow:Array<PsychOption> = [];
+        var optionsToShow:Array<Option> = [];
         if (currentSearch.length > 0)
         {
             var query = currentSearch.toLowerCase();
@@ -448,7 +448,7 @@ class OptionsPageState extends MusicBeatState
         }
     }
 
-    function optionMatchesSearch(opt:PsychOption, query:String):Bool
+    function optionMatchesSearch(opt:Option, query:String):Bool
     {
         if (opt == null) return false;
 
@@ -465,7 +465,7 @@ class OptionsPageState extends MusicBeatState
         return haystack.indexOf(query) >= 0;
     }
 
-    function createWidgetFor(opt:PsychOption):FlxSpriteGroup
+    function createWidgetFor(opt:Option):FlxSpriteGroup
     {
         switch (opt.type)
         {
@@ -521,7 +521,7 @@ class OptionsPageState extends MusicBeatState
     // =========================================================
     function updateHoverDescription()
     {
-        var found:PsychOption = null;
+        var found:Option = null;
         var mx = FlxG.mouse.x;
         var my = FlxG.mouse.y;
 

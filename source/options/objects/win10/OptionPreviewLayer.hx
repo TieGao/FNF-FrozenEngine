@@ -1,7 +1,7 @@
 package options.objects.win10;
 
 import options.objects.OptionCategory;
-import options.psychoptions.PsychOption;
+import options.Option;
 
 import objects.Note;
 import objects.StrumNote;
@@ -52,7 +52,7 @@ class OptionPreviewLayer extends FlxGroup
 
     // ---------- 状态 ----------
     var currentKind:String = '';
-    var currentOpt:PsychOption = null;
+    var currentOpt:Option = null;
 
     static inline var NOTE_SPACING:Float = 56.0;
 
@@ -309,7 +309,7 @@ class OptionPreviewLayer extends FlxGroup
     }
 
     /** 兼容旧调用：如果传 option，则按其 variable 决定 kind */
-    public function showFor(opt:PsychOption):Void
+    public function showFor(opt:Option):Void
     {
         if (opt == null) { hideAll(); return; }
         var v = opt.variable != null ? opt.variable.toLowerCase() : '';
@@ -337,7 +337,7 @@ class OptionPreviewLayer extends FlxGroup
     }
 
     /** 值保存时调用：真正重建 / 刷新 */
-    public function notifyValueSaved(opt:PsychOption):Void
+    public function notifyValueSaved(opt:Option):Void
     {
         if (!ClientPrefs.data.optionPreview) return;
         if (opt == null) return;
