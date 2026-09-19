@@ -10,6 +10,7 @@ export/*
 .vscode/*
 HaxeToolkit/
 #.github/
+.workbuddy-ai/*
 
 *.code-workspace
 vs_Community.exe

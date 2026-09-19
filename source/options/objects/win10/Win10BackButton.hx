@@ -18,11 +18,18 @@ class Win10BackButton extends FlxSpriteGroup
     var mainW:Float;
     var mainH:Float;
 
-    // Win10 配色
-    var normalColor:FlxColor = 0xFF2B2B2B;
-    var hoverColor:FlxColor  = 0xFF3A3A3A;
-    var pressColor:FlxColor  = 0xFF1F1F1F;
-    var accentColor:FlxColor = 0xFF4CC2FF;
+    // 配色统一走主题（深浅色切换由 UITheme 提供），改成 getter 后每帧都会取到最新值
+    var normalColor(get, never):FlxColor;
+    inline function get_normalColor():FlxColor return UITheme.control;
+    var hoverColor(get, never):FlxColor;
+    inline function get_hoverColor():FlxColor return UITheme.controlHover;
+    var pressColor(get, never):FlxColor;
+    inline function get_pressColor():FlxColor return UITheme.controlPress;
+    var accentColor(get, never):FlxColor;
+    inline function get_accentColor():FlxColor return UITheme.accent;
+
+    // 箭头尺寸（主题切换重绘时要用）
+    var arrowSize:Float = 0;
 
     public var onClick:Void->Void = null;
     public var onFocus:Bool = false;
@@ -34,6 +41,7 @@ class Win10BackButton extends FlxSpriteGroup
     public function new(X:Float, Y:Float, width:Float, height:Float, ?text:String = '返回', onClick:Void->Void = null)
     {
         super(X, Y);
+        UITheme.ensure();
 
         this.onClick = onClick;
         mainW = width;
@@ -45,7 +53,7 @@ class Win10BackButton extends FlxSpriteGroup
         add(bg);
 
         // ---------- 左箭头图标 ----------
-        var arrowSize = height * 0.42;
+        arrowSize = height * 0.42;
         arrow = new FlxSprite();
         arrow.makeGraphic(Std.int(arrowSize), Std.int(arrowSize), 0x00000000, true);
         drawArrow(arrow, Std.int(arrowSize), accentColor);
@@ -59,7 +67,7 @@ class Win10BackButton extends FlxSpriteGroup
         var textW = width - textX - width * 0.08;
 
         label = new FlxText(textX, 0, Std.int(textW), text, 14);
-        label.setFormat(Paths.font('montserrat.ttf'), 14, 0xFFFFFF, LEFT);
+        label.setFormat(Paths.font('montserrat.ttf'), 14, UITheme.textPrimary, LEFT);
         label.antialiasing = ClientPrefs.data.antialiasing;
         label.y = (height - label.height) * 0.5;
         add(label);
@@ -147,5 +155,13 @@ class Win10BackButton extends FlxSpriteGroup
     public function setLabel(text:String)
     {
         if (label != null) label.text = text;
+    }
+
+    /** 主题切换后重新套用配色（含箭头重绘） */
+    public function refreshTheme():Void
+    {
+        if (label != null) label.color = UITheme.textPrimary;
+        if (arrow != null) drawArrow(arrow, Std.int(arrowSize), accentColor);
+        if (bg != null) bg.color = onFocus ? hoverColor : normalColor;
     }
 }

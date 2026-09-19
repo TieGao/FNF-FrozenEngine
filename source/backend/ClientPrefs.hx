@@ -115,6 +115,7 @@ import states.TitleState;
 	public var freeplayModFolder:Bool = true; // 使用模组文件夹管理器隔离歌曲
 	public var scoreScreen:Bool = true;
 	public var optionstype:String = #if mobile 'new' #else 'ke' #end;
+	public var colorMode:String = 'dark';
 	public var gradientTimeBar:Bool = true;
 	public var guideLineAlpha:Float = 0.0;
 	public var modInfoBox:Bool = true;
@@ -792,6 +793,9 @@ class ClientPrefs {
 			}
 			reloadVolumeKeys();
 		}
+
+		// 设置读完后同步一次 UI 主题（colorMode）
+		UITheme.refresh();
 	}
 
 	inline public static function getGameplaySetting(name:String, defaultValue:Dynamic = null, ?customDefaultValue:Bool = false):Dynamic

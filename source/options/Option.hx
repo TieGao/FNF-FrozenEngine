@@ -259,6 +259,9 @@ class Option
 				FlxG.autoPause = ClientPrefs.data.autoPause;
 			case 'language':
 				backend.Language.reloadPhrases();
+			case 'colorMode':
+				// 深浅色切换：刷新调色板，界面会收到通知后重建
+				backend.UITheme.refresh();
 			case 'keyboardBGColor', 'keyboardTextColor':
 				try
 				{

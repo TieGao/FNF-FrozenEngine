@@ -5,7 +5,6 @@ import backend.StageData;
 import backend.WeekData;
 import backend.Song;
 import backend.Rating;
-import backend.SpritePool;
 
 import flixel.FlxBasic;
 import flixel.FlxObject;
@@ -292,14 +291,34 @@ class PlayState extends MusicBeatState
 
 	public var defaultCamZoom:Float = 1.05;
 
-	private var ratingPool:SpritePool;
-    private var comboNumPool:SpritePool;
-    private var comboSpritePool:SpritePool;
-    private var splashPool:SpritePool;
-    private var notePool:SpritePool;
-	private var earlyLatePool:SpritePool; // early/late对象池
-
     private var maxPoolSize:Int = 50;
+	// 旧 SpritePool 已由容器自带的 recycle() 取代，这里只记录是否已预热过
+	private var poolsWarmed:Bool = false;
+
+	static function makePooledSprite():FlxSprite return new FlxSprite();
+	static function makeNoteSplash():NoteSplash return new NoteSplash();
+
+	/**
+	 * 复刻原 SpritePool.resetObject 的重置语义，供组内对象复用前调用。
+	 * 注意 applyStageVelocity 是增量修改 velocity，复用前必须清零。
+	 */
+	private function resetPooledSprite(spr:FlxSprite):Void
+	{
+		spr.alpha = 1;
+		spr.visible = true;
+		spr.exists = true;
+		spr.alive = true;
+		spr.active = true;
+		spr.velocity.set(0, 0);
+		spr.acceleration.set(0, 0);
+		spr.scale.set(1, 1);
+		spr.offset.set(0, 0);
+		spr.flipX = false;
+		spr.flipY = false;
+		spr.color = 0xFFFFFF;
+		spr.angle = 0;
+		FlxTween.cancelTweensOf(spr);
+	}
 
 	// how big to stretch the pixel art assets
 	public static var daPixelZoom:Float = 6;
@@ -913,9 +932,6 @@ class PlayState extends MusicBeatState
 		stagesFunc(function(stage:BaseStage) stage.createPost());
 		callOnScripts('onCreatePost');
 		
-		splashPool = new SpritePool(maxPoolSize);
-		NoteSplash.pool = splashPool;
-
 		// 真正预热：每一列都 spawn 一次
 		var splashColumns:Int = Note.getColumnsPerPlayer(SONG);
 		if (isCoopMode()) splashColumns *= 2;
@@ -931,20 +947,17 @@ class PlayState extends MusicBeatState
 			warmupSplashes.push(s);
 		}
 
-		// 池里预置空白对象
+		// 池里预置空白对象：直接放进 grpNoteSplashes，kill 后即为可被 recycle 复用的池对象
 		for (i in 0...maxPoolSize)
-			splashPool.put(new NoteSplash());
+		{
+			var blank:NoteSplash = grpNoteSplashes.recycle(NoteSplash, makeNoteSplash);
+			blank.kill();
+		}
 
-		// 下一帧把预热用的 splash 收回去
+		// 下一帧把预热用的 splash 收回去（kill 后留在组里，等 recycle 复用）
 		new FlxTimer().start(0.05, function(_) {
 			for (s in warmupSplashes)
-			{
-				if (s != null && grpNoteSplashes.members.contains(s))
-				{
-					grpNoteSplashes.remove(s, false);
-					splashPool.put(s);
-				}
-			}
+				if (s != null) s.kill();
 			warmupSplashes = null;
 		});
 
@@ -1758,7 +1771,6 @@ public function reloadCounterColors()
 
 		notes = new FlxTypedGroup<Note>();
 		noteGroup.add(notes);
-		notePool = new SpritePool(maxPoolSize);
 
 		noteHoldCover = new NoteHoldCover();
 		noteGroup.add(noteHoldCover);
@@ -1838,11 +1850,8 @@ public function reloadCounterColors()
 					}
 				}
 
-				var swagNote:Note = cast notePool.get();
-				if (swagNote != null)
-					swagNote.reuse(spawnTime, noteColumn, oldNote);
-				else
-					swagNote = new Note(spawnTime, noteColumn, oldNote);
+				// 整首歌的 note 都会在这里一次性创建，无需对象池
+				var swagNote:Note = new Note(spawnTime, noteColumn, oldNote);
 
 				var isAlt: Bool = section.altAnim && !gottaHitNote;
 				swagNote.gfNote = (section.gfSection && gottaHitNote == section.mustHitSection);
@@ -1862,11 +1871,7 @@ public function reloadCounterColors()
 					{
 						oldNote = unspawnNotes[Std.int(unspawnNotes.length - 1)];
 
-						var sustainNote:Note = cast notePool.get();
-						if (sustainNote != null)
-							sustainNote.reuse(spawnTime + (curStepCrochet * susNote), noteColumn, oldNote, true);
-						else
-							sustainNote = new Note(spawnTime + (curStepCrochet * susNote), noteColumn, oldNote, true);
+						var sustainNote:Note = new Note(spawnTime + (curStepCrochet * susNote), noteColumn, oldNote, true);
 						sustainNote.animSuffix = swagNote.animSuffix;
 						sustainNote.mustPress = swagNote.mustPress;
 						sustainNote.gfNote = swagNote.gfNote;
@@ -2376,22 +2381,8 @@ public function reloadCounterColors()
 		}
 		else if (judgementCounterObj != null) judgementCounterObj.refresh();
 
-		recycleDeadSplashes();
 		setOnScripts('botPlay', cpuControlled);
 		callOnScripts('onUpdatePost', [elapsed]);
-	}
-
-	private function recycleDeadSplashes():Void {
-		if (splashPool == null || grpNoteSplashes == null) return;
-		var i:Int = grpNoteSplashes.length - 1;
-		while (i >= 0) {
-			var splash:NoteSplash = grpNoteSplashes.members[i];
-			if (splash != null && !splash.exists) {
-				grpNoteSplashes.remove(splash, false);
-				splashPool.put(splash);
-			}
-			--i;
-		}
 	}
 
 	// Health icon updaters
@@ -3220,11 +3211,9 @@ public function reloadCounterColors()
 	{
 		var uiFolder:String = getUIFolderInfo().folder;
 		
-		// 只有在combo stacking模式下才初始化对象池
-		if (ClientPrefs.data.comboStacking && ratingPool == null) {
-			initObjectPools();
+		// 只有在combo stacking模式下才预热对象池
+		if (ClientPrefs.data.comboStacking && !poolsWarmed)
 			precreatePoolObjects();
-		}
 		
 		// 缓存评级图片
 		for (rating in ratingsData)
@@ -3375,15 +3364,11 @@ public function reloadCounterColors()
         // ========== 创建或复用评级精灵 ==========
         var rating:FlxSprite;
         
-        // 只有combo stacking模式才使用对象池
+        // 只有combo stacking模式才使用对象池（comboGroup 自带的 recycle）
         if (ClientPrefs.data.comboStacking) {
-            rating = cast(ratingPool.get(), FlxSprite);
-            if (rating == null) {
-                rating = new FlxSprite();
-            } else {
-                // 重置位置和状态
-                rating.setPosition(0, 0);
-            }
+            rating = comboGroup.recycle(FlxSprite, makePooledSprite);
+            rating.cameras = comboGroup.cameras; // recycle 不走 preAdd，需手动同步相机
+            resetPooledSprite(rating);
         } else {
             rating = new FlxSprite();
         }
@@ -3440,13 +3425,9 @@ public function reloadCounterColors()
 			
 			// 从对象池获取或创建新精灵
 			if (ClientPrefs.data.comboStacking) {
-				earlyLateSpr = cast(earlyLatePool.get(), FlxSprite);
-				if (earlyLateSpr == null) {
-					earlyLateSpr = new FlxSprite();
-				} else {
-					earlyLateSpr.setPosition(0, 0);
-					earlyLateSpr.alpha = 1;
-				}
+				earlyLateSpr = comboGroup.recycle(FlxSprite, makePooledSprite);
+				earlyLateSpr.cameras = comboGroup.cameras; // recycle 不走 preAdd，需手动同步相机
+				resetPooledSprite(earlyLateSpr);
 			} else {
 				earlyLateSpr = new FlxSprite();
 			}
@@ -3517,12 +3498,9 @@ public function reloadCounterColors()
         var comboSpr:FlxSprite;
         
         if (ClientPrefs.data.comboStacking && showCombo) {
-            comboSpr = cast(comboSpritePool.get(), FlxSprite);
-            if (comboSpr == null) {
-                comboSpr = new FlxSprite();
-            } else {
-                comboSpr.setPosition(0, 0);
-            }
+            comboSpr = comboGroup.recycle(FlxSprite, makePooledSprite);
+            comboSpr.cameras = comboGroup.cameras; // recycle 不走 preAdd，需手动同步相机
+            resetPooledSprite(comboSpr);
         } else {
             comboSpr = new FlxSprite();
         }
@@ -3600,13 +3578,9 @@ public function reloadCounterColors()
             var numScore:FlxSprite;
             
             if (ClientPrefs.data.comboStacking) {
-                numScore = cast(comboNumPool.get(), FlxSprite);
-                if (numScore == null) {
-                    numScore = new FlxSprite();
-                } else {
-                    numScore.setPosition(0, 0);
-                    numScore.color = 0xFFFFFF; // 重置颜色
-                }
+                numScore = comboGroup.recycle(FlxSprite, makePooledSprite);
+                numScore.cameras = comboGroup.cameras; // recycle 不走 preAdd，需手动同步相机
+                resetPooledSprite(numScore);
             } else {
                 numScore = new FlxSprite();
             }
@@ -3658,10 +3632,7 @@ public function reloadCounterColors()
             for (numScore in createdNumbers) {
                 FlxTween.tween(numScore, {alpha: 0}, 0.2 / playbackRate, {
                     onComplete: function(tween:FlxTween) {
-                        if (comboGroup.members.contains(numScore)) {
-							comboGroup.remove(numScore);
-                        }
-                        comboNumPool.put(numScore);
+                        numScore.kill(); // kill 后留在 comboGroup 里，等下次 recycle 复用
                     },
                     startDelay: Conductor.crochet * 0.002 / playbackRate
                 });
@@ -3671,10 +3642,7 @@ public function reloadCounterColors()
             			
                 FlxTween.tween(rating, {alpha: 0}, 0.15 / playbackRate, {
                     onComplete: function(tween:FlxTween) {
-                        if (comboGroup.members.contains(rating)) {
-                            comboGroup.remove(rating);
-                        }
-                        ratingPool.put(rating);
+                        rating.kill();
                     },
                     startDelay: Conductor.crochet * 0.0015 / playbackRate
                 });
@@ -3683,10 +3651,7 @@ public function reloadCounterColors()
             if (showCombo) {
                 FlxTween.tween(comboSpr, {alpha: 0}, 0.12 / playbackRate, {
                     onComplete: function(tween:FlxTween) {
-                        if (comboGroup.members.contains(comboSpr)) {
-							comboGroup.remove(comboSpr);
-                        }
-                        comboSpritePool.put(comboSpr);
+                        comboSpr.kill();
                     },
                     startDelay: Conductor.crochet * 0.0012 / playbackRate
                 });
@@ -3697,11 +3662,8 @@ public function reloadCounterColors()
 			{
 				FlxTween.tween(earlyLateSpr, {alpha: 0}, 0.15 / playbackRate, {
 					onComplete: function(tween:FlxTween) {
-						if (comboGroup.members.contains(earlyLateSpr)) {
-							comboGroup.remove(earlyLateSpr);
-						}
-						if (ClientPrefs.data.comboStacking && earlyLatePool != null) {
-							earlyLatePool.put(earlyLateSpr);
+						if (ClientPrefs.data.comboStacking) {
+							earlyLateSpr.kill();
 						} else {
 							earlyLateSpr.destroy();
 						}
@@ -4556,10 +4518,7 @@ public function reloadCounterColors()
 	public function invalidateNote(note:Note):Void {
 		note.kill();
 		notes.remove(note, true);
-		if (notePool != null)
-			notePool.put(note);
-		else
-			note.destroy();
+		note.destroy();
 	}
 
 	public function spawnNoteSplashOnNote(note:Note) {
@@ -4571,11 +4530,11 @@ public function reloadCounterColors()
 	}
 
 	public function spawnNoteSplash(x:Float = 0, y:Float = 0, ?data:Int = 0, ?note:Note, ?strum:StrumNote) {
-		var splash:NoteSplash = cast splashPool != null ? splashPool.get() : null;
-		if (splash == null) splash = new NoteSplash();
+		// 直接从 grpNoteSplashes 自己的池里取（死掉的 splash 留在组内，天然可复用）
+		var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash, makeNoteSplash);
+		resetPooledSprite(splash);
 		splash.babyArrow = strum;
 		splash.spawnSplashNote(x, y, data, note);
-		grpNoteSplashes.add(splash);
 	}
 
 	override function destroy() {
@@ -4639,8 +4598,6 @@ public function reloadCounterColors()
 			strumGuideLine.destroy();
 			strumGuideLine = null;
 		}
-
-		clearObjectPools();
 
 		keyboardViewer.save();
 		super.destroy();
@@ -5159,49 +5116,17 @@ public function reloadCounterColors()
 		JudgementPopup.applyStageVelocity(sprite, SONG.stage, playbackRate, multiplier);
 	}
 
- 	private function initObjectPools():Void {
-        ratingPool = new SpritePool(maxPoolSize);
-        comboNumPool = new SpritePool(maxPoolSize);
-        comboSpritePool = new SpritePool(maxPoolSize);
-		earlyLatePool = new SpritePool(maxPoolSize); // 新增
-    }
-    
-    // 清理对象池
-	private function clearObjectPools():Void {
-		if (ratingPool != null) { ratingPool.clear(); ratingPool = null; }
-		if (comboNumPool != null) { comboNumPool.clear(); comboNumPool = null; }
-		if (comboSpritePool != null) { comboSpritePool.clear(); comboSpritePool = null; }
-		if (splashPool != null) { splashPool.clear(); splashPool = null; }
-		if (notePool != null) { notePool.clear(); notePool = null; }
-		if (earlyLatePool != null) { earlyLatePool.clear(); earlyLatePool = null; }
-		NoteSplash.pool = null;
-	}
-
-	  // 预创建池对象
+  // 预创建池对象：四个池共用 comboGroup（都是裸 FlxSprite），一次预热 maxPoolSize 个即可
     private function precreatePoolObjects():Void {
         if (maxPoolSize <= 0 || !ClientPrefs.data.comboStacking) return;
-        
-        // 预创建评级精灵
-        for (i in 0...Math.floor(maxPoolSize / 3)) {
-            var rating = new FlxSprite();
-            ratingPool.put(rating);
-        }
-        
-        // 预创建数字精灵（需要多一些，因为combo数字多）
+
         for (i in 0...maxPoolSize) {
-            var num = new FlxSprite();
-            comboNumPool.put(num);
+            var spr = comboGroup.recycle(FlxSprite, makePooledSprite);
+            spr.cameras = comboGroup.cameras; // recycle 不走 preAdd，需手动同步相机
+            spr.kill();                       // kill 后留在组里，等待被 recycle 复用
         }
-        
-        // 预创建combo精灵
-        for (i in 0...Math.floor(maxPoolSize / 3)) {
-            var combo = new FlxSprite();
-            comboSpritePool.put(combo);
-        }
-		for (i in 0...maxPoolSize) {
-        var earlyLate = new FlxSprite();
-        earlyLatePool.put(earlyLate);
-    }
+
+        poolsWarmed = true;
     }
 
 		private function isCoopMode():Bool

@@ -43,6 +43,13 @@ class OptionsPageState extends MusicBeatState
     var contentMaskBottom:FlxFilteredSprite;
     var header:Rect;
 
+    // 头部左右两块底色（切主题时要改色，所以提成字段）
+    var headerLeft:Rect;
+    var headerRight:Rect;
+
+    /** 已套用的主题版本号：和 UITheme.version 不一致时说明要重建 */
+    var themeVersion:Int = -1;
+
     var headerTitle:FlxText;
     var headerSubDesc:FlxText;
     var hoverDesc:FlxText;
@@ -82,13 +89,15 @@ class OptionsPageState extends MusicBeatState
     var navScrollHolder:{value:Float} = {value: 0};
     var scrollHolder:{value:Float} = {value: 0};
 
-    public function new(categories:Array<OptionCategory>, initialCat:OptionCategory, ?onClose:Void->Void)
+    public function new(categories:Array<OptionCategory>, initialCat:OptionCategory, ?onClose:Void->Void, ?initialSearch:String)
     {
         super();
         this.categories = categories;
         this.selectedCat = initialCat;
         this.onClose = onClose;
         this.cataMove = { velocity: 0.0, inputAllow: true };
+        // 从大类页带过来的搜索词：进来直接就是过滤结果
+        this.currentSearch = OptionSearch.normalize(initialSearch);
     }
 
     override function create()
@@ -96,6 +105,10 @@ class OptionsPageState extends MusicBeatState
         super.create();
         instance = this;
         FlxG.mouse.visible = true;
+
+        // ---------- 主题 ----------
+        UITheme.ensure();
+        themeVersion = UITheme.version;
 
         langReloadCb = refreshLanguage;
         Language.addReloadCallback(langReloadCb);
@@ -115,26 +128,28 @@ class OptionsPageState extends MusicBeatState
 
         ROW_W = FlxG.width - NAV_W - NAV_PAD;
 
-        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xFF000000);
+        // 用白色图形 + color 着色，切主题时只要改 color
+        bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.WHITE);
+        bg.color = UITheme.windowBG;
         bg.scrollFactor.set();
         add(bg);
 
         navBG = new Rect(0, HEADER_H, NAV_W, FlxG.height - HEADER_H,
-                        0, 0, 0xFF2B2B2B, 1);
+                        0, 0, UITheme.sidebar, 1);
         navBG.scrollFactor.set();
         add(navBG);
 
         navDivider = new Rect(NAV_W, HEADER_H, 1, FlxG.height - HEADER_H,
-                            0, 0, 0xFF3F3F3F, 1);
+                            0, 0, UITheme.divider, 1);
         navDivider.scrollFactor.set();
         add(navDivider);
 
-        var headerLeft = new Rect(0, 0, NAV_W, HEADER_H, 0, 0, 0xFF2B2B2B, 1);
+        headerLeft = new Rect(0, 0, NAV_W, HEADER_H, 0, 0, UITheme.sidebar, 1);
         headerLeft.scrollFactor.set();
         add(headerLeft);
 
-        var headerRight = new Rect(NAV_W, 0, FlxG.width - NAV_W, HEADER_H,
-                                0, 0, 0xFF000000, 1);
+        headerRight = new Rect(NAV_W, 0, FlxG.width - NAV_W, HEADER_H,
+                                0, 0, UITheme.windowBG, 1);
         headerRight.scrollFactor.set();
         add(headerRight);
 
@@ -155,7 +170,7 @@ class OptionsPageState extends MusicBeatState
         // 顶部遮罩：从 HEADER_H 往下 24px（可调）
         var topMaskH = 150;
         contentMaskTop = new FlxFilteredSprite(maskX, -75);
-        contentMaskTop.makeGraphic(maskW, topMaskH, 0xFF000000);
+        contentMaskTop.makeGraphic(maskW, topMaskH, UITheme.mask);
         contentMaskTop.filters = [new openfl.filters.BlurFilter(0, 20, 1)];
         contentMaskTop.scrollFactor.set();
         add(contentMaskTop);
@@ -163,7 +178,7 @@ class OptionsPageState extends MusicBeatState
         // 底部遮罩：从 FlxG.height - 60 往上 24px（可调）
         var bottomMaskH = 200;
         contentMaskBottom = new FlxFilteredSprite(maskX, FlxG.height - 50);
-        contentMaskBottom.makeGraphic(maskW, bottomMaskH, 0xFF000000);
+        contentMaskBottom.makeGraphic(maskW, bottomMaskH, UITheme.mask);
         contentMaskBottom.filters = [new openfl.filters.BlurFilter(0, 20, 1)];
         contentMaskBottom.scrollFactor.set();
         add(contentMaskBottom);
@@ -176,14 +191,14 @@ class OptionsPageState extends MusicBeatState
 
         headerTitle = new FlxText(leftX, 6, leftW, selectedCat.displayName, 22);
         headerTitle.setFormat(Paths.font('vcr.ttf'), 24,
-            0xFFFFFF, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+            UITheme.textPrimary, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
         headerTitle.borderStyle = NONE;
         headerTitle.antialiasing = ClientPrefs.data.antialiasing;
         add(headerTitle);
 
         headerSubDesc = new FlxText(leftX, 36, leftW, selectedCat.description, 14);
         headerSubDesc.setFormat(Paths.font('vcr.ttf'), 16,
-            0xAAAAAA, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+            UITheme.textSecondary, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
         headerSubDesc.borderStyle = NONE;
         headerSubDesc.antialiasing = ClientPrefs.data.antialiasing;
         add(headerSubDesc);
@@ -193,7 +208,7 @@ class OptionsPageState extends MusicBeatState
 
         hoverDesc = new FlxText(rightX, 0, rightW, '', 14);
         hoverDesc.setFormat(Paths.font('vcr.ttf'), 14,
-            0x4CC2FF, RIGHT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+            UITheme.accent, RIGHT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
         hoverDesc.borderStyle = NONE;
         hoverDesc.antialiasing = ClientPrefs.data.antialiasing;
         hoverDesc.y = (HEADER_H - hoverDesc.height) * 0.5;
@@ -221,11 +236,23 @@ class OptionsPageState extends MusicBeatState
         searchComp.setPlaceholder(Language.getPhrase('searchhint', 'Search settings'));
         searchComp.onChange = function(oldText:String, newText:String)
         {
-            currentSearch = newText.trim();
+            currentSearch = OptionSearch.normalize(newText);
+
+            // 结果集变了：回到顶部，刷新导航命中数和右侧列表
+            scroll = 0;
+            scrollHolder.value = 0;
+            if (contentScroller != null) contentScroller.velocity = 0;
+
+            refreshNavCounts();
             buildRows();
+            updateScroll(0);
         };
         searchComp.scrollFactor.set();
         add(searchComp);
+
+        // 带着搜索词进来时预填输入框（setText 不会触发 onChange）
+        if (currentSearch.length > 0)
+            searchComp.setText(currentSearch);
     }
 
     function buildScrollers()
@@ -331,7 +358,24 @@ class OptionsPageState extends MusicBeatState
             navScrollHolder.value = FlxMath.bound(navScrollHolder.value, 0, navMaxScroll);
         }
 
+        refreshNavCounts();
         updateNavScroll(0);
+    }
+
+    /** 按当前搜索词刷新每个子分类的命中数徽标（搜索时才显示） */
+    function refreshNavCounts():Void
+    {
+        var searching = currentSearch.length > 0;
+
+        if (!searching)
+        {
+            for (item in navItems) item.setMatchCount(0, false);
+            return;
+        }
+
+        var counts = OptionSearch.countsPerSub(selectedCat, currentSearch.toLowerCase());
+        for (i in 0...navItems.length)
+            navItems[i].setMatchCount(i < counts.length ? counts[i] : 0, true);
     }
 
     function updateNavScroll(delta:Float)
@@ -382,23 +426,65 @@ class OptionsPageState extends MusicBeatState
         for (item in navItems)
             item.setActive(item.category == sub);
 
-        headerTitle.text = (sub == selectedCat)
-            ? selectedCat.displayName
-            : selectedCat.displayName + '  >  ' + sub.displayName;
-
-        headerSubDesc.text = sub.description;
-
         hoveredOption = null;
         hoverDesc.text = '';
 
         if (previewLayer != null) previewLayer.showForCategory(sub.id);   // ← 改这里
 
-        buildRows();
+        buildRows();   // 内部会按搜索状态刷新头部文案
+
+        if (contentScroller != null) contentScroller.velocity = 0;
+
+        if (currentSearch.length > 0)
+        {
+            // 搜索时右侧列表是整棵分类树的结果：
+            // 点导航项 = 滚到该子分类的第一条命中，让导航徽标"可点、有意义"
+            scroll = 0;
+            scrollHolder.value = 0;
+
+            var target = -1;
+            for (i in 0...rows.length)
+            {
+                if (rows[i].option != null && rows[i].option.ownerCategory == sub)
+                {
+                    target = i;
+                    break;
+                }
+            }
+
+            updateScroll(target > 0 ? target * (ROW_H + ROW_GAP) : 0);
+            return;
+        }
 
         scroll = 0;
         scrollHolder.value = 0;
-        if (contentScroller != null) contentScroller.velocity = 0;
         updateScroll(0);
+    }
+
+    /**
+     * 头部文案：
+     * - 搜索中 → 显示当前大类的命中总数（此时右侧列表是整棵分类树的结果，不再是单个子分类）；
+     * - 未搜索 → 保持原来的「大类 > 子分类 + 描述」。
+     */
+    function updateHeaderText():Void
+    {
+        if (selectedCat == null) return;
+
+        if (currentSearch.length > 0)
+        {
+            var total = OptionSearch.countInCategory(selectedCat, currentSearch.toLowerCase());
+            headerTitle.text = selectedCat.displayName;
+            headerSubDesc.text = Language.getPhrase('options.search.results',
+                '{1} settings match "{2}"',
+                [Std.string(total), currentSearch]);
+            return;
+        }
+
+        headerTitle.text = (currentSub == null || currentSub == selectedCat)
+            ? selectedCat.displayName
+            : selectedCat.displayName + '  >  ' + currentSub.displayName;
+
+        headerSubDesc.text = (currentSub != null) ? currentSub.description : selectedCat.description;
     }
 
     // =========================================================
@@ -424,16 +510,13 @@ class OptionsPageState extends MusicBeatState
             return;
         }
 
+        var searching = currentSearch.length > 0;
+
         var optionsToShow:Array<Option> = [];
-        if (currentSearch.length > 0)
+        if (searching)
         {
-            var query = currentSearch.toLowerCase();
-            var allOptions = (selectedCat != null) ? selectedCat.allOptions() : [];
-            for (opt in allOptions)
-            {
-                if (optionMatchesSearch(opt, query))
-                    optionsToShow.push(opt);
-            }
+            // 搜索时展示整个大类（含所有子分类）的命中结果，与导航徽标统计口径一致
+            optionsToShow = OptionSearch.filterCategory(selectedCat, currentSearch.toLowerCase());
         }
         else
         {
@@ -452,6 +535,10 @@ class OptionsPageState extends MusicBeatState
             var row = new Win10OptionRow(startX, curY, ROW_W, ROW_H, opt, widget);
             row.setRowMeta(curY, ROW_H);
 
+            // 搜索时在行右侧标注这条结果来自哪个子分类
+            if (searching && opt.ownerCategory != null)
+                row.setSubLabel(opt.ownerCategory.displayName);
+
             rows.push(row);
             contentContainer.add(row);
 
@@ -462,28 +549,16 @@ class OptionsPageState extends MusicBeatState
         var viewH = FlxG.height - HEADER_H - NAV_PAD - 60;
         maxScroll = Math.max(0, contentH - viewH);
 
+        scroll = FlxMath.bound(scroll, 0, maxScroll);
+        scrollHolder.value = scroll;
+
         if (contentScroller != null)
         {
             contentScroller.moveLimit = [0, maxScroll];
             scrollHolder.value = FlxMath.bound(scrollHolder.value, 0, maxScroll);
         }
-    }
 
-    function optionMatchesSearch(opt:Option, query:String):Bool
-    {
-        if (opt == null) return false;
-
-        var owner = opt.ownerCategory;
-        var ownerText = (owner != null) ? [owner.id, owner.displayName, owner.rawDisplayName].join(' ') : '';
-        var haystack = [
-            opt.name,
-            opt.description,
-            opt.variable,
-            ownerText,
-            opt.actionLabel
-        ].join(' ').toLowerCase();
-
-        return haystack.indexOf(query) >= 0;
+        updateHeaderText();
     }
 
     function createWidgetFor(opt:Option):FlxSpriteGroup
@@ -575,6 +650,13 @@ class OptionsPageState extends MusicBeatState
 
     override function update(elapsed:Float)
     {
+        // 主题切换：在成员 update 之前重建，避免销毁正在 update 的控件
+        if (themeVersion != UITheme.version)
+        {
+            themeVersion = UITheme.version;
+            applyTheme();
+        }
+
         super.update(elapsed);
 
         if (controls.UI_DOWN_P) updateScroll(30);
@@ -615,6 +697,44 @@ class OptionsPageState extends MusicBeatState
 
         if (hoveredOption != null)
             hoverDesc.text = hoveredOption.description;
+    }
+
+    // =========================================================
+    // 深浅色主题
+    // =========================================================
+    /** 按当前主题重新套用配色：静态面板直接改色，列表按新配色重建 */
+    function applyTheme()
+    {
+        if (bg != null) bg.color = UITheme.windowBG;
+        if (navBG != null) navBG.color = UITheme.sidebar;
+        if (navDivider != null) navDivider.color = UITheme.divider;
+        if (headerLeft != null) headerLeft.color = UITheme.sidebar;
+        if (headerRight != null) headerRight.color = UITheme.windowBG;
+
+        if (contentMaskTop != null) contentMaskTop.color = UITheme.mask;
+        if (contentMaskBottom != null) contentMaskBottom.color = UITheme.mask;
+
+        if (headerTitle != null) headerTitle.color = UITheme.textPrimary;
+        if (headerSubDesc != null) headerSubDesc.color = UITheme.textSecondary;
+        if (hoverDesc != null) hoverDesc.color = UITheme.accent;
+
+        // 旧行彻底销毁：下拉弹层挂在 overlayContainer 上，不销毁会残留
+        for (r in rows)
+        {
+            FlxTween.cancelTweensOf(r);
+            contentContainer.remove(r, true);
+            r.destroy();
+        }
+        rows = [];
+
+        buildNav();
+        if (currentSub != null)
+            for (item in navItems) item.setActive(item.category == currentSub);
+
+        buildRows();
+
+        if (searchComp != null) searchComp.refreshTheme();
+        if (backButton != null) backButton.refreshTheme();
     }
 
     override function destroy()

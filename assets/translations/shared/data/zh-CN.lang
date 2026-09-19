@@ -7,6 +7,14 @@ options.action.reset: "重置"
 options.action.confirm: "确认？"
 options.back: "返回"
 
+options.theme.dark: "深色模式"
+options.theme.light: "浅色模式"
+
+options.search.hint: "搜索设置"
+options.search.summary: "共找到 {1} 项设置，分布在 {2} 个分类"
+options.search.noResults: "没有找到与 "{1}" 相关的设置"
+options.search.results: "共 {1} 项设置匹配 "{2}""
+
 options.category.basics.title: "基础设置"
 options.category.basics.tags: "语言 · 按键 · 音符颜色"
 options.category.gameplay.title: "游戏玩法"

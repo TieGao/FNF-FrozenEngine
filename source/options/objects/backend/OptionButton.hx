@@ -17,16 +17,6 @@ class OptionButton extends FlxSpriteGroup
     var hover:Bool = false;
     var pressing:Bool = false;
 
-    static inline var NORMAL:Int = 0xFF3A3A3A;
-    static inline var HOVER:Int  = 0xFF4A4A4A;
-    static inline var PRESS:Int  = 0xFF2B2B2B;
-    static inline var ACCENT:Int = 0xFF4CC2FF;
-
-    static inline var R_NORMAL:Int = 0xFF5A2B2B;
-    static inline var R_HOVER:Int  = 0xFF7A3A3A;
-    static inline var R_PRESS:Int  = 0xFF3A1F1F;
-    static inline var R_WARN:Int   = 0xFFFF6363;
-
     var confirmPending:Bool = false;
     var confirmTimer:Float = 0;
 
@@ -34,17 +24,19 @@ class OptionButton extends FlxSpriteGroup
                         follow:Option, isReset:Bool = false, fontSize:Int = 16)
     {
         super(X, Y);
+        UITheme.ensure();
+
         this.follow = follow;
         this.isReset = isReset;
 
         // 方角
-        bg = new Rect(0, 0, width, height, 0, 0, isReset ? R_NORMAL : NORMAL, 1);
+        bg = new Rect(0, 0, width, height, 0, 0, isReset ? UITheme.dangerBase : UITheme.control, 1);
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
 
         actionText = new FlxText(0, 0, width - 20, getActionText(), fontSize);
         actionText.setFormat(Paths.font('montserrat.ttf'), fontSize,
-            0xFFFFFF, CENTER, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+            UITheme.textPrimary, CENTER, FlxTextBorderStyle.OUTLINE, 0xFF000000);
         actionText.borderStyle = NONE;
         actionText.antialiasing = ClientPrefs.data.antialiasing;
         actionText.y = bg.y + (height - actionText.height) * 0.5;
@@ -73,12 +65,12 @@ class OptionButton extends FlxSpriteGroup
         return Language.getPhrase('options.action.open', 'Open');
     }
 
-    // 根据状态计算目标背景色
+    // 根据状态计算目标背景色（颜色全部来自主题）
     function computeTargetColor():Int
     {
         if (isReset)
-            return pressing ? R_PRESS : (hover ? R_HOVER : R_NORMAL);
-        return pressing ? PRESS : (hover ? HOVER : NORMAL);
+            return pressing ? UITheme.dangerPress : (hover ? UITheme.dangerHover : UITheme.dangerBase);
+        return pressing ? UITheme.controlPress : (hover ? UITheme.controlHover : UITheme.control);
     }
 
     override function update(elapsed:Float)
@@ -105,24 +97,24 @@ class OptionButton extends FlxSpriteGroup
             {
                 confirmPending = false;
                 actionText.text = getActionText();
-                actionText.color = 0xFFFFFF;
+                actionText.color = UITheme.textPrimary;
             }
             else
             {
-                actionText.color = R_WARN;
+                actionText.color = UITheme.danger;
             }
         }
 
         if (!isReset)
         {
-            actionText.color = hover ? ACCENT : 0xFFFFFF;
+            actionText.color = hover ? UITheme.accent : UITheme.textPrimary;
         }
 
         if (hover && mouse.justPressed)
         {
             pressing = true;
 
-            // 按下：快速渐到 PRESS
+            // 按下：快速渐到按下色
             FlxTween.cancelTweensOf(bg);
             FlxTween.color(bg, 0.05, bg.color, computeTargetColor());
 
@@ -133,7 +125,7 @@ class OptionButton extends FlxSpriteGroup
                     confirmPending = true;
                     confirmTimer = 1.5;
                     actionText.text = Language.getPhrase('options.action.confirm', 'Confirm?');
-                    actionText.color = R_WARN;
+                    actionText.color = UITheme.danger;
                     FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
                 }
                 else
@@ -166,6 +158,20 @@ class OptionButton extends FlxSpriteGroup
             FlxTween.cancelTweensOf(bg);
             FlxTween.color(bg, 0.1, bg.color, computeTargetColor(), {ease: FlxEase.quadOut});
         }
+    }
+
+    /** 动态改按钮文字（比如深浅色切换按钮） */
+    public function setActionText(text:String):Void
+    {
+        if (actionText != null) actionText.text = text;
+    }
+
+    /** 主题切换后重新套用配色（行被重建时无需调用） */
+    public function refreshTheme():Void
+    {
+        if (bg != null) bg.color = computeTargetColor();
+        if (actionText != null && !isReset)
+            actionText.color = hover ? UITheme.accent : UITheme.textPrimary;
     }
 
     function doReset()

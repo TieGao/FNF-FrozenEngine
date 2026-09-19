@@ -28,6 +28,7 @@ import backend.MusicBeatState;
 import backend.MusicBeatSubstate;
 import backend.CustomFadeTransition;
 import backend.ClientPrefs;
+import backend.UITheme;
 import backend.Conductor;
 import backend.BaseStage;
 import backend.Difficulty;

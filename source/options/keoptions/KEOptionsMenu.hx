@@ -1354,6 +1354,7 @@ function onScrollChange()
 			KEOption.create("Open EK Controls", "Customize key bindings for EK mode", "", "action"),
 			KEOption.create("Adjust Delay and Combo", "Customize ingame experience", "", "action"),
 			KEOption.create("Language", "Change the game's language", "language", "string", ['en-US', 'pt-BR', 'zh-CN', 'zh-TW']),
+			KEOption.create("Color Mode", "Switch between dark and white mode", "colorMode", "string", ['dark', 'white']),
 			KEOption.createResetOption("Reset KeyBinds", "keybinds"),
 		];
 	}

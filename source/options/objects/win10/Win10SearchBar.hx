@@ -14,13 +14,12 @@ import flixel.text.FlxText;
  */
 class Win10SearchBar extends FlxSpriteGroup
 {
-    static inline var ACCENT:Int   = 0xFF0078D4; // Win10 主题蓝
-    static inline var BORDER_IDLE:Int   = 0xFF5A5A5A;
-    static inline var BORDER_HOVER:Int  = 0xFF8A8A8A;
-    static inline var BG_IDLE:Int  = 0xFF1F1F1F;
-    static inline var BG_FOCUS:Int = 0xFF2B2B2B;
-    static inline var TEXT_COLOR:Int = 0xFFFFFFFF;
-    static inline var HINT_COLOR:Int = 0xFF9A9A9A;
+    // 配色统一走主题（深浅色切换由 UITheme 提供）
+    inline function accentColor():Int return UITheme.accentDeep;          // 聚焦时的边框
+    inline function borderIdle():Int return UITheme.searchBorder;
+    inline function borderHover():Int return UITheme.searchBorderHover;
+    inline function bgIdle():Int return UITheme.searchBG;
+    inline function bgFocus():Int return UITheme.searchBGFocus;
 
     public var input:PsychUIInputText;
     public var bg:Rect;
@@ -31,22 +30,23 @@ class Win10SearchBar extends FlxSpriteGroup
     var _hovered:Bool = false;
     var _focused:Bool = false;
     var _wasFocused:Bool = false;
-    var _borderColor:Int = BORDER_IDLE;
-    var _bgColor:Int = BG_IDLE;
+    var _borderColor:Int = -1;
+    var _bgColor:Int = -1;
 
     public var onChange:String->String->Void;
 
     public function new(x:Float, y:Float, w:Float, h:Float, fontSize:Int = 16)
     {
         super(x, y);
+        UITheme.ensure();
 
         // 背景
-        bg = new Rect(0, 0, w, h, 0, 0, BG_IDLE, 1);
+        bg = new Rect(0, 0, w, h, 0, 0, bgIdle(), 1);
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
 
         // 底部边框（1px）
-        border = new Rect(0, h - 1, w, 1, 0, 0, BORDER_IDLE, 1);
+        border = new Rect(0, h - 1, w, 1, 0, 0, borderIdle(), 1);
         border.antialiasing = ClientPrefs.data.antialiasing;
         add(border);
 
@@ -56,7 +56,7 @@ class Win10SearchBar extends FlxSpriteGroup
         );
         input.bg.visible = false;
         input.behindText.visible = false;
-        input.textObj.color = TEXT_COLOR;
+        input.textObj.color = UITheme.searchText;
         input.textObj.alignment = LEFT;
         input.forceCase = backend.ui.CaseMode.LOWER_CASE;
         input.maxLength = 50;
@@ -70,7 +70,7 @@ class Win10SearchBar extends FlxSpriteGroup
 
         // placeholder
         hint = new FlxText(h * 0.3, 0, w - h * 0.6, '');
-        hint.setFormat(Paths.font('montserrat.ttf'), fontSize, HINT_COLOR, LEFT);
+        hint.setFormat(Paths.font('montserrat.ttf'), fontSize, UITheme.searchHint, LEFT);
         hint.antialiasing = ClientPrefs.data.antialiasing;
         hint.y = (h - hint.height) * 0.5;
         add(hint);
@@ -78,12 +78,13 @@ class Win10SearchBar extends FlxSpriteGroup
         // 清除按钮（×）—— Win10 搜索框右侧的 ×
         clearBtn = new FlxSprite(w - h * 0.7, (h - 12) * 0.5);
         clearBtn.makeGraphic(12, 12, 0x00000000);
-        // 简单画一个 ×（你也可以换成图片）
+        // 简单画一个 ×（你也可以换成图片）；像素画成白色，用 color 跟随主题
         var g = clearBtn.pixels;
         for (i in 0...12) {
-            g.setPixel32(i, i, 0xFFAAAAAA);
-            g.setPixel32(i, 11 - i, 0xFFAAAAAA);
+            g.setPixel32(i, i, 0xFFFFFFFF);
+            g.setPixel32(i, 11 - i, 0xFFFFFFFF);
         }
+        clearBtn.color = UITheme.textSecondary;
         clearBtn.visible = false;
         add(clearBtn);
 
@@ -94,6 +95,23 @@ class Win10SearchBar extends FlxSpriteGroup
     public function setPlaceholder(text:String)
     {
         hint.text = text;
+    }
+
+    /** 当前输入内容（不会为 null） */
+    public function getText():String
+    {
+        return (input.text == null) ? '' : input.text;
+    }
+
+    /**
+     * 直接写入输入内容（不会触发 onChange，调用方需要自己刷新依赖它的界面）。
+     * 用于「从大类页带着搜索词进入分类页」这种预填场景。
+     */
+    public function setText(value:String):Void
+    {
+        var t = (value == null) ? '' : value;
+        input.text = t;
+        hint.visible = (t.length == 0);
     }
 
     /** 键盘 Tab 切到搜索框时调用 */
@@ -116,12 +134,12 @@ class Win10SearchBar extends FlxSpriteGroup
         _focused = (PsychUIInputText.focusOn == input);
 
         // 状态变化时重建 Rect 颜色
-        var targetBorder = _focused ? ACCENT : (_hovered ? BORDER_HOVER : BORDER_IDLE);
+        var targetBorder = _focused ? accentColor() : (_hovered ? borderHover() : borderIdle());
         if (targetBorder != _borderColor) {
             _borderColor = targetBorder;
             border.color = targetBorder;
         }
-        var targetBg = _focused ? BG_FOCUS : BG_IDLE;
+        var targetBg = _focused ? bgFocus() : bgIdle();
         if (targetBg != _bgColor) {
             _bgColor = targetBg;
             bg.color = targetBg;
@@ -145,5 +163,15 @@ class Win10SearchBar extends FlxSpriteGroup
             PsychUIInputText.focusOn = input;
             _focused = true;
         }
+    }
+
+    /** 主题切换后重新套用配色（下一帧 update 会自动刷新边框/背景） */
+    public function refreshTheme():Void
+    {
+        _borderColor = -1;
+        _bgColor = -1;
+        if (input != null && input.textObj != null) input.textObj.color = UITheme.searchText;
+        if (hint != null) hint.color = UITheme.searchHint;
+        if (clearBtn != null) clearBtn.color = UITheme.textSecondary;
     }
 }

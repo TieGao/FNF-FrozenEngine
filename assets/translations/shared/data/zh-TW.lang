@@ -9,6 +9,15 @@ searchhint: "搜尋設定"
 options.action.open: "開啟"
 options.action.reset: "重設"
 options.action.confirm: "確認？"
+options.back: "返回"
+
+options.theme.dark: "深色模式"
+options.theme.light: "淺色模式"
+
+options.search.hint: "搜尋設定"
+options.search.summary: "共找到 {1} 項設定，分布在 {2} 個分類"
+options.search.noResults: "沒有找到與 "{1}" 相關的設定"
+options.search.results: "共 {1} 項設定符合 "{2}""
 
 options.category.basics.title: "基礎設定"
 options.category.basics.tags: "語言 · 按鍵 · 音符顏色"

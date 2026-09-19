@@ -1,7 +1,6 @@
 package objects;
 
 import backend.animation.PsychAnimationController;
-import backend.SpritePool;
 import shaders.RGBPalette;
 import flixel.system.FlxAssets.FlxShader;
 
@@ -35,8 +34,6 @@ class NoteSplash extends FlxSprite
 	public var config(default, set):NoteSplashConfig;
 	public var babyArrow:StrumNote;
 	public var noteData:Int = 0;
-
-	public static var pool:SpritePool;
 
 	public var copyX:Bool = true;
 	public var copyY:Bool = true;

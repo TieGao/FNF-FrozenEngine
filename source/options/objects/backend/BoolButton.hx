@@ -15,19 +15,18 @@ class BoolButton extends FlxSpriteGroup
     var innerY:Float;
     var moveForward:Bool = true;
 
-    static inline var OFF_COLOR:Int  = 0xFF666666;
-    static inline var ON_COLOR:Int   = 0xFF4CC2FF;
-    static inline var KNOB_COLOR:Int = 0xFFFFFFFF;
-
-    static inline var HOVER_LIGHTEN:Float = 0.15;
-    static inline var PRESS_DARKEN:Float  = 0.20;
-
     var hover:Bool = false;
     var pressing:Bool = false;
+
+    // 颜色统一走主题（深浅色切换由 UITheme 提供）
+    inline function getOffColor():Int return UITheme.switchOff;
+    inline function getOnColor():Int return UITheme.switchOn;
 
     public function new(X:Float, Y:Float, width:Float, height:Float, follow:Option)
     {
         super(X, Y);
+
+        UITheme.ensure();
 
         this.follow = follow;
         innerX = X;
@@ -35,20 +34,20 @@ class BoolButton extends FlxSpriteGroup
 
         // 胶囊轨道：圆角 = 高度一半
         var r:Float = height;
-        bg = new Rect(0, 0, width, height, r, r, OFF_COLOR, 1);
+        bg = new Rect(0, 0, width, height, r, r, getOffColor(), 1);
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
 
         // 圆形圆点：直径 = height - 6，圆角 = 半径
         var d:Float = height / 1.5;
         var kr:Float = d;
-        dis = new Rect(2, 4, d, d, kr, kr, KNOB_COLOR, 1);
+        dis = new Rect(2, 4, d, d, kr, kr, UITheme.knob, 1);
         dis.antialiasing = ClientPrefs.data.antialiasing;
         add(dis);
 
         // 初始化位置（不播放动画）
         dis.x = follow.getValue() ? bg.width / 2 + 10 : 0;
-        bg.color = follow.getValue() ? ON_COLOR : OFF_COLOR;
+        bg.color = follow.getValue() ? getOnColor() : getOffColor();
     }
 
     override function update(elapsed:Float)
@@ -99,15 +98,12 @@ class BoolButton extends FlxSpriteGroup
     // 计算当前状态的目标背景色
     function computeTargetColor():Int
     {
-        var base:Int = follow.getValue() ? ON_COLOR : OFF_COLOR;
-        var c:FlxColor = base;
+        var base:FlxColor = follow.getValue() ? getOnColor() : getOffColor();
 
-        if (pressing)
-            c = FlxColor.interpolate(c, 0xFF000000, PRESS_DARKEN);
-        else if (hover)
-            c = FlxColor.interpolate(c, 0xFFFFFFFF, HOVER_LIGHTEN);
+        if (pressing) return UITheme.pressTint(base);
+        else if (hover) return UITheme.hoverTint(base);
 
-        return c;
+        return base;
     }
 
     // 用 tween 让 bg.color 快速趋近目标（短期渐变），

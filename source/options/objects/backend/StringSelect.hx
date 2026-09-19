@@ -27,16 +27,6 @@ class StringSelect extends FlxSpriteGroup
     var hover:Bool = false;
     var pressing:Bool = false;
 
-    // 主条颜色
-    static inline var NORMAL:Int = 0xFF3A3A3A;
-    static inline var HOVER:Int  = 0xFF4A4A4A;
-    static inline var PRESS:Int  = 0xFF2B2B2B;
-    static inline var ACCENT:Int = 0xFF4CC2FF;
-
-    // 下拉项颜色
-    static inline var ITEM_NORMAL:Int = 0xFF3A3A3A;
-    static inline var ITEM_HOVER:Int  = 0xFF4A4A4A;
-
     // 下拉项尺寸 / 边缘留白
     static inline var ITEM_H:Float = 32.0;
     static inline var EDGE_MARGIN:Float = 4.0;
@@ -47,17 +37,19 @@ class StringSelect extends FlxSpriteGroup
     public function new(X:Float, Y:Float, width:Float, height:Float, follow:Option, ?topLayer:FlxSpriteGroup)
     {
         super(X, Y);
+        UITheme.ensure();
+
         this.follow = follow;
         this.topLayer = topLayer;
         mainW = width; mainH = height;
 
-        bg = new Rect(0, 0, width, height, 4, 4, NORMAL, 1);
+        bg = new Rect(0, 0, width, height, 4, 4, UITheme.control, 1);
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
 
         dis = new FlxText(10, 0, width - 30, '', 16);
         dis.setFormat(Paths.font('montserrat.ttf'), 16,
-            0xFFFFFF, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+            UITheme.textPrimary, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
         dis.borderStyle = NONE;
         dis.antialiasing = ClientPrefs.data.antialiasing;
         dis.y = (height - dis.height) * 0.5;
@@ -161,7 +153,7 @@ class StringSelect extends FlxSpriteGroup
         var cy = h * 0.5;
         var dir = isOpen ? -1.0 : 1.0;
 
-        var col = (hover || isOpen) ? ACCENT : 0xCCCCCC;
+        var col = (hover || isOpen) ? UITheme.accent : UITheme.icon;
         var c:FlxColor = col;
 
         drawThickLine(bmd,
@@ -221,20 +213,20 @@ class StringSelect extends FlxSpriteGroup
         var opts = follow.options;
         if (opts == null) return;
 
-        popupBg = new Rect(0, 0, mainW, opts.length * ITEM_H + 8, 4, 4, 0xFF2B2B2B, 1);
+        popupBg = new Rect(0, 0, mainW, opts.length * ITEM_H + 8, 4, 4, UITheme.popup, 1);
         popupBg.antialiasing = ClientPrefs.data.antialiasing;
         popup.add(popupBg);
 
         for (i in 0...opts.length)
         {
-            var item = new Rect(4, 4 + i * ITEM_H, mainW - 8, ITEM_H, 3, 3, ITEM_NORMAL, 0);
+            var item = new Rect(4, 4 + i * ITEM_H, mainW - 8, ITEM_H, 3, 3, UITheme.popupItem, 0);
             item.antialiasing = ClientPrefs.data.antialiasing;
             popup.add(item);
             popupItems.push(item);
 
             var t = new FlxText(12, 4 + i * ITEM_H, mainW - 24, follow.getOptionText(opts[i]), 15);
             t.setFormat(Paths.font('montserrat.ttf'), 15,
-                0xFFFFFF, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+                UITheme.textPrimary, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
             t.borderStyle = NONE;
             t.antialiasing = ClientPrefs.data.antialiasing;
             t.y += (ITEM_H - t.height) * 0.5;
@@ -245,7 +237,7 @@ class StringSelect extends FlxSpriteGroup
 
     function computeMainColor():Int
     {
-        return pressing ? PRESS : (hover ? HOVER : NORMAL);
+        return pressing ? UITheme.controlPress : (hover ? UITheme.controlHover : UITheme.control);
     }
 
     override function update(elapsed:Float)
@@ -268,7 +260,7 @@ class StringSelect extends FlxSpriteGroup
             redrawArrow();
         }
 
-        dis.color = (hover || isOpen) ? ACCENT : 0xFFFFFF;
+        dis.color = (hover || isOpen) ? UITheme.accent : UITheme.textPrimary;
 
         // 点击主条
         if (hover && mouse.justPressed)
@@ -343,5 +335,31 @@ class StringSelect extends FlxSpriteGroup
             popup.visible = false;
             redrawArrow();
         }
+    }
+
+    /** 主题切换后重新套用配色（行被重建时无需调用） */
+    public function refreshTheme():Void
+    {
+        if (bg != null) bg.color = computeMainColor();
+        if (dis != null) dis.color = (hover || isOpen) ? UITheme.accent : UITheme.textPrimary;
+        if (popupBg != null) popupBg.color = UITheme.popup;
+        for (it in popupItems) it.color = UITheme.popupItem;
+        for (t in popupTexts) t.color = UITheme.textPrimary;
+        redrawArrow();
+    }
+
+    /**
+     * 下拉弹层是挂在 topLayer（overlayContainer）上的，
+     * 销毁时如果不手动清掉，会残留在外层容器里继续渲染。
+     */
+    override function destroy():Void
+    {
+        if (popup != null && topLayer != null)
+        {
+            topLayer.remove(popup, true);
+            popup.destroy();
+        }
+        popup = null;
+        super.destroy();
     }
 }

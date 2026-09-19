@@ -54,11 +54,17 @@ class OptionPreviewLayer extends FlxGroup
     var currentKind:String = '';
     var currentOpt:Option = null;
 
+    /** 已套用的主题版本号：和 UITheme.version 不一致时重新给预览元素上色 */
+    var themeVersion:Int = -1;
+
     static inline var NOTE_SPACING:Float = 56.0;
 
     public function new(x:Float = 0, y:Float = 0)
     {
         super();
+
+        UITheme.ensure();
+        themeVersion = UITheme.version;
 
         anchorX = x;
         anchorY = y;
@@ -269,7 +275,30 @@ class OptionPreviewLayer extends FlxGroup
         hitBar.x = anchorX - hitBar.width / 2;
         hitBar.y = anchorY - hitBar.height / 2;
         hitBar.visible = false;
+        applyHitBarTheme();
         add(hitBar);
+    }
+
+    /**
+     * 判定条的指针 / 中线 / 竖线原本是纯白，浅色页面上会直接看不见。
+     * 这里只给预览层自己的这个实例重新着色，游戏内的判定条不受影响。
+     */
+    function applyHitBarTheme():Void
+    {
+        if (hitBar == null) return;
+
+        var line:FlxColor = UITheme.previewLine;
+
+        if (hitBar.middleLine != null) hitBar.middleLine.color = line;
+        if (hitBar.pointer != null) hitBar.pointer.color = line;
+
+        if (hitBar.hitBars != null)
+            for (b in hitBar.hitBars)
+                if (b != null) b.color = line;
+
+        if (hitBar.hitNotes != null)
+            for (n in hitBar.hitNotes)
+                if (n != null) n.color = line;
     }
 
     function rebuildHitErrorBar():Void
@@ -444,6 +473,13 @@ class OptionPreviewLayer extends FlxGroup
     override function update(elapsed:Float):Void
     {
         super.update(elapsed);
+
+        // 深浅色切换后重新给预览元素上色
+        if (themeVersion != UITheme.version)
+        {
+            themeVersion = UITheme.version;
+            applyHitBarTheme();
+        }
 
         if (!ClientPrefs.data.optionPreview && visible)
         {

@@ -20,13 +20,14 @@ class NumButton extends FlxSpriteGroup {
     var max:Float;
     var min:Float;
 
-    // ===== 新增：颜色常量 =====
-    static inline var COLOR_NORMAL:Int = 0x0064fa;
-    static inline var COLOR_HOVER:Int  = 0xFFFFFF;
-    static inline var COLOR_PRESS:Int  = 0x808080;
+    // ===== 颜色全部来自主题（深浅色切换由 UITheme 提供） =====
+    inline function colorNormal():Int return UITheme.sliderKnob;
+    inline function colorHover():Int return UITheme.sliderKnobHover;
+    inline function colorPress():Int return UITheme.sliderKnobPress;
 
     public function new(X:Float, Y:Float, width:Float, height:Float, follow:Option) {
         super(X, Y);
+        UITheme.ensure();
 
         this.follow = follow;
         this.min = follow.minValue;
@@ -40,8 +41,8 @@ class NumButton extends FlxSpriteGroup {
                          height * 0.1,
                          0,
                          0,
-                         0xFF363535,
-                         0.4
+                         UITheme.sliderTrack,
+                         UITheme.sliderTrackAlpha
                          );
         moveBG.y += (height - moveBG.height) / 2;
         add(moveBG);
@@ -53,7 +54,7 @@ class NumButton extends FlxSpriteGroup {
                          height * 0.1,
                          0,
                          0,
-                         0x0064fa,
+                         UITheme.sliderFill,
                          1.0
                          );
         moveDis.y += (height - moveDis.height) / 2;
@@ -68,7 +69,7 @@ class NumButton extends FlxSpriteGroup {
                         rodH,
                         rodW,
                         rodW,
-                        0x0064fa,
+                        UITheme.sliderFill,
                         1.0
                         );
         rod.y += (height - rod.height) / 2;
@@ -76,7 +77,7 @@ class NumButton extends FlxSpriteGroup {
 
         valueText = new FlxText(0, 0, valueTextWidth, '', 12);
         valueText.setFormat(Paths.font('montserrat.ttf'), 12,
-            0xD6E8FF, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+            UITheme.sliderValueText, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
         valueText.borderStyle = NONE;
         valueText.antialiasing = ClientPrefs.data.antialiasing;
         valueText.y = (height - valueText.height) * 0.5;
@@ -115,7 +116,7 @@ class NumButton extends FlxSpriteGroup {
         if (mouseEvent == null || specBG == null || downBG == null) return;
         if (mouseEvent.overlaps(specBG) || mouseEvent.overlaps(downBG)) {
             // 鼠标在外部区域时，重置颜色
-            setRodColor(COLOR_NORMAL);
+            setRodColor(colorNormal());
             onFocus = false;
             return;
         }
@@ -127,11 +128,11 @@ class NumButton extends FlxSpriteGroup {
         var hoverBG  = mouse.overlaps(moveBG);
 
         if (mouse.pressed && (onFocus || hoverRod || hoverBG)) {
-            setRodColor(COLOR_PRESS);
+            setRodColor(colorPress());
         } else if (hoverRod || hoverBG) {
-            setRodColor(COLOR_HOVER);
+            setRodColor(colorHover());
         } else {
-            setRodColor(COLOR_NORMAL);
+            setRodColor(colorNormal());
         }
 
 		if (mouse.justPressed && hoverRod)

@@ -28,16 +28,6 @@ class ColorSelect extends FlxSpriteGroup
     var hover:Bool = false;
     var pressing:Bool = false;
 
-    // 主条颜色
-    static inline var NORMAL:Int = 0xFF3A3A3A;
-    static inline var HOVER:Int  = 0xFF4A4A4A;
-    static inline var PRESS:Int  = 0xFF2B2B2B;
-    static inline var ACCENT:Int = 0xFF4CC2FF;
-
-    // 下拉项颜色
-    static inline var ITEM_NORMAL:Int = 0xFF3A3A3A;
-    static inline var ITEM_HOVER:Int  = 0xFF4A4A4A;
-
     // 调色板每行列数
     static inline var COLS:Int = 4;
     static inline var CELL:Float = 40.0;
@@ -48,11 +38,13 @@ class ColorSelect extends FlxSpriteGroup
     public function new(X:Float, Y:Float, width:Float, height:Float, follow:Option, ?topLayer:FlxSpriteGroup)
     {
         super(X, Y);
+        UITheme.ensure();
+
         this.follow = follow;
         this.topLayer = topLayer;
         mainW = width; mainH = height;
 
-        bg = new Rect(0, 0, width, height, 4, 4, NORMAL, 1);
+        bg = new Rect(0, 0, width, height, 4, 4, UITheme.control, 1);
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
 
@@ -64,7 +56,7 @@ class ColorSelect extends FlxSpriteGroup
 
         dis = new FlxText(Std.int(height) + 4, 0, width - Std.int(height) - 30, '', 16);
         dis.setFormat(Paths.font('montserrat.ttf'), 16,
-            0xFFFFFF, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+            UITheme.textPrimary, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
         dis.borderStyle = NONE;
         dis.antialiasing = ClientPrefs.data.antialiasing;
         dis.y = (height - dis.height) * 0.5;
@@ -97,7 +89,7 @@ class ColorSelect extends FlxSpriteGroup
         var name = Option.colorName(v);
         var hex = Option.intToHex(v);
         dis.text = name + '   ' + hex;
-        dis.color = (hover || isOpen) ? ACCENT : 0xFFFFFF;
+        dis.color = (hover || isOpen) ? UITheme.accent : UITheme.textPrimary;
     }
 
     function syncPopupPosition()
@@ -164,7 +156,7 @@ class ColorSelect extends FlxSpriteGroup
         var cy = h * 0.5;
         var dir = isOpen ? -1.0 : 1.0;
 
-        var col = (hover || isOpen) ? ACCENT : 0xCCCCCC;
+        var col = (hover || isOpen) ? UITheme.accent : UITheme.icon;
         var c:FlxColor = col;
 
         drawThickLine(bmd,
@@ -229,7 +221,7 @@ class ColorSelect extends FlxSpriteGroup
         var popupW = gridW + CELL_PAD * 2;
         var popupH = gridH + CELL_PAD * 2;
 
-        popupBg = new Rect(0, 0, popupW, popupH, 4, 4, 0xFF2B2B2B, 1);
+        popupBg = new Rect(0, 0, popupW, popupH, 4, 4, UITheme.popup, 1);
         popupBg.antialiasing = ClientPrefs.data.antialiasing;
         popup.add(popupBg);
 
@@ -247,7 +239,7 @@ class ColorSelect extends FlxSpriteGroup
             popupItems.push(cell);
 
             // 选中/悬浮高亮描边
-            var outline = new Rect(cx - 2, cy - 2, CELL + 4, CELL + 4, 4, 4, ACCENT, 0);
+            var outline = new Rect(cx - 2, cy - 2, CELL + 4, CELL + 4, 4, 4, UITheme.accent, 0);
             outline.antialiasing = ClientPrefs.data.antialiasing;
             popup.add(outline);
             popupSwatches.push(outline);
@@ -268,7 +260,7 @@ class ColorSelect extends FlxSpriteGroup
 
     function computeMainColor():Int
     {
-        return pressing ? PRESS : (hover ? HOVER : NORMAL);
+        return pressing ? UITheme.controlPress : (hover ? UITheme.controlHover : UITheme.control);
     }
 
     override function update(elapsed:Float)
@@ -354,5 +346,30 @@ class ColorSelect extends FlxSpriteGroup
             }
             if (!inPopup) { isOpen = false; popup.visible = false; redrawArrow(); refreshText(); }
         }
+    }
+
+    /** 主题切换后重新套用配色（行被重建时无需调用） */
+    public function refreshTheme():Void
+    {
+        if (bg != null) bg.color = computeMainColor();
+        if (popupBg != null) popupBg.color = UITheme.popup;
+        for (o in popupSwatches) o.color = UITheme.accent;
+        redrawArrow();
+        refreshText();
+    }
+
+    /**
+     * 调色板弹层挂在 topLayer（overlayContainer）上，
+     * 销毁时手动清掉，避免残留在外层容器里继续渲染。
+     */
+    override function destroy():Void
+    {
+        if (popup != null && topLayer != null)
+        {
+            topLayer.remove(popup, true);
+            popup.destroy();
+        }
+        popup = null;
+        super.destroy();
     }
 }

@@ -525,6 +525,10 @@ class FreeplayState extends MusicBeatState
     override function closeSubState()
     {
         persistentUpdate = true;
+        // 子状态期间本 state 暂停更新，鼠标的按下/松开事件都没被处理，
+        // 恢复更新前先丢掉过期的输入状态，否则第一帧会被误判成拖拽而取消跳转
+        if (cardScroller != null)
+            cardScroller.resetInputState();
         super.closeSubState();
 
         refreshCurrentSelectionAfterSubState();
@@ -1745,6 +1749,12 @@ class FreeplayState extends MusicBeatState
         if (musicPlayer.playingMusic) return;
         persistentUpdate = false;
         openSubState(new SearchSubState(songs, function(song:NewSongMetaData) {
+            // ★ 打开搜索界面的那一帧，MouseMove 已经把本次鼠标按下记成了“待拖拽”，
+            //   而搜索期间本 state 不更新，这个状态会一直残留到点击搜索结果之后。
+            //   若不清掉，恢复更新的第一帧会被判成“开始拖拽”并 cancelMoveTo()，
+            //   把下面设置的 tweenData 跳转取消掉（表现为只选中卡片、列表不滚动）。
+            if (cardScroller != null) cardScroller.resetInputState();
+
             for (i in 0...songs.length) {
                 if (songs[i] == song) {
                     curSelected = i;

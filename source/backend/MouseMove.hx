@@ -233,6 +233,11 @@ private function startDrag(startY:Float) {
         tweenData = value;
         hasTweenData = true;
         if (!doNotStop) moveTo(tweenData);
+        // 目标值没变、但当前位置还没到位时也要重新武装 lerp。
+        // 典型场景：静止状态下 tweenData 已被复位成 0，此时再设置 0（比如按 HOME 回到第一个）
+        // 会被判成“同值”而跳过 moveTo，allowLerp 一直是 false，导致永远不会滚动过去。
+        // （拖拽中不武装，拖拽优先级高于程序化滚动）
+        else if (useLerp && !isDragging && Math.abs(target - tweenData) > 0.001) allowLerp = true;
 
         return tweenData;
     }
@@ -248,10 +253,33 @@ private function startDrag(startY:Float) {
     }
 
     private function cancelMoveTo() {
-        allowLerp = false;
+        // 注意顺序：tweenData 是 (default, set) 属性，这里的赋值会走 set_tweenData
+        // （可能顺带把 allowLerp 打开），所以这几个标志必须放在它之后再复位。
         tweenData = 0;
         hasTweenData = false;
+        allowLerp = false;
         if (moveTween != null) moveTween.cancel();
+    }
+
+    /**
+     * 丢弃残留的鼠标输入状态（待拖拽 / 拖拽中 / 速度）。
+     *
+     * 宿主 state 弹出子状态时通常会暂停更新，这段时间内的按下与松开事件都不会被处理，
+     * 于是 `_dragPending` 会一直挂着。恢复更新的第一帧就会命中 `_dragPending && mouse.pressed`
+     * 而误判成“开始拖拽”，进而调用 `cancelMoveTo()` 把刚设置好的 `tweenData`
+     * （例如 Freeplay 搜索结果的跳转）直接取消掉。
+     * 因此凡是“暂停更新后即将恢复”的地方，都应该先调用本方法清理一次。
+     */
+    public function resetInputState():Void
+    {
+        _dragPending = false;
+        isDragging = false;
+        _pendingDragDelta = 0;
+        velocity = 0;
+        velocityArray = [];
+        lastMouseY = FlxG.mouse.y;
+        velocLastMouseY = lastMouseY;
+        _lastUpdateTime = FlxG.game.ticks;
     }
 
     var isPositive:Bool = true; //正数检测

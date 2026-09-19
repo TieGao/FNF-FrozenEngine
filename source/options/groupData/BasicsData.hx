@@ -38,6 +38,7 @@ class BasicsData
         cat.add(adjustDelay);
 
         cat.add(new Option('Language', 'Change the game\'s language', 'language', STRING, ['en-US', 'pt-BR', 'zh-CN', 'zh-TW']));
+        cat.add(new Option('Color Mode', 'Switch between dark and white mode', 'colorMode', STRING, ['dark', 'white']));
 
         var resetKeyBinds = new Option('Reset KeyBinds', 'Reset key bindings', 'keybinds', ACTION);
         resetKeyBinds.actionLabel = 'Reset';
