@@ -63,7 +63,7 @@ class MouseEvent extends FlxBasic
 
         camera = camera ?? targetCamera;
         if (tmpWorldPos == null) tmpWorldPos = new FlxPoint();
-        FlxG.mouse.getScreenPosition(camera, tmpWorldPos);
+        FlxG.mouse.getViewPosition(camera, tmpWorldPos);
 
         if (Std.isOfType(tar, FlxSprite)) {
             return spritePixelOverlap(cast tar, tmpWorldPos, camera);

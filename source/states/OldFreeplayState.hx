@@ -299,7 +299,7 @@ class OldFreeplayState extends MusicBeatState
 				}
 
 				// 鼠标移动显示并更新悬停
-				if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
+				if (FlxG.mouse.deltaViewX != 0 || FlxG.mouse.deltaViewY != 0)
 				{
 					FlxG.mouse.visible = true;
 					timeNotMoving = 0;
@@ -383,7 +383,7 @@ class OldFreeplayState extends MusicBeatState
 						
 						if(loadedVocals != null && loadedVocals.length > 0)
 						{
-							vocals.loadEmbedded(loadedVocals);
+							vocals.load(loadedVocals);
 							FlxG.sound.list.add(vocals);
 							vocals.persist = vocals.looped = true;
 							vocals.volume = 0.8;
@@ -406,7 +406,7 @@ class OldFreeplayState extends MusicBeatState
 						
 						if(loadedVocals != null && loadedVocals.length > 0)
 						{
-							opponentVocals.loadEmbedded(loadedVocals);
+							opponentVocals.load(loadedVocals);
 							FlxG.sound.list.add(opponentVocals);
 							opponentVocals.persist = opponentVocals.looped = true;
 							opponentVocals.volume = 0.8;

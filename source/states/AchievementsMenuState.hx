@@ -238,7 +238,7 @@ class AchievementsMenuState extends MusicBeatState
 		if(!goingBack && options.length > 0)
 		{
 			// 鼠标控制逻辑
-			if ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed)
+			if ((FlxG.mouse.deltaViewX != 0 && FlxG.mouse.deltaViewY != 0) || FlxG.mouse.justPressed)
 			{
 				FlxG.mouse.visible = true;
 
@@ -251,8 +251,8 @@ class AchievementsMenuState extends MusicBeatState
 					var memb:FlxSprite = grpOptions.members[i];
 					if (FlxG.mouse.overlaps(memb))
 					{
-						var distance:Float = Math.sqrt(Math.pow(memb.getGraphicMidpoint().x - FlxG.mouse.screenX, 2) + 
-													   Math.pow(memb.getGraphicMidpoint().y - FlxG.mouse.screenY, 2));
+						var distance:Float = Math.sqrt(Math.pow(memb.getGraphicMidpoint().x - FlxG.mouse.viewX, 2) + 
+													   Math.pow(memb.getGraphicMidpoint().y - FlxG.mouse.viewY, 2));
 						if (distance < minDist)
 						{
 							minDist = distance;
@@ -447,7 +447,7 @@ class ResetAchievementSubstate extends MusicBeatSubstate
 	override function update(elapsed:Float)
 	{
 		// 鼠标控制逻辑
-		if ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed)
+		if ((FlxG.mouse.deltaViewX != 0 && FlxG.mouse.deltaViewY != 0) || FlxG.mouse.justPressed)
 		{
 			FlxG.mouse.visible = true;
 			

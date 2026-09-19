@@ -117,6 +117,10 @@ class SongInfoParser
                     var opponentRating:Float = DiffRating.calcForSong(swagSong, DiffRating.MODE_OPPONENT);
                     var coopRating:Float     = DiffRating.calcForSong(swagSong, DiffRating.MODE_COOP);
 
+                    playerRating = Math.floor(playerRating * 100) / 100;
+                    opponentRating = Math.floor(opponentRating * 100) / 100;
+                    coopRating = Math.floor(coopRating * 100) / 100;
+
                     var selectedRating:Float = switch (difficultyMode)
                     {
                         case DiffRating.MODE_OPPONENT: opponentRating;
@@ -327,6 +331,9 @@ class SongInfoParser
             sideCounts = countNoteSides(swagSong);
             noteCount = sideCounts.player + sideCounts.opponent;
 
+            playerRating = Math.floor(playerRating * 100) / 100;
+            opponentRating = Math.floor(opponentRating * 100) / 100;
+            coopRating = Math.floor(coopRating * 100) / 100;
             difficultyRating = switch (difficultyMode)
             {
                 case DiffRating.MODE_OPPONENT: opponentRating;

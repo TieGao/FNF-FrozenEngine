@@ -1190,7 +1190,7 @@ class FreeplayState extends MusicBeatState
                     
                     if(loadedVocals != null && loadedVocals.length > 0)
                     {
-                        vocals.loadEmbedded(loadedVocals);
+                        vocals.load(loadedVocals);
                         FlxG.sound.list.add(vocals);
                         vocals.persist = vocals.looped = true;
                         vocals.volume = 0.8;
@@ -1213,7 +1213,7 @@ class FreeplayState extends MusicBeatState
                     
                     if(loadedVocals != null && loadedVocals.length > 0)
                     {
-                        opponentVocals.loadEmbedded(loadedVocals);
+                        opponentVocals.load(loadedVocals);
                         FlxG.sound.list.add(opponentVocals);
                         opponentVocals.persist = opponentVocals.looped = true;
                         opponentVocals.volume = 0.8;
@@ -1231,11 +1231,11 @@ class FreeplayState extends MusicBeatState
             {
                 // 无声音轨，创建空声音
                 vocals = new FlxSound();
-                vocals.loadEmbedded(Paths.voices(PlayState.SONG.song, "empty"));
+                vocals.load(Paths.voices(PlayState.SONG.song, "empty"));
                 FlxG.sound.list.add(vocals);
                 
                 opponentVocals = new FlxSound();
-                opponentVocals.loadEmbedded(Paths.voices(PlayState.SONG.song, "empty"));
+                opponentVocals.load(Paths.voices(PlayState.SONG.song, "empty"));
                 FlxG.sound.list.add(opponentVocals);
             }
             
@@ -1401,7 +1401,7 @@ class FreeplayState extends MusicBeatState
 
         if (!musicPlayer.playingMusic)
         {
-            if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0 || FlxG.mouse.justPressed || FlxG.mouse.wheel != 0)
+            if (FlxG.mouse.deltaViewX != 0 || FlxG.mouse.deltaViewY != 0 || FlxG.mouse.justPressed || FlxG.mouse.wheel != 0)
                 updateMouseInteraction();
         }
 

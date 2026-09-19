@@ -283,7 +283,7 @@ class StoryMenuState extends MusicBeatState
 		if (!movedBack && !selectedWeek)
 		{
 			// 鼠标控制逻辑
-			if (allowMouse && ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed))
+			if (allowMouse && ((FlxG.mouse.deltaViewX != 0 && FlxG.mouse.deltaViewY != 0) || FlxG.mouse.justPressed))
 			{
 				allowMouse = false;
 				
@@ -297,8 +297,8 @@ class StoryMenuState extends MusicBeatState
 					if (FlxG.mouse.overlaps(weekItem))
 					{
 						// 计算距离
-						var distance:Float = Math.sqrt(Math.pow(weekItem.getGraphicMidpoint().x - FlxG.mouse.screenX, 2) + 
-													   Math.pow(weekItem.getGraphicMidpoint().y - FlxG.mouse.screenY, 2));
+						var distance:Float = Math.sqrt(Math.pow(weekItem.getGraphicMidpoint().x - FlxG.mouse.viewX, 2) + 
+													   Math.pow(weekItem.getGraphicMidpoint().y - FlxG.mouse.viewY, 2));
 						if (distance < minDist)
 						{
 							minDist = distance;

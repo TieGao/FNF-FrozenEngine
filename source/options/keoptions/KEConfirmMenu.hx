@@ -365,7 +365,7 @@ class KEConfirmMenu extends MusicBeatSubstate
 		// 鼠标点击
 		if (FlxG.mouse.justPressed && !optionClickProtected && (optionScroller == null || !optionScroller.isDragging))
 		{
-			var mousePos = FlxG.mouse.getScreenPosition(camera);
+			var mousePos = FlxG.mouse.getViewPosition(camera);
 
 			if (confirmBack.overlapsPoint(mousePos)) {
 				confirmSelection();
@@ -547,7 +547,7 @@ class KEConfirmMenu extends MusicBeatSubstate
 		if (KEOptionsMenu.instance != null)
 			KEOptionsMenu.instance.doSelectCurrentOption();
 
-		if (KEOptionsMenu.instance != null && KEOptionsMenu.instance.subState != null && Std.is(KEOptionsMenu.instance.subState, KESubMenu))
+		if (KEOptionsMenu.instance != null && KEOptionsMenu.instance.subState != null && Std.isOfType(KEOptionsMenu.instance.subState, KESubMenu))
 		{
 			var subMenu:KESubMenu = cast(KEOptionsMenu.instance.subState, KESubMenu);
 			subMenu.updateDisplay();

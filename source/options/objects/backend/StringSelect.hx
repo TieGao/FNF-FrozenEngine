@@ -103,8 +103,8 @@ class StringSelect extends FlxSpriteGroup
         var popupH = getPopupHeight();
         if (popupH <= 0) return;
 
-        var screenX = this.x;
-        var screenY:Float;
+        var viewX = this.x;
+        var viewY:Float;
 
         var belowY = this.y + mainH + 4;
         var aboveY = this.y - popupH - 4;
@@ -113,38 +113,38 @@ class StringSelect extends FlxSpriteGroup
         if (belowY + popupH <= maxBottom)
         {
             // 1. 下方放得下
-            screenY = belowY;
+            viewY = belowY;
         }
         else if (aboveY >= EDGE_MARGIN)
         {
             // 2. 上方放得下
-            screenY = aboveY;
+            viewY = aboveY;
         }
         else
         {
             // 3. 上下都放不下 → 直接覆盖在组件上，居中并夹取到屏幕内
-            screenY = this.y + mainH * 0.5 - popupH * 0.5;
-            if (screenY + popupH > maxBottom)
-                screenY = maxBottom - popupH;
-            if (screenY < EDGE_MARGIN)
-                screenY = EDGE_MARGIN;
+            viewY = this.y + mainH * 0.5 - popupH * 0.5;
+            if (viewY + popupH > maxBottom)
+                viewY = maxBottom - popupH;
+            if (viewY < EDGE_MARGIN)
+                viewY = EDGE_MARGIN;
         }
 
         // 水平方向夹取
-        if (screenX + mainW > FlxG.width - EDGE_MARGIN)
-            screenX = FlxG.width - mainW - EDGE_MARGIN;
-        if (screenX < EDGE_MARGIN)
-            screenX = EDGE_MARGIN;
+        if (viewX + mainW > FlxG.width - EDGE_MARGIN)
+            viewX = FlxG.width - mainW - EDGE_MARGIN;
+        if (viewX < EDGE_MARGIN)
+            viewX = EDGE_MARGIN;
 
         if (topLayer != null)
         {
-            popup.x = screenX;
-            popup.y = screenY;
+            popup.x = viewX;
+            popup.y = viewY;
         }
         else
         {
-            popup.x = screenX - this.x;
-            popup.y = screenY - this.y;
+            popup.x = viewX - this.x;
+            popup.y = viewY - this.y;
         }
     }
 

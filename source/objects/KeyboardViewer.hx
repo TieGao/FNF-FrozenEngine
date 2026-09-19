@@ -104,9 +104,18 @@ class KeyboardViewer extends FlxSpriteGroup
 			add(obj);
 		}
 
-		// 计算大按钮宽度（根据键位数量调整）
-		var bigButtonWidth:Int = Std.int(Math.max(displayKeys * 25, 50));
-		var startX = X + (-_width / 2) + (_width - bigButtonWidth * 2 - 4) / 2;
+		var bigButtonWidth:Int;
+		if (displayKeys == 4)
+		{
+			bigButtonWidth = KeyButton.size * 2 + 4;
+		}
+		else
+		{
+			bigButtonWidth = Std.int((KeyButton.size * 2 + 4) * (displayKeys / 4));
+		}
+
+		var startX = _x + centerOffset + (_width - bigButtonWidth * 2 - 4) / 2 - 2;
+		// ===== 移植结束 =====
 
 		// 创建KPS和Total背景按钮
 		for (i in 0...2)

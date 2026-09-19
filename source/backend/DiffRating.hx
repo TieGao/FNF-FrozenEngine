@@ -5,18 +5,24 @@ import backend.Song;
 /**
  * Diff Rate 计算器 + NovaFlare 风格 osu 评分取色工具。
  *
- * 相比旧版：
- *  - calcForSong 增加 mode 参数，支持 normal / opponent / coop。
- *  - normal   = 只算玩家侧
- *  - opponent = 只算对手侧
- *  - coop     = 两侧都算
+ * 本版本配套 backend.Song.hx：
+ *   backend.Song.parseJSON -> convert() 会把 note[1] 归一化为
+ *     玩家侧: 0 .. columns-1
+ *     对手侧: columns .. 2*columns-1
+ *   其中 columns = song.mania + 1（4K 时 mania=3, columns=4）。
  *
- * mode 只影响 resolvePlayableLane 的筛选，算法主体不变。
+ *   因此这里 resolvePlayableLane 不再读取 section.mustHitSection，
+ *   也不再使用 rawLane > song.mania 去翻转归属，
+ *   直接按归一化后的 lane 判断玩家侧 / 对手侧。
  *
- * 本版本不再读取 ClientPrefs.data.playOpponent / flipChart，
- * 改为读取 gameplaySettings 中的 'opponentplay' 与 'mirrornotes'。
+ * 模式：
+ *   normal   = 只算玩家侧
+ *   opponent = 只算对手侧
+ *   coop     = 两侧都算
  *
- * 颜色部分：内置 osu 风格七彩渐变取色（来自 NovaFlare StarRect）。
+ * 设置读取：
+ *   - opponentplay -> normal / opponent / coop
+ *   - mirrornotes  -> 4K 镜像
  */
 class DiffRating
 {
@@ -40,7 +46,6 @@ class DiffRating
 
     /**
      * 默认评分上限。DiffRating.calcForSong 返回值大致落在这个范围内。
-     * 如果你的 osu 算法上限不同，改这里即可。
      */
     public static inline var MAX_RATING:Float = 10.0;
 
@@ -97,12 +102,13 @@ class DiffRating
 
         mode = normalizeMode(mode);
 
+        var columns:Int = getColumnCount(song);
+
         var objs:Array<ManiaObj> = [];
-        var totalColumns:Int = song.mania + 1;
-        if (totalColumns <= 0) totalColumns = 4;
 
         for (sec in song.notes)
         {
+            if (sec == null) continue;
             var notes:Array<Dynamic> = sec.sectionNotes;
             if (notes == null) continue;
             for (n in notes)
@@ -110,7 +116,7 @@ class DiffRating
                 if (n == null || n.length < 2) continue;
                 var rawLane:Int = Std.int(n[1]);
                 if (rawLane < 0) continue;
-                var lane:Int = resolvePlayableLane(sec, rawLane, song, mode);
+                var lane:Int = resolvePlayableLane(rawLane, song, mode, columns);
                 if (lane < 0) continue;
                 var start:Float = n[0];
                 var sustain:Float = (n.length >= 3 && n[2] != null) ? n[2] : 0.0;
@@ -134,9 +140,9 @@ class DiffRating
         objs.sort(function(a, b) return a.startTime < b.startTime ? -1 : (a.startTime > b.startTime ? 1 : 0));
 
         var perColumn:Array<Array<Int>> = [];
-        for (i in 0...totalColumns) perColumn.push([]);
+        for (i in 0...columns) perColumn.push([]);
         var prevByColumn:Array<Int> = [];
-        for (i in 0...totalColumns) prevByColumn.push(-1);
+        for (i in 0...columns) prevByColumn.push(-1);
 
         var objects:Array<ManiaObj> = [];
         for (i in 1...objs.length)
@@ -147,9 +153,13 @@ class DiffRating
             var delta = cur.startTime - prev.startTime;
             var prevHit:Array<Int> = prevByColumn.copy();
             var col = cur.column;
+            if (col < 0) col = 0;
+            if (col >= columns) col = columns - 1;
             var colList = perColumn[col];
             var prevInCol:Int = colList.length > 0 ? colList[colList.length - 1] : -1;
-            var colStrainTime:Float = prevInCol >= 0 ? cur.startTime - objects[prevInCol].startTime : cur.startTime;
+            var colStrainTime:Float = prevInCol >= 0
+                ? cur.startTime - objects[prevInCol].startTime
+                : cur.startTime;
             var m:ManiaObj = {
                 startTime: cur.startTime,
                 endTime: cur.endTime,
@@ -167,7 +177,7 @@ class DiffRating
         }
 
         var individualStrains:Array<Float> = [];
-        for (i in 0...totalColumns) individualStrains.push(0);
+        for (i in 0...columns) individualStrains.push(0);
 
         var highestIndividualStrain:Float = 0;
         var overallStrain:Float = 1;
@@ -193,14 +203,14 @@ class DiffRating
 
             var col = obj.column;
             individualStrains[col] = applyDecay(individualStrains[col], obj.columnStrainTime, 0.125);
-            var indAdd = evaluateIndividual(obj, objects, totalColumns);
+            var indAdd = evaluateIndividual(obj, objects, columns);
             individualStrains[col] += indAdd;
             highestIndividualStrain = obj.deltaTime <= 1
                 ? Math.max(highestIndividualStrain, individualStrains[col])
                 : individualStrains[col];
 
             overallStrain = applyDecay(overallStrain, obj.deltaTime, 0.30);
-            var overallAdd = evaluateOverall(obj, objects, totalColumns);
+            var overallAdd = evaluateOverall(obj, objects, columns);
             overallStrain += overallAdd;
 
             var sValueOf = highestIndividualStrain + overallStrain - currentStrain;
@@ -225,45 +235,59 @@ class DiffRating
         return difficulty * 0.018;
     }
 
-    static function resolvePlayableLane(sec:SwagSection, rawLane:Int, song:SwagSong, mode:String):Int
+    ///////////////////////////////////////////////////////////////////////////
+    // lane 解析（配套 backend.Song.hx 的归一化 lane）
+    ///////////////////////////////////////////////////////////////////////////
+
+    public static inline function getColumnCount(song:SwagSong):Int
     {
-        var gottaHit:Bool = sec.mustHitSection;
+        var columns:Int = (song != null && song.mania != null) ? song.mania + 1 : 4;
+        if (columns <= 0) columns = 4;
+        return columns;
+    }
 
-        // 如果 lane 超过 mania 范围，说明该 note 属于另一侧
-        if (rawLane > song.mania)
-        {
-            gottaHit = !sec.mustHitSection;
-        }
+    /**
+     * 归一化后：
+     *   rawLane ∈ [0, columns)          -> 玩家侧
+     *   rawLane ∈ [columns, 2*columns)  -> 对手侧
+     *
+     * 返回该 note 在“可游玩侧”的列索引（0 .. columns-1），
+     * 若该 note 不属于当前 mode 的可游玩侧则返回 -1。
+     */
+    static function resolvePlayableLane(rawLane:Int, song:SwagSong, mode:String, columns:Int):Int
+    {
+        var isOpponentSide:Bool = rawLane >= columns;
 
-        // 彻底三分支：只依据传入的 mode，不再读取 playOpponent
         var mustPress:Bool;
         switch (mode)
         {
             case MODE_OPPONENT:
-                // 只算对手侧
-                mustPress = !gottaHit;
+                mustPress = isOpponentSide;
             case MODE_COOP:
-                // 两侧都算
                 mustPress = true;
             default: // MODE_NORMAL
-                // 只算玩家侧
-                mustPress = gottaHit;
+                mustPress = !isOpponentSide;
         }
 
         if (!mustPress) return -1;
 
-        var columns:Int = song.mania + 1;
-        if (columns <= 0) columns = 4;
-        var lane = rawLane % columns;
+        var lane:Int = rawLane % columns;
+        if (lane < 0) lane += columns;
 
-        // 从 gameplaySettings 读取镜像谱面设置，替代 ClientPrefs.data.flipChart
         var flipChart:Bool = ClientPrefs.getGameplaySetting('mirrornotes', false, true);
         if (flipChart && columns == 4)
         {
             lane -= Std.int((lane - 1.5) * 2);
+            if (lane < 0) lane = 0;
+            if (lane > 3) lane = 3;
         }
+
         return lane;
     }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // 算法辅助（与原版一致，未改动）
+    ///////////////////////////////////////////////////////////////////////////
 
     static inline function applyDecay(value:Float, deltaTime:Float, decayBase:Float):Float
     {

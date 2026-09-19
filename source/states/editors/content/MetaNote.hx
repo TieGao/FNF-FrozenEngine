@@ -98,7 +98,7 @@ class MetaNote extends Note
 				txt.autoSize = false;
 				txt.alignment = CENTER;
 				txt.borderStyle = SHADOW;
-				txt.shadowOffset.set(2, 2);
+				txt.setBorderStyle(SHADOW_XY(2, 2));
 				txt.borderColor = FlxColor.BLACK;
 				txt.scrollFactor.x = 0;
 				noteTypeTexts.set(num, txt);

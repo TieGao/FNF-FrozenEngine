@@ -132,7 +132,7 @@ class WeekBGConfig
             var content:String = File.getContent(configPath);
             var parsed:Dynamic = Json.parse(content);
             
-            if (parsed.weeks != null && Std.is(parsed.weeks, Array))
+            if (parsed.weeks != null && Std.isOfType(parsed.weeks, Array))
             {
                 var weeksArray:Array<Dynamic> = parsed.weeks;
                 for (weekData in weeksArray)
@@ -140,7 +140,7 @@ class WeekBGConfig
                     parseWeekConfig(weekData, modName);
                 }
             }
-            else if (Std.is(parsed, Array))
+            else if (Std.isOfType(parsed, Array))
             {
                 var weeksArray:Array<Dynamic> = parsed;
                 for (weekData in weeksArray)
@@ -200,7 +200,7 @@ class WeekBGConfig
         };
         
         // 解析元素
-        if (data.elements != null && Std.is(data.elements, Array))
+        if (data.elements != null && Std.isOfType(data.elements, Array))
         {
             var elementsArray:Array<Dynamic> = data.elements;
             for (elem in elementsArray)
@@ -229,7 +229,7 @@ class WeekBGConfig
         }
         
         // 解析过渡动画
-        if (data.transitions != null && Std.is(data.transitions, Array))
+        if (data.transitions != null && Std.isOfType(data.transitions, Array))
         {
             var transitionsArray:Array<Dynamic> = data.transitions;
             for (trans in transitionsArray)
@@ -248,7 +248,7 @@ class WeekBGConfig
         }
         
         // 解析退出过渡动画
-        if (data.exitTransitions != null && Std.is(data.exitTransitions, Array))
+        if (data.exitTransitions != null && Std.isOfType(data.exitTransitions, Array))
         {
             bgData.exitTransitions = [];
             var exitTransitionsArray:Array<Dynamic> = data.exitTransitions;

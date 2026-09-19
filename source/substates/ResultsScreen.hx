@@ -539,16 +539,16 @@ class ResultsScreen extends MusicBeatSubstate
             var pauseSong:String = getPauseSong();
             if(pauseSong != null) 
             {
-                pauseMusic.loadEmbedded(Paths.music(pauseSong), true, true);
+                pauseMusic.load(Paths.music(pauseSong), true);
             }
             else
             {
-                pauseMusic.loadEmbedded(Paths.music('breakfast'), true, true);
+                pauseMusic.load(Paths.music('breakfast'), true);
             }
         }
         catch(e:Dynamic) 
         {
-            pauseMusic.loadEmbedded(Paths.music('breakfast'), true, true);
+            pauseMusic.load(Paths.music('breakfast'), true);
         }
         
         pauseMusic.volume = 0;

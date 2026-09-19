@@ -375,8 +375,8 @@ class ModFolderSubstate extends MusicBeatSubstate
 	 */
 	function isMouseOverList():Bool
 	{
-		var mouseX = FlxG.mouse.screenX;
-		var mouseY = FlxG.mouse.screenY;
+		var mouseX = FlxG.mouse.viewX;
+		var mouseY = FlxG.mouse.viewY;
 		return mouseX >= bgList.x && mouseX <= bgList.x + bgList.width &&
 			   mouseY >= bgList.y && mouseY <= bgList.y + bgList.height;
 	}

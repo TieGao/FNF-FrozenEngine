@@ -1438,10 +1438,10 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 		if (FlxG.keys.justPressed.UP) moveY -= 5 * shiftMult * ctrlMult;
 		if (FlxG.keys.justPressed.DOWN) moveY += 5 * shiftMult * ctrlMult;
 
-		if(FlxG.mouse.pressedRight && (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0))
+		if(FlxG.mouse.pressedRight && (FlxG.mouse.deltaViewX != 0 || FlxG.mouse.deltaViewY != 0))
 		{
-			moveX += FlxG.mouse.deltaScreenX * ctrlMult;
-			moveY += FlxG.mouse.deltaScreenY * ctrlMult;
+			moveX += FlxG.mouse.deltaViewX * ctrlMult;
+			moveY += FlxG.mouse.deltaViewY * ctrlMult;
 			_updateCamera();
 		}
 
@@ -2332,10 +2332,10 @@ class StageEditorAnimationSubstate extends MusicBeatSubstate {
 			}
 			else holdingArrowsTime = 0;
 	
-			if(FlxG.mouse.pressedRight && (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0))
+			if(FlxG.mouse.pressedRight && (FlxG.mouse.deltaViewX != 0 || FlxG.mouse.deltaViewY != 0))
 			{
-				spr.offset.x -= FlxG.mouse.deltaScreenX;
-				spr.offset.y -= FlxG.mouse.deltaScreenY;
+				spr.offset.x -= FlxG.mouse.deltaViewX;
+				spr.offset.y -= FlxG.mouse.deltaViewY;
 				changedOffset = true;
 			}
 

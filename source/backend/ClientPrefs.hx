@@ -245,7 +245,7 @@ import states.TitleState;
 	public var audioGain:Float = 1.5;
 	public var transitionType:String = "fade";
 	
-	public  var renderResolution:Int = 0;
+	public var renderResolution:Dynamic = "1280x720";
 	public var useDpiSettings:Bool = true;
 	public var dpiSettingsAsked:Bool = false;
 	public var showStage:Bool = true;
@@ -687,6 +687,36 @@ class ClientPrefs {
 		}
 		#end
 
+		// 分辨率设置：统一交给 Main.applyRenderResolution
+		#if (cpp || hl)
+		if (ClientPrefs.data != null)
+		{
+			var wide:Bool = Reflect.hasField(data, 'wideScreen') && cast Reflect.field(data, 'wideScreen');
+			Main.applyRenderResolution(data.renderResolution, wide, !data.useDpiSettings);
+		}
+		#else
+		// 非 cpp/hl 平台保持原有 setLogicalSize 逻辑
+		var output:Array<Float> = [];
+		switch(data.resolution) {
+			case '360P': output = [640, 360];
+			case '480P': output = [854, 480];
+			case '540P': output = [960, 540];
+			case '720P': output = [1280, 720];
+			case '768P': output = [1366, 768];
+			case '900P': output = [1600, 900];
+			case '1080P': output = [1920, 1080];
+			case '1440P (2K)': output = [2560, 1440];
+			case '1600P': output = [2560, 1600];
+			case '1800P': output = [3200, 1800];
+			case '2160P (4K)': output = [3840, 2160];
+			default:
+				var display:Display = lime.system.System.getDisplay(0);
+				output = [display.bounds.width, display.bounds.height];
+				data.resolution = "Native: " + display.bounds.width + "x" + display.bounds.height;
+		}
+		@:privateAccess openfl.Lib.current.stage.__setLogicalSize(Std.int(output[0]), Std.int(output[1]));
+		#end
+
 		// 核心修改：正确区分设置 Update 和 Draw 帧率
 		if (data.fpsRework)
 		{
@@ -771,7 +801,7 @@ class ClientPrefs {
 		var value:Dynamic = data.gameplaySettings.exists(name) ? data.gameplaySettings.get(name) : defaultValue;
 		if (name == 'opponentplay')
 		{
-			if (Std.is(value, Bool))
+			if (Std.isOfType(value, Bool))
 				return value ? 'opponent' : 'player';
 			if (value == null)
 				return 'player';

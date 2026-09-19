@@ -254,15 +254,15 @@ class PhillyStreets extends BaseStage
 		cutsceneHandler = new CutsceneHandler();
 		cutsceneHandler.endTime = 10;
 
-		var cutsceneMusic:FlxSound = new FlxSound().loadEmbedded(Paths.music('darnellCanCutscene'));
+		var cutsceneMusic:FlxSound = new FlxSound().load(Paths.music('darnellCanCutscene'));
 		cutsceneMusic.looped = true;
 		FlxG.sound.list.add(cutsceneMusic);
 
-		var darnellLaugh:FlxSound = new FlxSound().loadEmbedded(Paths.sound('cutscene/darnell_laugh'));
+		var darnellLaugh:FlxSound = new FlxSound().load(Paths.sound('cutscene/darnell_laugh'));
 		darnellLaugh.volume = 0.6;
 		FlxG.sound.list.add(darnellLaugh);
 
-		var neneLaugh:FlxSound = new FlxSound().loadEmbedded(Paths.sound('cutscene/nene_laugh'));
+		var neneLaugh:FlxSound = new FlxSound().load(Paths.sound('cutscene/nene_laugh'));
 		neneLaugh.volume = 0.6;
 		FlxG.sound.list.add(neneLaugh);
 
@@ -440,15 +440,15 @@ class PhillyStreets extends BaseStage
 
 			lightCanSnd = new FlxSound();
 			FlxG.sound.list.add(lightCanSnd);
-			lightCanSnd.loadEmbedded(Paths.sound('Darnell_Lighter'));
+			lightCanSnd.load(Paths.sound('Darnell_Lighter'));
 			
 			kickCanSnd = new FlxSound();
 			FlxG.sound.list.add(kickCanSnd);
-			kickCanSnd.loadEmbedded(Paths.sound('Kick_Can_UP'));
+			kickCanSnd.load(Paths.sound('Kick_Can_UP'));
 
 			kneeCanSnd = new FlxSound();
 			FlxG.sound.list.add(kneeCanSnd);
-			kneeCanSnd.loadEmbedded(Paths.sound('Kick_Can_FORWARD'));
+			kneeCanSnd.load(Paths.sound('Kick_Can_FORWARD'));
 			didCreateCan = true;
 		}
 
@@ -465,7 +465,7 @@ class PhillyStreets extends BaseStage
 			
 			gunPrepSnd = new FlxSound();
 			FlxG.sound.list.add(gunPrepSnd);
-			gunPrepSnd.loadEmbedded(Paths.sound('Gun_Prep'));
+			gunPrepSnd.load(Paths.sound('Gun_Prep'));
 			didCreateCasing = true;
 		}
 
@@ -480,7 +480,7 @@ class PhillyStreets extends BaseStage
 				case 'weekend-1-firegun':
 					bonkSnd = new FlxSound();
 					FlxG.sound.list.add(bonkSnd);
-					bonkSnd.loadEmbedded(Paths.sound('Pico_Bonk'));
+					bonkSnd.load(Paths.sound('Pico_Bonk'));
 			}
 		}
 		

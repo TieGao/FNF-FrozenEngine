@@ -37,10 +37,10 @@ class DraggableBar extends Bar
         if (FlxG.mouse.justPressed && mouseOverBg && !isDragging)
         {
             // 1. 计算鼠标在条上的相对位置（百分比）
-            var mouseCamPos = FlxG.mouse.getPositionInCameraView(cameras[0]);
+            var mouseCamPos = FlxG.mouse.getViewPosition(cameras[0]);
             if (mouseCamPos != null)
             {
-                var bgCamPos = bg.getScreenPosition(cameras[0]);
+                var bgCamPos = bg.getViewPosition(cameras[0]);
                 var relativeX = mouseCamPos.x - bgCamPos.x - barOffset.x;
                 var clickPercent = (relativeX / barWidth) * 100;
                 clickPercent = Math.max(0, Math.min(100, clickPercent));
@@ -57,7 +57,7 @@ class DraggableBar extends Bar
                 isDragging = true;
                 dragStartPercent = percent;                  // 起始百分比（可能是新跳转后的值）
                 dragStartMouseX = relativeX;                // 当前鼠标相对位置
-                dragStartMouseScreenX = FlxG.mouse.screenX;
+                dragStartMouseScreenX = FlxG.mouse.viewX;
                 
                 leftBar.alpha = 0.7;
                 rightBar.alpha = 0.7;
@@ -67,10 +67,10 @@ class DraggableBar extends Bar
         // --- 拖拽中（基于偏移量更新） ---
         if (isDragging && FlxG.mouse.pressed)
         {
-            var mouseCamPos = FlxG.mouse.getPositionInCameraView(cameras[0]);
+            var mouseCamPos = FlxG.mouse.getViewPosition(cameras[0]);
             if (mouseCamPos != null)
             {
-                var bgCamPos = bg.getScreenPosition(cameras[0]);
+                var bgCamPos = bg.getViewPosition(cameras[0]);
                 var currentMouseX = mouseCamPos.x - bgCamPos.x - barOffset.x;
                 
                 var deltaX = currentMouseX - dragStartMouseX;

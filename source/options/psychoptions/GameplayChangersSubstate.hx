@@ -153,7 +153,7 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 	{
 		
 		// 鼠标控制逻辑 - 简化版
-		if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
+		if (FlxG.mouse.deltaViewX != 0 || FlxG.mouse.deltaViewY != 0)
 		{
 			FlxG.mouse.visible = true;
 			timeNotMoving = 0;
@@ -318,7 +318,7 @@ class GameplayChangersSubstate extends MusicBeatSubstate
 		// 鼠标拖动调整数值（非布尔类型）- 简化版
 		if (FlxG.mouse.pressed && mouseOverItem != -1 && mouseOverItem == curSelected && !(curOption.type == BOOL) && curOption.type != STRING && nextAccept <= 0)
 		{
-			var mouseDelta:Float = FlxG.mouse.deltaScreenX;
+			var mouseDelta:Float = FlxG.mouse.deltaViewX;
 			if (Math.abs(mouseDelta) > 2) // 提高灵敏度阈值
 			{
 				var add:Dynamic = mouseDelta * curOption.changeValue ; // 降低灵敏度

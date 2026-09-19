@@ -190,6 +190,7 @@ class Option
 
 	public function change()
 	{
+		//trace('[Option.change] variable=$variable, onChange=${onChange != null}');
 		if (onChange != null)
 			onChange();
 	}

@@ -182,8 +182,6 @@ class ColorSelect extends FlxSpriteGroup
         arrowGfx.origin.set(0, 0);
         arrowGfx.scale.set(1, 1);
         arrowGfx.updateHitbox();
-
-        arrowGfx.x = mainW - arrowGfx.width - 16;
     }
 
     function drawThickLine(bmd:openfl.display.BitmapData,

@@ -107,9 +107,9 @@ class Win10SearchBar extends FlxSpriteGroup
     {
         super.update(elapsed);
 
-        var mx = FlxG.mouse.getScreenPosition().x;
-        var my = FlxG.mouse.getScreenPosition().y;
-        var sp = getScreenPosition();
+        var mx = FlxG.mouse.getViewPosition().x;
+        var my = FlxG.mouse.getViewPosition().y;
+        var sp = getViewPosition();
         _hovered = mx >= sp.x && mx <= sp.x + width
                 && my >= sp.y && my <= sp.y + height;
 
@@ -131,7 +131,7 @@ class Win10SearchBar extends FlxSpriteGroup
         var hasText = input.text != null && input.text.length > 0;
         clearBtn.visible = hasText && (_hovered || _focused);
         if (clearBtn.visible && FlxG.mouse.justPressed) {
-            var cs = clearBtn.getScreenPosition();
+            var cs = clearBtn.getViewPosition();
             if (mx >= cs.x && mx <= cs.x + clearBtn.width
              && my >= cs.y && my <= cs.y + clearBtn.height) {
                 input.text = '';

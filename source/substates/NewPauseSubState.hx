@@ -127,7 +127,7 @@ class NewPauseSubState extends MusicBeatSubstate
 		{
 			var pauseSong:String = getPauseSong();
 			if(pauseSong != null) 
-				pauseMusic.loadEmbedded(Paths.music(pauseSong), true, true);
+				pauseMusic.load(Paths.music(pauseSong), true);
 		}
 		catch(e:Dynamic) {}
 		
@@ -356,7 +356,7 @@ class NewPauseSubState extends MusicBeatSubstate
 			// 鼠标拖动
 			if(FlxG.mouse.pressed)
 			{
-				var dragSpeed = (FlxG.mouse.deltaScreenX + FlxG.mouse.deltaScreenY) * 10;
+				var dragSpeed = (FlxG.mouse.deltaViewX + FlxG.mouse.deltaViewY) * 10;
 				if(Math.abs(dragSpeed) > 0.5)
 				{
 					curTime += dragSpeed * 100;
@@ -880,7 +880,7 @@ class NewPauseSubState extends MusicBeatSubstate
 		if(isAnimating || cantUnpause > 0) return;
 		
 		// ===== 鼠标控制 ======
-		if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
+		if (FlxG.mouse.deltaViewX != 0 || FlxG.mouse.deltaViewY != 0)
 		{
 			timeNotMoving = 0;
 			updateMouseOver();

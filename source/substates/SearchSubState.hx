@@ -282,7 +282,7 @@ class SearchSubState extends MusicBeatSubstate
                 isDragging = true;
                 isInertia = false;
                 inertiaVelocity = 0;
-                dragStartY = FlxG.mouse.screenY;
+                dragStartY = FlxG.mouse.viewY;
                 dragStartScroll = scrollOffset;
                 lastDragY = dragStartY;
                 lastDragTime = Sys.time();
@@ -294,7 +294,7 @@ class SearchSubState extends MusicBeatSubstate
         {
             if (FlxG.mouse.pressed)
             {
-                var deltaY = FlxG.mouse.screenY - lastDragY;
+                var deltaY = FlxG.mouse.viewY - lastDragY;
                 var currentTime = Sys.time();
                 var dt = currentTime - lastDragTime;
                 if (dt > 0.001)
@@ -306,12 +306,12 @@ class SearchSubState extends MusicBeatSubstate
                     dragVelocity = 0;
                 }
                 
-                var deltaScroll = (dragStartY - FlxG.mouse.screenY);
+                var deltaScroll = (dragStartY - FlxG.mouse.viewY);
                 var newOffset = FlxMath.bound(dragStartScroll + deltaScroll, 0, maxScroll);
                 scrollOffset = newOffset;
                 repositionCards();
                 
-                lastDragY = FlxG.mouse.screenY;
+                lastDragY = FlxG.mouse.viewY;
                 lastDragTime = currentTime;
             }
             else

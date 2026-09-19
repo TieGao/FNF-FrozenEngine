@@ -143,7 +143,7 @@ class PsychOptionsState extends MusicBeatState
     // 鼠标点击选项 - 直接打开菜单
     if (FlxG.mouse.justPressed)
     {
-        var mousePos = FlxG.mouse.getScreenPosition();
+        var mousePos = FlxG.mouse.getViewPosition();
         
         for (i in 0...grpOptions.length)
         {

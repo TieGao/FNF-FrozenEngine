@@ -196,7 +196,7 @@ class CreditsState extends MusicBeatState
 		setupCreditsScroller();
 		
 		// 初始化鼠标位置
-		lastMousePosition.set(FlxG.mouse.screenX, FlxG.mouse.screenY);
+		lastMousePosition.set(FlxG.mouse.viewX, FlxG.mouse.viewY);
 		
 		super.create();
 	}
@@ -311,7 +311,7 @@ class CreditsState extends MusicBeatState
 		}
 		
 		// 更新鼠标位置记录
-		lastMousePosition.set(FlxG.mouse.screenX, FlxG.mouse.screenY);
+		lastMousePosition.set(FlxG.mouse.viewX, FlxG.mouse.viewY);
 		
 		super.update(elapsed);
 	}

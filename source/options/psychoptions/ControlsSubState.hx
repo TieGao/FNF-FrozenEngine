@@ -315,7 +315,7 @@ class ControlsSubState extends MusicBeatSubstate
 
 		#if !mobile
 		// 鼠标悬停检测
-		if (allowMouse && ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed))
+		if (allowMouse && ((FlxG.mouse.deltaViewX != 0 && FlxG.mouse.deltaViewY != 0) || FlxG.mouse.justPressed))
 		{
 			allowMouse = false;
 			isMouseControl = true;

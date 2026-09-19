@@ -61,7 +61,7 @@ class GameOverSubstate extends MusicBeatSubstate
 
 		if(boyfriend == null)
 		{
-			boyfriend = new Character(PlayState.instance.boyfriend.getScreenPosition().x, PlayState.instance.boyfriend.getScreenPosition().y, characterName, true);
+			boyfriend = new Character(PlayState.instance.boyfriend.getViewPosition().x, PlayState.instance.boyfriend.getViewPosition().y, characterName, true);
 			boyfriend.x += boyfriend.positionArray[0] - PlayState.instance.boyfriend.positionArray[0];
 			boyfriend.y += boyfriend.positionArray[1] - PlayState.instance.boyfriend.positionArray[1];
 		}
@@ -82,7 +82,7 @@ class GameOverSubstate extends MusicBeatSubstate
 		
 		PlayState.instance.setOnScripts('inGameOver', true);
 		PlayState.instance.callOnScripts('onGameOverStart', []);
-		FlxG.sound.music.loadEmbedded(Paths.music(loopSoundName), true);
+		FlxG.sound.music.load(Paths.music(loopSoundName), true);
 
 		if(characterName == 'pico-dead')
 		{

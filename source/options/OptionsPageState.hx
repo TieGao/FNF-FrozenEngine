@@ -39,6 +39,8 @@ class OptionsPageState extends MusicBeatState
 
     // ---------- UI ----------
     var bg:FlxSprite;
+    var contentMaskTop:FlxFilteredSprite;
+    var contentMaskBottom:FlxFilteredSprite;
     var header:Rect;
 
     var headerTitle:FlxText;
@@ -139,6 +141,39 @@ class OptionsPageState extends MusicBeatState
         var leftX = NAV_W + NAV_PAD;
         var leftW = (FlxG.width - leftX - NAV_PAD) * 0.5;
 
+        buildSearchBar();
+
+        navContainer = new FlxSpriteGroup();
+        add(navContainer);
+
+        contentContainer = new FlxSpriteGroup();
+        add(contentContainer);
+
+        var maskX = NAV_W;
+        var maskW = Std.int(FlxG.width - NAV_W);
+
+        // 顶部遮罩：从 HEADER_H 往下 24px（可调）
+        var topMaskH = 150;
+        contentMaskTop = new FlxFilteredSprite(maskX, -75);
+        contentMaskTop.makeGraphic(maskW, topMaskH, 0xFF000000);
+        contentMaskTop.filters = [new openfl.filters.BlurFilter(0, 20, 1)];
+        contentMaskTop.scrollFactor.set();
+        add(contentMaskTop);
+
+        // 底部遮罩：从 FlxG.height - 60 往上 24px（可调）
+        var bottomMaskH = 200;
+        contentMaskBottom = new FlxFilteredSprite(maskX, FlxG.height - 50);
+        contentMaskBottom.makeGraphic(maskW, bottomMaskH, 0xFF000000);
+        contentMaskBottom.filters = [new openfl.filters.BlurFilter(0, 20, 1)];
+        contentMaskBottom.scrollFactor.set();
+        add(contentMaskBottom);
+
+        overlayContainer = new FlxSpriteGroup();
+        add(overlayContainer);
+
+        previewLayer = new OptionPreviewLayer(FlxG.width * 0.72, HEADER_H + 40);
+        add(previewLayer);
+
         headerTitle = new FlxText(leftX, 6, leftW, selectedCat.displayName, 22);
         headerTitle.setFormat(Paths.font('vcr.ttf'), 24,
             0xFFFFFF, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
@@ -163,20 +198,6 @@ class OptionsPageState extends MusicBeatState
         hoverDesc.antialiasing = ClientPrefs.data.antialiasing;
         hoverDesc.y = (HEADER_H - hoverDesc.height) * 0.5;
         add(hoverDesc);
-
-        buildSearchBar();
-
-        navContainer = new FlxSpriteGroup();
-        add(navContainer);
-
-        contentContainer = new FlxSpriteGroup();
-        add(contentContainer);
-
-        overlayContainer = new FlxSpriteGroup();
-        add(overlayContainer);
-
-        previewLayer = new OptionPreviewLayer(FlxG.width * 0.72, HEADER_H + 40);
-        add(previewLayer);
 
         // 保存设置时通知预览
         Option.onValueSaved = function(opt:Option) {

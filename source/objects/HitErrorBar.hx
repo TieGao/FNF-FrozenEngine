@@ -336,7 +336,7 @@ class HitErrorBar extends FlxSpriteGroup
                 color = color.getLightened(0.2);
             else if (noteDirection > 0)
             {
-                var rgb = color.to24Bit();
+                var rgb = color.rgb;
                 var r = (rgb >> 16) & 0xFF;
                 var g = (rgb >> 8) & 0xFF;
                 var b = rgb & 0xFF;

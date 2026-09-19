@@ -73,7 +73,7 @@ class PauseSubState extends MusicBeatSubstate
 		try
 		{
 			var pauseSong:String = getPauseSong();
-			if(pauseSong != null) pauseMusic.loadEmbedded(Paths.music(pauseSong), true, true);
+			if(pauseSong != null) pauseMusic.load(Paths.music(pauseSong), true);
 		}
 		catch(e:Dynamic) {}
 		pauseMusic.volume = 0;
@@ -198,7 +198,7 @@ class PauseSubState extends MusicBeatSubstate
 		// ===== 鼠标控制开始 =====
 		
 		// 检测鼠标移动，启用鼠标模式并更新悬停
-		if (FlxG.mouse.deltaScreenX != 0 || FlxG.mouse.deltaScreenY != 0)
+		if (FlxG.mouse.deltaViewX != 0 || FlxG.mouse.deltaViewY != 0)
 		{
 			allowMouse = true;
 			updateMouseOver();
@@ -241,7 +241,7 @@ class PauseSubState extends MusicBeatSubstate
 				// 鼠标拖动
 				if (FlxG.mouse.pressed)
 				{
-					var dragSpeed:Float = (FlxG.mouse.deltaScreenX + FlxG.mouse.deltaScreenY) * 10;
+					var dragSpeed:Float = (FlxG.mouse.deltaViewX + FlxG.mouse.deltaViewY) * 10;
 					if (Math.abs(dragSpeed) > 0.5)
 					{
 						curTime += dragSpeed * 100;

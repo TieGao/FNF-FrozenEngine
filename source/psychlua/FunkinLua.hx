@@ -870,11 +870,11 @@ class FunkinLua {
 		Lua_helper.add_callback(lua, "updateScoreText", function() game.updateScoreText());
 		Lua_helper.add_callback(lua, "getMouseX", function(?camera:String = 'game') {
 			var cam:FlxCamera = LuaUtils.cameraFromString(camera);
-			return FlxG.mouse.getScreenPosition(cam).x;
+			return FlxG.mouse.getViewPosition(cam).x;
 		});
 		Lua_helper.add_callback(lua, "getMouseY", function(?camera:String = 'game') {
 			var cam:FlxCamera = LuaUtils.cameraFromString(camera);
-			return FlxG.mouse.getScreenPosition(cam).y;
+			return FlxG.mouse.getViewPosition(cam).y;
 		});
 
 		Lua_helper.add_callback(lua, "getMidpointX", function(variable:String) {
@@ -923,7 +923,7 @@ class FunkinLua {
 			if(split.length > 1) {
 				obj = LuaUtils.getVarInArray(LuaUtils.getPropertyLoop(split), split[split.length-1]);
 			}
-			if(obj != null) return obj.getScreenPosition(LuaUtils.cameraFromString(camera)).x;
+			if(obj != null) return obj.getViewPosition(LuaUtils.cameraFromString(camera)).x;
 
 			return 0;
 		});
@@ -933,7 +933,7 @@ class FunkinLua {
 			if(split.length > 1) {
 				obj = LuaUtils.getVarInArray(LuaUtils.getPropertyLoop(split), split[split.length-1]);
 			}
-			if(obj != null) return obj.getScreenPosition(LuaUtils.cameraFromString(camera)).y;
+			if(obj != null) return obj.getViewPosition(LuaUtils.cameraFromString(camera)).y;
 
 			return 0;
 		});

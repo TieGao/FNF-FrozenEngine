@@ -529,7 +529,7 @@ class KEKeyBindMenu extends MusicBeatSubstate
         if (closing) return;
         
         // 鼠标控制逻辑
-        if (allowMouse && ((FlxG.mouse.deltaScreenX != 0 && FlxG.mouse.deltaScreenY != 0) || FlxG.mouse.justPressed || FlxG.mouse.justMoved))
+        if (allowMouse && ((FlxG.mouse.deltaViewX != 0 && FlxG.mouse.deltaViewY != 0) || FlxG.mouse.justPressed || FlxG.mouse.justMoved))
         {
             allowMouse = false;
             isMouseControl = true;
