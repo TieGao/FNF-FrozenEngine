@@ -247,15 +247,8 @@ class HitErrorBar extends FlxSpriteGroup
         }
         
         currentMsText = new FlxText(0, 0, 0, "", 16);
-        if (Language.getPhrase('ms', 'ms').contains('ms')) 
-        {
-            currentMsText.setFormat(Paths.font('pixel-latin.ttf'), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-        }
-        else
-        {    
-            currentMsText.antialiasing = ClientPrefs.data.antialiasing;
-            currentMsText.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-        }
+        currentMsText.antialiasing = ClientPrefs.data.antialiasing;
+        currentMsText.setFormat(GameFont.resolve('pixel-latin.ttf'), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         
         var msTiming:Float = Math.round(Math.abs(ms) * 100) / 100;
         var sign:String = ms >= 0 ? "-" : "+";

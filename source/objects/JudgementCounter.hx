@@ -28,7 +28,7 @@ class JudgementCounter {
         this.side = if (side == null) "player" else side;
         if (!ClientPrefs.data.Counter) return;
 
-        var font:String = Paths.font("playvcr.ttf");
+        var font:String = GameFont.resolve("vcr.ttf");
         var textSize:Int = 20;
         var textWidth:Float = 280;
         var verticalSpacing:Float = 24;

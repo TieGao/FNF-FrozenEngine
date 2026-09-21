@@ -148,6 +148,14 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			'hideHud',
 			BOOL);
 		addOption(option);
+
+		var option:Option = new Option('In-Game Font Follows Language',
+			'HUD and Lua/HScript text use the language font',
+			'gameFontFollowLanguage',
+			BOOL,
+			null,
+			'game_font_follow_language');
+		addOption(option);
 		
 		var option:Option = new Option('Time Bar:',
 			"What should the Time Bar display?",
@@ -304,6 +312,30 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			"If checked, pause menu will stay in the screen center",
 			'centerPause',
 			BOOL);
+		addOption(option);
+
+		var option:Option = new Option('Skip Pause Fade In',
+			"Skip the pause menu intro animation",
+			'pauseSkipFadeIn',
+			BOOL, null, 'pause_skip_fade_in');
+		addOption(option);
+
+		var option:Option = new Option('Skip Pause Fade Out',
+			"Skip the pause menu closing animation",
+			'pauseSkipFadeOut',
+			BOOL, null, 'pause_skip_fade_out');
+		addOption(option);
+
+		var option:Option = new Option('Double Enter to Skip',
+			"Press Enter twice while the pause menu is closing to skip the animation",
+			'pauseDoubleEnterSkip',
+			BOOL, null, 'pause_double_enter_skip');
+		addOption(option);
+
+		var option:Option = new Option('Control During Animation',
+			"Allow using the pause menu while the intro animation is still playing",
+			'pauseUnlockInputDuringAnim',
+			BOOL, null, 'pause_unlock_input');
 		addOption(option);
 
 		var option:Option = new Option('Cool Backdrops',

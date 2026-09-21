@@ -47,6 +47,8 @@ class NewPauseSubState extends MusicBeatSubstate
 	var pauseMusic:FlxSound;
 	var isAnimating:Bool = true;
 	var cantUnpause:Float = 0.1;
+	var closing:Bool = false;        // 关闭动画进行中（isAnimating 分不清开场还是关闭）
+	var doubleEnterTimer:Float = 0;  // > 0 表示已按过一次 accept 键、正在等第二次
 	
 	// ========== 难度选择 ==========
 	var difficultyChoices:Array<String> = [];
@@ -67,6 +69,7 @@ class NewPauseSubState extends MusicBeatSubstate
 	static final SIDEBAR_ANIM_TIME:Float = 0.45;
 	static final FADE_TIME:Float = 0.35;
 	static final ICON_STAGGER:Float = 0.05;
+	static final DOUBLE_ENTER_WINDOW:Float = 0.3;
 
 	public static var songName:String = null;
 
@@ -241,6 +244,12 @@ class NewPauseSubState extends MusicBeatSubstate
 	
 	function startCharmAnimations()
 	{
+		if(ClientPrefs.data.pauseSkipFadeIn)
+		{
+			finishIntroInstantly();
+			return;
+		}
+		
 		FlxTween.tween(bg, {alpha: 0.6}, FADE_TIME, {ease: FlxEase.quadOut});
 		if(backdrop != null) 
 			FlxTween.tween(backdrop, {alpha: 1}, 0.5, {ease: FlxEase.quadOut});
@@ -300,6 +309,89 @@ class NewPauseSubState extends MusicBeatSubstate
 			isAnimating = false;
 			updateSelectionVisual();
 		}
+	}
+
+	/**
+	 * 收掉暂停菜单所有元素的补间。
+	 * 瞬时跳终值 / 直接 close() 之前必须先做 —— 否则补间会继续往已销毁的 sprite 上写属性。
+	 */
+	function cancelAllTweens():Void
+	{
+		var targets:Array<FlxSprite> = [bg, backdrop, sidebar, infoPanelBg, levelInfo,
+			levelDifficulty, blueballedTxt, practiceText, chartingText, difficultyBg];
+		for(t in targets) if(t != null) FlxTween.cancelTweensOf(t);
+		
+		for(itemName in menuItems)
+		{
+			var icon = menuIcons.get(itemName);
+			var iconBg = iconBgs.get(itemName);
+			if(icon != null) FlxTween.cancelTweensOf(icon);
+			if(iconBg != null) FlxTween.cancelTweensOf(iconBg);
+		}
+		
+		for(diffName in difficultyChoices)
+		{
+			var diffText = difficultyTexts.get(diffName);
+			var textBg = difficultyBgs.get(diffName);
+			if(diffText != null) FlxTween.cancelTweensOf(diffText);
+			if(textBg != null) FlxTween.cancelTweensOf(textBg);
+		}
+	}
+
+	/** 把开场动画直接跳到终值（跳过 fadein、以及动画期间要操作时用） */
+	function finishIntroInstantly():Void
+	{
+		cancelAllTweens();
+		
+		bg.alpha = 0.6;
+		if(backdrop != null) backdrop.alpha = 1;
+		sidebar.x = FlxG.width - 75;
+		sidebar.alpha = 0.9;
+		
+		for(itemName in menuItems)
+		{
+			var icon = menuIcons.get(itemName);
+			var iconBg = iconBgs.get(itemName);
+			if(iconBg != null)
+			{
+				iconBg.x = FlxG.width - 75;
+				iconBg.alpha = 1;
+			}
+			if(icon != null)
+			{
+				var targetX:Float = FlxG.width - 75 + (75 - icon.width) / 2;
+				if(Math.isFinite(targetX)) icon.x = targetX;
+				icon.alpha = 1;
+			}
+		}
+		
+		// sidebar 的补间被收掉了，它的 onComplete 里那个 startInfoAnimations() 不会跑，
+		// 所以信息面板这几个 alpha 必须在这里手动补上
+		infoPanelBg.alpha = 0.9;
+		levelInfo.alpha = 1;
+		levelDifficulty.alpha = 1;
+		blueballedTxt.alpha = 1;
+		if(practiceText.visible) practiceText.alpha = 1;
+		if(chartingText.visible) chartingText.alpha = 1;
+		
+		isAnimating = false;
+		cantUnpause = 0;
+		updateSelectionVisual();
+	}
+
+	/** 直接关掉菜单（跳过 fadeout、双击 Enter 用） */
+	function finishCloseInstantly():Void
+	{
+		cancelAllTweens();
+		FlxG.mouse.visible = true;
+		close();
+	}
+
+	/** 开场动画期间是否有"用户主动输入"（只看按下，不看鼠标移动，避免误触发） */
+	function hasAnyInput():Bool
+	{
+		return FlxG.keys.justPressed.ANY || FlxG.mouse.justPressed
+			|| FlxG.mouse.justPressedRight || FlxG.mouse.wheel != 0;
 	}
 	
 	function startInfoAnimations()
@@ -500,7 +592,32 @@ class NewPauseSubState extends MusicBeatSubstate
 		cantUnpause -= elapsed;
 		if(pauseMusic.volume < 0.5)
 			pauseMusic.volume += 0.01 * elapsed;
-		if(isAnimating || cantUnpause > 0) return;
+		
+		// 关闭动画期间菜单正在离开，唯一出口是"双击 accept 键瞬时关闭"
+		if(closing)
+		{
+			if(ClientPrefs.data.pauseDoubleEnterSkip && controls.ACCEPT)
+			{
+				if(doubleEnterTimer > 0)
+				{
+					finishCloseInstantly();
+					return;
+				}
+				doubleEnterTimer = DOUBLE_ENTER_WINDOW;
+			}
+			if(doubleEnterTimer > 0) doubleEnterTimer -= elapsed;
+			return;
+		}
+		
+		// 开场动画期间：开了开关就先把动画瞬时跳完，再让这一帧的输入照常往下走
+		if(isAnimating)
+		{
+			if(!ClientPrefs.data.pauseUnlockInputDuringAnim || !hasAnyInput()) return;
+			finishIntroInstantly();
+			updateMouseOver();   // 鼠标点进来的话，让这次点击落到正确的那一项上
+		}
+		
+		if(cantUnpause > 0) return;
 		
 		// ===== 鼠标控制 ======
 		if (FlxG.mouse.deltaViewX != 0 || FlxG.mouse.deltaViewY != 0)
@@ -925,8 +1042,17 @@ class NewPauseSubState extends MusicBeatSubstate
 	{
 		if(isAnimating) return;
 		
-		isAnimating = true;
 		FlxG.sound.play(Paths.sound('cancelMenu'));
+		
+		if(ClientPrefs.data.pauseSkipFadeOut)
+		{
+			finishCloseInstantly();
+			return;
+		}
+		
+		isAnimating = true;
+		closing = true;
+		doubleEnterTimer = 0;
 		
 		fadeOutAll();
 		slideOutIcons();

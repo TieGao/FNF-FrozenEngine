@@ -10,7 +10,7 @@ class TextFunctions
 
 			LuaUtils.destroyObject(tag);
 			var leText:FlxText = new FlxText(x, y, width, text, 16);
-			leText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+			leText.setFormat(GameFont.resolve("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 			if(PlayState.instance != null) leText.cameras = [PlayState.instance.camHUD];
 			leText.scrollFactor.set();
 			leText.borderSize = 2;
@@ -98,12 +98,14 @@ class TextFunctions
 			FunkinLua.luaTrace("setTextColor: Object " + tag + " doesn't exist!", false, false, FlxColor.RED);
 			return false;
 		});
-		Lua_helper.add_callback(lua, "setTextFont", function(tag:String, newFont:String) {
+		Lua_helper.add_callback(lua, "setTextFont", function(tag:String, newFont:String, ?followLanguage:Bool = false) {
 			var split:Array<String> = tag.split('.');
 			var obj:FlxText = split.length > 1 ? (LuaUtils.getVarInArray(LuaUtils.getPropertyLoop(split), split[split.length-1])) : LuaUtils.getObjectDirectly(split[0]);
 			if(obj != null)
 			{
-				obj.font = Paths.font(newFont);
+				// followLanguage 传 true 才走语言字体（需要 CJK 的 mod 用得上）；
+				// 其余情况（含 Lua 显式传 nil）都走游戏内通道，用 != true 兜住 null。
+				obj.font = Paths.font(newFont, followLanguage != true);
 				return true;
 			}
 			FunkinLua.luaTrace("setTextFont: Object " + tag + " doesn't exist!", false, false, FlxColor.RED);

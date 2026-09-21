@@ -28,6 +28,8 @@ class KEOption
 	
 	// 直接KEOption属性
 	public var name:String = "";
+	/** 显式翻译键；留空时用 name。与 options.Option 的 _translationKey 同义 */
+	public var translationKey:String = "";
 	public var variable:String = "";
 	public var type:String = "bool";
 	public var value:Dynamic = null;
@@ -152,8 +154,13 @@ class KEOption
 		#end
 	}
 
-	// 尝试原始键，再尝试清洗键，返回第一个匹配的翻译
+	// 统一键查找：先查 setting_<key>（和 options.Option 同款），再退回裸键
+	// （分类标题、子菜单标题这类非选项字符串只存在于裸名家族）
 	static private function resolveTranslation(key:String, defaultVal:String):String {
+		var unified:String = Language.getPhrase('setting_$key', '');
+		if (unified != '') {
+			return unified;
+		}
 		var t:String = Language.getPhrase(key, defaultVal);
 		if (t != defaultVal) {
 			return t;
@@ -175,6 +182,10 @@ class KEOption
 
 	public final function getDescription():String
 	{
+		// 统一键：description_<key>（和 options.Option 同款）
+		var unified:String = Language.getPhrase('description_${getTranslationKey()}', '');
+		if (unified != '') return unified;
+
 		if(description != "") return resolveTranslation(description, description);
 		
 		// 如果是二级菜单项，返回子菜单描述
@@ -490,9 +501,23 @@ class KEOption
 		});
 	}
 
+	/** 统一翻译键：未显式指定时用 name */
+	inline public function getTranslationKey():String
+	{
+		return (translationKey != null && translationKey != "") ? translationKey : name;
+	}
+
+	/** STRING 选项的显示值：先查 setting_<key>-<值>（和 options.Option 同款），再退回裸键 */
+	inline private function resolveOptionValue(raw:String):String
+	{
+		var unified:String = Language.getPhrase('setting_${getTranslationKey()}-$raw', '');
+		if (unified != '') return unified;
+		return resolveTranslation(raw, raw);
+	}
+
 	public function updateDisplay():String
 	{
-		var displayName = resolveTranslation(name, name);
+		var displayName = resolveTranslation(getTranslationKey(), name);
 		
 		// 如果是二级菜单项，添加箭头标识
 		if (hasSubMenu) {
@@ -517,10 +542,10 @@ class KEOption
 					var optName = options[curOption];
 					if (variable == "hitsound" && optName.startsWith("hitsounds/"))
 						optName = optName.substring("hitsounds/".length);
-					optName = resolveTranslation(optName, optName);
+					optName = resolveOptionValue(optName);
 					return displayName + ": < " + optName + " >";
 				}
-				return displayName + ": < " + resolveTranslation(Std.string(value), Std.string(value)) + " >";
+				return displayName + ": < " + resolveOptionValue(Std.string(value)) + " >";
 			case "action":
 				// 对于有警告的操作，添加警告标识
 				if (hasWarning) {
@@ -673,10 +698,11 @@ class KEOption
 	}
 
 	// 静态构造函数 - 支持警告参数
-	public static function create(name:String, description:String, variable:String, type:String = "bool", defaultValue:Dynamic = null, minValue:Float = 0, maxValue:Float = 100, changeValue:Float = 1, scrollSpeed:Float = 50, hasWarning:Bool = false, warningMessage:String = ""):KEOption
+	public static function create(name:String, description:String, variable:String, type:String = "bool", defaultValue:Dynamic = null, minValue:Float = 0, maxValue:Float = 100, changeValue:Float = 1, scrollSpeed:Float = 50, hasWarning:Bool = false, warningMessage:String = "", ?translation:String = null):KEOption
 	{
 		var option = new KEOption();
 		option.name = name;
+		if (translation != null) option.translationKey = translation;
 		option.description = description;
 		option.variable = variable;
 		option.type = type;

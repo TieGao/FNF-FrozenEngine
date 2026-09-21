@@ -1317,6 +1317,17 @@ function onScrollChange()
 			"",
 			"Song Info Text Settings"
 		);
+
+		// 暂停菜单的动画/输入开关。显式翻译键与 Win10 设置界面（GameUIData）保持一致，
+		// 这样三个菜单共用同一批 setting_pause_* 键。
+		var pauseSkipFadeInOpt = KEOption.create("Skip Pause Fade In", "Skip the pause menu intro animation", "pauseSkipFadeIn", "bool");
+		pauseSkipFadeInOpt.translationKey = "pause_skip_fade_in";
+		var pauseSkipFadeOutOpt = KEOption.create("Skip Pause Fade Out", "Skip the pause menu closing animation", "pauseSkipFadeOut", "bool");
+		pauseSkipFadeOutOpt.translationKey = "pause_skip_fade_out";
+		var pauseDoubleEnterOpt = KEOption.create("Double Enter to Skip", "Press Enter twice while the pause menu is closing to skip the animation", "pauseDoubleEnterSkip", "bool");
+		pauseDoubleEnterOpt.translationKey = "pause_double_enter_skip";
+		var pauseUnlockInputOpt = KEOption.create("Control During Animation", "Allow using the pause menu while the intro animation is still playing", "pauseUnlockInputDuringAnim", "bool");
+		pauseUnlockInputOpt.translationKey = "pause_unlock_input";
 		
 		return [
 			skinSettings, 
@@ -1327,6 +1338,8 @@ function onScrollChange()
 			judgementsCounterOptions,
 			songInfoTextOptions,
 			KEOption.create("Hide HUD", "Hide most HUD elements", "hideHud", "bool"),
+			KEOption.create("In-Game Font Follows Language", "HUD and Lua/HScript text use the language font",
+				"gameFontFollowLanguage", "bool", null, 0, 100, 1, 50, false, "", "game_font_follow_language"),
 			KEOption.create("Flashing Lights", "Enable screen flashes", "flashing", "bool"),
 			KEOption.create("Camera Zooms", "Zoom camera on beat", "camZooms", "bool"),
 			KEOption.create("Center Pause", "Center pause menu", "centerPause", "bool"),
@@ -1343,6 +1356,10 @@ function onScrollChange()
 			KEOption.create("Blur Effect", "Enable blur effect on background elements", "blurEffects", "bool"),
 			KEOption.create("Skip Results Screen Fade Out", "Skip the exit results screen animation", "skipResultExitAnim", "bool"),
 			KEOption.create("Charm Bar Pause", "Modern Pause Sub State", "charmPause", "bool"),
+			pauseSkipFadeInOpt,
+			pauseSkipFadeOutOpt,
+			pauseDoubleEnterOpt,
+			pauseUnlockInputOpt,
 			KEOption.create("Control Theme", "Button style: auto / win10 / win8", "controlTheme", "string", ['auto', 'win10', 'win8']),
 		];
 	}

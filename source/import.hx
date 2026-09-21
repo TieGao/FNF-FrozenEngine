@@ -35,6 +35,7 @@ import backend.Difficulty;
 import backend.Mods;
 import backend.Language;
 import backend.PsychText;
+import backend.GameFont;
 
 import backend.ui.*; //Psych-UI
 

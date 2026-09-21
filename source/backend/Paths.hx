@@ -549,9 +549,14 @@ class Paths
 		#end
 	}
 
-	inline static public function font(key:String)
+	/**
+	 * 解析字体路径。
+	 * @param noTranslate true = 走"游戏内通道"：不查语言翻译表，直接用原始 key 查 mod。
+	 *                    mod 查询必须带 `fonts/` 前缀（modFolders 认的是带前缀的 key），漏了就查不到 mod。
+	 */
+	inline static public function font(key:String, ?noTranslate:Bool = false)
 	{
-		var folderKey:String = Language.getFileTranslation('fonts/$key');
+		var folderKey:String = noTranslate ? 'fonts/$key' : Language.getFileTranslation('fonts/$key');
 		#if MODS_ALLOWED
 		var file:String = modFolders(folderKey);
 		if(FileSystem.exists(file)) return file;

@@ -46,6 +46,8 @@ import states.TitleState;
 	public var devideDrawAndUpdate:Bool = false;
 	public var camZooms:Bool = true;
 	public var hideHud:Bool = false;
+	// 游戏内 HUD / Lua 文本是否跟随语言字体（默认否，见 backend.GameFont）
+	public var gameFontFollowLanguage:Bool = false;
 	public var showMS:Bool = true;
 	public var oldFreeplay:Bool = false;
 	public var skipDeath:Bool = false;
@@ -129,6 +131,11 @@ import states.TitleState;
 	public var toolBar:Bool = true;
 	public var freeplaySearch:Bool = true;
 	public var charmPause:Bool = false;
+	// 暂停菜单（substates.NewPauseSubState）的动画与输入开关
+	public var pauseSkipFadeIn:Bool = false;            // 跳过开场滑入动画
+	public var pauseSkipFadeOut:Bool = false;           // 跳过关闭滑出动画
+	public var pauseDoubleEnterSkip:Bool = false;       // 关闭动画期间双击 accept 键瞬时关闭
+	public var pauseUnlockInputDuringAnim:Bool = false; // 开场动画期间也允许操作
 	public var legacyMouseWheelScroll:Bool = false; //是否启用旧版鼠标滚轮行为（滚轮滚动数值选项时改变数值，滚轮滚动选项列表时滚动列表）
 	public var forceSplashSkin:Bool = false;
 	public var forceNoteSkin:Bool = false;

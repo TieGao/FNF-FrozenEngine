@@ -12,7 +12,7 @@ class SongInfoText extends FlxText {
     public function new(state:PlayState) {
         super(2, FlxG.height, 0, "", 15);
         this.state = state;
-        this.setFormat(Paths.font("vcr.ttf"), 15, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+        this.setFormat(GameFont.resolve("vcr.ttf"), 15, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
         this.scrollFactor.set();
         this.borderSize = 1;
         this.visible = !ClientPrefs.data.hideHud && ClientPrefs.data.songText;
