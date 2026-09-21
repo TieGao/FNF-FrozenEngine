@@ -11,7 +11,7 @@ import flixel.tweens.FlxEase;
 class CategoryCard extends FlxSpriteGroup
 {
     public var bg:Rect;
-    public var iconBox:Rect;
+    public var icon:FlxSprite;
     public var title:FlxText;
     public var tagText:FlxText;
 
@@ -41,9 +41,18 @@ class CategoryCard extends FlxSpriteGroup
     public var onClick:CategoryData->Void = null;
     public var onFocus:Bool = false;
     var pressing:Bool = false;
+    /**
+     * 键盘选中态（方向键在卡片网格里移动时的那张）。
+     * 和 onFocus（鼠标悬停）分开：鼠标静止时键盘选中要留在原地，不能被悬停覆盖。
+     */
+    public var selected:Bool = false;
 
-    // 标题字号（图标大小与它保持一致）
+    // 标题字号
     inline static var TITLE_SIZE:Int = 16;
+    // 图标显示尺寸（比标题大，作为卡片的视觉锚点）
+    inline static var ICON_SIZE:Int = 48;
+    // 超采样倍数：按 2× 画、再缩到 0.5 显示，斜线/圆弧边缘才不锯齿
+    inline static var ICON_SS:Int = 2;
     // 图标/标题左侧起始位置
     inline static var PAD_LEFT:Float = 0.08;
     // 图标与文字之间的间距
@@ -67,12 +76,28 @@ class CategoryCard extends FlxSpriteGroup
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
 
-        // ---------- 左上角图标占位（大小 = 标题字号） ----------
-        var iconSize = TITLE_SIZE;
+        // ---------- 左侧分类图标（矢量现画，见 CategoryIcons） ----------
+        var iconSize:Int = ICON_SIZE;
         var iconX = width * PAD_LEFT;
-        iconBox = new Rect(iconX, height * 0.14, iconSize, iconSize, 0, 0, UITheme.accent, 1);
-        iconBox.antialiasing = ClientPrefs.data.antialiasing;
-        add(iconBox);
+
+        icon = new FlxSprite();
+        icon.frames = CategoryIcons.draw(data.icon, iconSize * ICON_SS, UITheme.accent).imageFrame;
+        icon.antialiasing = ClientPrefs.data.antialiasing;
+        // 关键：offset/origin 归零，并且**不要**调 updateHitbox()。
+        // updateHitbox() 会写 offset = -0.5*(width-frameWidth) 并把 origin 挪到中心，
+        // 缩放锚点跟着变，超采样图的左上角就不再落在 (x, y) 上。
+        icon.offset.set(0, 0);
+        icon.origin.set(0, 0);
+        icon.scale.set(1 / ICON_SS, 1 / ICON_SS);
+        // 判定盒必须手动设成"显示尺寸"：frames 的 setter 内部会 resetSizeFromFrame()
+        // 把 width/height 设成帧尺寸（96）。而 FlxTypedSpriteGroup.get_width/get_height
+        // 是遍历成员求 x+width / y+height 的包围盒 —— 不设的话图标会顶出卡片下边缘，
+        // 把整张卡片的鼠标命中区往下撑大（悬停在卡片下方也会误触发 hover）。
+        icon.width = iconSize;
+        icon.height = iconSize;
+        icon.x = iconX;
+        icon.y = height * 0.14;
+        add(icon);
 
         // ---------- 文本区域（图标右侧） ----------
         var textX = iconX + iconSize + width * ICON_GAP;
@@ -159,25 +184,48 @@ class CategoryCard extends FlxSpriteGroup
 
         if (onFocus != wasFocus) {
             FlxTween.cancelTweensOf(bg);
-            if (onFocus) {
-                FlxTween.color(bg, 0.12, normalColor, hoverColor, {ease: FlxEase.quadOut});
-            } else {
-                FlxTween.color(bg, 0.12, hoverColor, normalColor, {ease: FlxEase.quadOut});
-                pressing = false;
-            }
+            // 用 bg.color 当起点而不是写死 normalColor：selected / pressing 会改变目标色，
+            // 写死起点会在状态叠加时跳变。
+            FlxTween.color(bg, 0.12, bg.color, computeTargetColor(), {ease: FlxEase.quadOut});
+            if (!onFocus) pressing = false;
         }
 
         if (onFocus && mouse.justPressed) {
             pressing = true;
             FlxTween.cancelTweensOf(bg);
-            FlxTween.color(bg, 0.05, hoverColor, pressColor);
+            FlxTween.color(bg, 0.05, bg.color, computeTargetColor());
         }
         if (onFocus && mouse.justReleased && pressing) {
             pressing = false;
             FlxTween.cancelTweensOf(bg);
-            FlxTween.color(bg, 0.1, pressColor, hoverColor);
+            FlxTween.color(bg, 0.1, bg.color, computeTargetColor());
             if (onClick != null) onClick(data);
         }
+    }
+
+    /** 键盘选中/取消选中（方向键移动时由 OptionsState 调用） */
+    public function setSelected(v:Bool):Void
+    {
+        if (selected == v) return;
+        selected = v;
+
+        FlxTween.cancelTweensOf(bg);
+        FlxTween.color(bg, 0.12, bg.color, computeTargetColor(), {ease: FlxEase.quadOut});
+        applySelectedColors();
+    }
+
+    /** pressing > selected > hover > normal */
+    function computeTargetColor():FlxColor
+    {
+        if (pressing) return pressColor;
+        if (selected) return UITheme.navItemActive;
+        if (onFocus)  return hoverColor;
+        return normalColor;
+    }
+
+    function applySelectedColors():Void
+    {
+        if (title != null) title.color = selected ? UITheme.accent : UITheme.textPrimary;
     }
 
     public function changeLanguage() {
@@ -188,11 +236,12 @@ class CategoryCard extends FlxSpriteGroup
     /** 主题切换后重新套用配色（卡片被重建时无需调用） */
     public function refreshTheme():Void
     {
-        if (bg != null) bg.color = onFocus ? hoverColor : normalColor;
-        if (iconBox != null) iconBox.color = UITheme.accent;
-        if (title != null) title.color = UITheme.textPrimary;
+        if (bg != null) bg.color = computeTargetColor();
+        // FlxSprite 没有 .color，主题色变了只能重画（图标有静态缓存，同色不会重复绘制）
+        if (icon != null) icon.frames = CategoryIcons.draw(data.icon, ICON_SIZE * ICON_SS, UITheme.accent).imageFrame;
         if (tagText != null) tagText.color = UITheme.textSecondary;
         if (dimOverlay != null) dimOverlay.color = UITheme.card;
+        applySelectedColors();
 
         if (badgeBG != null && badgeBG.visible)
             badgeBG.color = (matchCount > 0) ? UITheme.accent : UITheme.control;

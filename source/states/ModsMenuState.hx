@@ -10,9 +10,10 @@ import haxe.Json;
 
 import flixel.util.FlxSpriteUtil;
 import objects.AttachedSprite;
-import options.psychoptions.ModSettingsSubState;
+import options.ModSettingsSubState;
 
 import openfl.display.BitmapData;
+import openfl.display.Shape;
 import lime.utils.Assets;
 
 import openfl.filters.BlurFilter;
@@ -35,6 +36,10 @@ class ModsMenuState extends MusicBeatState
 	var buttonDisableAll:MenuButton;
 	var buttons:Array<MenuButton> = [];
 	var settingsButton:MenuButton;
+
+	// 功能栏新增的两个"上/下选择"按钮（模拟键盘上/下键）。**故意不放进 buttons 数组**，见 create() 里的注释
+	var buttonSelectPrev:MenuButton;
+	var buttonSelectNext:MenuButton;
 
 	var bgTitle:FlxSprite;
 	var bgDescription:FlxSprite;
@@ -234,11 +239,31 @@ class ModsMenuState extends MusicBeatState
 		button.icon.animation.play('icon', true);
 		add(button);
 		buttons.push(button);
-		
+
+		// 两个"上/下选择"按钮，等价于焦点在卡片列表上时按一次键盘上/下键。
+		// 摆在整排最左边（buttonsX 左侧那 320px 空档里），已有的 5 个按钮位置不动。
+		//
+		// ⚠️ 这两个**故意不 push 进 buttons 数组**：
+		//   1) buttons 的下标就是 changeSelectedButton() 的左右切换顺序；不进数组 = 现有键盘
+		//      导航路径一个字都不用动（键盘用户本来就有上下键，没必要再绕一圈）。
+		//   2) MenuButton 有个老毛病：鼠标按下那一帧 ModsMenuState.update() 会把 getButton()
+		//      （= curSelectedButton 指着的那个）的 ignoreCheck / onFocus 清成 false。被清掉的
+		//      正好是你点的那一个、而那一帧 FlxG.mouse.justMoved 又是假时，MenuButton.update()
+		//      里 `if(onFocus && ... justPressed)` 不成立 → 这次点击被吞。不进数组就永远不会被指到。
+		buttonSelectPrev = new MenuButton(buttonsX - 200, buttonsY, 80, 80, null, makeModNavIcon(true), function() selectModByArrow(-1));
+		add(buttonSelectPrev);
+
+		buttonSelectNext = new MenuButton(buttonsX - 100, buttonsY, 80, 80, null, makeModNavIcon(false), function() selectModByArrow(1));
+		add(buttonSelectNext);
+
 		if(modsList.all.length < 2)
 		{
 			for (button in buttons)
 				button.enabled = false;
+
+			// 它俩不在 buttons 里，得单独禁用（否则只有 1 个 mod 时还能点，点了会跳到 Reload 按钮上）
+			buttonSelectPrev.enabled = false;
+			buttonSelectNext.enabled = false;
 		}
 
 		settingsButton = new MenuButton(buttonsX + 300, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //Settings
@@ -665,6 +690,52 @@ class ModsMenuState extends MusicBeatState
 			bgButtons.color = FlxColor.BLACK;
 			bgButtons.alpha = 0.2;
 		}
+	}
+
+	/**
+	 * 功能栏"上/下选择"按钮的点击处理 —— 等价于"焦点在卡片列表上时按一次键盘上/下键"。
+	 *
+	 * 不直接改 curSelectedMod，而是走 changeSelectedMod，是为了把**边界行为**也对齐键盘：
+	 * 第一张再往上会跳到 Enable/Disable All 按钮，最后一张再往下会跳到 Reload 按钮。
+	 *
+	 * 先 `hoveringOnMods = true` 再调：changeSelectedMod 只负责改数据，选中框是
+	 * updateItemPositions 里按 `i == curSelectedMod && hoveringOnMods` 画的，焦点还留在
+	 * 按钮栏的话点了看不出反应（列表上不显示选中项，只有右侧信息面板在变）。
+	 */
+	function selectModByArrow(add:Int)
+	{
+		hoveringOnMods = true;
+		changeSelectedMod(add);
+	}
+
+	/**
+	 * 上/下选择按钮的图标（54×54），矢量现画，跟 options.objects.win8.CharmIcons 一个路子：
+	 * 零资源、不用重导图集、要换尺寸 / 颜色随时改（所以没去动 assets/shared/images/
+	 * modsMenuButtons.png 那个 5 帧 54×54 的图集）。
+	 *
+	 * 形状上刻意区分语义：**实心三角 = 把卡片挪到别的位置**，
+	 * **折角箭头(chevron) = 把选中光标挪一格**。
+	 *
+	 * ⚠️ MenuButton 会把 icon.color 在黑(选中)/白(未选中)之间切，所以这里只能画纯白 + alpha。
+	 * ⚠️ 走的是 MenuButton 的 img 分支且不传 animWidth/animHeight → 单帧，别再调
+	 *    `icon.animation.add(...)`（非动画图集没有 animation controller，会空指针）。
+	 */
+	static function makeModNavIcon(up:Bool):FlxGraphic
+	{
+		var size:Int = 54;
+		var shape:Shape = new Shape();
+		var g = shape.graphics;
+		g.lineStyle(size * 0.15, FlxColor.WHITE, 1);
+
+		var tipY:Float = up ? size * 0.26 : size * 0.74;
+		var tailY:Float = up ? size * 0.74 : size * 0.26;
+		g.moveTo(size * 0.18, tailY);
+		g.lineTo(size * 0.50, tipY);
+		g.lineTo(size * 0.82, tailY);
+
+		var bmd:BitmapData = new BitmapData(size, size, true, 0x00000000);
+		bmd.draw(shape);
+		return FlxGraphic.fromBitmapData(bmd, false, up ? 'modsMenuNavUp' : 'modsMenuNavDown');
 	}
 
 	function updateModDisplayData()

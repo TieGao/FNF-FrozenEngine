@@ -20,6 +20,12 @@ class Win10NaviItem extends FlxSpriteGroup
 
     public var isActive:Bool = false;
     public var isHover:Bool = false;
+    /**
+     * 键盘焦点（Win10 设置里左侧导航列表的"当前光标所在项"）。
+     * 和 isActive（当前正在显示的那个子分类）不是一回事：鼠标悬停/键盘焦点
+     * 都可能落在非 active 的项上。
+     */
+    public var isFocused:Bool = false;
 
     var mainW:Float;
     var mainH:Float;
@@ -165,15 +171,27 @@ class Win10NaviItem extends FlxSpriteGroup
         accent.scale.y += (targetScale - accent.scale.y) * 0.25;
         accent.y = (mainH - accent.height * accent.scale.y) * 0.5;
 
-        label.color = isActive ? UITheme.accent : (isHover ? UITheme.textPrimary : UITheme.textMuted);
+        label.color = isActive ? UITheme.accent
+            : ((isHover || isFocused) ? UITheme.textPrimary : UITheme.textMuted);
     }
 
-    // 根据 active / hover / press 决定 bg 的目标颜色
+    // 根据 active / hover / focus / press 决定 bg 的目标颜色
     function computeTargetColor():FlxColor
     {
         if (pressing) return UITheme.navItemPress;
         if (isHover)  return isActive ? UITheme.navItemActive : UITheme.navItemHover;
+        if (isFocused) return UITheme.navItemActive;
         return isActive ? UITheme.navItemActive : UITheme.navItem;
+    }
+
+    /** 键盘焦点切换：整项铺一层激活底色（和 Win8 面板的行选中同一套视觉） */
+    public function setFocused(v:Bool):Void
+    {
+        if (isFocused == v) return;
+        isFocused = v;
+
+        FlxTween.cancelTweensOf(bg);
+        FlxTween.color(bg, 0.12, bg.color, computeTargetColor(), {ease: FlxEase.quadOut});
     }
 
     /** 主题切换后重新套用配色（导航被重建时无需调用） */
@@ -182,7 +200,8 @@ class Win10NaviItem extends FlxSpriteGroup
         baseColor = UITheme.navItem;
         if (accent != null) accent.color = UITheme.accent;
         if (bg != null) bg.color = computeTargetColor();
-        if (label != null) label.color = isActive ? UITheme.accent : (isHover ? UITheme.textPrimary : UITheme.textMuted);
+        if (label != null) label.color = isActive ? UITheme.accent
+            : ((isHover || isFocused) ? UITheme.textPrimary : UITheme.textMuted);
         if (dimOverlay != null) dimOverlay.color = UITheme.navItem;
 
         if (countBG != null && countBG.visible)

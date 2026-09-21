@@ -320,6 +320,25 @@ class PlayState extends MusicBeatState
 		FlxTween.cancelTweensOf(spr);
 	}
 
+	/**
+	 * 把刚从组内对象池复用的对象挪到 members 数组末尾，恢复“越晚出现越靠上”的绘制顺序。
+	 *
+	 * 组内对象池（recycle）取的是 members 里第一个 exists == false 的对象，它会保留自己
+	 * 最初入组时的下标。于是新弹出的判定可能捡到“更早那条、已经消失的判定”腾出来的低位
+	 * 下标，被画在“更早、但还没消失”的判定下面 —— 看起来就是判定弹窗图层错乱。
+	 *
+	 * 注意：这里只做数组搬运，不碰 length（成员数不变），也不走 onMemberAdd/onMemberRemove
+	 * （两个目标容器都是普通 FlxTypedGroup，没有 container 记账，安全）。
+	 */
+	private static function movePooledToFront<T:FlxBasic>(members:Array<T>, obj:T):Void
+	{
+		if (members == null || obj == null) return;
+		var index:Int = members.indexOf(obj);
+		if (index < 0 || index == members.length - 1) return;
+		members.splice(index, 1);
+		members.push(obj);
+	}
+
 	// how big to stretch the pixel art assets
 	public static var daPixelZoom:Float = 6;
 	private var singAnimations:Array<String> = ['singLEFT', 'singDOWN', 'singUP', 'singRIGHT'];
@@ -2438,11 +2457,11 @@ public function reloadCounterColors()
 		}
 		if (ClientPrefs.data.charmPause)
 		{
-		openSubState(new NewPauseSubState());
+			openSubState(new NewPauseSubState());
 		}
 		else
 		{
-		openSubState(new PauseSubState());
+			openSubState(new PauseSubState());
 		}
 
 		#if DISCORD_ALLOWED
@@ -3368,6 +3387,7 @@ public function reloadCounterColors()
         if (ClientPrefs.data.comboStacking) {
             rating = comboGroup.recycle(FlxSprite, makePooledSprite);
             rating.cameras = comboGroup.cameras; // recycle 不走 preAdd，需手动同步相机
+            movePooledToFront(comboGroup.members, rating); // 复用对象保留下标会压住更早的判定
             resetPooledSprite(rating);
         } else {
             rating = new FlxSprite();
@@ -3427,6 +3447,7 @@ public function reloadCounterColors()
 			if (ClientPrefs.data.comboStacking) {
 				earlyLateSpr = comboGroup.recycle(FlxSprite, makePooledSprite);
 				earlyLateSpr.cameras = comboGroup.cameras; // recycle 不走 preAdd，需手动同步相机
+				movePooledToFront(comboGroup.members, earlyLateSpr); // 复用对象保留下标会压住更早的判定
 				resetPooledSprite(earlyLateSpr);
 			} else {
 				earlyLateSpr = new FlxSprite();
@@ -3500,6 +3521,7 @@ public function reloadCounterColors()
         if (ClientPrefs.data.comboStacking && showCombo) {
             comboSpr = comboGroup.recycle(FlxSprite, makePooledSprite);
             comboSpr.cameras = comboGroup.cameras; // recycle 不走 preAdd，需手动同步相机
+            movePooledToFront(comboGroup.members, comboSpr); // 复用对象保留下标会压住更早的判定
             resetPooledSprite(comboSpr);
         } else {
             comboSpr = new FlxSprite();
@@ -3580,6 +3602,7 @@ public function reloadCounterColors()
             if (ClientPrefs.data.comboStacking) {
                 numScore = comboGroup.recycle(FlxSprite, makePooledSprite);
                 numScore.cameras = comboGroup.cameras; // recycle 不走 preAdd，需手动同步相机
+                movePooledToFront(comboGroup.members, numScore); // 复用对象保留下标会压住更早的判定
                 resetPooledSprite(numScore);
             } else {
                 numScore = new FlxSprite();
@@ -4532,6 +4555,7 @@ public function reloadCounterColors()
 	public function spawnNoteSplash(x:Float = 0, y:Float = 0, ?data:Int = 0, ?note:Note, ?strum:StrumNote) {
 		// 直接从 grpNoteSplashes 自己的池里取（死掉的 splash 留在组内，天然可复用）
 		var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash, makeNoteSplash);
+		movePooledToFront(grpNoteSplashes.members, splash); // 同 comboGroup：复用对象保留下标会盖住新 splash
 		resetPooledSprite(splash);
 		splash.babyArrow = strum;
 		splash.spawnSplashNote(x, y, data, note);

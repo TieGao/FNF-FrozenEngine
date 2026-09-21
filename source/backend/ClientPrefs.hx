@@ -114,12 +114,19 @@ import states.TitleState;
 	public var cardGlow:Bool = true; // 新增：在 Freeplay 卡片下显示呼吸发光
 	public var freeplayModFolder:Bool = true; // 使用模组文件夹管理器隔离歌曲
 	public var scoreScreen:Bool = true;
-	public var optionstype:String = #if mobile 'new' #else 'ke' #end;
+	public var optionstype:String = 'new';
 	public var colorMode:String = 'dark';
+	/**
+	 * 控件主题：决定设置界面里的"按键元素"用哪套风格。
+	 *   'auto'  → 跟随界面（Win10 界面用 Win10 控件，Win8 Charm 边栏用 Win8 控件）
+	 *   'win10' → 全部用 Win10 风格
+	 *   'win8'  → 全部用 Win8 风格
+	 */
+	public var controlTheme:String = 'auto';
 	public var gradientTimeBar:Bool = true;
 	public var guideLineAlpha:Float = 0.0;
 	public var modInfoBox:Bool = true;
-	public var toolBar:Bool = false;
+	public var toolBar:Bool = true;
 	public var freeplaySearch:Bool = true;
 	public var charmPause:Bool = false;
 	public var legacyMouseWheelScroll:Bool = false; //是否启用旧版鼠标滚轮行为（滚轮滚动数值选项时改变数值，滚轮滚动选项列表时滚动列表）

@@ -1,29 +1,41 @@
 package options.objects.backend;
 
 import options.Option;
+import backend.UIControlTheme;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
 
+/**
+ * 颜色选项（色块 + 名称/HEX + 展开调色板）
+ *
+ * Win10 风格：4px 圆角、无描边
+ * Win8  风格：方角 + 2px 描边
+ */
 class ColorSelect extends FlxSpriteGroup
 {
     var follow:Option;
 
     var bg:Rect;          // 当前颜色的条
+    var border:FlxSprite; // Win8 描边
     var swatch:FlxSprite; // 左侧颜色块
     var dis:FlxText;
 
     var popup:FlxSpriteGroup;   // 展开的调色板
     var popupBg:Rect;
+    var popupBorder:FlxSprite;
     var popupItems:Array<Rect> = [];
     var popupTexts:Array<FlxText> = [];
-    var popupSwatches:Array<FlxSprite> = [];
+    var popupSwatches:Array<Rect> = [];
 
     var topLayer:FlxSpriteGroup;
 
     public var isOpen:Bool = false;
     var mainW:Float;
     var mainH:Float;
+
+    /** 本次构建时解析出的风格 */
+    var win8:Bool = false;
 
     var hover:Bool = false;
     var pressing:Bool = false;
@@ -43,20 +55,28 @@ class ColorSelect extends FlxSpriteGroup
         this.follow = follow;
         this.topLayer = topLayer;
         mainW = width; mainH = height;
+        win8 = UIControlTheme.isWin8();
 
-        bg = new Rect(0, 0, width, height, 4, 4, UITheme.control, 1);
+        bg = new Rect(0, 0, width, height, UIControlTheme.radius(4), UIControlTheme.radius(4),
+            win8 ? UIControlTheme.face() : UITheme.control, 1);
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
 
-        // 左侧色块
+        if (win8)
+        {
+            border = UIControlTheme.makeFrameSprite(width, height);
+            border.color = borderColor();
+            add(border);
+        }
+
+        // 左侧色块（Win8 用方角）
         swatch = new FlxSprite(6, (height - (height - 12)) * 0.5);
         swatch.makeGraphic(Std.int(height - 12), Std.int(height - 12), 0xFFFFFFFF);
         swatch.antialiasing = ClientPrefs.data.antialiasing;
         add(swatch);
 
         dis = new FlxText(Std.int(height) + 4, 0, width - Std.int(height) - 30, '', 16);
-        dis.setFormat(Paths.font('montserrat.ttf'), 16,
-            UITheme.textPrimary, LEFT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+        dis.setFormat(Paths.font('montserrat.ttf'), 16, mainTextColor(), LEFT);
         dis.borderStyle = NONE;
         dis.antialiasing = ClientPrefs.data.antialiasing;
         dis.y = (height - dis.height) * 0.5;
@@ -69,7 +89,7 @@ class ColorSelect extends FlxSpriteGroup
         add(arrowGfx);
         redrawArrow();
 
-        refreshText();
+        refreshValue();
 
         popup = new FlxSpriteGroup();
         popup.visible = false;
@@ -82,14 +102,33 @@ class ColorSelect extends FlxSpriteGroup
             add(popup);
     }
 
-    function refreshText()
+    // ---------------------------------------------------------
+    // 配色
+    // ---------------------------------------------------------
+    inline function accentColor():FlxColor
+        return win8 ? UIControlTheme.accent() : UITheme.accent;
+
+    inline function mainTextColor():FlxColor
+        return win8 ? UIControlTheme.text() : UITheme.textPrimary;
+
+    inline function popupBGColor():FlxColor
+        return win8 ? UIControlTheme.panelBG() : UITheme.popup;
+
+    inline function iconColor():FlxColor
+        return win8 ? UIControlTheme.textSecondary() : UITheme.icon;
+
+    function borderColor():FlxColor
+        return (hover || isOpen || keyboardHighlight) ? UIControlTheme.accent() : UIControlTheme.border();
+
+    public function refreshValue()
     {
         var v:Int = cast follow.getValue();
         swatch.color = v;
         var name = Option.colorName(v);
         var hex = Option.intToHex(v);
         dis.text = name + '   ' + hex;
-        dis.color = (hover || isOpen) ? UITheme.accent : UITheme.textPrimary;
+        dis.color = (hover || isOpen || keyboardHighlight) ? accentColor() : mainTextColor();
+        if (border != null) border.color = borderColor();
     }
 
     function syncPopupPosition()
@@ -156,7 +195,7 @@ class ColorSelect extends FlxSpriteGroup
         var cy = h * 0.5;
         var dir = isOpen ? -1.0 : 1.0;
 
-        var col = (hover || isOpen) ? UITheme.accent : UITheme.icon;
+        var col = (hover || isOpen || keyboardHighlight) ? accentColor() : iconColor();
         var c:FlxColor = col;
 
         drawThickLine(bmd,
@@ -220,10 +259,19 @@ class ColorSelect extends FlxSpriteGroup
         var gridH = rows * CELL + (rows - 1) * CELL_PAD;
         var popupW = gridW + CELL_PAD * 2;
         var popupH = gridH + CELL_PAD * 2;
+        var r:Float = UIControlTheme.radius(4);
 
-        popupBg = new Rect(0, 0, popupW, popupH, 4, 4, UITheme.popup, 1);
+        popupBg = new Rect(0, 0, popupW, popupH, r, r, popupBGColor(), 1);
         popupBg.antialiasing = ClientPrefs.data.antialiasing;
         popup.add(popupBg);
+
+        popupBorder = null;
+        if (win8)
+        {
+            popupBorder = UIControlTheme.makeFrameSprite(popupW, popupH);
+            popupBorder.color = UIControlTheme.border();
+            popup.add(popupBorder);
+        }
 
         for (i in 0...pal.length)
         {
@@ -233,13 +281,14 @@ class ColorSelect extends FlxSpriteGroup
             var cy = CELL_PAD + row * (CELL + CELL_PAD);
 
             // 色块
-            var cell = new Rect(cx, cy, CELL, CELL, 3, 3, pal[i], 1);
+            var cell = new Rect(cx, cy, CELL, CELL, UIControlTheme.radius(3), UIControlTheme.radius(3), pal[i], 1);
             cell.antialiasing = ClientPrefs.data.antialiasing;
             popup.add(cell);
             popupItems.push(cell);
 
             // 选中/悬浮高亮描边
-            var outline = new Rect(cx - 2, cy - 2, CELL + 4, CELL + 4, 4, 4, UITheme.accent, 0);
+            var outline = new Rect(cx - 2, cy - 2, CELL + 4, CELL + 4, UIControlTheme.radius(4), UIControlTheme.radius(4),
+                accentColor(), 0);
             outline.antialiasing = ClientPrefs.data.antialiasing;
             popup.add(outline);
             popupSwatches.push(outline);
@@ -247,7 +296,7 @@ class ColorSelect extends FlxSpriteGroup
             // 名称（画在色块中心，用对比色）
             var t = new FlxText(cx, cy, CELL, Option.COLOR_NAMES[i], 10);
             t.setFormat(Paths.font('montserrat.ttf'), 10,
-                Option.contrastText(pal[i]), CENTER, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+                Option.contrastText(pal[i]), CENTER);
             t.borderStyle = NONE;
             t.antialiasing = ClientPrefs.data.antialiasing;
             t.x = cx + (CELL - t.width) * 0.5;
@@ -260,7 +309,34 @@ class ColorSelect extends FlxSpriteGroup
 
     function computeMainColor():Int
     {
-        return pressing ? UITheme.controlPress : (hover ? UITheme.controlHover : UITheme.control);
+        if (win8)
+            return pressing ? UIControlTheme.facePress() : ((hover || keyboardHighlight) ? UIControlTheme.faceHover() : UIControlTheme.face());
+        return pressing ? UITheme.controlPress : ((hover || keyboardHighlight) ? UITheme.controlHover : UITheme.control);
+    }
+
+    /**
+     * 键盘选中宿主行时由 Win10OptionRow 置位：让颜色条看起来和鼠标悬停一样。
+     * ⚠️ 只参与**配色**计算，绝不能并进 `hover` —— update() 里 `hover && mouse.justPressed` /
+     * `mouse.justReleased && pressing && hover` 都是点击门控，并进去就变成"鼠标点哪都触发"。
+     */
+    public var keyboardHighlight:Bool = false;
+
+    /**
+     * 键盘选中宿主行时由 Win10OptionRow 调用（见 OptionWidgetFactory.setKeyboardHighlight）。
+     * 走和 hover 变化同一条路径：底色 tween + 箭头重画 + 文字/边框配色。
+     */
+    public function setKeyboardHighlight(v:Bool):Void
+    {
+        if (keyboardHighlight == v) return;
+        keyboardHighlight = v;
+
+        if (bg != null)
+        {
+            FlxTween.cancelTweensOf(bg);
+            FlxTween.color(bg, 0.12, bg.color, computeMainColor(), {ease: FlxEase.quadOut});
+        }
+        redrawArrow();
+        refreshValue();
     }
 
     override function update(elapsed:Float)
@@ -270,14 +346,14 @@ class ColorSelect extends FlxSpriteGroup
         var mouse = FlxG.mouse;
 
         var wasHover = hover;
-        hover = mouse.overlaps(bg);
+        hover = OptionInput.overlaps(bg);
 
         if (hover != wasHover)
         {
             FlxTween.cancelTweensOf(bg);
             FlxTween.color(bg, 0.12, bg.color, computeMainColor(), {ease: FlxEase.quadOut});
             redrawArrow();
-            refreshText();
+            refreshValue();
         }
 
         if (hover && mouse.justPressed)
@@ -299,7 +375,7 @@ class ColorSelect extends FlxSpriteGroup
             FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
 
             redrawArrow();
-            refreshText();
+            refreshValue();
         }
 
         if (!hover && pressing)
@@ -315,7 +391,7 @@ class ColorSelect extends FlxSpriteGroup
         for (i in 0...popupItems.length)
         {
             var it = popupItems[i];
-            var itHover = mouse.overlaps(it);
+            var itHover = OptionInput.overlaps(it);
 
             // 高亮描边
             popupSwatches[i].alpha = itHover ? 1.0 : 0.0;
@@ -327,7 +403,7 @@ class ColorSelect extends FlxSpriteGroup
                 follow.curOption = i;
                 follow.change();
                 follow.saveCurrentValue();
-                refreshText();
+                refreshValue();
                 isOpen = false;
                 popup.visible = false;
                 redrawArrow();
@@ -337,25 +413,37 @@ class ColorSelect extends FlxSpriteGroup
         }
 
         // 点外面关闭
-        if (mouse.justPressed && !mouse.overlaps(bg))
+        if (mouse.justPressed && !OptionInput.overlaps(bg))
         {
             var inPopup = false;
             for (it in popupItems)
             {
-                if (mouse.overlaps(it)) { inPopup = true; break; }
+                if (OptionInput.overlaps(it)) { inPopup = true; break; }
             }
-            if (!inPopup) { isOpen = false; popup.visible = false; redrawArrow(); refreshText(); }
+            if (!inPopup) { isOpen = false; popup.visible = false; redrawArrow(); refreshValue(); }
         }
+    }
+
+    /** 关闭调色板（键盘切换到别的行时用） */
+    public function closePopup():Void
+    {
+        if (!isOpen) return;
+        isOpen = false;
+        if (popup != null) popup.visible = false;
+        redrawArrow();
+        refreshValue();
     }
 
     /** 主题切换后重新套用配色（行被重建时无需调用） */
     public function refreshTheme():Void
     {
         if (bg != null) bg.color = computeMainColor();
-        if (popupBg != null) popupBg.color = UITheme.popup;
-        for (o in popupSwatches) o.color = UITheme.accent;
+        if (border != null) border.color = borderColor();
+        if (popupBg != null) popupBg.color = popupBGColor();
+        if (popupBorder != null) popupBorder.color = UIControlTheme.border();
+        for (o in popupSwatches) o.color = accentColor();
         redrawArrow();
-        refreshText();
+        refreshValue();
     }
 
     /**

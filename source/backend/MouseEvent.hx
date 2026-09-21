@@ -54,12 +54,22 @@ class MouseEvent extends FlxBasic
         super.update(elapsed);
     }
 
+    /**
+     * 鼠标是否落在 tar 上。
+     *
+     * ⚠️ 必须挡掉"已经销毁"的对象：FlxObject.destroy() 会把 scrollFactor / _point
+     * 这些内部 FlxPoint 置空，之后再调 overlapsPoint 就会在
+     * FlxObject.getScreenPosition() 里对 null 取字段，直接抛
+     * "Null Object Reference"（栈顶是 FlxObject.hx 的 result.subtract(...) 那行）。
+     * 典型场景：控件拿到的是上一个界面（比如 OptionsState）留下的旧引用。
+     */
     public function overlaps(tar:FlxBasic):Bool {
+        if (tar == null || !tar.exists) return false;
         return FlxG.mouse.overlaps(tar);
     }
 
     public function overlapsPixel(tar:FlxBasic, camera:FlxCamera = null):Bool {
-        if (tar == null) return false;
+        if (tar == null || !tar.exists) return false;
 
         camera = camera ?? targetCamera;
         if (tmpWorldPos == null) tmpWorldPos = new FlxPoint();

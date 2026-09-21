@@ -1343,6 +1343,7 @@ function onScrollChange()
 			KEOption.create("Blur Effect", "Enable blur effect on background elements", "blurEffects", "bool"),
 			KEOption.create("Skip Results Screen Fade Out", "Skip the exit results screen animation", "skipResultExitAnim", "bool"),
 			KEOption.create("Charm Bar Pause", "Modern Pause Sub State", "charmPause", "bool"),
+			KEOption.create("Control Theme", "Button style: auto / win10 / win8", "controlTheme", "string", ['auto', 'win10', 'win8']),
 		];
 	}
 

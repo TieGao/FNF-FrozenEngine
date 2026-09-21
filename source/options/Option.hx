@@ -44,6 +44,12 @@ class Option
 	public var description:String = '';
 	public var name:String = 'Unknown';
 
+	/**
+	 * 自定义数值文本（可选）。设了之后 NumButton 会用它格式化当前值，
+	 * 比如 Skip Time 用它把毫秒显示成 "1:23 / 3:45"。
+	 */
+	public var valueFormatter:Float->String = null;
+
 	public var defaultKeys:Keybind = null;
 	public var keys:Keybind = null;
 
@@ -261,6 +267,10 @@ class Option
 				backend.Language.reloadPhrases();
 			case 'colorMode':
 				// 深浅色切换：刷新调色板，界面会收到通知后重建
+				backend.UITheme.refresh();
+			case 'controlTheme':
+				// 控件风格（Win10 / Win8 按钮）切换：同样刷新一次，
+				// 界面发现 UITheme.version 变了就会按新风格重建控件
 				backend.UITheme.refresh();
 			case 'keyboardBGColor', 'keyboardTextColor':
 				try
