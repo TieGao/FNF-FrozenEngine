@@ -398,8 +398,8 @@ class OptionsPageState extends MusicBeatState
         navViewTop = HEADER_H + NAV_PAD + SEARCH_H + NAV_PAD;
         navViewBottom = FlxG.height - NAV_PAD;
 
-        var subs = selectedCat.subCategories;
-        if (subs.length == 0) subs = [selectedCat];
+        // 主分类自己的选项也算一页，见 OptionCategory.navPages()
+        var subs = selectedCat.navPages();
 
         var startY = navViewTop;
 
@@ -488,8 +488,8 @@ class OptionsPageState extends MusicBeatState
 
         buildNav();
 
-        var first = cat.subCategories.length > 0 ? cat.subCategories[0] : cat;
-        selectSubCategory(first);
+        var pages = cat.navPages();
+        selectSubCategory(pages.length > 0 ? pages[0] : cat);
     }
 
     public function selectSubCategory(sub:OptionCategory):Void
@@ -567,9 +567,11 @@ class OptionsPageState extends MusicBeatState
             return;
         }
 
-        headerTitle.text = (currentSub == null || currentSub == selectedCat)
+        // 子分类名和主分类名相同时只印一次（GameUIData 的 'In-Game UI' 就是这种）
+        var subName:String = (currentSub != null) ? currentSub.displayName : '';
+        headerTitle.text = (currentSub == null || currentSub == selectedCat || subName == selectedCat.displayName)
             ? selectedCat.displayName
-            : selectedCat.displayName + '  >  ' + currentSub.displayName;
+            : selectedCat.displayName + '  >  ' + subName;
 
         headerSubDesc.text = (currentSub != null) ? currentSub.description : selectedCat.description;
     }

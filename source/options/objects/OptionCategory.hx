@@ -65,6 +65,21 @@ class OptionCategory
         return out;
     }
 
+    /**
+     * 导航栏要显示的页，顺序 = 界面从上到下。
+     *
+     * 主分类自己的选项也算一页（排在最前）。只列 subCategories 的话，
+     * "选项挂在主分类上、同时又开了子分类"的分类会把主分类自己的选项整片吞掉 ——
+     * 那些选项在界面上再也进不去。没有子分类时返回 [自己]，导航栏就一项。
+     */
+    public function navPages():Array<OptionCategory>
+    {
+        var out:Array<OptionCategory> = [];
+        if (options.length > 0 || subCategories.length == 0) out.push(this);
+        for (sub in subCategories) out.push(sub);
+        return out;
+    }
+
     /** 是否有子分类（决定导航栏行为） */
     public function hasSubCategories():Bool
     {

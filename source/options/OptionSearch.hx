@@ -59,25 +59,32 @@ class OptionSearch
 	}
 
 	/**
-	 * 每个子分类命中的选项数，顺序与 cat.subCategories 一一对应。
-	 * 分类没有子分类时返回 [该分类总数]（和 OptionsPageState 的导航退化逻辑保持一致）。
+	 * 每页命中的选项数，顺序与 cat.navPages() 一一对应（= 导航栏从上到下）。
+	 *
+	 * 统计的是**每一页自己**的选项，不含子分类 —— 否则"主分类页"的徽标会把
+	 * 子分类的命中也算进去，和点进去看到的内容对不上。
 	 */
 	public static function countsPerSub(cat:OptionCategory, query:String):Array<Int>
 	{
 		var out:Array<Int> = [];
 		if (cat == null || query == null || query.length == 0) return out;
 
-		var subs = cat.subCategories;
-		if (subs.length == 0)
-		{
-			out.push(countInCategory(cat, query));
-			return out;
-		}
-
-		for (sub in subs)
-			out.push(countInCategory(sub, query));
+		for (page in cat.navPages())
+			out.push(countOwn(page, query));
 
 		return out;
+	}
+
+	/** 一个分类**自己**（不含子分类）命中的选项数 */
+	public static function countOwn(cat:OptionCategory, query:String):Int
+	{
+		if (cat == null || query == null || query.length == 0) return 0;
+
+		var total = 0;
+		for (opt in cat.options)
+			if (matches(opt, query)) total++;
+
+		return total;
 	}
 
 	/** 收集一个分类（含子分类）里所有命中的选项，顺序与 allOptions() 一致 */
