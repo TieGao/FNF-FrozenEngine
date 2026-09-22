@@ -1,0 +1,119 @@
+name: hxcpp Cache
+
+# hxcpp 编译缓存的维护入口：看有哪些缓存、把旧的清掉。
+#
+# 缓存的读写在 build.yml 里 —— 那边 Compile 前后 restore/save 同一组 key。
+# 这里只做查看和清理：key 是滚动的（每次构建新开一份），不收敛的话会把仓库
+# 10 GB 的缓存配额吃光，连带把别的缓存挤出去。
+#
+# ── 为什么必须走 HXCPP_COMPILE_CACHE ──
+# hxcpp 跳过编译有两条路，CI 上只有第二条能用：
+#
+#  1) 默认那条 —— File.isOutOfDate() 拿生成的 .cpp 和 .obj 比 mtime
+#     （obj_stamp < source_stamp 就算过期，外面还套一层 FileGroup.isOutOfDate
+#      的 obj_stamp < mNewest）。CI 每次 checkout 完源文件 mtime 都是"刚刚"，
+#     缓存里的 .obj 是上一轮的，怎么比都是过期。
+#     => 直接把 export/*/obj/ 丢进 cache 是无效的，不要那么干。
+#
+#  2) 设了 HXCPP_COMPILE_CACHE 那条 —— Compiler.getCachedObjName() 改走
+#     getHashedName()，产物名 = MD5(.cpp 内容 + 编译参数 + 依赖 hash + 编译器版本)，
+#     落在 <HXCPP_COMPILE_CACHE>/<project>/<hash前2位>/<hash后30位>.obj。
+#     就算 isOutOfDate 判了过期、文件已经进了待编译队列，Compiler.compile() 仍会
+#     先看这个 hash 文件在不在，在就 found=true 直接跳过，压根不调编译器。
+#     时间戳那一层只在 pchTimeStamp 非空、或 mRespectTimestamp 为真时才做，
+#     而后者默认 false、前者只在开了预编译头时才有值（lime 默认不开）。
+#     => 内容寻址，跨机器可靠。
+#
+# HXCPP_COMPILE_CACHE 是 hxcpp 从进程环境读的：BuildTool.runMain() 开头就把
+# Sys.environment() 整个灌进 defines。build.yml 里 env 和 -D 都设了，两条路都通。
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'list = 只看不动；prune = 删掉超出保留份数的旧缓存'
+        required: true
+        type: choice
+        options:
+          - list
+          - prune
+        default: list
+      keep:
+        description: 'prune 时每个平台保留最近几份'
+        required: false
+        type: string
+        default: '2'
+
+permissions:
+  actions: write
+  contents: read
+
+env:
+  CACHE_PREFIX: fe-hxcpp
+
+jobs:
+  manage:
+    name: ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: List / prune hxcpp caches
+        uses: actions/github-script@v9
+        env:
+          ACTION: ${{ inputs.action }}
+          KEEP: ${{ inputs.keep }}
+        with:
+          script: |
+            const prefix = process.env.CACHE_PREFIX;
+            const keep = Math.max(1, parseInt(process.env.KEEP, 10) || 2);
+            const doPrune = process.env.ACTION === 'prune';
+
+            // key 参数是前缀匹配，不是精确匹配
+            const { data } = await github.rest.actions.getActionsCacheList({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              key: prefix,
+              per_page: 100,
+            });
+
+            const caches = data.actions_caches;
+            if (caches.length === 0) {
+              core.info(`没有 ${prefix}* 的缓存`);
+              return;
+            }
+
+            // key 形如 <prefix>-<os>-<arch>-<run_id>；去掉末尾的 run_id，
+            // 剩下的就是一个平台的滚动线，各条线独立保留 keep 份。
+            const groups = new Map();
+            for (const c of caches) {
+              const g = c.key.replace(/-\d+$/, '');
+              if (!groups.has(g)) groups.set(g, []);
+              groups.get(g).push(c);
+            }
+
+            let deleted = 0;
+            let freed = 0;
+
+            for (const group of [...groups.keys()].sort()) {
+              const list = groups.get(group);
+              list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              core.info(`\n${group} —— 共 ${list.length} 份，保留 ${keep} 份`);
+              for (const [i, c] of list.entries()) {
+                const mb = (c.size_in_bytes / 1048576).toFixed(1);
+                core.info(`  [${i < keep ? '保留' : '删除'}] ${c.key}  ${mb} MB  建于 ${c.created_at}`);
+                if (doPrune && i >= keep) {
+                  await github.rest.actions.deleteActionsCacheById({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    cache_id: c.id,
+                  });
+                  deleted++;
+                  freed += c.size_in_bytes;
+                }
+              }
+            }
+
+            core.info(
+              doPrune
+                ? `\n清理完成：删除 ${deleted} 份，释放 ${(freed / 1048576).toFixed(1)} MB`
+                : `\n以上是当前状态（list 模式没有删任何东西）。要清理就把 action 选成 prune。`
+            );

@@ -26,6 +26,13 @@ env:
   HAXE_VERSION: 4.3.7
   PROJECT_NAME: FrozenEngine
 
+  # hxcpp 编译缓存。设了 HXCPP_COMPILE_CACHE，hxcpp 才会用内容 hash 给 .obj 命名，
+  # 跨机器命中就直接跳过编译。只靠 mtime 那条路在 CI 上必然失效 —— checkout 完
+  # 源文件 mtime 永远是"刚刚"，缓存里的 .obj 怎么比都是旧的。
+  # 完整机制见 hxcpp-cache.yml 顶部的说明；缓存清理也走那个 workflow。
+  CACHE_PREFIX: fe-hxcpp
+  HXCPP_COMPILE_CACHE: ${{ github.workspace }}/.hxcpp_cache
+
 jobs:
   build:
     name: Build
@@ -51,6 +58,27 @@ jobs:
         if: contains(inputs.name, 'Linux')
         run: sudo apt install libvlc-dev libvlccore-dev
 
+      # key 是滚动的：restore 用前缀匹配拿上一轮那份，save 用 run_id 开新的一份。
+      # 不用固定 key 是因为 cache 写进去不可覆盖，固定 key 一次之后就再也长不大了，
+      # 新编译出来的 .obj 进不去。堆积的旧份由 hxcpp-cache.yml 的 prune 收敛。
+      #
+      # key 里必须带上 target：同一个 runner 上会并行跑好几个 target，光靠 os+arch
+      # 区分不开，它们会抢同一个 key —— 只有一个 save 得进去，其余的全白编。
+      # restore 也只认自己那条线：不同 target 的编译参数不同，算出来的 hash 就不同，
+      # 拿别人的缓存没用。
+      - name: Compute cache target
+        id: cache_target
+        shell: bash
+        run: echo "slug=$(echo '${{ inputs.name }}' | tr ' A-Z' '-a-z')" >> $GITHUB_OUTPUT
+
+      - name: Restore hxcpp cache
+        uses: actions/cache/restore@v4
+        with:
+          key: ${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.cache_target.outputs.slug }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.cache_target.outputs.slug }}-
+          path: .hxcpp_cache
+
       - name: Install Libraries
         run: ${{ inputs.setupCommand }}
 
@@ -63,7 +91,21 @@ jobs:
           haxelib run lime config ANDROID_SETUP true
 
       - name: Compile
-        run: haxelib run lime build ${{ inputs.buildArgs }} -always
+        # -D 是 env 那层的备份：hxcpp 从进程环境读 HXCPP_COMPILE_CACHE
+        # （BuildTool.runMain() 把 Sys.environment() 整个灌进 defines），
+        # -D 则保证它一定落进 Options.txt，两条路殊途同归。
+        run: haxelib run lime build ${{ inputs.buildArgs }} -always -D HXCPP_COMPILE_CACHE=${{ env.HXCPP_COMPILE_CACHE }}
+
+      # 编译失败也存：hxcpp 是并行编的，报错时大部分 .obj 已经编完了，
+      # 那些产物下次照样命中。失败的那个文件不会留在缓存里
+      # （Compiler.compile() 在编译器返回非 0 时会把自己产出的 obj 删掉）。
+      - name: Save hxcpp cache
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          path: .hxcpp_cache
 
       - name: Make IPA
         if: inputs.name == 'iOS'
