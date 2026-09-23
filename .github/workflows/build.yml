@@ -99,12 +99,16 @@ jobs:
       # 编译失败也存：hxcpp 是并行编的，报错时大部分 .obj 已经编完了，
       # 那些产物下次照样命中。失败的那个文件不会留在缓存里
       # （Compiler.compile() 在编译器返回非 0 时会把自己产出的 obj 删掉）。
+      #
+      # save 的 key 必须和上面 restore 的 key **同形**，只差末尾的 run_id。
+      # restore 命中靠的是 restore-keys 前缀匹配：save 这边少一段（比如漏掉 target），
+      # 写进去的那份就永远匹配不上自己的 restore —— 缓存存了，但没人读得到。
       - name: Save hxcpp cache
         if: always()
         continue-on-error: true
         uses: actions/cache/save@v4
         with:
-          key: ${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          key: ${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.cache_target.outputs.slug }}-${{ github.run_id }}
           path: .hxcpp_cache
 
       - name: Make IPA

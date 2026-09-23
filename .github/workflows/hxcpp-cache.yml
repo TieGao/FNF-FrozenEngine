@@ -81,8 +81,10 @@ jobs:
               return;
             }
 
-            // key 形如 <prefix>-<os>-<arch>-<run_id>；去掉末尾的 run_id，
-            // 剩下的就是一个平台的滚动线，各条线独立保留 keep 份。
+            // key 形如 <prefix>-<os>-<arch>-<target>-<run_id>；去掉末尾的 run_id，
+            // 剩下的就是一个 target 的滚动线，各条线独立保留 keep 份。
+            // （target 段由 inputs.name 转小写得来，别让它以纯数字结尾 —— 会被这条
+            //  正则连 run_id 一起吃掉，几个 target 就被并成一组了。）
             const groups = new Map();
             for (const c of caches) {
               const g = c.key.replace(/-\d+$/, '');
