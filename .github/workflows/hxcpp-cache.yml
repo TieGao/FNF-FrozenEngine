@@ -2,7 +2,7 @@ name: hxcpp Cache
 
 # hxcpp 编译缓存的维护入口：看有哪些缓存、把旧的清掉。
 #
-# 缓存的读写在 build.yml 里 —— 那边 Compile 前后 restore/save 同一组 key。
+# 缓存的读写在 cache-build.yml 里 —— 那边 Compile 前后 restore/save 同一组 key。
 # 这里只做查看和清理：key 是滚动的（每次构建新开一份），不收敛的话会把仓库
 # 10 GB 的缓存配额吃光，连带把别的缓存挤出去。
 #
@@ -25,7 +25,8 @@ name: hxcpp Cache
 #     => 内容寻址，跨机器可靠。
 #
 # HXCPP_COMPILE_CACHE 是 hxcpp 从进程环境读的：BuildTool.runMain() 开头就把
-# Sys.environment() 整个灌进 defines。build.yml 里 env 和 -D 都设了，两条路都通。
+# Sys.environment() 整个灌进 defines。cache-build.yml 只设环境变量这一条通道，
+# 不要再用 -D 传一遍 —— 见那个文件 env 段的说明。
 
 on:
   workflow_dispatch:

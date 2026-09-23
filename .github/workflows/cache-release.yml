@@ -1,0 +1,154 @@
+name: Cache Release
+
+# main-release.yml 的带缓存版：矩阵、Releaser、产物完全一样，只把编译那步换成
+# cache-build.yml（带 hxcpp 编译缓存）。
+#
+# 两个版本并存，按需要挑：
+#   main-release.yml    全量重编。产物不受缓存状态影响，稳。
+#   cache-release.yml   复用 .hxcpp_cache，快得多。缓存是内容寻址的，命中与否不影响产物内容，
+#                       但"这次发出去的包用了多少缓存"就成了一个变量 —— 所以默认发版还是走
+#                       main-release.yml，这个留着急用时用。
+#
+# 注意：两个 workflow 打的是同一个 tag（devbuild-<commit_hash>）。同一次提交别两边都跑，
+# 后跑的那个会往同一个 release 里覆盖资产。要对比就先删掉上一个 release。
+#
+# 缓存机制、key 的形状、清理入口见 hxcpp-cache.yml。
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  discussions: write
+
+env:
+  PROJECT_NAME: FrozenEngine
+  REPO_PATH: TieGao/FNF-FrozenEngine
+
+jobs:
+  get-commit-hash:
+    runs-on: ubuntu-latest
+    outputs:
+      commit_hash: ${{ steps.get_commit_hash.outputs.COMMIT_HASH }}
+    steps:
+      - name: Check Repository
+        run: |
+          echo "GITHUB_REPOSITORY: $GITHUB_REPOSITORY"
+          echo "REPO_PATH: ${{ env.REPO_PATH }}"
+          if [[ "$GITHUB_REPOSITORY" != "${{ env.REPO_PATH }}" ]]; then
+            echo "Doesn't seem to be correct, returning SIGABRT..."
+            exit 6
+          else
+            echo "Seems to be correct..."
+          fi
+
+      - name: Get latest commit hash
+        id: get_commit_hash
+        run: |
+          commit_hash=${GITHUB_SHA::7}
+          echo "Latest commit hash is $commit_hash"
+          echo "::set-output name=COMMIT_HASH::$commit_hash"
+
+  build:
+    name: ${{ matrix.name }}
+    needs: get-commit-hash
+    strategy:
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            buildArgs: windows
+            setupCommand: .\"setup/windows.bat"
+            artifactName: windowsBuild-x86_64
+            artifactPath: export\release\windows\bin\*
+          - name: Linux
+            os: ubuntu-latest
+            buildArgs: linux
+            setupCommand: sh ./setup/unix.sh
+            artifactName: linuxBuild-x86_64
+            artifactPath: export/release/linux/bin/*
+          - name: Linux ARM64
+            os: ubuntu-latest
+            buildArgs: "linux -arm64 -D HXCPP_ARM64"
+            setupCommand: sh ./setup/unix.sh
+            artifactName: linuxBuild-arm64
+            artifactPath: export/release/linux/bin/*
+          - name: macOS x86_64
+            os: macos-latest
+            setupCommand: sh ./setup/unix.sh
+            buildArgs: "mac -64 -D HXCPP_M64"
+            artifactName: macOSBuild-x86_64
+            artifactPath: export/release/macos/bin/*
+          - name: macOS ARM64
+            os: macos-latest
+            setupCommand: sh ./setup/unix.sh
+            buildArgs: "mac -arm64 -D HXCPP_ARM64"
+            artifactName: macOSBuild-arm64
+            artifactPath: export/release/macos/bin/*
+    uses: ./.github/workflows/cache-build.yml
+    with:
+        name: ${{ matrix.name }}
+        os: ${{ matrix.os }}
+        setupCommand: ${{ matrix.setupCommand }}
+        buildArgs: ${{ matrix.buildArgs }}
+        artifactName: ${{ matrix.artifactName }}
+        artifactPath: ${{ matrix.artifactPath }}
+
+  Releaser:
+    needs: [get-commit-hash, build]
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Download Windows Build
+        uses: actions/download-artifact@main
+        with:
+           name: windowsBuild-x86_64
+           path: ${{ github.workspace }}/WindowsBuild
+
+      - name: Pack Windows Build
+        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Windows.zip ${{ github.workspace }}/WindowsBuild/*
+
+      - name: Download Linux Build
+        uses: actions/download-artifact@main
+        with:
+           name: linuxBuild-x86_64
+           path: ${{ github.workspace }}/LinuxBuild
+
+      - name: Pack Linux Build
+        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux.zip ${{ github.workspace }}/LinuxBuild/*
+
+      - name: Download Linux ARM 64 Build
+        uses: actions/download-artifact@main
+        with:
+           name: linuxBuild-arm64
+           path: ${{ github.workspace }}/LinuxBuild-arm64
+
+      - name: Pack Linux Build
+        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux.zip ${{ github.workspace }}/LinuxBuild-arm64/*
+
+      - name: Download macOS x86_64 Build
+        uses: actions/download-artifact@main
+        with:
+           name: macOSBuild-x86_64
+           path: ${{ github.workspace }}/macOSBuild-x86_64
+
+      - name: Pack macOS x86_64 Build
+        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-x86_64.zip ${{ github.workspace }}/macOSBuild-x86_64/*
+
+      - name: Download macOS ARM64 Build
+        uses: actions/download-artifact@main
+        with:
+           name: macOSBuild-arm64
+           path: ${{ github.workspace }}/macOSBuild-arm64
+
+      - name: Pack macOS ARM64 Build
+        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-arm64.zip ${{ github.workspace }}/macOSBuild-arm64/*
+
+      - name: Publish The Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "DevBuild ${{ needs.get-commit-hash.outputs.commit_hash }}"
+          tag_name: "devbuild-${{ needs.get-commit-hash.outputs.commit_hash }}"
+          prerelease: true
+          files: |
+            /home/runner/*.zip

@@ -1,0 +1,42 @@
+name: Mobile Build
+
+# 仅构建、不发布：Android + iOS，产物在 Actions 的 artifact 里。
+# 矩阵取自移动版仓库的 mobile-release.yml（去掉 Releaser），两边保持同构。
+#
+# 调的是 cache-build.yml（带编译缓存），不是 build.yml —— release 那条链用的
+# build.yml 是干净的、不依赖缓存，别把两者搞混。
+#
+# 注意：这个仓库的 Project.xml 还没有移动端配置 —— 没有 extension-androidtools，
+# 没有 <android> 段 / 证书 / <architecture>，也没有 iOS 的 SHARE_MOBILE_FILES。
+# 也就是说这个 workflow 现在跑一定红，得先把移动版那套 Project.xml 搬过来（顺带确认
+# FrozenEngine.entitlements 那步在 iOS 上能过）。先留着当骨架，不用它当 CI 门禁。
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      matrix:
+        include:
+          - name: Android
+            os: macos-latest
+            buildArgs: "android -final"
+            setupCommand: sh ./setup/unix.sh
+            artifactName: androidBuild
+            artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
+          - name: iOS
+            os: macos-latest
+            setupCommand: sh ./setup/unix.sh
+            buildArgs: "ios -final -nosign"
+            artifactName: iOSBuild
+            artifactPath: "export/release/ios/build/Release-iphoneos/*.ipa"
+    uses: ./.github/workflows/cache-build.yml
+    with:
+        name: ${{ matrix.name }}
+        os: ${{ matrix.os }}
+        setupCommand: ${{ matrix.setupCommand }}
+        buildArgs: ${{ matrix.buildArgs }}
+        artifactName: ${{ matrix.artifactName }}
+        artifactPath: ${{ matrix.artifactPath }}
