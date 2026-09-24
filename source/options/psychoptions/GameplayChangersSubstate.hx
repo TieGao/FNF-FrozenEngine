@@ -61,7 +61,7 @@ class GameplayChangersSubstate extends Win8CharmSettings
 	// 单页模式的总标题
 	// =========================================================
 	override public function getPageTitle():String
-		return 'Gameplay Changers';
+		return Language.getPhrase('charm_gameplay', 'Gameplay Changers');
 
 	override public function getPageDescription():String
 		return 'Scroll speed, health multipliers, instakill, botplay and more';
@@ -86,6 +86,10 @@ class GameplayChangersSubstate extends Win8CharmSettings
 			'How fast the notes scroll');
 		speed.scrollSpeed = 2.0;
 		speed.minValue = 0.35;
+		// maxValue / displayFormat 会被 applyScrollType() 按 Scroll Type 覆盖，这里先给死值兜底：
+		// 它没跑到的话 maxValue 会是 null，而 NumButton 对 null 的兜底是 1，滑块直接废掉。
+		speed.maxValue = 3;
+		speed.displayFormat = '%vX';
 		speed.changeValue = 0.05;
 		speed.decimals = 2;
 		optionsArray.push(speed);
@@ -141,7 +145,9 @@ class GameplayChangersSubstate extends Win8CharmSettings
 		for (i in optionsArray)
 		{
 			var opt:GameplayOption = i;
-			if (opt.name == name)
+			// name 是译文（中文下 'Scroll Speed' 会变成 '音符流速'），必须连原始名一起比，
+			// 否则按英文名查找在非英语语言下全部落空。
+			if (opt.name == name || opt.rawName == name)
 				return opt;
 		}
 		return null;

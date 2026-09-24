@@ -857,7 +857,9 @@ class NewPauseSubState extends MusicBeatSubstate
 	{
 		FlxG.sound.play(Paths.sound('confirmMenu'));
 		
+		if (PlayState.debugRestartTiming) trace('[restart] restartSong enter (NewPauseSubState, noTrans=$noTrans)');
 		PlayState.instance.paused = true;
+		PlayState.instance.skipResumeOnClose = true;
 		FlxG.sound.music.volume = 0;
 		PlayState.instance.vocals.volume = 0;
 		

@@ -50,7 +50,6 @@ import crowplexus.hscript.Expr.Error as IrisError;
 import crowplexus.hscript.Printer;
 #end
 
-import backend.LegacyReplay as LegacyReplay;
 import backend.Replay as FrameReplay;
 
 
@@ -262,11 +261,25 @@ class PlayState extends MusicBeatState
 	public var scoreTxt:FlxText;
 
 	//KE replay system
-	public static var rep:LegacyReplay;
 	public static var frameRep:FrameReplay;
 	public static var loadRep:Bool = false;
 	public static var inReplay:Bool = false; 
 	public static var replayFileName:String = "";
+
+	// ===== 重开卡顿打点（临时排查用，整批带 [restart] 标记，定位完可整段删）=====
+	public static var debugRestartTiming:Bool = false; // 改成 true 后每次重开/切歌在 console 打印各段耗时
+	static inline function _t():Float return haxe.Timer.stamp() * 1000;
+	static function _lap(label:String, t0:Float):Float
+	{
+		var t:Float = _t();
+		if (debugRestartTiming) trace('[restart] $label: ${Std.int(t - t0)}ms');
+		return t;
+	}
+
+	// 置位后下一次 closeSubState() 不走「恢复」分支。
+	// 重开/退出类路径的恢复结果会被紧随其后的 FlxG.resetState() 整个丢弃，白跑一遍 resyncVocals（重建 3 条流式音源）。
+	public var skipResumeOnClose:Bool = false;
+	// ===== 打点结束 =====
 
 	public static var chartCategory:String = null;
 	public static var chartDirectory:String = null;
@@ -339,6 +352,67 @@ class PlayState extends MusicBeatState
 		members.push(obj);
 	}
 
+	// 判定弹窗组注册表：每组 = 一次 popUpScore 创建的全部精灵，队首即最旧（按创建先后入队）
+	private var activePopupGroups:Array<Array<FlxSprite>> = [];
+
+	/**
+	 * NoteSplash 每轨限流：统计该轨当前存活的 splash，超出上限则挤掉最旧的。
+	 *
+	 * 「最旧」判定依据：spawnNoteSplash 每次 recycle 后都会 movePooledToFront 把新对象挪到
+	 * members 末尾，因此同轨存活对象的 members 下标越小越旧。
+	 * 用 exists && alive 统计（kill 只置位不摘除成员，正是池复用依赖的语义）。
+	 */
+	private function enforceNoteSplashLimit(lane:Int):Void
+	{
+		var limit:Int = ClientPrefs.data.maxNoteSplashes;
+		if (limit <= 0 || limit >= 100) return; // 0 或 100 = 不限制
+
+		var alive:Array<NoteSplash> = [];
+		for (s in grpNoteSplashes.members)
+			if (s != null && s.exists && s.alive && s.lane == lane) alive.push(s);
+
+		while (alive.length >= limit)
+			alive.shift().kill(); // 挤掉该轨最旧的一个
+	}
+
+	/**
+	 * 判定弹窗组限流：先剔除已消失的组，再按上限挤掉最旧的一组。
+	 *
+	 * 组以锚点（rating 精灵）的存活性判断死活——kill / destroy 都会把 exists 置 false，
+	 * 因此不必逐个 hook 各精灵的死亡回调（它们的 tween 完成时间并不一致）。
+	 * 淘汰时按既有死亡语义处理：FlxText 摘除+销毁，其余 kill 回池（与正常淡出一致）。
+	 */
+	private function enforceJudgementPopupLimit():Void
+	{
+		var i:Int = activePopupGroups.length - 1;
+		while (i >= 0)
+		{
+			var g:Array<FlxSprite> = activePopupGroups[i];
+			if (g.length == 0 || g[0] == null || !g[0].exists || !g[0].alive)
+				activePopupGroups.splice(i, 1);
+			i--;
+		}
+
+		var limit:Int = ClientPrefs.data.maxJudgementPopups;
+		if (limit <= 0 || limit >= 100) return; // 0 或 100 = 不限制
+
+		while (activePopupGroups.length >= limit)
+		{
+			var oldest:Array<FlxSprite> = activePopupGroups.shift();
+			for (spr in oldest)
+			{
+				if (spr == null) continue;
+				FlxTween.cancelTweensOf(spr); // 先掐断淡出 tween，防止其 onComplete 二次处理
+				if (Std.isOfType(spr, FlxText))
+				{
+					if (comboGroup.members.contains(spr)) comboGroup.remove(spr);
+					spr.destroy();
+				}
+				else spr.kill();
+			}
+		}
+	}
+
 	// how big to stretch the pixel art assets
 	public static var daPixelZoom:Float = 6;
 	private var singAnimations:Array<String> = ['singLEFT', 'singDOWN', 'singUP', 'singRIGHT'];
@@ -404,6 +478,7 @@ class PlayState extends MusicBeatState
 
 	override public function create()
 	{
+		var _rt:Float = _t();
 		if (Paths.currentChartCategory == null && chartCategory != null)
 			Paths.currentChartCategory = chartCategory;
 		if (Paths.currentChartDirectory == null && chartDirectory != null)
@@ -417,12 +492,11 @@ class PlayState extends MusicBeatState
 		}
 
 		 // ========== 回放系统初始化 ==========
-	if (loadRep && (rep != null || frameRep != null))
+	if (loadRep && frameRep != null)
     {
         trace('=== REPLAY MODE INITIALIZATION ===');
-		var usingLegacyReplay:Bool = rep != null;
-		var replayData:Dynamic = usingLegacyReplay ? rep.replay : frameRep.replay;
-		trace('Loading replay: ' + (usingLegacyReplay ? rep.path : frameRep.path));
+		var replayData:Dynamic = frameRep.replay;
+		trace('Loading replay: ' + frameRep.path);
 		trace('Song: ' + replayData.songName);
         
         // 设置游戏模式（从replay数据中读取）
@@ -440,19 +514,18 @@ class PlayState extends MusicBeatState
         practiceMode = false;
         
 		// 初始化回放数据
-		if (usingLegacyReplay)
-			rep.initReplayData();
-		else
-			frameRep.startPlayback();
+		frameRep.startPlayback();
         
-        trace('Replay mode activated with ${usingLegacyReplay ? rep.replayNoteQueue.length : frameRep.replay.frameData.length} entries');
+        trace('Replay mode activated with ${frameRep.replay.frameData.length} entries');
     }
 
 	FlxG.mouse.visible = false;
 	
 		//trace('Playback Rate: ' + playbackRate);
 		_lastLoadedModDirectory = Mods.currentModDirectory;
+		_rt = _lap('pre-create', _rt);
 		Paths.clearStoredMemory();
+		_rt = _lap('clearStoredMemory', _rt);
 		if(nextReloadAll)
 		{
 			Paths.clearUnusedMemory();
@@ -815,9 +888,6 @@ class PlayState extends MusicBeatState
 		botplayTxt.antialiasing = ClientPrefs.data.antialiasing;
 		uiGroup.add(botplayTxt);
 
-		if (inReplay && ClientPrefs.data.legacyReplay && rep != null)
-			rep.createReplayUI(this);
-
 		frameReplayTxt = new FlxText(400, healthBar.y - 90, FlxG.width - 800, "REPLAY", 32);
 		frameReplayTxt.setFormat(GameFont.resolve("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		frameReplayTxt.scrollFactor.set();
@@ -980,30 +1050,27 @@ class PlayState extends MusicBeatState
 			warmupSplashes = null;
 		});
 
+		_rt = _lap('create body (generateSong/startCountdown 等)', _rt);
 		super.create();
+		_rt = _lap('super.create', _rt);
 		if (!loadRep && !inReplay)
 		{
-			if (ClientPrefs.data.legacyReplay)
-			{
-				rep = new LegacyReplay("");
-				rep.startRecording();
-			}
-			else
-			{
-				frameRep = new FrameReplay("");
-				frameRep.startRecording();
-			}
+			frameRep = new FrameReplay("");
+			frameRep.startRecording();
 		}
+		_rt = _lap('replay recorder new', _rt);
 
 		// 使用新的 JudgementCounter 模块替代旧的 createCounterUI
 		if (judgementCounterObj == null && !isSplitCoopMode()) judgementCounterObj = new objects.JudgementCounter(this);
 
 		Paths.clearUnusedMemory();
+		_rt = _lap('clearUnusedMemory + System.gc', _rt);
 
 		cacheCountdown();
 		cachePopUpScore();
 
 		if(eventNotes.length < 1) checkEventNote();
+		_rt = _lap('create total', _rt);
 	}
 
 	function set_songSpeed(value:Float):Float
@@ -2088,22 +2155,33 @@ public function reloadCounterColors()
 	public var canResync:Bool = true;
 	override function closeSubState()
 	{
+		var _rt:Float = _t();
 		super.closeSubState();
 		
 		stagesFunc(function(stage:BaseStage) stage.closeSubState());
-		if (paused)
+		_rt = _lap('closeSubState pre-resume', _rt);
+		if (paused && !skipResumeOnClose)
 		{
 			if (FlxG.sound.music != null && !startingSong && canResync)
 			{
 				resyncVocals();
+				_rt = _lap('resyncVocals', _rt);
 			}
 			FlxTimer.globalManager.forEach(function(tmr:FlxTimer) if(!tmr.finished) tmr.active = true);
 			FlxTween.globalManager.forEach(function(twn:FlxTween) if(!twn.finished) twn.active = true);
+			_rt = _lap('tween-restore', _rt);
 
 			paused = false;
 			callOnScripts('onResume');
+			_rt = _lap('onResume', _rt);
 			resetRPC(startTimer != null && startTimer.finished);
+			_rt = _lap('resetRPC', _rt);
 		}
+		else if (paused)
+		{
+			_rt = _lap('resume SKIPPED (restart/exit)', _rt);
+		}
+		skipResumeOnClose = false;
 	}
 
 	#if DISCORD_ALLOWED
@@ -2194,13 +2272,9 @@ public function reloadCounterColors()
 
 		super.update(elapsed);
 
-		if (loadRep && frameRep != null && !paused && !endingSong && !startingSong && generatedMusic && rep == null)
+		if (loadRep && frameRep != null && !paused && !endingSong && !startingSong && generatedMusic)
 		{
 			frameRep.processReplayFrames(Conductor.songPosition, this);
-		}
-		else if (loadRep && rep != null && !paused && !endingSong && !startingSong && generatedMusic && frameRep == null)
-		{
-			rep.processReplayNotes(this);
 		}
 
 		if (!loadRep && !inReplay && frameRep != null && !practiceMode && !cpuControlled && generatedMusic)
@@ -3003,19 +3077,9 @@ public function reloadCounterColors()
 			{
 				try
 				{
-						if (ClientPrefs.data.legacyReplay)
-						{
-							rep.replay.opponentMode = opponentMode;
-							rep.finishRecording();
-							rep.SaveReplay(rep.replay.songNotes, rep.replay.songJudgements, rep.replay.ana);
-							trace('Legacy replay saved successfully with ' + rep.replay.songNotes.length + ' notes');
-						}
-						else
-						{
-							frameRep.finishRecording(this);
-							frameRep.SaveReplay();
-							trace('Frame replay saved successfully with ' + frameRep.replay.frameData.length + ' frames');
-						}
+						frameRep.finishRecording(this);
+						frameRep.SaveReplay();
+						trace('Frame replay saved successfully with ' + frameRep.replay.frameData.length + ' frames');
 				}
 				catch (e:Dynamic)
 				{
@@ -3122,10 +3186,8 @@ public function reloadCounterColors()
 		// 清理回放相关变量
 		if (loadRep || inReplay)
 		{
-			if (rep != null) rep.clearPlayback();
 			loadRep = false;
 			inReplay = false;
-			rep = null;
 			frameRep = null;
 			replayFileName = null;
 			if (frameReplayTxt != null)
@@ -3343,12 +3405,6 @@ public function reloadCounterColors()
 			if (sideRatingIndex >= 0) sideRatings[sideRatingIndex].hits++;
 		}
 		
-		if (!loadRep && !cpuControlled && !practiceMode && !inReplay && ClientPrefs.data.legacyReplay && rep != null)
-		{
-			if (isSus) rep.recordHit(note.strumTime, note.noteData, note.sustainLength, rawNoteDiff, "");
-			else rep.recordHit(note.strumTime, note.noteData, note.sustainLength, rawNoteDiff, daRating.name);
-		}
-        
         totalNotesHit += daRating.ratingMod;
         note.ratingMod = daRating.ratingMod;
         if(!note.ratingDisabled) daRating.hits++;
@@ -3369,6 +3425,9 @@ public function reloadCounterColors()
                 RecalculateRating(false);
             }
         }
+        
+        // 判定弹窗组限流：计分已在上面完成，此处只影响视觉，超限则先挤掉最旧的一组
+        enforceJudgementPopupLimit();
         
         // 获取UI信息
         var uiInfo = getUIFolderInfo();
@@ -3641,6 +3700,14 @@ public function reloadCounterColors()
         if (showCombo && comboSpr != null) {
             comboSpr.x = xThing + 50;
         }
+        
+        // 注册本组弹窗（rating 为锚点，队首最旧），供下一组创建时统计与淘汰
+        var popupGroup:Array<FlxSprite> = [rating];
+        if (earlyLateSpr != null) popupGroup.push(earlyLateSpr);
+        if (showCombo && comboSpr != null) popupGroup.push(comboSpr);
+        if (msText != null) popupGroup.push(msText);
+        for (n in createdNumbers) popupGroup.push(n);
+        activePopupGroups.push(popupGroup);
         
         // 根据combo stacking模式处理动画和对象回收
         if (ClientPrefs.data.comboStacking) {
@@ -3990,8 +4057,7 @@ public function reloadCounterColors()
 
 	private function recordFrameInput(key:Int, keyBindIndex:Int, pressed:Bool):Void
 	{
-		if (loadRep || inReplay || frameRep == null || ClientPrefs.data.legacyReplay ||
-			key < 0 || key >= keysArray.length) return;
+		if (loadRep || inReplay || frameRep == null || key < 0 || key >= keysArray.length) return;
 
 		var bindNames:Array<String> = keysArray.length == 4
 			? ['note_left', 'note_down', 'note_up', 'note_right']
@@ -4172,15 +4238,6 @@ public function reloadCounterColors()
 				});
 			}
 		}
-		
-		// ========== 回放录制 ==========
-		if (!loadRep && !cpuControlled && !practiceMode && !inReplay &&
-			((ClientPrefs.data.legacyReplay && rep != null) || (!ClientPrefs.data.legacyReplay && frameRep != null)))
-		{
-			if (ClientPrefs.data.legacyReplay)
-				rep.recordMiss(daNote.noteData, daNote.strumTime);
-			//trace('Replay recorded miss at strumTime: ' + daNote.strumTime);
-		}
 	}
 
 	function noteMissPress(direction:Int = 1):Void //You pressed a key when there was no notes to press for this key
@@ -4191,14 +4248,6 @@ public function reloadCounterColors()
 		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
 		stagesFunc(function(stage:BaseStage) stage.noteMissPress(direction));
 		callOnScripts('noteMissPress', [direction]);
-
-		    // ========== 回放录制 ==========
-		if (!loadRep && !cpuControlled && !practiceMode && !inReplay &&
-			((ClientPrefs.data.legacyReplay && rep != null) || (!ClientPrefs.data.legacyReplay && frameRep != null)))
-    {
-		if (ClientPrefs.data.legacyReplay)
-			rep.recordMiss(direction, Conductor.songPosition);
-    }
 	}
 
 	function noteMissCommon(direction:Int, note:Note = null)
@@ -4275,7 +4324,7 @@ public function reloadCounterColors()
 		totalPlayed++;
 		RecalculateRating(true);
 
-		if(!ClientPrefs.data.legacyReplay && ClientPrefs.data.replayQuality) frameRep.recordJudgment(note.strumTime, note.noteData, 0, 'miss', note.isSustainNote);
+		if(ClientPrefs.data.replayQuality) frameRep.recordJudgment(note.strumTime, note.noteData, 0, 'miss', note.isSustainNote);
 
 		// play character anims
 		var char:Character = boyfriend;
@@ -4546,15 +4595,22 @@ public function reloadCounterColors()
 	}
 
 	public function spawnNoteSplash(x:Float = 0, y:Float = 0, ?data:Int = 0, ?note:Note, ?strum:StrumNote) {
+		// 先按轨道限流，再取对象。data 就是 strum 组下标（spawnNoteSplashOnNote 用它索引 strum），
+		// 即轨道号；不能对 colArray.length 取模，8K 会把 0/4、1/5… 并成同一轨
+		var lane:Int = data;
+		enforceNoteSplashLimit(lane);
+
 		// 直接从 grpNoteSplashes 自己的池里取（死掉的 splash 留在组内，天然可复用）
 		var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash, makeNoteSplash);
 		movePooledToFront(grpNoteSplashes.members, splash); // 同 comboGroup：复用对象保留下标会盖住新 splash
 		resetPooledSprite(splash);
 		splash.babyArrow = strum;
+		splash.lane = lane; // 必须在 spawnSplashNote 之前记录：它会随机化 noteData
 		splash.spawnSplashNote(x, y, data, note);
 	}
 
 	override function destroy() {
+		var _rt:Float = _t();
 		if (psychlua.CustomSubstate.instance != null)
 		{
 			closeSubState();
@@ -4602,7 +4658,14 @@ public function reloadCounterColors()
 		Note.globalRgbShaders = [];
 		backend.NoteTypesConfig.clearNoteTypesData();
 
+		if (frameRep != null)
+		{
+			frameRep.stopRecording();
+			frameRep = null;
+		}
+
 		NoteSplash.configs.clear();
+		activePopupGroups = [];
 		instance = null;
 
 		if (modInfoBox != null)
@@ -4618,6 +4681,7 @@ public function reloadCounterColors()
 
 		keyboardViewer.save();
 		super.destroy();
+		_lap('destroy total', _rt);
 	}
 
 	var lastStepHit:Int = -1;

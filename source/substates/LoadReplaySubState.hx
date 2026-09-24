@@ -1,6 +1,5 @@
 package substates;
 
-import backend.LegacyReplay as LegacyReplay;
 import backend.Replay as FrameReplay;
 import backend.MusicBeatState;
 import backend.MouseMove;
@@ -584,12 +583,7 @@ class LoadReplaySubState extends MusicBeatSubstate
     {
         trace('Loading replay: $filePath');
         
-        var fileContent:String = File.getContent(filePath);
-        var json:Dynamic = Json.parse(fileContent);
-        var isLegacy:Bool = json == null || json.frameData == null;
-        var rep:Dynamic = isLegacy
-            ? LegacyReplay.LoadReplay(filePath)
-            : FrameReplay.LoadReplay(filePath);
+        var rep:FrameReplay = FrameReplay.LoadReplay(filePath);
         if (rep == null || !rep.isValid())
         {
             FlxG.sound.play(Paths.sound('cancelMenu'));
@@ -602,16 +596,7 @@ class LoadReplaySubState extends MusicBeatSubstate
             Mods.currentModDirectory = rep.replay.modDirectory;
         #end
         
-        if (isLegacy)
-        {
-            PlayState.rep = cast rep;
-            PlayState.frameRep = null;
-        }
-        else
-        {
-            PlayState.frameRep = cast rep;
-            PlayState.rep = null;
-        }
+        PlayState.frameRep = rep;
         PlayState.loadRep = true;
         PlayState.inReplay = true;
         PlayState.replayFileName = filePath;

@@ -45,6 +45,14 @@ class Option
 	public var name:String = 'Unknown';
 
 	/**
+	 * 未翻译的原始名（构造时传进来的那个）。
+	 * `name` 是译文（中文下 'Scroll Speed' 会变成 '音符流速'），所以按英文名查找的入口
+	 * （getOptionByName 这类，HScript / mod 也会调）必须用这个，否则非英语语言下全部落空。
+	 */
+	public var rawName(get, never):String;
+	inline function get_rawName():String return _name;
+
+	/**
 	 * 自定义数值文本（可选）。设了之后 NumButton 会用它格式化当前值，
 	 * 比如 Skip Time 用它把毫秒显示成 "1:23 / 3:45"。
 	 */

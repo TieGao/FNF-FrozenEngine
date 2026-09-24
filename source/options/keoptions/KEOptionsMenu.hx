@@ -1387,7 +1387,6 @@ function onScrollChange()
 			KEOption.create("Enable LUA Debug Printer", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
 			KEOption.create("Discord RPC", "Enable Discord Rich Presence", "discordRPC", "bool"),
 			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
-			KEOption.create("Legacy Replay", "Use the legacy note-based replay system", "legacyReplay", "bool"),
 			KEOption.create("High Quality Replays", "Enable high-quality replays", "replayQuality", "bool"),
 			//KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
 			KEOption.create("Options Style", "Choose which options menu style to use", "optionstype", "string", ["new", "psych", "ke"]),

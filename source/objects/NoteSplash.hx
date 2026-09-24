@@ -34,6 +34,8 @@ class NoteSplash extends FlxSprite
 	public var config(default, set):NoteSplashConfig;
 	public var babyArrow:StrumNote;
 	public var noteData:Int = 0;
+	// 该 splash 所属轨道（strum 下标）。不能用 noteData：多动画集皮肤会把它随机化
+	public var lane:Int = -1;
 
 	public var copyX:Bool = true;
 	public var copyY:Bool = true;
