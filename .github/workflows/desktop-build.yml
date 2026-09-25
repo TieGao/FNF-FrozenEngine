@@ -23,6 +23,12 @@ jobs:
             setupCommand: .\"setup/windows.bat"
             artifactName: windowsBuild-x86_64
             artifactPath: export\release\windows\bin\*
+          - name: Windows ARM64
+            os: windows-latest
+            buildArgs: "windows -arm64 -D HXCPP_ARM64"
+            setupCommand: .\"setup/windows.bat"
+            artifactName: windowsBuild-arm64
+            artifactPath: export\release\windows\bin\*
           - name: Linux
             os: ubuntu-latest
             buildArgs: linux

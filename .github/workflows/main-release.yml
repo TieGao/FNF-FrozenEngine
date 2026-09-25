@@ -46,6 +46,12 @@ jobs:
             setupCommand: .\"setup/windows.bat"
             artifactName: windowsBuild-x86_64
             artifactPath: export\release\windows\bin\*
+          - name: Windows ARM64
+            os: windows-latest
+            buildArgs: "windows -arm64 -D HXCPP_ARM64"
+            setupCommand: .\"setup/windows.bat"
+            artifactName: windowsBuild-arm64
+            artifactPath: export\release\windows\bin\*
           - name: Linux
             os: ubuntu-latest
             buildArgs: linux
@@ -93,6 +99,15 @@ jobs:
       - name: Pack Windows Build
         run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Windows.zip ${{ github.workspace }}/WindowsBuild/*  
 
+      - name: Download Windows ARM64 Build
+        uses: actions/download-artifact@main
+        with:
+           name: windowsBuild-arm64
+           path: ${{ github.workspace }}/WindowsBuild-arm64
+
+      - name: Pack Windows ARM64 Build
+        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Windows-arm64.zip ${{ github.workspace }}/WindowsBuild-arm64/*
+
       - name: Download Linux Build
         uses: actions/download-artifact@main
         with:
@@ -108,8 +123,8 @@ jobs:
            name: linuxBuild-arm64
            path: ${{ github.workspace }}/LinuxBuild-arm64
 
-      - name: Pack Linux Build
-        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux.zip ${{ github.workspace }}/LinuxBuild-arm64/*   
+      - name: Pack Linux ARM64 Build
+        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux-arm64.zip ${{ github.workspace }}/LinuxBuild-arm64/*   
       
       - name: Download macOS x86_64 Build
         uses: actions/download-artifact@main
