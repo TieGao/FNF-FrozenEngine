@@ -247,6 +247,8 @@ import states.TitleState;
 	public var forceNoteRGB:Bool = false;
 	public var blurEffects:Bool = true;
 	public var skipResultExitAnim:Bool = false;
+	// 游玩期间禁用 hxcpp 的 GC：只关掉分配器的主动回收，堆真不够时仍会回收，不会 OOM
+	public var disablePlayStateGC:Bool = false;
 
 	public var songText:Bool = true;
 	public var songInfoTextSize:Float = 1.0;

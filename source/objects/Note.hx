@@ -97,6 +97,38 @@ class Note extends FlxSprite
 	public static var SUSTAIN_SIZE:Int = 44;
 	public static var swagWidth:Float = 160 * 0.7;
 	public static var colArray:Array<String> = ['purple', 'blue', 'green', 'red'];
+
+	// 每个键数的缩放因子只构建一次（static final），避免每次生成 note 都 new 一个 Map → 触发 GC
+	public static final NOTE_SCALES:Map<Int, Float> = [
+		4  => 0.7,
+		5  => 0.61,
+		6  => 0.52,
+		7  => 0.43,
+		8  => 0.38,
+		9  => 0.34,
+		10 => 0.3,
+		11 => 0.28,
+		12 => 0.26,
+		13 => 0.23,
+		14 => 0.2,
+		15 => 0.18,
+		16 => 0.16
+	];
+	public static final NOTE_PIXEL_SCALES:Map<Int, Float> = [
+		4  => 1,
+		5  => 0.9,
+		6  => 0.8,
+		7  => 0.71,
+		8  => 0.66,
+		9  => 0.59,
+		10 => 0.52,
+		11 => 0.47,
+		12 => 0.42,
+		13 => 0.39,
+		14 => 0.37,
+		15 => 0.35,
+		16 => 0.32
+	];
 	public static var defaultNoteSkin(default, never):String = 'noteSkins/NOTE_assets';
 	public static var BASE_SWAG_WIDTH:Float = 160 * 0.7;
 
@@ -302,6 +334,18 @@ class Note extends FlxSprite
 		initializeNote(strumTime, noteData, prevNote, sustainNote, inEditor, createdFrom);
 	}
 
+	/**
+	 * 回池前断开与其它 note 的引用链，避免静态池把整条旧链都吊住。
+	 * 不 destroy —— 对象会进静态池跨歌复用，字段复位由 reuse()/resetForReuse() 负责。
+	 */
+	public function prepareForPool():Void
+	{
+		prevNote = null;
+		nextNote = null;
+		parent = null;
+		tail = [];
+	}
+
 	private function resetForReuse():Void
 	{
 		extraData = new Map<String, Dynamic>();
@@ -372,6 +416,21 @@ class Note extends FlxSprite
 			b: -1,
 			a: ClientPrefs.data.splashAlpha
 		};
+
+		// 以下字段会被 initializeNote / followStrumNote / 倒计时等改脏，复用前必须复位，
+		// 否则残留状态会串到下一次使用（例如 sustain 的 correctionOffset 被带到头音符）。
+		animSuffix = '';
+		copyX = true;
+		copyY = true;
+		copyAngle = true;
+		copyAlpha = true;
+		correctionOffset = 0;
+		_lastNoteOffX = 0;
+		offset.set(0, 0);
+		origin.set(0, 0);
+		flipX = false;
+		scrollFactor.set(1, 1);
+		originalHeight = 6;
 		clipRect = null;
 	}
 
@@ -402,7 +461,13 @@ class Note extends FlxSprite
 		{
 			rgbShader = new RGBShaderReference(this, initializeGlobalRGBShader(noteData));
 			if(PlayState.SONG != null && PlayState.SONG.disableNoteRGB) rgbShader.enabled = false;
-			texture = '';
+			// 强制重载：复用对象的 texture 可能同为 ''，set_texture 的「值未变则跳过」会漏掉 reloadNote，
+			// 而 reuse() 已重建 animation controller（动画表为空），play() 会静默失败 → note 不可见。
+			reloadNote('');
+			@:bypassAccessor
+			{
+				texture = '';
+			}
 
 			var keys = getColumnsPerPlayer();
 			var spacing = getNoteSpacing(keys);
@@ -661,45 +726,12 @@ class Note extends FlxSprite
 	}
 
 	public static function getNoteScaleForKeys(keys:Int):Float {
-		// 硬编码每个键数的缩放因子（可根据需要调整）
-		var scales:Map<Int, Float> = [
-			4  => 0.7,
-			5  => 0.61,
-			6  => 0.52,
-			7  => 0.43,
-			8  => 0.38,
-			9  => 0.34,
-			10 => 0.3,
-			11 => 0.28,
-			12 => 0.26,
-			13 => 0.23,
-			14 => 0.2,
-			15 => 0.18,
-			16 => 0.16
-		];
-		// 若未定义，默认返回 0.7（4K 的缩放）
-		return scales.exists(keys) ? scales[keys] : 0.7;
+		// 缩放表见 NOTE_SCALES（static final，只构建一次）→ 消除 per-spawn 的 Map 分配
+		return NOTE_SCALES.exists(keys) ? NOTE_SCALES[keys] : 0.7;
 	}
 
 		public static function getPixelNoteScaleForKeys(keys:Int):Float {
-		// 硬编码每个键数的缩放因子（可根据需要调整）
-		var scales:Map<Int, Float> = [
-			4  => 1,
-			5  => 0.9,
-			6  => 0.8,
-			7  => 0.71,
-			8  => 0.66,
-			9  => 0.59,
-			10 => 0.52,
-			11 => 0.47,
-			12 => 0.42,
-			13 => 0.39,
-			14 => 0.37,
-			15 => 0.35,
-			16 => 0.32
-		];
-		// 若未定义，默认返回 0.7（4K 的缩放）
-		return scales.exists(keys) ? scales[keys] : 0.7;
+		return NOTE_PIXEL_SCALES.exists(keys) ? NOTE_PIXEL_SCALES[keys] : 0.7;
 	}
 
 
@@ -754,7 +786,13 @@ class Note extends FlxSprite
             var strumCenter:Float = myStrum.y + Note.swagWidth / 2;
             
             // 2. 创建裁剪矩形
-            var swagRect:FlxRect = new FlxRect(0, 0, frameWidth, frameHeight);
+            var swagRect:FlxRect = clipRect;
+
+            if (swagRect == null) swagRect = new FlxRect(0, 0, frameWidth, frameHeight); // 复用同一份裁剪矩形：仅首次分配，之后每帧只改字段
+
+            swagRect.x = 0;
+
+            swagRect.width = frameWidth;
             
             // 计算长条的实际Y位置（考虑偏移）
             var actualY:Float = y + offset.y * scale.y;
@@ -788,7 +826,7 @@ class Note extends FlxSprite
                 else
                 {
                     // 长条还未到达判定线，不裁剪
-                    swagRect = null;
+                    swagRect.height = 0;
                 }
             }
             // ----- 上滚 (UpScroll) 模式 -----
@@ -819,20 +857,13 @@ class Note extends FlxSprite
                 else
                 {
                     // 长条还未到达判定线，不裁剪
-                    swagRect = null;
+                    swagRect.height = 0;
                 }
             }
             
-            // 应用裁剪
-            if (swagRect != null && swagRect.height > 0)
-            {
-                clipRect = swagRect;
-            }
-            else
-            {
-                // 如果长条已经完全越过判定线，完全隐藏
-                clipRect = new FlxRect(0, 0, frameWidth, 0);
-            }
+            // 应用裁剪（swagRect 即 clipRect 本身，字段已就地更新，无需重新分配）
+
+            clipRect = swagRect;
         }
         return;
     }

@@ -8,7 +8,6 @@ import flixel.group.FlxGroup;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.util.FlxTimer;
-import lime.app.Application;
 import backend.MusicBeatSubstate;
 
 class AboutSubState extends MusicBeatSubstate
@@ -16,9 +15,7 @@ class AboutSubState extends MusicBeatSubstate
     public static var instance:AboutSubState;
     var leftState:Bool = false;
 
-    // 版本信息
-    public static var engineVersion:String = '0.5.1'; // Frozen Engine
-    public static var psychVersion:String = '1.0.4'; // Psych Engine
+    // FNF 上游版本；lime 的元数据里没有这个信息，只能写死
     public static var fnfVersion:String = '0.3.0'; // FNF
 
     var bg:FlxSprite;
@@ -90,11 +87,11 @@ class AboutSubState extends MusicBeatSubstate
         infoContainer.add(header1);
         startY += textHeight + 4;
 
-        var frozenText = createText(leftX, startY, "Frozen Engine v" + engineVersion, 20, FlxColor.CYAN, LEFT);
+        var frozenText = createText(leftX, startY, "Frozen Engine v" + states.MainMenuState.frozenEngineVersion, 20, FlxColor.CYAN, LEFT);
         infoContainer.add(frozenText);
         startY += textHeight;
 
-        var psychText = createText(leftX, startY, "Psych Engine v" + psychVersion, 20, FlxColor.CYAN, LEFT);
+        var psychText = createText(leftX, startY, "Psych Engine v" + states.MainMenuState.psychEngineVersion, 20, FlxColor.CYAN, LEFT);
         infoContainer.add(psychText);
         startY += textHeight;
 
@@ -130,16 +127,6 @@ class AboutSubState extends MusicBeatSubstate
         
         var hscriptText = createText(col2X, startY, "hscript-iris " + getHscriptIrisVersion(), 20, FlxColor.CYAN, LEFT);
         infoContainer.add(hscriptText);
-        startY += textHeight + 10;
-
-        // ===== 编译日期 =====
-        var header3 = createText(0, startY, "Compiled:", 24, FlxColor.YELLOW, CENTER, panelWidth);
-        header3.screenCenter(X);
-        infoContainer.add(header3);
-        startY += textHeight + 4;
-
-        var buildDateText = createText(leftX, startY, "Build Date " + getBuildDate(), 20, FlxColor.CYAN, LEFT);
-        infoContainer.add(buildDateText);
         startY += textHeight + 10;
 
         // ===== 功能状态 =====
@@ -224,125 +211,40 @@ class AboutSubState extends MusicBeatSubstate
 
     function getLimeVersion():String
     {
-        try
-        {
-            var version:String = Application.current.meta.get('lime');
-            return version != null ? version : 'Unknown';
-        }
-        catch (e)
-        {
-            return 'Unknown';
-        }
+        return backend.VersionInfo.lib('lime');
     }
 
     function getOpenFLVersion():String
     {
-        try
-        {
-            var version:String = Application.current.meta.get('openfl');
-            return version != null ? version : 'Unknown';
-        }
-        catch (e)
-        {
-            return 'Unknown';
-        }
+        return backend.VersionInfo.lib('openfl');
     }
 
     function getFlixelVersion():String
     {
-        try
-        {
-            var version:String = Application.current.meta.get('flixel');
-            if (version != null) return version;
-            return Std.string(FlxG.VERSION);
-        }
-        catch (e)
-        {
-            return Std.string(FlxG.VERSION);
-        }
+        return backend.VersionInfo.lib('flixel');
     }
 
     function getFlixelAddonsVersion():String
     {
-        try
-        {
-            var meta = Application.current.meta;
-            var version:String = meta.get('flixel-addons');
-            if (version == null)
-            {
-                version = meta.get('flixel_addons');
-            }
-            return version != null ? version : 'Unknown';
-        }
-        catch (e)
-        {
-            return 'Unknown';
-        }
+        return backend.VersionInfo.lib('flixel-addons');
     }
 
     function getHxvlcVersion():String
     {
-        try
-        {
-            #if VIDEOS_ALLOWED
-            var meta = Application.current.meta;
-            var version:String = meta.get('hxvlc');
-            if (version == null) version = meta.get('hxvlc_linux');
-            return version != null ? version : '2.2.5';
-            #else
-            return 'N/A';
-            #end
-        }
-        catch (e)
-        {
-            #if VIDEOS_ALLOWED
-            return '2.2.5';
-            #else
-            return 'N/A';
-            #end
-        }
+        #if VIDEOS_ALLOWED
+        return backend.VersionInfo.lib('hxvlc');
+        #else
+        return 'N/A';
+        #end
     }
 
     function getHscriptIrisVersion():String
     {
-        try
-        {
-            #if HSCRIPT_ALLOWED
-            var meta = Application.current.meta;
-            var version:String = meta.get('hscript-iris');
-            if (version == null) version = meta.get('hscript_iris');
-            return version != null ? version : '1.1.3';
-            #else
-            return 'N/A';
-            #end
-        }
-        catch (e)
-        {
-            #if HSCRIPT_ALLOWED
-            return '1.1.3';
-            #else
-            return 'N/A';
-            #end
-        }
-    }
-
-    function getBuildDate():String
-    {
-        try
-        {
-            var date:String = Application.current.meta.get('buildDate');
-            if (date != null) return date;
-        }
-        catch (e) {}
-
-        try
-        {
-            var date:String = Sys.getEnv('BUILD_DATE');
-            if (date != null && date != "") return date;
-        }
-        catch (e) {}
-
-        return Date.now().toString();
+        #if HSCRIPT_ALLOWED
+        return backend.VersionInfo.lib('hscript-iris');
+        #else
+        return 'N/A';
+        #end
     }
 
     override function update(elapsed:Float)

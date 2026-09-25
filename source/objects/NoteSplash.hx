@@ -465,6 +465,9 @@ class PixelSplashShaderRef
 	{
 		if (tempShader != null)
 		{
+			// 复用对象可能上次以 enabled=false（无 RGB）收场；这里复位标志位，
+			// 保持与「每次 new 出来的对象」语义一致。
+			enabled = true;
 			for (i in 0...3)
 			{
 				shader.r.value[i] = tempShader.shader.r.value[i];

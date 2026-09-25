@@ -181,12 +181,8 @@
 	<!-- pretty (haxeflixel default), indent, classic (haxe compiler default) -->
 	<haxedef name="message.reporting" value="pretty" />
 
-	<!-- 标准分代式 GC（hxcpp 默认行为） -->
-	<!-- haxedef name="HXCPP_GC_GENERATIONAL"/> -->
-
-	<!-- 启用 ZGC（低延迟 GC，hxcpp 4.x+） -->
-	<!-- <haxedef name="hxcpp_zgc"/> -->
-
+	<haxedef name="HXCPP_GC_GENERATIONAL"/> 
+	
 	<!--Macro fixes-->
 	<haxeflag name="--macro" value="allowPackage('flash')" />
 	<haxeflag name="--macro" value="include('my.pack')" />

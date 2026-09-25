@@ -609,6 +609,14 @@ class NewPauseSubState extends MusicBeatSubstate
 			return;
 		}
 		
+		if(FlxG.keys.justPressed.F5)
+		{
+			FlxTransitionableState.skipNextTransIn = true;
+			FlxTransitionableState.skipNextTransOut = true;
+			PlayState.nextReloadAll = true;
+			MusicBeatState.resetState();
+		}
+
 		// 开场动画期间：开了开关就先把动画瞬时跳完，再让这一帧的输入照常往下走
 		if(isAnimating)
 		{
