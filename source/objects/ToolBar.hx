@@ -26,6 +26,15 @@ import backend.ui.PsychUIButton;
 
 class ToolBar extends FlxSpriteGroup
 {
+    /** 正常模式（导航按钮）的栏高 */
+    public static inline var BAR_HEIGHT_NORMAL:Int = 50;
+    /** 音乐播放器模式的栏高 */
+    public static inline var BAR_HEIGHT_PLAYER:Int = 64;
+    /** 播放器控件的边长 */
+    public static inline var PLAYER_BTN_SIZE:Int = 44;
+    /** 播放/暂停按钮的边长 */
+    public static inline var PLAYER_BTN_SIZE_MAIN:Int = 56;
+
     public var background:FlxFilteredSprite;
     public var textDisplay:FlxText;
     public var musicPlayer:MusicPlayerLegacy;
@@ -47,8 +56,15 @@ class ToolBar extends FlxSpriteGroup
     
     // ★★★ 人声切换按钮 ★★★
     public var voiceToggleButton:FlxButton;
-    public var voiceText:FlxText;
     public var voicesMuted:Bool = false;
+    
+    /** 当前栏高：正常模式 50，音乐播放器模式 64 */
+    public var barHeight:Int = BAR_HEIGHT_NORMAL;
+    
+    /** 播放/暂停按钮当前画的是哪种图标（变了才重画） */
+    private var playIconKind:String = '';
+    /** 人声按钮当前画的是哪种图标（变了才重画） */
+    private var voiceIconKind:String = '';
     
     // ★★★ 音频可视化对象 ★★★
     public var audioDisplay:AudioDisplay;
@@ -82,13 +98,16 @@ class ToolBar extends FlxSpriteGroup
         
         freeplayState = state;
         parentState = state;
+        barHeight = height;
         syncMusicPlayer();
         
         // 从配置读取可视化参数
         loadVizSettings();
         
+        // 一次按最大栏高造图，切模式只改 y —— 重造贴图会生成新的 BitmapData，
+        // 被 Paths.clearStoredMemory() 清掉后整条栏会变白
         background = new FlxFilteredSprite(-100, FlxG.height - height);
-        background.makeGraphic(width, height + 50, 0xFF000000);
+        background.makeGraphic(width, BAR_HEIGHT_PLAYER + 50, 0xFF000000);
         background.alpha = 0.6;
         background.scrollFactor.set();
         background.filters = [new BlurFilter(blurAmount, blurAmount, BitmapFilterQuality.HIGH)];
@@ -140,7 +159,7 @@ class ToolBar extends FlxSpriteGroup
         audioDisplay = new AudioDisplay(
             FlxG.sound.music,
             0,                          // X 位置（居中）
-            FlxG.height - 50,          // Y 位置（放在工具栏上方，留出空间）
+            FlxG.height - barHeight,   // Y 位置（贴在工具栏上沿）
             FlxG.width,                // 宽度
             300,                       // 高度
             vizBarCount,               // 条形数量
@@ -206,7 +225,10 @@ class ToolBar extends FlxSpriteGroup
         }
         buttons = [];
 
-        var buttonY:Float = background.y + (background.height - 40) / 2 - 20;
+        // 导航按钮在"当前栏高"里垂直居中。不要用 background.height —— 那是按最大栏高造的，
+        // 比可见栏高多 50px 的模糊出血
+        var btnH:Int = 32;
+        var buttonY:Float = FlxG.height - barHeight / 2 - btnH / 2;
         var buttonData:Array<{label:String, action:Void->Void}> = [
             {label: Language.getPhrase("options", "OPTIONS"), action: openOptions},
             {label: Language.getPhrase("gameplay", "GAMEPLAY"), action: openGameplayChangers},
@@ -226,7 +248,7 @@ class ToolBar extends FlxSpriteGroup
                 buttonData[i].label,
                 buttonData[i].action,
                 buttonWidth,
-                32
+                btnH
             );
             btn.scrollFactor.set();
             btn.text.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER);
@@ -248,90 +270,46 @@ class ToolBar extends FlxSpriteGroup
             createButtons();
     }
     
-    private function createButtonGraphic(width:Int, height:Int, color:Int):FlxGraphic
-    {
-        var bitmapData:openfl.display.BitmapData = new openfl.display.BitmapData(width, height, true, color);
-        return FlxGraphic.fromBitmapData(bitmapData, false, null);
-    }
-    
-    // ===== 创建播放器控件（移除了时间显示） =====
+    // ===== 创建播放器控件 =====
     
     private function createPlayerControls():Void
     {
-        var centerY:Float = background.y + background.height / 2 - 20;
-        var btnSize:Int = 32;
-        var spacing:Int = 8;
+        prevButton = makePlayerButton('prev', PLAYER_BTN_SIZE, prevAction);
+        playPauseButton = makePlayerButton('play', PLAYER_BTN_SIZE_MAIN, playPauseAction);
+        nextButton = makePlayerButton('next', PLAYER_BTN_SIZE, nextAction);
+        stopButton = makePlayerButton('stop', PLAYER_BTN_SIZE, stopAction);
+        voiceToggleButton = makePlayerButton('mic', PLAYER_BTN_SIZE, voiceToggleAction);
+        volumeDownButton = makePlayerButton('volume_down', PLAYER_BTN_SIZE, volumeDownAction);
+        volumeUpButton = makePlayerButton('volume_up', PLAYER_BTN_SIZE, volumeUpAction);
+        playIconKind = 'play';
+        voiceIconKind = 'mic';
         
-        // 上一首
-        prevButton = new FlxButton(0, centerY - btnSize/2, "◀◀", prevAction);
-        prevButton.loadGraphic(createButtonGraphic(btnSize, btnSize, 0xFF333333));
-        prevButton.label.setFormat(null, 14, FlxColor.WHITE, CENTER);
-        prevButton.scrollFactor.set();
-        prevButton.label.systemFont = "";
-        add(prevButton);
-        
-        // ★★★ 播放/暂停（移到中心）★★★
-        playPauseButton = new FlxButton(0, centerY - btnSize/2, "▶", playPauseAction);
-        playPauseButton.loadGraphic(createButtonGraphic(btnSize + 10, btnSize + 10, 0xFF333366));
-        playPauseButton.label.setFormat(null, 18, FlxColor.WHITE, CENTER);
-        playPauseButton.scrollFactor.set();
-        playPauseButton.label.systemFont = "";
-        add(playPauseButton);
-        
-        // 下一首
-        nextButton = new FlxButton(0, centerY - btnSize/2, "▶▶", nextAction);
-        nextButton.loadGraphic(createButtonGraphic(btnSize, btnSize, 0xFF333333));
-        nextButton.label.setFormat(null, 14, FlxColor.WHITE, CENTER);
-        nextButton.scrollFactor.set();
-        nextButton.label.systemFont = "";
-        add(nextButton);
-        
-        // 停止
-        stopButton = new FlxButton(0, centerY - btnSize/2, "■", stopAction);
-        stopButton.loadGraphic(createButtonGraphic(btnSize, btnSize, 0xFF333333));
-        stopButton.label.setFormat(null, 16, FlxColor.WHITE, CENTER);
-        stopButton.scrollFactor.set();
-        stopButton.label.systemFont = "";
-        add(stopButton);
-        
-        // ★★★ 人声切换按钮 ★★★
-        voiceToggleButton = new FlxButton(0, centerY - btnSize/2, "🎤", voiceToggleAction);
-        voiceToggleButton.loadGraphic(createButtonGraphic(btnSize, btnSize, 0xFF333333));
-        voiceToggleButton.label.setFormat(null, 14, FlxColor.WHITE, CENTER);
-        voiceToggleButton.scrollFactor.set();
-        voiceToggleButton.label.systemFont = "";
-        add(voiceToggleButton);
-        
-        // 人声状态文字（显示在按钮旁边）
-        voiceText = new FlxText(0, centerY - 10, 40, "ON", 12);
-        voiceText.antialiasing = ClientPrefs.data.antialiasing;
-        voiceText.setFormat(Paths.font("vcr.ttf"), 12, 0xFF88FF88, CENTER);
-        voiceText.scrollFactor.set();
-        add(voiceText);
-        
-        // 音量减
-        volumeDownButton = new FlxButton(0, centerY - btnSize/2, "-", volumeDownAction);
-        volumeDownButton.loadGraphic(createButtonGraphic(btnSize, btnSize, 0xFF333333));
-        volumeDownButton.label.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER);
-        volumeDownButton.scrollFactor.set();
-        add(volumeDownButton);
-        
-        // 音量加
-        volumeUpButton = new FlxButton(0, centerY - btnSize/2, "+", volumeUpAction);
-        volumeUpButton.loadGraphic(createButtonGraphic(btnSize, btnSize, 0xFF333333));
-        volumeUpButton.label.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER);
-        volumeUpButton.scrollFactor.set();
-        add(volumeUpButton);
-        
-        // 音量文本
-        volumeText = new FlxText(0, centerY - 10, 50, "100%", 14);
+        // 音量文本（夹在两个音量键中间）
+        volumeText = new FlxText(0, 0, 60, "100%", 18);
         volumeText.antialiasing = ClientPrefs.data.antialiasing;
-        volumeText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.WHITE, CENTER);
+        volumeText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER);
         volumeText.scrollFactor.set();
         add(volumeText);
         
         // 默认隐藏播放器控件
         setPlayerControlsVisible(false);
+    }
+    
+    /**
+     * 造一个播放器图标按钮。
+     *
+     * 图标用 ToolBarIcons 现画的 3 帧图集（normal / hover / press）——
+     * FlxButton 会按 status 自动切帧，所以悬停 / 按下天然有视觉反馈；
+     * 单帧图会被 FlxTypedButton 把 highlight / pressed 的帧号夹回第 0 帧，等于没有反馈。
+     */
+    private function makePlayerButton(kind:String, size:Int, action:Void->Void):FlxButton
+    {
+        var btn:FlxButton = new FlxButton(0, 0, null, action);
+        btn.loadGraphic(ToolBarIcons.buttonStrip(kind, size), true, size, size);
+        btn.antialiasing = ClientPrefs.data.antialiasing;
+        btn.scrollFactor.set();
+        add(btn);
+        return btn;
     }
     
     // ===== 按钮动作函数 =====
@@ -444,16 +422,15 @@ class ToolBar extends FlxSpriteGroup
     
     private function updateVoiceButton():Void
     {
-        if (voiceToggleButton != null)
-        {
-            voiceToggleButton.label.text = voicesMuted ? "🔇" : "🎤";
-            voiceToggleButton.color = voicesMuted ? 0xFFFF6666 : 0xFFFFFFFF;
-        }
-        if (voiceText != null)
-        {
-            voiceText.text = voicesMuted ? "OFF" : "ON";
-            voiceText.color = voicesMuted ? 0xFFFF6666 : 0xFF88FF88;
-        }
+        if (voiceToggleButton == null) return;
+        
+        var kind:String = voicesMuted ? 'mic_off' : 'mic';
+        if (voiceIconKind == kind && !isGraphicDead(voiceToggleButton)) return;
+        voiceIconKind = kind;
+        
+        var tint:Int = voicesMuted ? ToolBarIcons.ICON_MUTED : ToolBarIcons.ICON_NORMAL;
+        voiceToggleButton.loadGraphic(ToolBarIcons.buttonStrip(kind, PLAYER_BTN_SIZE, tint), true, PLAYER_BTN_SIZE, PLAYER_BTN_SIZE);
+        voiceToggleButton.antialiasing = ClientPrefs.data.antialiasing;
     }
     
     private function volumeDownAction():Void
@@ -487,6 +464,32 @@ class ToolBar extends FlxSpriteGroup
         }
     }
     
+    // ===== 栏高 =====
+    
+    /**
+     * 切换工具栏高度。只改 background 的 y，不重造贴图
+     * （重造会生成新的 BitmapData，被 clearStoredMemory 清掉后整条栏变白）。
+     */
+    private function applyBarHeight(h:Int):Void
+    {
+        if (barHeight == h) return;
+        barHeight = h;
+        
+        if (background != null)
+        {
+            FlxTween.cancelTweensOf(background);
+            FlxTween.tween(background, {y: FlxG.height - h}, 0.15, {ease: FlxEase.quadOut});
+        }
+        if (audioDisplay != null)
+            audioDisplay.y = FlxG.height - h;
+    }
+    
+    /** 自造的图标图是否已被销毁（不要用 pixels != null 判活，那个 getter 就是 graphic.bitmap） */
+    private inline function isGraphicDead(spr:FlxSprite):Bool
+    {
+        return spr == null || spr.graphic == null || spr.graphic.isDestroyed;
+    }
+    
     // ===== 显示控制 =====
     
     private function setPlayerControlsVisible(visible:Bool):Void
@@ -499,12 +502,12 @@ class ToolBar extends FlxSpriteGroup
         if (volumeUpButton != null) { volumeUpButton.visible = visible; volumeUpButton.active = visible; }
         if (volumeText != null) volumeText.visible = visible;
         if (voiceToggleButton != null) { voiceToggleButton.visible = visible; voiceToggleButton.active = visible; }
-        if (voiceText != null) voiceText.visible = visible;
     }
     
     public function setNormalMode():Void
     {
         isMusicPlayerMode = false;
+        applyBarHeight(BAR_HEIGHT_NORMAL);
         if (textDisplay != null) textDisplay.visible = false;
         
         for (btn in buttons)
@@ -526,6 +529,7 @@ class ToolBar extends FlxSpriteGroup
     {
         isMusicPlayerMode = true;
         currentSongName = songName;
+        applyBarHeight(BAR_HEIGHT_PLAYER);
         if (textDisplay != null) textDisplay.visible = false;
         
         for (btn in buttons)
@@ -562,77 +566,44 @@ class ToolBar extends FlxSpriteGroup
     
     public function updatePlayPauseButton(isPlaying:Bool):Void
     {
-        if (playPauseButton != null)
-        {
-            playPauseButton.label.text = isPlaying ? "❚❚" : "▶";
-        }
+        if (playPauseButton == null) return;
+        
+        var kind:String = isPlaying ? 'pause' : 'play';
+        if (playIconKind == kind && !isGraphicDead(playPauseButton)) return;
+        playIconKind = kind;
+        
+        playPauseButton.loadGraphic(ToolBarIcons.buttonStrip(kind, PLAYER_BTN_SIZE_MAIN), true, PLAYER_BTN_SIZE_MAIN, PLAYER_BTN_SIZE_MAIN);
+        playPauseButton.antialiasing = ClientPrefs.data.antialiasing;
     }
     
     private function updatePlayerPositions():Void
     {
-        var centerY:Float = background.y + background.height / 2 - 20;
-        var btnSize:Int = 32;
-        var spacing:Int = 8;
+        var centerY:Float = FlxG.height - barHeight / 2;
+        var spacing:Int = 10;
         
-        // ★★★ 计算所有按钮的总宽度，居中排列 ★★★
+        // 一行里从左到右的控件：音量百分比夹在两个音量键中间
+        var row:Array<FlxSprite> = [prevButton, playPauseButton, nextButton, stopButton,
+            voiceToggleButton, volumeDownButton, volumeText, volumeUpButton];
+        
+        var visibleItems:Array<FlxSprite> = [];
         var totalWidth:Float = 0;
-        var buttonsList:Array<FlxButton> = [prevButton, playPauseButton, nextButton, stopButton, voiceToggleButton, volumeDownButton, volumeUpButton];
-        var visibleButtons:Array<FlxButton> = [];
-        
-        for (btn in buttonsList)
+        for (item in row)
         {
-            if (btn != null && btn.visible)
+            if (item != null && item.visible)
             {
-                visibleButtons.push(btn);
-                totalWidth += btn.width;
+                visibleItems.push(item);
+                totalWidth += item.width;
             }
         }
+        if (visibleItems.length > 1)
+            totalWidth += (visibleItems.length - 1) * spacing;
         
-        // 计算音量文本宽度（作为整体的一部分）
-        var hasVolumeText:Bool = volumeText != null && volumeText.visible;
-        if (hasVolumeText)
+        var currentX:Float = (FlxG.width - totalWidth) / 2;
+        for (item in visibleItems)
         {
-            totalWidth += volumeText.width + spacing;
-        }
-        
-        // 计算人声文本宽度
-        var hasVoiceText:Bool = voiceText != null && voiceText.visible;
-        if (hasVoiceText)
-        {
-            totalWidth += voiceText.width + spacing;
-        }
-        
-        // 添加间距
-        var buttonCount:Int = visibleButtons.length;
-        if (buttonCount > 0)
-        {
-            totalWidth += (buttonCount - 1) * spacing;
-        }
-        
-        // 起始 X 位置（居中）
-        var startX:Float = (FlxG.width - totalWidth) / 2;
-        var currentX:Float = startX;
-        
-        for (btn in visibleButtons)
-        {
-            btn.x = currentX;
-            btn.y = centerY - btn.height/2;
-            currentX += btn.width + spacing;
-        }
-        
-        // 放置音量文本
-        if (volumeText != null && volumeText.visible)
-        {
-            volumeText.x = currentX;
-            volumeText.y = centerY - volumeText.height/2;
-            currentX += volumeText.width + spacing;
-        }
-        
-        // 放置人声文本
-        if (voiceText != null && voiceText.visible)
-        {
-            voiceText.x = currentX;
-            voiceText.y = centerY - voiceText.height/2;
+            item.x = currentX;
+            item.y = centerY - item.height / 2;
+            currentX += item.width + spacing;
         }
     }
     
@@ -673,6 +644,18 @@ class ToolBar extends FlxSpriteGroup
             if (FlxG.sound.music != null && !FlxG.sound.music.playing && audioDisplay != null)
             {
                 destroyAudioDisplay();
+            }
+            
+            // 自造的图标图会被 Paths.clearStoredMemory() 连带 dispose，掉了就重画
+            if (FlxG.sound.music != null && isGraphicDead(playPauseButton))
+            {
+                playIconKind = '';
+                updatePlayPauseButton(musicPlayer != null ? musicPlayer.playing : FlxG.sound.music.playing);
+            }
+            if (isGraphicDead(voiceToggleButton))
+            {
+                voiceIconKind = '';
+                updateVoiceButton();
             }
             
             // ★★★ 保持人声状态与UI同步 ★★★
@@ -765,7 +748,7 @@ class ToolBar extends FlxSpriteGroup
             textDisplay.y = y + 4;
         }
         
-        var buttonY:Float = background.y + (background.height - 40) / 2;
+        var buttonY:Float = y + (barHeight - 40) / 2;
         var startX:Float = (FlxG.width - (buttonWidth * 4 + buttonSpacing * 3)) / 2;
         
         for (i in 0...buttons.length)
@@ -797,6 +780,7 @@ class ToolBar extends FlxSpriteGroup
     override public function destroy():Void
     {
         FlxTween.cancelTweensOf(this);
+        FlxTween.cancelTweensOf(background);
         
         // 销毁可视化
         destroyAudioDisplay();
@@ -816,7 +800,6 @@ class ToolBar extends FlxSpriteGroup
         volumeUpButton = FlxDestroyUtil.destroy(volumeUpButton);
         volumeText = FlxDestroyUtil.destroy(volumeText);
         voiceToggleButton = FlxDestroyUtil.destroy(voiceToggleButton);
-        voiceText = FlxDestroyUtil.destroy(voiceText);
         
         freeplayState = null;
         parentState = null;

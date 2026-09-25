@@ -478,7 +478,6 @@ class PlayState extends MusicBeatState
 
 	override public function create()
 	{
-		var _rt:Float = _t();
 		if (Paths.currentChartCategory == null && chartCategory != null)
 			Paths.currentChartCategory = chartCategory;
 		if (Paths.currentChartDirectory == null && chartDirectory != null)
@@ -519,16 +518,11 @@ class PlayState extends MusicBeatState
         trace('Replay mode activated with ${frameRep.replay.frameData.length} entries');
     }
 
-	FlxG.mouse.visible = false;
+		FlxG.mouse.visible = false;
 	
-		//trace('Playback Rate: ' + playbackRate);
 		_lastLoadedModDirectory = Mods.currentModDirectory;
-		_rt = _lap('pre-create', _rt);
-		Paths.clearStoredMemory();
-		_rt = _lap('clearStoredMemory', _rt);
 		if(nextReloadAll)
 		{
-			Paths.clearUnusedMemory();
 			Language.reloadPhrases();
 		}
 		nextReloadAll = false;
@@ -1050,27 +1044,20 @@ class PlayState extends MusicBeatState
 			warmupSplashes = null;
 		});
 
-		_rt = _lap('create body (generateSong/startCountdown 等)', _rt);
 		super.create();
-		_rt = _lap('super.create', _rt);
 		if (!loadRep && !inReplay)
 		{
 			frameRep = new FrameReplay("");
 			frameRep.startRecording();
 		}
-		_rt = _lap('replay recorder new', _rt);
 
 		// 使用新的 JudgementCounter 模块替代旧的 createCounterUI
 		if (judgementCounterObj == null && !isSplitCoopMode()) judgementCounterObj = new objects.JudgementCounter(this);
-
-		Paths.clearUnusedMemory();
-		_rt = _lap('clearUnusedMemory + System.gc', _rt);
 
 		cacheCountdown();
 		cachePopUpScore();
 
 		if(eventNotes.length < 1) checkEventNote();
-		_rt = _lap('create total', _rt);
 	}
 
 	function set_songSpeed(value:Float):Float
@@ -2155,31 +2142,21 @@ public function reloadCounterColors()
 	public var canResync:Bool = true;
 	override function closeSubState()
 	{
-		var _rt:Float = _t();
 		super.closeSubState();
 		
 		stagesFunc(function(stage:BaseStage) stage.closeSubState());
-		_rt = _lap('closeSubState pre-resume', _rt);
 		if (paused && !skipResumeOnClose)
 		{
 			if (FlxG.sound.music != null && !startingSong && canResync)
 			{
 				resyncVocals();
-				_rt = _lap('resyncVocals', _rt);
 			}
 			FlxTimer.globalManager.forEach(function(tmr:FlxTimer) if(!tmr.finished) tmr.active = true);
 			FlxTween.globalManager.forEach(function(twn:FlxTween) if(!twn.finished) twn.active = true);
-			_rt = _lap('tween-restore', _rt);
 
 			paused = false;
 			callOnScripts('onResume');
-			_rt = _lap('onResume', _rt);
 			resetRPC(startTimer != null && startTimer.finished);
-			_rt = _lap('resetRPC', _rt);
-		}
-		else if (paused)
-		{
-			_rt = _lap('resume SKIPPED (restart/exit)', _rt);
 		}
 		skipResumeOnClose = false;
 	}
@@ -4610,7 +4587,6 @@ public function reloadCounterColors()
 	}
 
 	override function destroy() {
-		var _rt:Float = _t();
 		if (psychlua.CustomSubstate.instance != null)
 		{
 			closeSubState();
@@ -4681,7 +4657,6 @@ public function reloadCounterColors()
 
 		keyboardViewer.save();
 		super.destroy();
-		_lap('destroy total', _rt);
 	}
 
 	var lastStepHit:Int = -1;
