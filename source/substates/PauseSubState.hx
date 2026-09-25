@@ -552,9 +552,7 @@ class PauseSubState extends MusicBeatSubstate
 
 	public static function restartSong(noTrans:Bool = false)
 	{
-		if (PlayState.debugRestartTiming) trace('[restart] restartSong enter (PauseSubState, noTrans=$noTrans)');
 		PlayState.instance.paused = true;
-		PlayState.instance.skipResumeOnClose = true;
 		FlxG.sound.music.volume = 0;
 		PlayState.instance.vocals.volume = 0;
 
