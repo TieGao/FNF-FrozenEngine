@@ -266,21 +266,6 @@ class PlayState extends MusicBeatState
 	public static var inReplay:Bool = false; 
 	public static var replayFileName:String = "";
 
-	// ===== 重开卡顿打点（临时排查用，整批带 [restart] 标记，定位完可整段删）=====
-	public static var debugRestartTiming:Bool = false; // 改成 true 后每次重开/切歌在 console 打印各段耗时
-	static inline function _t():Float return haxe.Timer.stamp() * 1000;
-	static function _lap(label:String, t0:Float):Float
-	{
-		var t:Float = _t();
-		if (debugRestartTiming) trace('[restart] $label: ${Std.int(t - t0)}ms');
-		return t;
-	}
-
-	// 置位后下一次 closeSubState() 不走「恢复」分支。
-	// 重开/退出类路径的恢复结果会被紧随其后的 FlxG.resetState() 整个丢弃，白跑一遍 resyncVocals（重建 3 条流式音源）。
-	public var skipResumeOnClose:Bool = false;
-	// ===== 打点结束 =====
-
 	public static var chartCategory:String = null;
 	public static var chartDirectory:String = null;
 	public static var chartHasVSliceMetadata:Bool = false;
@@ -2145,7 +2130,7 @@ public function reloadCounterColors()
 		super.closeSubState();
 		
 		stagesFunc(function(stage:BaseStage) stage.closeSubState());
-		if (paused && !skipResumeOnClose)
+		if (paused)
 		{
 			if (FlxG.sound.music != null && !startingSong && canResync)
 			{
@@ -2158,7 +2143,6 @@ public function reloadCounterColors()
 			callOnScripts('onResume');
 			resetRPC(startTimer != null && startTimer.finished);
 		}
-		skipResumeOnClose = false;
 	}
 
 	#if DISCORD_ALLOWED
