@@ -386,6 +386,12 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 		STRING, ['new', 'psych', 'ke']);
 		addOption(option);
 
+		var option:Option = new Option('Lua Script Parser',
+		"Parse lua scripts before a song loads: native (off), check syntax only, or preload their assets",
+		'luaScriptParser',
+		STRING, ['native', 'check', 'preload']);
+		addOption(option);
+
 		super();
 		add(notes);
 		add(splashes);

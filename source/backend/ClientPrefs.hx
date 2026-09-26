@@ -216,6 +216,8 @@ import states.TitleState;
 	public var saveReplays:Bool = true;
 	public var replayQuality:Bool = true;
 	public var luadebugPrint:Bool = true;
+	// lua 静态解析模式：native（不解析）/ check（只校验语法）/ preload（抽资源预载）
+	public var luaScriptParser:String = 'native';
 
 	public var beamparticle:Bool = false;
 	public var particleAmount:Int = 1;

@@ -15,6 +15,7 @@ import flash.media.Sound;
 
 import backend.Song;
 import backend.StageData;
+import backend.LuaScriptPreload;
 import objects.Character;
 
 import sys.thread.Thread;
@@ -630,6 +631,11 @@ class LoadingState extends MusicBeatState
 				}
 			}
 			catch(e:Dynamic) {}
+
+			// lua 脚本静态解析（ClientPrefs.data.luaScriptParser 决定是否启用）。
+			// 放在这一段是因为此处 PlayState.SONG 已就绪，且早于 clearInvalids()，
+			// 抽出来的资源才能被正常校验并入队。
+			LuaScriptPreload.scanSong();
 			return true;
 		}, isIntrusive)
 		.then((_) -> new Future<Bool>(() -> {

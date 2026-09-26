@@ -335,7 +335,7 @@ class Note extends FlxSprite
 	}
 
 	/**
-	 * 回池前断开与其它 note 的引用链，避免静态池把整条旧链都吊住。
+	 * 回池前断开与其它 note 的引用链、并交还图集引用，避免静态池把整条旧链和旧图集都吊住。
 	 * 不 destroy —— 对象会进静态池跨歌复用，字段复位由 reuse()/resetForReuse() 负责。
 	 */
 	public function prepareForPool():Void
@@ -344,6 +344,13 @@ class Note extends FlxSprite
 		nextNote = null;
 		parent = null;
 		tail = [];
+
+		// 池里的对象跨歌存活，这期间 Paths.clearStoredMemory() / clearUnusedMemory() 会按 key
+		// 整片销毁图集（不看 useCount）：FlxGraphic.destroy() → FlxFramesCollection.destroy()
+		// 会把 frames.frames 置 null，而集合对象本身还挂在本对象上。留着这条指针，下次
+		// reuse() → resetForReuse() 复位 clipRect 时会经 set_clipRect 读 frames.frames[...] 抛空引用。
+		// set_frames(null) 连 graphic / frame 一起交出去，reloadNote() 会重新赋一套。
+		frames = null;
 	}
 
 	private function resetForReuse():Void

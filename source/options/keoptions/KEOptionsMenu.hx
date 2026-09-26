@@ -1390,6 +1390,7 @@ function onScrollChange()
 			KEOption.create("High Quality Replays", "Enable high-quality replays", "replayQuality", "bool"),
 			//KEOption.create("Replay Manager", "Manage and view ur Replays", "", "action"),
 			KEOption.create("Options Style", "Choose which options menu style to use", "optionstype", "string", ["new", "psych", "ke"]),
+			KEOption.create("Lua Script Parser", "Parse lua scripts before a song loads: native (off), check syntax only, or preload their assets", "luaScriptParser", "string", ["native", "check", "preload"]),
 			KEOption.createResetOption("Reset Settings", "settings"),
 			KEOption.createResetOption("Reset Scores", "scores"),
 			KEOption.create("About", "View information about the game", "", "action"),

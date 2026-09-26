@@ -25,6 +25,7 @@ class AdvancedData
         sub.add(new Option('Loading Screen', 'Show loading screen', 'loadingScreen', BOOL));
         sub.add(new Option('Lua Text Antialiasing', 'Enable antialiasing on lua texts', 'luatextantialiasing', BOOL));
         sub.add(new Option('Enable LUA Debug Printer', 'Uncheck it if u dont want to see them', 'luadebugPrint', BOOL));
+        sub.add(new Option('Lua Script Parser', 'Parse lua scripts before a song loads: native (off), check syntax only, or preload their assets', 'luaScriptParser', STRING, ['native', 'check', 'preload']));
         sub.add(new Option('Disable GC While Playing', 'Disable hxcpp garbage collection during gameplay', 'disablePlayStateGC', BOOL));
         sub.add(new Option('Discord RPC', 'Enable Discord Rich Presence', 'discordRPC', BOOL));
         sub.add(new Option('Replay', '[Score Menu and Replay Required]', 'saveReplays', BOOL));
