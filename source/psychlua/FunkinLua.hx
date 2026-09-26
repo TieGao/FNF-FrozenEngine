@@ -1635,7 +1635,7 @@ class FunkinLua {
 				return LuaUtils.Function_Continue;
 			}
 
-			for (arg in args) Convert.toLua(lua, arg);
+			for (arg in args) LuaConvert.toLua(lua, arg);
 			var status:Int = Lua.pcall(lua, args.length, 1, 0);
 
 			// Checks if it's not successful, then show a error.
@@ -1664,7 +1664,7 @@ class FunkinLua {
 			return;
 		}
 
-		Convert.toLua(lua, data);
+		LuaConvert.toLua(lua, data);
 		Lua.setglobal(lua, variable);
 	}
 

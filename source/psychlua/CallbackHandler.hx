@@ -46,7 +46,7 @@ class CallbackHandler
 			ret = Reflect.callMethod(null,cbf,args);
 
 			if(ret != null){
-				Convert.toLua(l, ret);
+				LuaConvert.toLua(l, ret);
 				return 1;
 			}
 		}
