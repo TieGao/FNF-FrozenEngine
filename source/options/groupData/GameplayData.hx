@@ -56,7 +56,7 @@ class GameplayData
         var sub1 = cat.section('Window', 'Window Settings');
 
         var marvelousWindow = new Option('Marvelous Window', 'Timing window for SICK', 'marvelousWindow', FLOAT);
-        marvelousWindow.minValue = 10;
+        marvelousWindow.minValue = 0;
         marvelousWindow.maxValue = 22.5;
         marvelousWindow.changeValue = 0.5;
         marvelousWindow.decimals = 2;

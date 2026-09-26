@@ -1173,7 +1173,7 @@ function onScrollChange()
 			"Window Settings",
 			"Configure window and timing settings",
 			[
-				KEOption.create("Marvelous Window", "Timing window for SICK", "marvelousWindow", "float", 22.5, 10, 22.5, 0.5),
+				KEOption.create("Marvelous Window", "Timing window for SICK", "marvelousWindow", "float", 22.5, 0, 22.5, 0.5),
 				KEOption.create("Sick Window", "Timing window for SICK", "sickWindow", "float", 45, 10, 45, 0.5),
 				KEOption.create("Good Window", "Timing window for GOOD", "goodWindow", "float", 90, 10, 90, 0.5),
 				KEOption.create("Bad Window", "Timing window for BAD", "badWindow", "float", 135, 10, 135, 0.5),
