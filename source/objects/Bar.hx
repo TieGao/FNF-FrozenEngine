@@ -1,6 +1,7 @@
 package objects;
 
 import flixel.math.FlxRect;
+import flixel.util.FlxGradient;
 
 class Bar extends FlxSpriteGroup
 {
@@ -73,6 +74,30 @@ class Bar extends FlxSpriteGroup
 			leftBar.color = left;
 		if (right != null)
 			rightBar.color = right;
+	}
+
+	/**
+	 * 用颜色数组给血条刷渐变。替代 HaxeFlixel FlxBar 的同名方法 —— 血条是 objects.Bar
+	 * （extends FlxSpriteGroup），没有 FlxBar 那套渲染管线。
+	 *
+	 * @param empty		空的部分（背景）渐变色，0xAARRGGBB
+	 * @param fill		填充部分渐变色，0xAARRGGBB
+	 * @param chunkSize	色块尺寸，越大越"复古"，1 = 平滑
+	 * @param rotation	渐变角度，90 = 上→下，180 = 左→右
+	 */
+	public function createGradientBar(empty:Array<FlxColor>, fill:Array<FlxColor>, chunkSize:Int = 1, rotation:Int = 180):Void
+	{
+		// 贴图尺寸必须跟 bg 一样大：regenerateClips() 是按 (0, 0, bg.width, bg.height) 建 clipRect 的，
+		// 若只给 barWidth(=bg.width-6) 那种小图，随后的 setGraphicSize/updateHitbox 会把它放大，
+		// 边缘被采样进 barOffset 那圈裁切区 → 发糊。
+		if (rightBar != null && empty != null && empty.length > 0)
+			rightBar.loadGraphic(FlxGradient.createGradientBitmapData(Std.int(bg.width), Std.int(bg.height), empty, chunkSize, rotation));
+
+		if (leftBar != null && fill != null && fill.length > 0)
+			leftBar.loadGraphic(FlxGradient.createGradientBitmapData(Std.int(bg.width), Std.int(bg.height), fill, chunkSize, rotation));
+
+		// loadGraphic 重置了 frame/_frame，必须走一遍 regenerateClips() 重设 graphicSize/hitbox/clipRect。
+		regenerateClips();
 	}
 
 	public function updateBar()

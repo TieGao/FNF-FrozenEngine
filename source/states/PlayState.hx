@@ -4152,7 +4152,11 @@ public function reloadCounterColors()
 	// Hold notes
 	private function keysCheck():Void
 	{
-		var totalKeys:Int = playerStrums.length;
+		// 键位数只由曲谱决定。不能用 playerStrums.length：mod 往 playerStrums 追加自定义 strum
+		// （本仓库里 SpaceNote.lua 加空格键、ShitnoHell.lua 加 4 条）后它会变成 5/8，键名随之切到
+		// note_5k_*/note_8k_*，玩家真实的 note_left/down/up/right 不再进 holdArray →
+		// holdArray[n.noteData] 恒 false → 所有普通长条都判不出「按住」。
+		var totalKeys:Int = totalColumns > 0 ? totalColumns : playerStrums.length;
 		var holdArray:Array<Bool> = [];
 		var holdArrayAlt:Array<Bool> = [];
 		var pressArray:Array<Bool> = [];

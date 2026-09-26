@@ -22,20 +22,17 @@ class GradientTimeBar extends Bar
         }
         
         // 创建渐变条
-        createGradientBar();
+        rebuildGradient();
         
         // 重新生成剪辑区域
         regenerateClips();
     }
     
-    function createGradientBar() {
-        // 使用父类的barWidth和barHeight
-        var gradientBitmap:BitmapData = createGradientBitmap(barWidth, barHeight, leftColor, rightColor);
-        leftBar = new FlxSprite().loadGraphic(gradientBitmap);
-        leftBar.antialiasing = ClientPrefs.data.antialiasing;
-        
-        // 将渐变条添加到组中
-        add(leftBar);
+    // 名字不能叫 createGradientBar：父类 Bar 现在有一个同名的公开方法（签名不同），
+    // 子类定义同名不同参的方法会报 "should be declared with 'override'" + "Different number of function arguments"。
+    // 直接复用父类那个方法，顺带把两边重复的渐变生成逻辑合并掉。
+    function rebuildGradient() {
+        createGradientBar([rightColor], [leftColor], 1, 180);
     }
     
     function createGradientBitmap(width:Int, height:Int, startColor:FlxColor, endColor:FlxColor):BitmapData {
@@ -67,7 +64,7 @@ class GradientTimeBar extends Bar
             remove(leftBar);
             leftBar.destroy();
         }
-        createGradientBar();
+        rebuildGradient();
         regenerateClips();
     }
     

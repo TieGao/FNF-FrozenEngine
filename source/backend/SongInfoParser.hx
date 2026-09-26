@@ -12,6 +12,7 @@ typedef ParsedSongInfo = {
     length:Float,
     formattedLength:String,
     noteCount:Int,
+    keyCount:Int,
     playerNoteCount:Int,
     opponentNoteCount:Int,
     difficultyRating:Float,
@@ -136,6 +137,7 @@ class SongInfoParser
                         length: songLength,
                         formattedLength: formatLength(songLength),
                         noteCount: totalNoteCount,
+                        keyCount: getKeyCount(swagSong),
                         playerNoteCount: sideCounts.player,
                         opponentNoteCount: sideCounts.opponent,
                         difficultyRating: selectedRating,
@@ -279,6 +281,7 @@ class SongInfoParser
         var bpm:Float = 0;
         var songLength:Float = 0;
         var noteCount:Int = 0;
+        var keyCount:Int = 0;
         var difficultyRating:Float = 0;
         var ratingText:String = "BEGINNER";
         var ratingColor:FlxColor = FlxColor.fromRGB(150, 150, 150);
@@ -297,6 +300,7 @@ class SongInfoParser
             var swagSong:SwagSong = Song.parseJSON(rawData);
 
             bpm = swagSong.bpm;
+            keyCount = getKeyCount(swagSong);
 
             // 获取歌曲时长
             if (swagSong.notes != null && swagSong.notes.length > 0)
@@ -354,6 +358,7 @@ class SongInfoParser
             length: songLength,
             formattedLength: formatLength(songLength),
             noteCount: noteCount,
+            keyCount: keyCount,
             playerNoteCount: sideCounts.player,
             opponentNoteCount: sideCounts.opponent,
             difficultyRating: difficultyRating,
@@ -386,6 +391,35 @@ class SongInfoParser
         return counts;
     }
 
+    /**
+     * 读取谱面键数。
+     * 优先级刻意与 Note.getColumnsPerPlayer 以及 Song.convert 保持一致
+     * （mania -> keyCount -> keycount，最后下限 4），保证三处对同一份谱面得到同一结果。
+     * 不直接调用 Note.getColumnsPerPlayer 是因为它 import states.PlayState，
+     * 会让 backend 包反向依赖 states，形成类型环。
+     */
+    private static function getKeyCount(swagSong:SwagSong):Int
+    {
+        if (swagSong == null) return 4;
+        var columns:Int = 4;
+        var value:Dynamic = Reflect.field(swagSong, 'mania');
+        if (Std.isOfType(value, Int))
+            columns = Std.int(value) + 1;
+        else
+        {
+            value = Reflect.field(swagSong, 'keyCount');
+            if (Std.isOfType(value, Int))
+                columns = Std.int(value);
+            else
+            {
+                value = Reflect.field(swagSong, 'keycount');
+                if (Std.isOfType(value, Int))
+                    columns = Std.int(value);
+            }
+        }
+        return Std.int(Math.max(4, columns));
+    }
+
     public static function formatLength(seconds:Float):String
     {
         if (seconds <= 0 || Math.isNaN(seconds)) return "0:00";
@@ -401,6 +435,7 @@ class SongInfoParser
             length: 0,
             formattedLength: "0:00",
             noteCount: 0,
+            keyCount: 0,
             playerNoteCount: 0,
             opponentNoteCount: 0,
             difficultyRating: 0,

@@ -35,6 +35,10 @@ typedef SwagSong =
 	@:optional var mania:Int;        // 键数-1 (3 = 4K, 15 = 16K)
     @:optional var keyCount:Int;     // 实际键数 (4-16)
     @:optional var keycount:Int;     // 兼容旧版
+    // 以"值域"而非"玩家/对手侧"编码轨道、且自行处理 noteData 的谱面（如自制多轨谱），
+    // 置 true 让 convert 原样保留 noteData。convert 的归一化公式本质假设
+    // noteData 用 mustHitSection 的 XOR 编码两侧；这类谱没有这层编码，硬套会毁数据。
+    @:optional var noConvert:Bool;
 }
 
 typedef SwagSection =
@@ -105,6 +109,21 @@ class Song
 		var sectionsData:Array<SwagSection> = songJson.notes;
 		if(sectionsData == null) return;
 
+		// 自管 noteData 的谱面：convert 的归一化公式假设 noteData 用 mustHitSection 的 XOR
+		// 编码"玩家/对手侧"，但这类谱往往用"值域区间"直接编码轨道，且自己在脚本里处理 noteData。
+		// 硬套公式会把值域区间打乱（实测会把多条轨合并），故原样返回。
+		if(songJson.noConvert == true) return;
+
+		// 归一化要按"每侧列数"来算，而不是写死 4。原实现 %4 / +4 只对 4K 成立，
+		// 任何多 k 谱（8K 等）都会被压扁、丢掉轨道身份。
+		// 读取优先级刻意与 Note.getColumnsPerPlayer 一致（mania -> keyCount -> keycount），
+		// 保证对真实多 k 谱两者结果相同。
+		var columns:Int = 4;
+		if(songJson.mania != null) columns = Std.int(songJson.mania) + 1;
+		else if(songJson.keyCount != null) columns = Std.int(songJson.keyCount);
+		else if(songJson.keycount != null) columns = Std.int(songJson.keycount);
+		columns = Std.int(Math.max(4, columns));
+
 		for (section in sectionsData)
 		{
 			var beats:Null<Float> = cast section.sectionBeats;
@@ -116,8 +135,8 @@ class Song
 
 			for (note in section.sectionNotes)
 			{
-				var gottaHitNote:Bool = (note[1] < 4) ? section.mustHitSection : !section.mustHitSection;
-				note[1] = (note[1] % 4) + (gottaHitNote ? 0 : 4);
+				var gottaHitNote:Bool = (note[1] < columns) ? section.mustHitSection : !section.mustHitSection;
+				note[1] = (note[1] % columns) + (gottaHitNote ? 0 : columns);
 
 				if(!Std.isOfType(note[3], String))
 					note[3] = Note.defaultNoteTypes[note[3]]; //compatibility with Week 7 and 0.1-0.3 psych charts

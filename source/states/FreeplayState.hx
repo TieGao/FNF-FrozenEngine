@@ -81,6 +81,7 @@ class FreeplayState extends MusicBeatState
     var scoreText:FlxText;
     var diffText:FlxText;
     var noteCountText:FlxText;
+    var keysText:FlxText;
     var difficultyRatingText:FlxText;
     var modFolderText:FlxText;
     var lerpScore:Int = 0;
@@ -331,7 +332,13 @@ class FreeplayState extends MusicBeatState
         noteCountText.color = 0xFFAAAAAA;
         add(noteCountText);
 
-        difficultyRatingText = new FlxText(scoreText.x, scoreText.y + 90, 0, "", 20);
+        keysText = new FlxText(scoreText.x, scoreText.y + 90, 0, "", 20);
+        keysText.antialiasing = ClientPrefs.data.antialiasing;
+        keysText.font = scoreText.font;
+        keysText.color = 0xFFAAAAAA;
+        add(keysText);
+
+        difficultyRatingText = new FlxText(scoreText.x, scoreText.y + 114, 0, "", 20);
         difficultyRatingText.antialiasing = ClientPrefs.data.antialiasing;
         difficultyRatingText.font = scoreText.font;
         difficultyRatingText.color = DiffRating.getColorFromRating(0);
@@ -1065,6 +1072,8 @@ class FreeplayState extends MusicBeatState
         {
             if (noteCountText != null)
                 noteCountText.text = Language.getPhrase('freeplay_notes_missing', 'NOTES: --');
+            if (keysText != null)
+                keysText.text = Language.getPhrase('freeplay_keys_missing', 'KEYS: --');
             if (difficultyRatingText != null)
             {
                 difficultyRatingText.text = Language.getPhrase('freeplay_rating_missing', 'RATING: --');
@@ -1081,6 +1090,7 @@ class FreeplayState extends MusicBeatState
         if (diffInfo != null)
         {
             noteCountText.text = Language.getPhrase('freeplay_notes_side', 'PLAYER: {1} / OPPONENT: {2}', [diffInfo.playerNoteCount, diffInfo.opponentNoteCount]);
+            keysText.text = Language.getPhrase('freeplay_keys', 'KEYS: {1}', [diffInfo.keyCount]);
             var rating:Float = getModeDifficultyRating(diffInfo);
             difficultyRatingText.text = Language.getPhrase('freeplay_rating', 'RATING: {1}', [rating]);
             difficultyRatingText.color = DiffRating.getColorFromRating(rating);
@@ -1088,6 +1098,7 @@ class FreeplayState extends MusicBeatState
         else
         {
             noteCountText.text = Language.getPhrase('freeplay_notes_missing', 'NOTES: --');
+            keysText.text = Language.getPhrase('freeplay_keys_missing', 'KEYS: --');
             difficultyRatingText.text = Language.getPhrase('freeplay_rating_missing', 'RATING: --');
             difficultyRatingText.color = DiffRating.getColorFromRating(0);
         }

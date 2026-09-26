@@ -111,6 +111,8 @@ freeplay_notes: "音符: {1}"
 freeplay_rating: "評分: {1}"
 freeplay_notes_side: "玩家: {1} / 對手: {2}"
 freeplay_notes_missing: "音符: --"
+freeplay_keys: "鍵數: {1}"
+freeplay_keys_missing: "鍵數: --"
 freeplay_rating_missing: "評分: --"
 freeplay_tip: "按SPACE試聽/按CTRL打開修改器選單/按RESET清除分數"
 

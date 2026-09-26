@@ -340,6 +340,8 @@ freeplay_notes: "音符: {1}"
 freeplay_rating: "评级: {1}"
 freeplay_notes_side: "玩家: {1} / 对手: {2}"
 freeplay_notes_missing: "音符: --"
+freeplay_keys: "键数: {1}"
+freeplay_keys_missing: "键数: --"
 freeplay_rating_missing: "评级: --"
 freeplay_tip: "按SPACE试听/按CTRL打开修改器菜单/按RESET清除分数"
 
