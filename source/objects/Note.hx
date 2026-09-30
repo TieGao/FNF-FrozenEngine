@@ -613,7 +613,7 @@ class Note extends FlxSprite
 			}
 			var keys = getColumnsPerPlayer();
 			var scale = getPixelNoteScaleForKeys(keys);
-			trace('[Note] Keys=$keys, Scale=$scale, Width=${width * scale}');
+			//trace('[Note] Keys=$keys, Scale=$scale, Width=${width * scale}');
 			setGraphicSize(Std.int(width * PlayState.daPixelZoom * scale));
 			loadPixelNoteAnims();
 			antialiasing = false;

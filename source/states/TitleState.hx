@@ -686,6 +686,11 @@ class TitleState extends MusicBeatState
 				#end
 			}
 			skippedIntro = true;
+
+			if (FlxG.sound.music != null && FlxG.sound.music.playing)
+			{
+				FlxG.sound.music.time = 9400; // 9.4 秒，按你的 freakyMenu 调整
+			}
 		}
 	}
 }

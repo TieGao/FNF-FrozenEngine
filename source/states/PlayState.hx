@@ -159,10 +159,23 @@ class PlayState extends MusicBeatState
 	public var unspawnNotes:Array<Note> = [];
 	public var eventNotes:Array<EventNote> = [];
 
-	// 跨 PlayState 实例/跨歌曲存活的 Note 池。池中对象不在任何被 update/draw 的组里。
+	// 跨 PlayState 实例存活的 Note 池。池中对象不在任何被 update/draw 的组里。
 	// 注意：HScript 回调（onSpawnNote / goodNoteHit / noteMiss）会把 Note 对象交给 mod，
-	// mod 若长期持有引用，跨歌后会读到被复用的对象 —— 这是池化的固有代价。
+	// mod 若长期持有引用，重开后读到的是被复用的对象 —— 这是池化的固有代价。
 	private static var notePool:Array<Note> = [];
+
+	// 池里这批对象属于哪首歌（歌名|难度|mod 目录）。换歌时整批丢弃，只保留"同一首歌重开"的复用。
+	// 复用对象会把上一首的残留状态带进下一首，渲染层最敏感（贴图 / 裁剪矩形 / alpha 都可能留下死值），
+	// 表现就是"第二首起某些固定位置的 note 看不见、但判定照常"。同歌重开（retry / 练习）才是池的收益点。
+	private static var notePoolOwner:String = null;
+
+	private static function discardNotePool():Void
+	{
+		for (note in notePool)
+			if (note != null) note.destroy();
+		notePool = [];
+		notePoolOwner = null;
+	}
 
 	public var camFollow:FlxObject;
 	private static var prevCamFollow:FlxObject;
@@ -1851,6 +1864,16 @@ public function reloadCounterColors()
 
 	private function generateSong():Void
 	{
+		// 换歌就丢掉上一首留下的池对象；同一首歌重开（retry / 练习）保留，那才是池的收益点。
+		// 谱面来源（category / directory）也算身份：同名歌的不同谱面（remix / 换难度）不能共用池。
+		var poolKey:String = songName + '|' + storyDifficulty + '|' + Mods.currentModDirectory
+			+ '|' + Paths.currentChartCategory + '|' + Paths.currentChartDirectory;
+		if (notePoolOwner != poolKey)
+		{
+			discardNotePool();
+			notePoolOwner = poolKey;
+		}
+
 		// FlxG.log.add(ChartParser.parse());
 		refreshColumnCount();
 		songSpeed = PlayState.SONG.speed;
@@ -3476,7 +3499,7 @@ public function reloadCounterColors()
         var antialias:Bool = uiInfo.antialias;
         
         // 处理Forever套系逻辑
-        var foreverLogic = processForeverUILogic(daRating, noteDiff, rawNoteDiff);
+        var foreverLogic = processForeverUILogic(daRating, noteDiff, effectiveNoteDiff);
         var ratingImageToUse:String = foreverLogic.imageName;
         var useGoldenNumbers:Bool = foreverLogic.useGoldenNumbers;
         
@@ -3525,7 +3548,7 @@ public function reloadCounterColors()
         rating.antialiasing = antialias;
 
 		var earlyLateSpr:FlxSprite = null;
-		if (!ClientPrefs.data.hideHud && daRating.name != "marvelous" && daRating.name != "sick")
+		if (!ClientPrefs.data.hideHud && daRating.name != "marvelous" && daRating.name != "sick" && ClientPrefs.data.customUI.toLowerCase().contains("forever") && ClientPrefs.data.showEarlyLate)
 		{
 			// 判断是early还是late
 			var isLate:Bool = effectiveNoteDiff > 0;
