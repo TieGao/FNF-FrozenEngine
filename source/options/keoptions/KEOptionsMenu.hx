@@ -1173,6 +1173,7 @@ function onScrollChange()
 			"Window Settings",
 			"Configure window and timing settings",
 			[
+				KEOption.create("Enable Marvelous", "Toggle the Marvelous judgement; when off those hits count as Sick", "marvelousEnabled", "bool"),
 				KEOption.create("Marvelous Window", "Timing window for SICK", "marvelousWindow", "float", 22.5, 0, 22.5, 0.5),
 				KEOption.create("Sick Window", "Timing window for SICK", "sickWindow", "float", 45, 10, 45, 0.5),
 				KEOption.create("Good Window", "Timing window for GOOD", "goodWindow", "float", 90, 10, 90, 0.5),

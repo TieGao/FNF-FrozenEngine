@@ -147,9 +147,11 @@ class HitGraph extends Sprite
         _labels = [];
 
         // 绘制判定区域线 - 使用ClientPrefs中的窗口值
-        // MARVELOUS 范围
-        drawJudgementLine(marvelousWindow, FlxColor.fromRGB(255, 215, 0));
-        drawJudgementLine(-marvelousWindow, FlxColor.fromRGB(255, 215, 0), "Marvelous");
+        // MARVELOUS 范围（关闭 Marvelous 开关时不画）
+        if (ClientPrefs.data.marvelousEnabled) {
+            drawJudgementLine(marvelousWindow, FlxColor.fromRGB(255, 215, 0));
+            drawJudgementLine(-marvelousWindow, FlxColor.fromRGB(255, 215, 0), "Marvelous");
+        }
         
         // SICK 范围
         drawJudgementLine(sickWindow, FlxColor.CYAN);
@@ -280,7 +282,7 @@ class HitGraph extends Sprite
     {
         var absDiff = Math.abs(diff);
         
-        if (absDiff <= marvelousWindow) {
+        if (ClientPrefs.data.marvelousEnabled && absDiff <= marvelousWindow) {
             return FlxColor.fromRGB(255, 215, 0); // Marvelous
         } else if (absDiff <= sickWindow) {
             return FlxColor.CYAN;                 // Sick

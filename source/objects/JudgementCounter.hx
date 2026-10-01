@@ -48,7 +48,7 @@ class JudgementCounter {
         if (ClientPrefs.data.showTNH) tempIndex++;
         if (ClientPrefs.data.showHC) tempIndex++;
         if (ClientPrefs.data.showCB) tempIndex++;
-        tempIndex++; // Marvelous
+        if (ClientPrefs.data.marvelousEnabled) tempIndex++; // Marvelous
         tempIndex++; // Sicks
         tempIndex++; // Goods
         tempIndex++; // Bads
@@ -84,9 +84,11 @@ class JudgementCounter {
         }
         
         // 评级统计（始终显示）
-        marvelousText = createText(startX, centeredY + verticalSpacing * currentIndex, textWidth, "Marvelous: 0", font, textSize, FlxColor.fromRGB(255,215,0), textAlign);
-        allTexts.push(marvelousText);
-        currentIndex++;
+        if (ClientPrefs.data.marvelousEnabled) {
+            marvelousText = createText(startX, centeredY + verticalSpacing * currentIndex, textWidth, "Marvelous: 0", font, textSize, FlxColor.fromRGB(255,215,0), textAlign);
+            allTexts.push(marvelousText);
+            currentIndex++;
+        }
         sickText = createText(startX, centeredY + verticalSpacing * currentIndex, textWidth, "Sicks: 0", font, textSize, FlxColor.fromRGB(0,191,255), textAlign);
         allTexts.push(sickText);
         currentIndex++;

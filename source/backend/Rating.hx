@@ -34,6 +34,8 @@ class Rating
 		rating.ratingMod = 1;
 		rating.score = 350; // 比 sick 更高
 		rating.noteSplash = true;
+		// 关闭 Marvelous 开关时窗口置 -1：judgeNote 里 |diff| <= -1 恒不成立，这些命中落到 Sick
+		if (!ClientPrefs.data.marvelousEnabled) rating.hitWindow = -1;
 		ratingsData.push(rating);
 		
 		var rating:Rating = new Rating('sick');

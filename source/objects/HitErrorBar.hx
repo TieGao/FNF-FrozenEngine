@@ -103,7 +103,7 @@ class HitErrorBar extends FlxSpriteGroup
     
     function createTimingBar()
     {
-        var marvWindow = ClientPrefs.data.marvelousWindow;
+        var marvWindow = ClientPrefs.data.marvelousEnabled ? ClientPrefs.data.marvelousWindow : 0;
         var sickWindow = ClientPrefs.data.sickWindow;
         var goodWindow = ClientPrefs.data.goodWindow;
         var badWindow = ClientPrefs.data.badWindow;
@@ -288,7 +288,7 @@ class HitErrorBar extends FlxSpriteGroup
     function getRatingName(ms:Float):String
     {
         var absMs = Math.abs(ms);
-        if (absMs <= ClientPrefs.data.marvelousWindow)
+        if (ClientPrefs.data.marvelousEnabled && absMs <= ClientPrefs.data.marvelousWindow)
             return 'marvelous';
         else if (absMs <= ClientPrefs.data.sickWindow)
             return 'sick';
@@ -312,7 +312,7 @@ class HitErrorBar extends FlxSpriteGroup
         var color:FlxColor;
         var ratingName = getRatingName(ms);
         
-        if (absMs <= ClientPrefs.data.marvelousWindow)
+        if (ClientPrefs.data.marvelousEnabled && absMs <= ClientPrefs.data.marvelousWindow)
             color = ratingColors['marvelous'];
         else if (absMs <= ClientPrefs.data.sickWindow)
             color = ratingColors['sick'];
@@ -442,7 +442,7 @@ class HitErrorBar extends FlxSpriteGroup
     function updatePointerColor()
     {
         var absMs = Math.abs(currentMS);
-        if (absMs <= ClientPrefs.data.marvelousWindow)
+        if (ClientPrefs.data.marvelousEnabled && absMs <= ClientPrefs.data.marvelousWindow)
             pointer.color = ratingColors['marvelous'];
         else if (absMs <= ClientPrefs.data.sickWindow)
             pointer.color = ratingColors['sick'];
@@ -466,7 +466,7 @@ class HitErrorBar extends FlxSpriteGroup
         bar.setPosition(xPos, timingBar.y - 12);
         var absMs = Math.abs(ms);
         var color:FlxColor;
-        if (absMs <= ClientPrefs.data.marvelousWindow)
+        if (ClientPrefs.data.marvelousEnabled && absMs <= ClientPrefs.data.marvelousWindow)
             color = ratingColors['marvelous'];
         else if (absMs <= ClientPrefs.data.sickWindow)
             color = ratingColors['sick'];

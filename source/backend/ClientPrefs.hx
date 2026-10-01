@@ -202,6 +202,8 @@ import states.TitleState;
 	public var comboOffset:Array<Int> = [0, 0, 0, 0];
 	public var ratingOffset:Int = 0;
 	public var marvelousWindow:Float = 22.5;
+	// Marvelous 判定开关；关闭后落在 Marvelous 窗口内的命中按 Sick 结算
+	public var marvelousEnabled:Bool = true;
 	public var sickWindow:Float = 45.0;
 	public var goodWindow:Float = 90.0;
 	public var badWindow:Float = 135.0;

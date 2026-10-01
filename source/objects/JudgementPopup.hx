@@ -45,7 +45,7 @@ class JudgementPopup
             return {imageName: imageName, useGoldenNumbers: useGoldenNumbers};
 
         if (ratingFC == "MFC" || ratingFC == "SFC"
-            || (noteDiff <= ClientPrefs.data.marvelousWindow
+            || (ClientPrefs.data.marvelousEnabled && noteDiff <= ClientPrefs.data.marvelousWindow
                 && rating.name != "shit" && rating.name != "bad" && rating.name != "good"))
         {
             return {imageName: "marvelous", useGoldenNumbers: true};

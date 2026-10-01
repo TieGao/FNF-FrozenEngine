@@ -55,6 +55,8 @@ class GameplayData
 
         var sub1 = cat.section('Window', 'Window Settings');
 
+        sub1.add(new Option('Enable Marvelous', 'Toggle the Marvelous judgement; when off those hits count as Sick', 'marvelousEnabled', BOOL));
+
         var marvelousWindow = new Option('Marvelous Window', 'Timing window for SICK', 'marvelousWindow', FLOAT);
         marvelousWindow.minValue = 0;
         marvelousWindow.maxValue = 22.5;

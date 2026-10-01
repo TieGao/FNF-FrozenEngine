@@ -74,6 +74,12 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 		option.maxValue = 30;
 		addOption(option);
 
+		var option:Option = new Option('Enable Marvelous',
+			"If unchecked, the Marvelous judgement is disabled and\nthose hits count as Sick! instead.",
+			'marvelousEnabled',
+			BOOL);
+		addOption(option);
+
 		var option:Option = new Option('Marvelous Hit Window',
 			'Changes the amount of time you have\nfor hitting a "Marvelous" in milliseconds.',
 			'marvelousWindow',
