@@ -85,13 +85,13 @@ jobs:
 
           # ================= macOS x86_64 =================
           - name: macOS x86_64
-            os: macos-latest
+            os: macos-26
             setupCommand: sh ./setup/unix.sh
             buildArgs: "mac -64 -D HXCPP_M64"
             artifactName: macOSBuild-x86_64
             artifactPath: export/release/macos/bin/*
           - name: macOS x86_64 No Extra
-            os: macos-latest
+            os: macos-26
             setupCommand: sh ./setup/unix.sh
             buildArgs: "mac -64 -D HXCPP_M64 -D NO_EXTRA_BASE_GAME"
             artifactName: macOSBuild-x86_64-no-extra
