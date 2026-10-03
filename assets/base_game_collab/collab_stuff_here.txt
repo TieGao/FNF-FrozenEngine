@@ -1,0 +1,14 @@
+联动（collab）内容放这里。
+
+目录结构和 assets/base_game/ 保持一致（songs/、shared/、videos/ 等），
+编译时经 rename="assets" 合并进同一个 assets/ 虚拟树。
+
+原版目前只有 LE SSERAFIM 这一个联动，涉及：
+  songs/spaghetti/                      联动曲音轨
+  shared/data/spaghetti/                联动曲谱面
+  shared/data/levels  -> sserafim.json  关卡（capsule 名 "SP. COLLAB 1"）
+  shared/data/stages  -> sserafim.json  舞台
+  shared/data/characters -> sserafim-*.json   6 个角色
+  shared/images/、shared/sounds/、shared/scripts/  对应美术、过场音、脚本
+
+对应编译宏 BASE_GAME_COLLAB（挂在 BASE_GAME_FILES 下，父开关关掉则整个目录不参与构建）。

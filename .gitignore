@@ -11,7 +11,7 @@ export/*
 HaxeToolkit/
 #.github/
 .workbuddy-ai/*
-
+.workbuddy/*
 *.code-workspace
 vs_Community.exe
 # Local history which shouldn't be shared.

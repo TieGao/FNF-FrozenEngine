@@ -39,6 +39,10 @@ typedef SwagSong =
     // 置 true 让 convert 原样保留 noteData。convert 的归一化公式本质假设
     // noteData 用 mustHitSection 的 XOR 编码两侧；这类谱没有这层编码，硬套会毁数据。
     @:optional var noConvert:Bool;
+
+    // 专辑 id（对应 assets/shared/albums/<id>.json）。原版挂在每个变体上，
+    // 本引擎只读当前难度那一份，缺失时显示层回退到默认难度档。
+    @:optional var album:String;
 }
 
 typedef SwagSection =

@@ -861,7 +861,18 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 				return;
 			case BOOL:
 				opt.setValue(!(opt.getValue() == true));
-			case INT, FLOAT, PERCENT, STRING, COLOR:
+			case STRING:
+				// 回车 = 打开下拉逐项选；左右键仍然是循环改值
+				var sel:options.objects.backend.StringSelect = selectedStringSelect();
+				if (sel != null)
+				{
+					sel.openPopup(true);
+					FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+					return;
+				}
+				adjustSelected(1);
+				return;
+			case INT, FLOAT, PERCENT, COLOR:
 				adjustSelected(1);
 				return;
 			case KEYBIND:
@@ -935,6 +946,34 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 				&& cast(w, options.objects.backend.ColorSelect).isOpen) return true;
 		}
 		return false;
+	}
+
+	/** 当前选中行的字符串下拉控件（不是这种控件时返回 null） */
+	function selectedStringSelect():options.objects.backend.StringSelect
+	{
+		if (selectedRow < 0 || selectedRow >= rows.length) return null;
+
+		var w:FlxSpriteGroup = rows[selectedRow].widget;
+		if (w != null && Std.isOfType(w, options.objects.backend.StringSelect))
+			return cast(w, options.objects.backend.StringSelect);
+		return null;
+	}
+
+	/**
+	 * 正在展开的字符串下拉。
+	 * 它支持键盘逐项选（见 StringSelect.handleKeyNav），宿主得把按键让给它；
+	 * ColorSelect 仍是纯鼠标驱动的，不在其中。
+	 */
+	function findOpenStringSelect():options.objects.backend.StringSelect
+	{
+		for (r in rows)
+		{
+			var w:FlxSpriteGroup = r.widget;
+			if (w != null && Std.isOfType(w, options.objects.backend.StringSelect)
+				&& cast(w, options.objects.backend.StringSelect).isOpen)
+				return cast(w, options.objects.backend.StringSelect);
+		}
+		return null;
 	}
 
 	/** 统一开关面板里控件的鼠标响应（动画过程中关掉，避免误触） */
@@ -1061,6 +1100,11 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 
 		// inputModal：模态控件（等按键）正在消费输入，面板这一轮什么都不做
 		if (isAnimating || closing || inputModal) return;
+
+		// 字符串下拉展开时，方向键 / 回车 / ESC 归它自己 —— 键盘也能开列表逐项选。
+		// 放在返回分支之前：否则 ESC 会去收整个面板，而不是先收起下拉。
+		var openSel:options.objects.backend.StringSelect = findOpenStringSelect();
+		if (openSel != null && openSel.handleKeyNav()) return;
 
 		// ---------- 返回：ESC / 右键 / 顶部返回按钮走同一条路 ----------
 		if (controls.BACK || FlxG.mouse.justPressedRight)

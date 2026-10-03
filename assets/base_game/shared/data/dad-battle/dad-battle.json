@@ -1,5 +1,6 @@
 {
 	"song": {
+		"album": "volume1",
 		"player1": "bf",
 		"events": [],
 		"gfVersion": null,

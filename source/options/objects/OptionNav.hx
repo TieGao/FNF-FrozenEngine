@@ -69,7 +69,8 @@ class OptionNav
 	}
 
 	/**
-	 * 回车激活：ACTION 直接执行、BOOL 切换、其它类型等同往右调整一次。
+	 * 回车激活：ACTION 直接执行、BOOL 切换、STRING 有下拉控件时打开列表逐项选、
+	 * 其余类型等同往右调整一次。
 	 * @return 是否真的改了值（ACTION 返回 false，但它已经执行了动作）
 	 */
 	public static function activate(opt:Option, ?widget:FlxSpriteGroup):Bool
@@ -85,7 +86,17 @@ class OptionNav
 			case BOOL:
 				opt.setValue(!(opt.getValue() == true));
 
-			case INT, FLOAT, PERCENT, STRING, COLOR:
+			case STRING:
+				// 回车 = 打开下拉逐项选（左右键仍然是循环改值）
+				if (widget != null && Std.isOfType(widget, options.objects.backend.StringSelect))
+				{
+					cast(widget, options.objects.backend.StringSelect).openPopup(true);
+					FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+					return true;
+				}
+				return adjust(opt, 1, widget);
+
+			case INT, FLOAT, PERCENT, COLOR:
 				return adjust(opt, 1, widget);
 
 			case KEYBIND:

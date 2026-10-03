@@ -5,20 +5,19 @@ import backend.WeekData;
 import backend.Highscore;
 import backend.Song;
 import backend.SongArtConfig;
+import backend.SongMetaConfig;
 import backend.SongInfoParser;
 import backend.CustomChartData;
 import backend.CustomChartMetadata;
 
 import objects.HealthIcon;
-import objects.MusicPlayerLegacy;
-import objects.CharacterArtDisplay;
-import objects.SongArtDisplay;
-import objects.ToolBar;
 
+// Freeplay 专用组件全在 states.freeplay 下，一条通配导入省得逐个维护
+import states.freeplay.*;
+
+import backend.AlbumConfig;
 import options.psychoptions.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
-import substates.ModFolderSubstate;
-import substates.SearchSubState;
 
 import flixel.math.FlxMath;
 import flixel.util.FlxDestroyUtil;
@@ -76,14 +75,19 @@ class FreeplayState extends MusicBeatState
     // 独立的艺术图显示模块
     var songArtDisplay:SongArtDisplay;
     var characterArtDisplay:CharacterArtDisplay;
+    var albumArtDisplay:AlbumArtDisplay;
+    var difficultyCarousel:DifficultyCarousel;
 
     var scoreBG:FlxFilteredSprite;
     var scoreText:FlxText;
     var diffText:FlxText;
     var noteCountText:FlxText;
-    var keysText:FlxText;
     var difficultyRatingText:FlxText;
     var modFolderText:FlxText;
+    // 右下角补充信息（音乐人 / 谱师 / 游玩次数），纯文字，无面板
+    var musicanText:FlxText;
+    var charterText:FlxText;
+    var playCountText:FlxText;
     var lerpScore:Int = 0;
     var lerpRating:Float = 0;
     var intendedScore:Int = 0;
@@ -218,6 +222,7 @@ class FreeplayState extends MusicBeatState
             Mods.currentModDirectory = ClientPrefs.data.customChartModFolder;
 
         SongArtConfig.loadAllConfigs();
+        SongMetaConfig.loadAllConfigs();
         // 艺术图与背景按当前歌曲懒加载，避免歌曲/模组数量把 Freeplay 入口峰值推高。
 
         if (songs.length == 0)
@@ -282,6 +287,10 @@ class FreeplayState extends MusicBeatState
         songArtDisplay = new SongArtDisplay();
         add(songArtDisplay);
 
+        // 专辑封面：没配 characterArt 的歌由它顶上右侧同一个位置（判断在 showCharacterForIndex）
+        albumArtDisplay = new AlbumArtDisplay();
+        add(albumArtDisplay);
+
         if (ClientPrefs.data.freeplayspace)
         {
             space.alpha = 1;
@@ -325,23 +334,30 @@ class FreeplayState extends MusicBeatState
         diffText.font = scoreText.font;
         add(diffText);
 
+        // 难度改由下方 carousel 展示。这个控件留着不删 —— changeDiff 和
+        // positionHighscore 还在写它的 text / x。
+        diffText.visible = false;
+
         noteCountText = new FlxText(scoreText.x, scoreText.y + 66, 0, "", 20);
         noteCountText.antialiasing = ClientPrefs.data.antialiasing;
         noteCountText.font = scoreText.font;
         noteCountText.color = 0xFFAAAAAA;
         add(noteCountText);
 
-        keysText = new FlxText(scoreText.x, scoreText.y + 90, 0, "", 20);
-        keysText.antialiasing = ClientPrefs.data.antialiasing;
-        keysText.font = scoreText.font;
-        keysText.color = 0xFFAAAAAA;
-        add(keysText);
-
-        difficultyRatingText = new FlxText(scoreText.x, scoreText.y + 114, 0, "", 20);
+        difficultyRatingText = new FlxText(scoreText.x, scoreText.y + 90, 0, "", 20);
         difficultyRatingText.antialiasing = ClientPrefs.data.antialiasing;
         difficultyRatingText.font = scoreText.font;
         difficultyRatingText.color = DiffRating.getColorFromRating(0);
         add(difficultyRatingText);
+
+        // 右下角补充信息：音乐人 / 谱师 / 游玩次数（FE 风格，纯文字，无面板）
+        // 往下挪，给难度 carousel 让位（carousel 占 FlxG.height*0.75 上下各 28px）
+        musicanText = makeSongMetaText(FlxG.height - 140);
+        charterText = makeSongMetaText(FlxG.height - 116);
+        playCountText = makeSongMetaText(FlxG.height - 92);
+        add(musicanText);
+        add(charterText);
+        add(playCountText);
 
         if (ClientPrefs.data.freeplayspace)
         {
@@ -358,6 +374,11 @@ class FreeplayState extends MusicBeatState
             topBar.alpha = 0.75;
             add(topBar);
         }
+
+        // 必须在 topBar 之后 add —— 卡片都插在 cardLayer 之前，只有排在 topBar 后面的
+        // 元素才画在卡片之上。中心 x 取 FlxG.width - 200，和角色图/专辑封面的中心对齐。
+        difficultyCarousel = new DifficultyCarousel(FlxG.width - 200, FlxG.height * 0.75);
+        add(difficultyCarousel);
 
 
        if (ClientPrefs.data.freeplaySearch)
@@ -515,6 +536,9 @@ class FreeplayState extends MusicBeatState
         }
         
         changeDiff();
+        // carousel 在 create 早期就 new 出来了，但那时 Difficulty.list 还没定；
+        // 这里（loadFromWeek / setCustomDifficultyList 之后）才是首次填充。
+        rebuildDifficultyCarousel();
         showArtForIndex(curSelected, false);
         showCharacterForIndex(curSelected, false);
         updateCornerGlow();
@@ -551,6 +575,7 @@ class FreeplayState extends MusicBeatState
         updateSongInfoTexts();
         updateCardDifficultyInfo();
         updateTexts();
+        rebuildDifficultyCarousel();
 
         var start:Int = visibleCardMin;
         var end:Int = visibleCardMax;
@@ -594,6 +619,14 @@ class FreeplayState extends MusicBeatState
             else
             {
                 difficulties = Difficulty.defaultList.copy();
+            }
+
+            // 从 week.json 的 songs 元组里取音乐人 / 谱师（旧版 3 元组会返回 null）
+            var songEntry:Array<Dynamic> = WeekData.findSongEntry(weekData, songName);
+            if (songEntry != null)
+            {
+                song.songMusican = WeekData.getSongMusican(songEntry);
+                song.songCharters = WeekData.getSongCharters(songEntry);
             }
         }
         else
@@ -744,6 +777,13 @@ class FreeplayState extends MusicBeatState
             if (!Reflect.hasField(info, field) || Reflect.field(info, field) == null)
                 return false;
         }
+
+        // album 只要求"键存在"，不要求非空 —— 没有专辑的歌写的就是 null。
+        // 这同时是缓存格式的门：加 album 之前写的缓存条目没有这个键，会被判无效、
+        // 整条重新解析一次。少了它，旧缓存永远命中，专辑封面一直拿不到 id。
+        if (!Reflect.hasField(info, 'album'))
+            return false;
+
         return true;
     }
 
@@ -769,7 +809,10 @@ class FreeplayState extends MusicBeatState
                 difficultyRatingOpponent: info.difficultyRatingOpponent,
                 difficultyRatingCoop: info.difficultyRatingCoop,
                 ratingText: info.ratingText,
-                ratingColor: info.ratingColor
+                ratingColor: info.ratingColor,
+                // 缓存必须带上 album，否则开了 saveFreeplayCache 的玩家拿不到封面。
+                // 注意 isParsedSongInfoValid 的 requiredFields 不能加它 —— 老缓存没这个字段。
+                album: info.album
             });
         }
         return entry;
@@ -1057,9 +1100,9 @@ class FreeplayState extends MusicBeatState
             if (card == null) continue;
             var diffInfo:ParsedSongInfo = songs[i].difficultyInfo.get(currentDiffName);
             if (diffInfo != null)
-                card.updateDifficultyInfo(diffInfo.bpm, diffInfo.formattedLength, diffInfo.noteCount, getModeDifficultyRating(diffInfo));
+                card.updateDifficultyInfo(diffInfo.bpm, diffInfo.formattedLength, diffInfo.noteCount, getModeDifficultyRating(diffInfo), diffInfo.keyCount);
             else
-                card.updateDifficultyInfo(0, "0:00", 0, 0.0);
+                card.updateDifficultyInfo(0, "0:00", 0, 0.0, 0);
         }
     }
     
@@ -1069,13 +1112,12 @@ class FreeplayState extends MusicBeatState
         {
             if (noteCountText != null)
                 noteCountText.text = Language.getPhrase('freeplay_notes_missing', 'NOTES: --');
-            if (keysText != null)
-                keysText.text = Language.getPhrase('freeplay_keys_missing', 'KEYS: --');
             if (difficultyRatingText != null)
             {
                 difficultyRatingText.text = Language.getPhrase('freeplay_rating_missing', 'RATING: --');
                 difficultyRatingText.color = DiffRating.getColorFromRating(0);
             }
+            updateSongMetaTexts();
             return;
         }
 
@@ -1087,7 +1129,6 @@ class FreeplayState extends MusicBeatState
         if (diffInfo != null)
         {
             noteCountText.text = Language.getPhrase('freeplay_notes_side', 'PLAYER: {1} / OPPONENT: {2}', [diffInfo.playerNoteCount, diffInfo.opponentNoteCount]);
-            keysText.text = Language.getPhrase('freeplay_keys', 'KEYS: {1}', [diffInfo.keyCount]);
             var rating:Float = getModeDifficultyRating(diffInfo);
             difficultyRatingText.text = Language.getPhrase('freeplay_rating', 'RATING: {1}', [rating]);
             difficultyRatingText.color = DiffRating.getColorFromRating(rating);
@@ -1095,10 +1136,68 @@ class FreeplayState extends MusicBeatState
         else
         {
             noteCountText.text = Language.getPhrase('freeplay_notes_missing', 'NOTES: --');
-            keysText.text = Language.getPhrase('freeplay_keys_missing', 'KEYS: --');
             difficultyRatingText.text = Language.getPhrase('freeplay_rating_missing', 'RATING: --');
             difficultyRatingText.color = DiffRating.getColorFromRating(0);
         }
+
+        updateSongMetaTexts();
+    }
+
+    function makeSongMetaText(y:Float):FlxText
+    {
+        var t:FlxText = new FlxText(FlxG.width - 320, y, 300, "", 18);
+        t.setFormat(Paths.font("vcr.ttf"), 18, 0xFFAAAAAA, RIGHT, OUTLINE, FlxColor.BLACK);
+        t.borderSize = 1;
+        t.antialiasing = ClientPrefs.data.antialiasing;
+        t.scrollFactor.set();
+        return t;
+    }
+
+    /**
+     * 右下角补充信息：音乐人 / 谱师 / 游玩次数。
+     * 数据来源优先级：songMeta.json 覆盖层 > week.json 元组 > 留空（该行不显示）。
+     */
+    function updateSongMetaTexts()
+    {
+        if (musicanText == null || charterText == null || playCountText == null) return;
+
+        if (!ClientPrefs.data.freeplaySongMeta)
+        {
+            musicanText.visible = charterText.visible = playCountText.visible = false;
+            return;
+        }
+        musicanText.visible = charterText.visible = playCountText.visible = true;
+
+        if (songs == null || songs.length == 0 || curSelected < 0 || curSelected >= songs.length)
+        {
+            musicanText.text = "";
+            charterText.text = "";
+            playCountText.text = "";
+            return;
+        }
+
+        var song:NewSongMetaData = songs[curSelected];
+
+        var musican:String = SongMetaConfig.getMusicanForSong(song.songName, song.folder);
+        if (musican == null || musican.length == 0) musican = song.songMusican;
+        musicanText.text = (musican != null && musican.length > 0)
+            ? Language.getPhrase('freeplay_musican', 'BY: {1}', [musican]) : "";
+
+        var diffName:String = Difficulty.getString(curDifficulty, false);
+        var charter:String = SongMetaConfig.getCharterForSong(song.songName, diffName, curDifficulty, song.folder);
+        if ((charter == null || charter.length == 0) && song.songCharters != null && song.songCharters.length > 0)
+        {
+            var idx:Int = curDifficulty;
+            if (idx < 0) idx = 0;
+            if (idx >= song.songCharters.length) idx = song.songCharters.length - 1;
+            charter = song.songCharters[idx];
+        }
+        charterText.text = (charter != null && charter.length > 0)
+            ? Language.getPhrase('freeplay_charter', 'CHARTER: {1}', [charter]) : "";
+
+        var songLowercase:String = Paths.formatToSongPath(song.songName);
+        var plays:Int = Highscore.getPlayCount(songLowercase, curDifficulty, song.folder, ClientPrefs.getGameplaySetting('opponentplay'));
+        playCountText.text = Language.getPhrase('freeplay_plays', 'PLAYS: {1}', [plays]);
     }
     
     public function togglePlaySong():Void
@@ -1380,10 +1479,24 @@ class FreeplayState extends MusicBeatState
                 #end
                 {
                     var info = SongInfoParser.preloadAllDifficulties(item.songName, item.folder, item.difficulties, item.weekData);
-                    item.song.difficultyInfo = info;
+
+                    // 合并进已有的 map，不能整体替换：命中缓存时 item.difficulties 只是
+                    // 「缺的那几档」，替换会把已经解析好的评级丢掉，缓存条目也会被改写成只剩一半
+                    // —— 症状是难度评级时有时无，且每次启动在两个子集之间来回翻转。
+                    if (item.song.difficultyInfo == null)
+                        item.song.difficultyInfo = new Map<String, ParsedSongInfo>();
+                    for (diffName in info.keys())
+                        item.song.difficultyInfo.set(diffName, info.get(diffName));
+
                     if (ClientPrefs.data.saveFreeplayCache)
                     {
-                        freeplaySongCache.set(item.cacheKey, buildFreeplayCacheEntry(info));
+                        var entry:Dynamic = freeplaySongCache.get(item.cacheKey);
+                        if (entry == null || entry.data == null)
+                            entry = {data: {}};
+                        var fresh:Dynamic = buildFreeplayCacheEntry(info);
+                        for (field in Reflect.fields(fresh.data))
+                            Reflect.setField(entry.data, field, Reflect.field(fresh.data, field));
+                        freeplaySongCache.set(item.cacheKey, entry);
                         freeplayCacheDirty = true;
                     }
                 }
@@ -1391,6 +1504,10 @@ class FreeplayState extends MusicBeatState
                 {
                     updateCardDifficultyInfo();
                     updateSongInfoTexts();
+                    // album 和评级数字都是异步到达的，到了要一起刷新
+                    showCharacterForIndex(curSelected, false);
+                    if (difficultyCarousel != null)
+                        difficultyCarousel.refreshRatings(carouselRatingProvider);
                 }
             }
             catch(e:Dynamic)
@@ -1432,7 +1549,7 @@ class FreeplayState extends MusicBeatState
             
             FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
             persistentUpdate = false;
-            openSubState(new substates.LoadReplaySubState(
+            openSubState(new LoadReplaySubState(
                 this,
                 songs[curSelected].songName,
                 songs[curSelected].folder,
@@ -1445,12 +1562,24 @@ class FreeplayState extends MusicBeatState
             openModFolderSelector();
         }
 
-        if (FlxG.mouse.justPressed && FlxG.mouse.overlaps(diffText))
+        // 点难度方块：点别的块 = 切难度（音效由 changeDiff -> setSelected 放），
+        // 点当前选中的那块 = 直接开始这首歌。
+        if (FlxG.mouse.justPressed && difficultyCarousel != null)
         {
-            changeDiff(1);
-            _updateSongLastDifficulty();
-            updateCardDifficultyInfo();
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+            var hitDiff:Int = difficultyCarousel.tryClick();
+            if (hitDiff >= 0)
+            {
+                if (hitDiff == curDifficulty)
+                {
+                    selectSong();
+                }
+                else
+                {
+                    changeDiff(hitDiff - curDifficulty);
+                    _updateSongLastDifficulty();
+                    updateCardDifficultyInfo();
+                }
+            }
         }
 
         var shiftMult:Int = 1;
@@ -1622,12 +1751,14 @@ class FreeplayState extends MusicBeatState
         mouseOverCard = newMouseOverCard;
     }
     
-    function selectSong()
+    /**
+     * 把当前选中的谱面加载进 PlayState.SONG（进入游戏 / 编辑器的公共部分）。
+     * 成功返回 true；失败时写 missingText 并返回 false。
+     */
+    function loadSongIntoPlayState():Bool
     {
-        if (curSelected < 0 || curSelected >= songs.length) return;
+        if (curSelected < 0 || curSelected >= songs.length) return false;
 
-        persistentUpdate = false;
-        releasePreviewAudio();
         var songLowercase:String = Paths.formatToSongPath(songs[curSelected].songName);
         var poop:String = Highscore.formatSong(songLowercase, curDifficulty);
 
@@ -1664,8 +1795,63 @@ class FreeplayState extends MusicBeatState
             missingTextBG.visible = true;
             FlxG.sound.play(Paths.sound('cancelMenu'));
 
-            return;
+            return false;
         }
+
+        return true;
+    }
+
+    /**
+     * 游玩次数 +1。键走 Highscore.formatSong，保证模组隔离与 opponentplay 分档一致。
+     * 练习模式 / botplay 默认不计（ClientPrefs.data.countPracticePlays）。
+     */
+    function countSongPlay():Void
+    {
+        if (curSelected < 0 || curSelected >= songs.length) return;
+
+        var isPractice:Bool = ClientPrefs.getGameplaySetting('practice') == true;
+        var isBotplay:Bool = ClientPrefs.getGameplaySetting('botplay') == true;
+        if ((isPractice || isBotplay) && !ClientPrefs.data.countPracticePlays) return;
+
+        var songLowercase:String = Paths.formatToSongPath(songs[curSelected].songName);
+        Highscore.savePlayCount(songLowercase, curDifficulty, songs[curSelected].folder, ClientPrefs.getGameplaySetting('opponentplay'));
+    }
+
+    /**
+     * 从 Freeplay 直接进入谱面编辑器（Toolbar 的 EDITOR 按钮）。
+     * ChartingState 从 PlayState.SONG 读谱，所以必须先加载成功。
+     */
+    public function openChartEditor():Void
+    {
+        if (!loadSongIntoPlayState()) return;
+
+        persistentUpdate = false;
+        releasePreviewAudio();
+
+        @:privateAccess
+        if(PlayState._lastLoadedModDirectory != Mods.currentModDirectory)
+            Paths.freeGraphicsFromMemory();
+
+        LoadingState.prepareToSong();
+        LoadingState.loadAndSwitchState(new states.editors.ChartingState(), false);
+        stopMusicPlay = true;
+
+        destroyFreeplayVocals();
+        #if (MODS_ALLOWED && DISCORD_ALLOWED)
+        DiscordClient.loadModRPC();
+        #end
+    }
+
+    function selectSong()
+    {
+        if (curSelected < 0 || curSelected >= songs.length) return;
+
+        persistentUpdate = false;
+        releasePreviewAudio();
+
+        if (!loadSongIntoPlayState()) return;
+
+        countSongPlay();
 
         @:privateAccess
         if(PlayState._lastLoadedModDirectory != Mods.currentModDirectory)
@@ -1761,6 +1947,16 @@ class FreeplayState extends MusicBeatState
 
         updateCardDifficultyInfo();
         updateSongInfoTexts();
+        // 专辑是按难度取的（原版每个变体一个 album），换难度要重挑一次封面
+        showCharacterForIndex(curSelected, false);
+
+        if (difficultyCarousel != null)
+        {
+            // 只有用户主动切（change != 0）才响 —— create / changeSelection 里的
+            // 无参 changeDiff() 不该出声
+            difficultyCarousel.setSelected(curDifficulty, change != 0);
+            difficultyCarousel.refreshRatings(carouselRatingProvider);
+        }
     }
 
     function openSearchSubstate()
@@ -1879,6 +2075,10 @@ class FreeplayState extends MusicBeatState
         
         changeDiff();
         _updateSongLastDifficulty();
+
+        // 难度列表刚按周/谱面重设过，carousel 得跟着重建；且必须放在 curDifficulty
+        // 定稿之后 —— 上面那句 changeDiff() 就是定稿点。
+        rebuildDifficultyCarousel();
         
         showArtForIndex(curSelected, true);
         showCharacterForIndex(curSelected, true);
@@ -1941,7 +2141,49 @@ class FreeplayState extends MusicBeatState
     function showCharacterForIndex(index:Int, animated:Bool)
     {
         if (index < 0 || index >= songs.length) return;
-        characterArtDisplay.showCharacter(songs[index].songName, songs[index].folder, animated);
+
+        // 角色图优先：配了 characterArt 就显示它，否则用专辑封面顶上同一个位置。
+        // 这个判断放在宿主而不是组件里 —— 两个组件互不知道对方，编排留给宿主。
+        var hasChar:Bool = characterArtDisplay.showCharacter(songs[index].songName, songs[index].folder, animated);
+        if (hasChar)
+            albumArtDisplay.hide();
+        else
+            albumArtDisplay.showAlbum(getAlbumIdForCurrentDiff(index), songs[index].folder, animated);
+    }
+
+    /**
+     * 取当前难度对应的专辑 id。当前难度没写 album 就回退到默认难度那一档。
+     * 难度信息是异步解析的，没到之前返回 null（封面先不显示，到了会再调一次）。
+     */
+    function getAlbumIdForCurrentDiff(index:Int):String
+    {
+        if (index < 0 || index >= songs.length) return null;
+
+        // difficultyInfo 的 key 是原始难度名，不是译文 —— 所以传 false。
+        var info:ParsedSongInfo = songs[index].difficultyInfo.get(Difficulty.getString(curDifficulty, false));
+        if (info != null && info.album != null) return info.album;
+
+        var baseInfo:ParsedSongInfo = songs[index].difficultyInfo.get(Difficulty.getDefault());
+        return baseInfo == null ? null : baseInfo.album;
+    }
+
+    /** 难度列表变了就重建 carousel（块数、名字都跟着变）。 */
+    function rebuildDifficultyCarousel():Void
+    {
+        if (difficultyCarousel == null) return;
+        difficultyCarousel.rebuild(Difficulty.list, curDifficulty);
+        difficultyCarousel.refreshRatings(carouselRatingProvider);
+    }
+
+    /** carousel 每块下面的评级数字。负数 = 这一档还没解析出来。 */
+    function carouselRatingProvider(index:Int):Float
+    {
+        if (curSelected < 0 || curSelected >= songs.length) return -1;
+
+        // 和 updateCardDifficultyInfo 一样按原始难度名查 —— difficultyInfo 的 key 不是译文。
+        var info:ParsedSongInfo = songs[curSelected].difficultyInfo.get(Difficulty.getString(index, false));
+        if (info == null) return -1;
+        return getModeDifficultyRating(info);
     }
 
     inline private function _updateSongLastDifficulty()
@@ -1965,6 +2207,22 @@ class FreeplayState extends MusicBeatState
         var modFolder = new ModFolderSubstate(this);
         inModFolderSelector = true;
         openSubState(modFolder);
+    }
+
+    /**
+     * 供 ModFolderSubstate 显示「该模组下有多少首歌」。folder 为空表示全部。
+     */
+    public function getSongCountForFolder(?folder:String = null):Int
+    {
+        if (folder == null || folder.length == 0)
+            return (allSongs != null) ? allSongs.length : ((songs != null) ? songs.length : 0);
+
+        if (songsByFolder != null && songsByFolder.exists(folder))
+        {
+            var list:Array<NewSongMetaData> = songsByFolder.get(folder);
+            return (list != null) ? list.length : 0;
+        }
+        return 0;
     }
 
     public function onModFolderChanged()
@@ -2046,6 +2304,7 @@ class FreeplayState extends MusicBeatState
         updateSongInfoTexts();
         showArtForIndex(curSelected, false);
         showCharacterForIndex(curSelected, false);
+        rebuildDifficultyCarousel();
         if (toolBar != null)
             toolBar.refreshChartModeButtons();
     }
@@ -2109,11 +2368,11 @@ class FreeplayState extends MusicBeatState
         if (!FlxG.sound.music.playing && !stopMusicPlay)
             FlxG.sound.playMusic(Paths.music('freakyMenu'));
 
-        if (songArtDisplay != null)
-            songArtDisplay.destroy();
-            
-        if (characterArtDisplay != null)
-            characterArtDisplay.destroy();
+        // 上面的 super.destroy() 已经销毁了全部成员（这 4 个都是 add() 进来的），
+        // 再显式 destroy 一遍是多余的 —— 而且 DifficultyCarousel 是 FlxTypedGroup，
+        // 二次 destroy 会撞上 members == null（在这里崩过）。
+
+        AlbumConfig.reset();
     }
 }   
 
@@ -2128,6 +2387,11 @@ class NewSongMetaData
     
     public var difficultyInfo:Map<String, ParsedSongInfo> = new Map<String, ParsedSongInfo>();
     public var customChart:CustomChartMetadata = null;
+
+    /** 音乐人 / 作曲（来自 week.json 元组第 4 项） */
+    public var songMusican:String = null;
+    /** 各难度谱师（来自 week.json 元组第 5 项，按本曲难度顺序） */
+    public var songCharters:Array<String> = null;
     
     public function new(song:String, week:Int, songCharacter:String, color:Int)
     {
@@ -2158,6 +2422,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
     
     public var bpmText:FlxText;
     public var lengthText:FlxText;
+    public var keysText:FlxText;
     private var ratingText:FlxText;
 
     public var isCardSelected:Bool = false;
@@ -2188,7 +2453,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         textSprite.scrollFactor.set();
         add(textSprite);
 
-        bpmText = new FlxText(x + 60, y + 35, 150, 'BPM: --', 14);
+        bpmText = new FlxText(x + 60, y + 35, 110, 'BPM: --', 14);
         bpmText.antialiasing = ClientPrefs.data.antialiasing;
         bpmText.setFormat(Paths.font("vcr.ttf"), 14, 0xFFAAAAAA, LEFT);
         bpmText.borderSize = 1;
@@ -2196,13 +2461,21 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         bpmText.scrollFactor.set();
         add(bpmText);
         
-        lengthText = new FlxText(x + 220, y + 35, 150, 'LENGTH: 0:00', 14);
+        lengthText = new FlxText(x + 180, y + 35, 130, 'LENGTH: 0:00', 14);
         lengthText.antialiasing = ClientPrefs.data.antialiasing;
         lengthText.setFormat(Paths.font("vcr.ttf"), 14, 0xFFAAAAAA, LEFT);
         lengthText.borderSize = 1;
         lengthText.borderColor = FlxColor.BLACK;
         lengthText.scrollFactor.set();
         add(lengthText);
+
+        keysText = new FlxText(x + 320, y + 35, 80, 'KEYS: --', 14);
+        keysText.antialiasing = ClientPrefs.data.antialiasing;
+        keysText.setFormat(Paths.font("vcr.ttf"), 14, 0xFFAAAAAA, LEFT);
+        keysText.borderSize = 1;
+        keysText.borderColor = FlxColor.BLACK;
+        keysText.scrollFactor.set();
+        add(keysText);
         
         var oldModDir = Mods.currentModDirectory;
         Mods.currentModDirectory = this.folder;
@@ -2240,7 +2513,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         // 发光已移除，这里只保留状态，不执行额外操作
     }
     
-    public function updateDifficultyInfo(bpm:Float, formattedLength:String, ?noteCount:Int = 0, ?difficultyRating:Float = 0.0)
+    public function updateDifficultyInfo(bpm:Float, formattedLength:String, ?noteCount:Int = 0, ?difficultyRating:Float = 0.0, ?keyCount:Int = 0)
     {
         if (bpm > 0)
         {
@@ -2251,6 +2524,9 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
             bpmText.text = 'BPM: --';
             
         lengthText.text = 'LENGTH: $formattedLength';
+
+        if (keysText != null)
+            keysText.text = (keyCount > 0) ? 'KEYS: $keyCount' : 'KEYS: --';
     }
     
     public function updateRatingSprite(?mode:String = null)
@@ -2336,6 +2612,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
             ratingSprite.visible = ratingSprite.active = false;
             bpmText.visible = bpmText.active = false;
             lengthText.visible = lengthText.active = false;
+            keysText.visible = keysText.active = false;
             return;
         }
         
@@ -2346,6 +2623,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         ratingSprite.visible = ratingSprite.active = true;
         bpmText.visible = bpmText.active = true;
         lengthText.visible = lengthText.active = true;
+        keysText.visible = keysText.active = true;
         
         var middleY = FlxG.height * 0.5;
         var spacing = 80;
@@ -2365,8 +2643,11 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         bpmText.x = targetX + 60;
         bpmText.y = targetYPos + 35;
         
-        lengthText.x = targetX + 220;
+        lengthText.x = targetX + 180;
         lengthText.y = targetYPos + 35;
+
+        keysText.x = targetX + 320;
+        keysText.y = targetYPos + 35;
         
         icon.x = targetX - 80;
         icon.y = targetYPos - 45;
@@ -2400,6 +2681,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         ratingSprite.alpha = alpha;
         bpmText.alpha = alpha;
         lengthText.alpha = alpha;
+        keysText.alpha = alpha;
     }
     
     public function checkMouseOver():Bool
@@ -2416,5 +2698,6 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         ratingSprite.alpha = alphat;
         bpmText.alpha = alphat;
         lengthText.alpha = alphat;
+        keysText.alpha = alphat;
     }
 }

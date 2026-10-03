@@ -1,0 +1,10 @@
+Pico mix 的资源放这里。
+
+目录结构和 assets/base_game/ 保持一致（songs/、shared/ 等），
+编译时经 rename="assets" 合并进同一个 assets/ 虚拟树。
+
+例：
+  assets/base_game_pico/songs/fresh/Inst-pico.ogg
+  -> assets/songs/fresh/Inst-pico.ogg
+
+对应编译宏 BASE_GAME_PICO（挂在 BASE_GAME_FILES 下，父开关关掉则整个目录不参与构建）。

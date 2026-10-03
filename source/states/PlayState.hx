@@ -90,6 +90,13 @@ class PlayState extends MusicBeatState
 
 	//event variables
 	private var isCameraOnForcedPos:Bool = false;
+	#if BASE_GAME_ERECT
+	private var erectCameraTargetTween:FlxTween;
+	private var erectCameraZoomTween:FlxTween;
+	private var erectCameraBopEnabled:Bool = false;
+	private var erectCameraBopRate:Int = 4;
+	private var erectCameraBopIntensity:Float = 1;
+	#end
 
 	public var boyfriendMap:Map<String, Character> = new Map<String, Character>();
 	public var dadMap:Map<String, Character> = new Map<String, Character>();
@@ -718,6 +725,17 @@ class PlayState extends MusicBeatState
 			case 'tank': new Tank();					//Week 7 - Ugh, Guns, Stress
 			case 'phillyStreets': new PhillyStreets(); 	//Weekend 1 - Darnell, Lit Up, 2Hot
 			case 'phillyBlazin': new PhillyBlazin();	//Weekend 1 - Blazin
+			#if BASE_GAME_ERECT
+			case 'stage-erect': new StageErect();	//Week 1 Erect
+			case 'spooky-erect': new SpookyErect();	//Week 2 Erect
+			case 'philly-erect': new PhillyErect();	//Week 3 Erect
+			case 'limo-erect': new LimoErect();		//Week 4 Erect
+			case 'mall-erect': new MallErect();		//Week 5 Erect
+			case 'school-erect': new SchoolErect();	//Week 6 Erect - Senpai, Roses
+			case 'schoolEvil-erect': new SchoolEvilErect();	//Week 6 Erect - Thorns
+			case 'tank-erect': new TankErect();		//Week 7 Erect - Ugh
+			case 'phillyStreets-erect': new PhillyStreetsErect();	//Weekend 1 Erect - Darnell
+			#end
 			case 'audiostage': new AudioStage();		
 		}
 		if(isPixelStage) introSoundsSuffix = '-pixel';
@@ -1574,12 +1592,14 @@ class PlayState extends MusicBeatState
 
 				if(!skipArrowStartTween)
 				{
+					var middleActive:Bool = middleScrollActive();
 					notes.forEachAlive(function(note:Note) {
-						if(ClientPrefs.data.opponentStrums || note.mustPress)
+						var cpuNote:Bool = noteIsCpuSide(note);
+						if(ClientPrefs.data.opponentStrums || !cpuNote)
 						{
 							note.copyAlpha = false;
 							note.alpha = ClientPrefs.data.noteAlpha;
-							if(ClientPrefs.data.middleScroll && !note.mustPress)
+							if(middleActive && cpuNote)
 								note.alpha *= 0.35;
 						}
 					});
@@ -1927,21 +1947,36 @@ public function reloadCounterColors()
 		noteHoldCover = new NoteHoldCover();
 		noteGroup.add(noteHoldCover);
 
-		try
+		// 变体的事件不能混入 base 的事件：events.json 的查找只按歌名、不带变体后缀，
+		// 沿用 base 那份的话 strumTime 是 base BPM 的，套在变体音轨上会整体错位。
+		// 所以变体优先读 events-<变体>.json（各首已按自己的 base/erect BPM 换算过），读不到才回退。
+		// 后缀取 getAudioVariant() 而不是 chartAudioSuffix：后者不认 nightmare，
+		// 而 nightmare 与 erect 共用音轨，同样得拿 erect 的事件。
+		var eventsChart:SwagSong = null;
+		var eventVariant:String = Difficulty.getAudioVariant();
+		var eventSuffix:String = (eventVariant != null && eventVariant.length > 0) ? '-' + eventVariant.toLowerCase() : null;
+		if (eventSuffix != null)
 		{
-			var eventsChart:SwagSong = Song.getChart('events', songName);
-			if(eventsChart != null)
-				for (event in eventsChart.events) //Event Notes
-					for (i in 0...event[1].length)
-						makeEvent(event, i);
+			// 两段 try 必须分开写：getChart 对缺失文件是抛异常，共用一段会把 base 回退一起吞掉
+			try { eventsChart = Song.getChart('events' + eventSuffix, songName); }
+			catch (e:Dynamic) {}
 		}
-		catch(e:Dynamic) {}
+		if (eventsChart == null)
+		{
+			try { eventsChart = Song.getChart('events', songName); }
+			catch (e:Dynamic) {}
+		}
+		if(eventsChart != null)
+			for (event in eventsChart.events) //Event Notes
+				for (i in 0...event[1].length)
+					makeEvent(event, i);
 
 		var oldNote:Note = null;
 		// 幽灵音先记账、生成循环结束后再回池：当场回池会被同一轮的 obtainNote 立刻复用，
 		// 而它可能仍是别的 note 的 prevNote/oldNote，会把链搞乱。
 		var ghostReclaim:Array<Note> = [];
 		var sectionsData:Array<SwagSection> = PlayState.SONG.notes;
+		var middleActive:Bool = middleScrollActive(); // coop 下恒 false
 		
 		// Apply mirror notes if enabled
 		if (ClientPrefs.getGameplaySetting('mirrornotes'))
@@ -2055,27 +2090,37 @@ public function reloadCounterColors()
 							oldNote.resizeByRatio(curStepCrochet / Conductor.stepCrochet);
 						}
 
-						if (sustainNote.mustPress) sustainNote.x += FlxG.width / 2; // general offset
-						else if(ClientPrefs.data.middleScroll)
+					if(middleActive)
+					{
+						// CPU 侧被挤到屏幕边缘，人类操作的一侧居中（对手模式下互换）
+						if(noteIsCpuSide(sustainNote))
 						{
 							sustainNote.x += 310;
 							if(noteColumn > 1) //Up and Right
 								sustainNote.x += FlxG.width / 2 + 25;
 						}
+						else sustainNote.x += FlxG.width / 2;
+					}
+					else if (sustainNote.mustPress) sustainNote.x += FlxG.width / 2; // general offset
 					}
 				}
 
-				if (swagNote.mustPress)
+				if(middleActive)
+				{
+					// CPU 侧被挤到屏幕边缘，人类操作的一侧居中（对手模式下互换）
+					if(noteIsCpuSide(swagNote))
+					{
+						swagNote.x += 310;
+						if(noteColumn > 1) //Up and Right
+						{
+							swagNote.x += FlxG.width / 2 + 25;
+						}
+					}
+					else swagNote.x += FlxG.width / 2;
+				}
+				else if (swagNote.mustPress)
 				{
 					swagNote.x += FlxG.width / 2; // general offset
-				}
-				else if(ClientPrefs.data.middleScroll)
-				{
-					swagNote.x += 310;
-					if(noteColumn > 1) //Up and Right
-					{
-						swagNote.x += FlxG.width / 2 + 25;
-					}
 				}
 				if(!noteTypes.contains(swagNote.noteType))
 					noteTypes.push(swagNote.noteType);
@@ -2096,6 +2141,14 @@ public function reloadCounterColors()
 	// called only once per different event (Used for precaching)
 	function eventPushed(event:EventNote) {
 		eventPushedUnique(event);
+		#if BASE_GAME_ERECT
+		if (event.event == 'Set Camera Zoom' || event.event == 'Set Camera Bop')
+		{
+			// 这套混音使用独立的相机节奏，避免与默认的四拍变焦叠加。
+			erectCameraBopEnabled = true;
+			camZoomingMult = 0;
+		}
+		#end
 		if(eventsPushed.contains(event.event)) {
 			return;
 		}
@@ -2161,18 +2214,20 @@ public function reloadCounterColors()
 	public var skipArrowStartTween:Bool = false; //for lua
 	private function generateStaticArrows(player:Int):Void
 	{
+		var middleActive:Bool = middleScrollActive(); // coop 下恒 false
+		var cpuSide:Bool = strumGroupIsCpuSide(player); // 该组是否为 CPU 自动演奏的一侧
 		var screenWidthRatio:Float = FlxG.width / 1280.0;
-		var strumLineX:Float = ClientPrefs.data.middleScroll ? STRUM_X_MIDDLESCROLL * screenWidthRatio : STRUM_X * screenWidthRatio * screenWidthRatio * screenWidthRatio * screenWidthRatio;
+		var strumLineX:Float = middleActive ? STRUM_X_MIDDLESCROLL * screenWidthRatio : STRUM_X * screenWidthRatio * screenWidthRatio * screenWidthRatio * screenWidthRatio;
 		var strumLineY:Float = ClientPrefs.data.downScroll ? (FlxG.height - 150) : 50;
 		var columns:Int = totalColumns > 0 ? totalColumns : Note.getColumnsPerPlayer(SONG);
 		for (i in 0...columns)
 		{
 			// FlxG.log.add(i);
 			var targetAlpha:Float = ClientPrefs.data.noteAlpha;
-			if (player < 1)
+			if (cpuSide)
 			{
 				if(!ClientPrefs.data.opponentStrums) targetAlpha = 0;
-				else if(ClientPrefs.data.middleScroll) targetAlpha = 0.35;
+				else if(middleActive) targetAlpha = 0.35;
 			}
 
 			var babyArrow:StrumNote = new StrumNote(strumLineX, strumLineY, i, player);
@@ -2188,15 +2243,25 @@ public function reloadCounterColors()
 			if (player == 1)
 				playerStrums.add(babyArrow);
 			else
+				opponentStrums.add(babyArrow);
+
+			// 视觉分组（谁在左半屏谁在右半屏）仍由 player 决定，与 getStrumGroup() 保持一致；
+			// middlescroll 只是在此之上把 CPU 侧挤到屏幕边缘、把人类操作的一侧拉到屏幕中央。
+			// 必须在 babyArrow.playerPosition() 之前做，因为 playerPosition 会再加 (FlxG.width / 2) * player。
+			if (middleActive)
 			{
-				if(ClientPrefs.data.middleScroll)
+				if (cpuSide)
 				{
+					if (player > 0) babyArrow.x -= FlxG.width / 2; // 抵消 playerPosition 给 player 组加的右半屏基准
 					babyArrow.x += 310 * screenWidthRatio;
 					if(i > 1) { //Up and Right
 						babyArrow.x += FlxG.width / 2 + 25 * screenWidthRatio;
 					}
 				}
-				opponentStrums.add(babyArrow);
+				else if (player < 1)
+				{
+					babyArrow.x += FlxG.width / 2; // opponent 组没有右半屏基准，补上才能居中（对手模式下它由人类操作）
+				}
 			}
 
 			strumLineNotes.add(babyArrow);
@@ -2800,6 +2865,17 @@ public function reloadCounterColors()
 					char.specialAnim = true;
 				}
 
+			#if BASE_GAME_ERECT
+			case 'Set Camera Target':
+				setErectCameraTarget(value1, value2);
+
+			case 'Set Camera Zoom':
+				setErectCameraZoom(value1, value2);
+
+			case 'Set Camera Bop':
+				setErectCameraBop(value1, value2);
+			#end
+
 			case 'Camera Follow Pos':
 				if(camFollow != null)
 				{
@@ -2980,6 +3056,131 @@ public function reloadCounterColors()
 		stagesFunc(function(stage:BaseStage) stage.eventCalled(eventName, value1, value2, flValue1, flValue2, strumTime));
 		callOnScripts('onEvent', [eventName, value1, value2, strumTime]);
 	}
+
+	#if BASE_GAME_ERECT
+	private function getErectEase(name:String):Dynamic
+	{
+		var easing:Dynamic = Reflect.field(FlxEase, name);
+		return (easing != null) ? easing : FlxEase.linear;
+	}
+
+	private function setErectCameraTarget(value1:String, value2:String):Void
+	{
+		if (camFollow == null) return;
+
+		var targetData:Array<String> = (value1 == null ? '' : value1).split(',');
+		var targetName:String = targetData[0].trim().toLowerCase();
+		if (targetName.length == 0)
+		{
+			if (erectCameraTargetTween != null) erectCameraTargetTween.cancel();
+			erectCameraTargetTween = null;
+			isCameraOnForcedPos = false;
+			FlxG.camera.target = camFollow;
+			return;
+		}
+
+		var target:Character = null;
+		var targetType:Int = -1;
+		switch (targetName)
+		{
+			case 'bf' | 'boyfriend' | '0': target = boyfriend; targetType = 0;
+			case 'dad' | 'opponent' | '1': target = dad; targetType = 1;
+			case 'gf' | 'girlfriend' | '2': target = gf; targetType = 2;
+		}
+
+		var targetX:Float = 0;
+		var targetY:Float = 0;
+		if (target != null)
+		{
+			var midpoint = target.getMidpoint();
+			switch (targetType)
+			{
+				case 0:
+					targetX = midpoint.x - target.cameraPosition[0] + boyfriendCameraOffset[0] - 100;
+					targetY = midpoint.y + target.cameraPosition[1] + boyfriendCameraOffset[1] - 100;
+				case 1:
+					targetX = midpoint.x + target.cameraPosition[0] + opponentCameraOffset[0] + 150;
+					targetY = midpoint.y + target.cameraPosition[1] + opponentCameraOffset[1] - 100;
+				case 2:
+					targetX = midpoint.x + target.cameraPosition[0] + girlfriendCameraOffset[0];
+					targetY = midpoint.y + target.cameraPosition[1] + girlfriendCameraOffset[1];
+			}
+		}
+
+		if (targetData.length > 1)
+		{
+			var offsetX:Float = Std.parseFloat(targetData[1].trim());
+			if (!Math.isNaN(offsetX)) targetX += offsetX;
+		}
+		if (targetData.length > 2)
+		{
+			var offsetY:Float = Std.parseFloat(targetData[2].trim());
+			if (!Math.isNaN(offsetY)) targetY += offsetY;
+		}
+
+		isCameraOnForcedPos = true;
+		if (erectCameraTargetTween != null) erectCameraTargetTween.cancel();
+		var transition:Array<String> = (value2 == null ? '' : value2).split(',');
+		var steps:Float = transition.length > 0 ? Std.parseFloat(transition[0].trim()) : 0;
+		if (Math.isNaN(steps) || steps <= 0)
+		{
+			erectCameraTargetTween = null;
+			FlxG.camera.target = camFollow;
+			camFollow.setPosition(targetX, targetY);
+			return;
+		}
+
+		var easeName:String = (transition.length > 1) ? transition[1].trim() : 'linear';
+		var easing:Float->Float = cast getErectEase(easeName);
+		var duration:Float = Conductor.stepCrochet * steps / 1000 / Math.max(0.001, playbackRate);
+		FlxG.camera.target = null;
+		camFollow.setPosition(targetX - FlxG.width / 2, targetY - FlxG.height / 2);
+		// 直接 tween scroll，避免再叠一层 camera.follow 的平滑延迟。
+		erectCameraTargetTween = FlxTween.tween(FlxG.camera.scroll, {x: targetX - FlxG.width / 2, y: targetY - FlxG.height / 2}, duration, {ease: easing, onComplete: function(_) { erectCameraTargetTween = null; }});
+	}
+
+	private function setErectCameraZoom(value1:String, value2:String):Void
+	{
+		var zoomData:Array<String> = (value1 == null ? '' : value1).split(',');
+		var targetZoom:Float = zoomData.length > 0 ? Std.parseFloat(zoomData[0].trim()) : Math.NaN;
+		if (Math.isNaN(targetZoom)) return;
+		if (zoomData.length > 1 && zoomData[1].trim().toLowerCase() == 'stage')
+		{
+			var stageData:StageFile = StageData.getStageFile(curStage);
+			if (stageData != null) targetZoom *= stageData.defaultZoom;
+		}
+
+		camZoomingMult = 0;
+		erectCameraBopEnabled = true;
+		if (erectCameraZoomTween != null) erectCameraZoomTween.cancel();
+		var transition:Array<String> = (value2 == null ? '' : value2).split(',');
+		var steps:Float = transition.length > 0 ? Std.parseFloat(transition[0].trim()) : 0;
+		if (Math.isNaN(steps) || steps <= 0)
+		{
+			erectCameraZoomTween = null;
+			defaultCamZoom = targetZoom;
+			return;
+		}
+
+		var easeName:String = (transition.length > 1) ? transition[1].trim() : 'linear';
+		var easing:Float->Float = cast getErectEase(easeName);
+		var duration:Float = Conductor.stepCrochet * steps / 1000 / Math.max(0.001, playbackRate);
+		erectCameraZoomTween = FlxTween.tween(this, {defaultCamZoom: targetZoom}, duration, {ease: easing, onComplete: function(_) { erectCameraZoomTween = null; }});
+	}
+
+	private function setErectCameraBop(value1:String, value2:String):Void
+	{
+		var rate:Float = (value1 == null || value1.trim().length == 0) ? 4 : Std.parseFloat(value1.trim());
+		var intensity:Float = (value2 == null || value2.trim().length == 0) ? 1 : Std.parseFloat(value2.trim());
+		if (Math.isNaN(rate)) rate = 4;
+		if (Math.isNaN(intensity)) intensity = 1;
+		erectCameraBopRate = Std.int(Math.max(0, Math.round(rate)));
+		erectCameraBopIntensity = intensity;
+		erectCameraBopEnabled = true;
+		camZoomingMult = 0;
+		camZooming = true;
+	}
+	#end
 
 	public function moveCameraSection(?sec:Null<Int>):Void {
 		if(sec == null) sec = curSection;
@@ -4708,6 +4909,10 @@ public function reloadCounterColors()
 
 		hscriptArray = null;
 		#end
+		#if BASE_GAME_ERECT
+		if (erectCameraTargetTween != null) erectCameraTargetTween.cancel();
+		if (erectCameraZoomTween != null) erectCameraZoomTween.cancel();
+		#end
 		stagesFunc(function(stage:BaseStage) stage.destroy());
 
 		#if VIDEOS_ALLOWED
@@ -4799,6 +5004,16 @@ public function reloadCounterColors()
 		super.beatHit();
 		lastBeatHit = curBeat;
 
+		#if BASE_GAME_ERECT
+		if (erectCameraBopEnabled && erectCameraBopRate > 0 && ClientPrefs.data.camZooms
+			&& curBeat % erectCameraBopRate == 0 && FlxG.camera.zoom < 1.35)
+		{
+			FlxG.camera.zoom += 0.015 * erectCameraBopIntensity;
+			camHUD.zoom += 0.03 * erectCameraBopIntensity;
+			camZooming = true;
+		}
+		#end
+
 		setOnScripts('curBeat', curBeat);
 		callOnScripts('onBeatHit');
 	}
@@ -4827,7 +5042,7 @@ public function reloadCounterColors()
 			if (generatedMusic && !endingSong && !isCameraOnForcedPos)
 				moveCameraSection();
 
-			if (camZooming && FlxG.camera.zoom < 1.35 && ClientPrefs.data.camZooms)
+			if (camZooming && #if BASE_GAME_ERECT !erectCameraBopEnabled && #end FlxG.camera.zoom < 1.35 && ClientPrefs.data.camZooms)
 			{
 				FlxG.camera.zoom += 0.015 * camZoomingMult;
 				camHUD.zoom += 0.03 * camZoomingMult;
@@ -5296,6 +5511,28 @@ public function reloadCounterColors()
 	public function isSplitCoopMode():Bool
 	{
 		return opponentMode == "coop_split";
+	}
+
+	// middlescroll 是否真正生效。coop 两侧都由人类操作，没有理由只把一侧居中 → 静默失效。
+	// 不要加 inline：函数体调用了 private 的 isCoopMode()，内联展开到外部类会编译失败。
+	public function middleScrollActive():Bool
+	{
+		return ClientPrefs.data.middleScroll && !isCoopMode();
+	}
+
+	// 该 strum 组是否为 CPU 自动演奏（非人类操作）的一侧。player: 0 = opponentStrums, 1 = playerStrums
+	public function strumGroupIsCpuSide(player:Int):Bool
+	{
+		if (isCoopMode()) return false; // coop 两侧都是人
+		return (opponentMode == "opponent") ? player > 0 : player < 1;
+	}
+
+	// 该 note 是否属于 CPU 自动演奏（非人类操作）的一侧
+	public function noteIsCpuSide(note:Note):Bool
+	{
+		if (note == null) return false;
+		if (isCoopMode()) return false; // coop 两侧都是人
+		return (opponentMode == "opponent") ? note.mustPress : !note.mustPress;
 	}
 
 	private function get_health():Float

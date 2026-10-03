@@ -120,13 +120,24 @@ class LuaScriptPreload
 		var out:Array<String> = [];
 		addEventNames(song.events, out);
 
-		// 事件也可能单独放在 data/<歌>/events.json 里，PlayState 会一并读
-		try
+		// 事件也可能单独放在 data/<歌>/events.json 里，PlayState 会一并读。
+		// 变体优先读 events-<变体>.json，与 PlayState 的查找保持一致，
+		// 否则预载的事件脚本名会和实际触发的事件对不上。
+		var eventsChart:SwagSong = null;
+		var eventVariant:String = Difficulty.getAudioVariant();
+		var eventSuffix:String = (eventVariant != null && eventVariant.length > 0) ? '-' + eventVariant.toLowerCase() : null;
+		if (eventSuffix != null)
 		{
-			var eventsChart:SwagSong = Song.getChart('events', folder);
-			if (eventsChart != null) addEventNames(eventsChart.events, out);
+			// 两段 try 必须分开写：getChart 对缺失文件是抛异常，共用一段会把 base 回退一起吞掉
+			try { eventsChart = Song.getChart('events' + eventSuffix, folder); }
+			catch (e:Dynamic) {}
 		}
-		catch (e:Dynamic) {}
+		if (eventsChart == null)
+		{
+			try { eventsChart = Song.getChart('events', folder); }
+			catch (e:Dynamic) {}
+		}
+		if (eventsChart != null) addEventNames(eventsChart.events, out);
 
 		return out;
 	}

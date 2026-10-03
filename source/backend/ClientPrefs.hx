@@ -134,6 +134,10 @@ import states.TitleState;
 	public var modInfoBox:Bool = true;
 	public var toolBar:Bool = true;
 	public var freeplaySearch:Bool = true;
+	// Freeplay 右下角补充信息（音乐人 / 谱师 / 游玩次数）
+	public var freeplaySongMeta:Bool = true;
+	// 练习模式 / botplay 是否计入游玩次数（默认不计）
+	public var countPracticePlays:Bool = false;
 	public var charmPause:Bool = false;
 	// 暂停菜单（substates.NewPauseSubState）的动画与输入开关
 	public var pauseSkipFadeIn:Bool = false;            // 跳过开场滑入动画

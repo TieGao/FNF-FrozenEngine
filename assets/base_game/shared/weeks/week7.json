@@ -44,5 +44,7 @@
 	],
 	"hideStoryMode": false,
 	"weekBefore": "week6",
-	"startUnlocked": true
+	"startUnlocked": true,
+
+	"difficulties": "Easy,Normal,Hard,Erect,Nightmare"
 }

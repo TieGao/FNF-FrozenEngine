@@ -20,7 +20,9 @@ typedef ParsedSongInfo = {
     difficultyRatingOpponent:Float,
     difficultyRatingCoop:Float,
     ratingText:String,
-    ratingColor:FlxColor
+    ratingColor:FlxColor,
+    // 专辑 id，取自谱面 JSON 的 album 字段。null = 这首歌没有封面。
+    album:String
 }
 
 class SongInfoParser
@@ -145,7 +147,8 @@ class SongInfoParser
                         difficultyRatingOpponent: opponentRating,
                         difficultyRatingCoop: coopRating,
                         ratingText: ratingText,
-                        ratingColor: ratingColor
+                        ratingColor: ratingColor,
+                        album: swagSong.album
                     });
                 }
                 catch(e:Dynamic)
@@ -289,6 +292,7 @@ class SongInfoParser
         var playerRating:Float = 0.0;
         var opponentRating:Float = 0.0;
         var coopRating:Float = 0.0;
+        var album:String = null;
 
         if (rawData == null || rawData.length == 0)
         {
@@ -301,6 +305,7 @@ class SongInfoParser
 
             bpm = swagSong.bpm;
             keyCount = getKeyCount(swagSong);
+            album = swagSong.album;
 
             // 获取歌曲时长
             if (swagSong.notes != null && swagSong.notes.length > 0)
@@ -366,7 +371,8 @@ class SongInfoParser
             difficultyRatingOpponent: opponentRating,
             difficultyRatingCoop: coopRating,
             ratingText: ratingText,
-            ratingColor: ratingColor
+            ratingColor: ratingColor,
+            album: album
         };
     }
 
@@ -443,7 +449,8 @@ class SongInfoParser
             difficultyRatingOpponent: 0,
             difficultyRatingCoop: 0,
             ratingText: "BEGINNER",
-            ratingColor: FlxColor.fromRGB(150, 150, 150)
+            ratingColor: FlxColor.fromRGB(150, 150, 150),
+            album: null
         };
     }
 }

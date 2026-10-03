@@ -266,6 +266,12 @@ class Paths
 		var songPath:String = formatToSongPath(song);
 		var candidates:Array<String> = [];
 
+		// 变体难度（Erect / Pico / …）的音轨在 songs/<歌>-<变体>/ 里，文件名不带变体后缀。
+		// ⚠️ 必须排在无后缀候选之前 —— 否则变体难度会命中原曲的 Inst.ogg。
+		var variant:String = Difficulty.getAudioVariant();
+		if (variant != null)
+			candidates.push(getPath('$songPath-$variant/Inst.$SOUND_EXT', SOUND, 'songs', modsAllowed));
+
 		// Keep the normal Psych Engine path first, then support chart-pack layouts.
 		candidates.push(getPath('$songPath/Inst.$SOUND_EXT', SOUND, 'songs', modsAllowed));
 		candidates.push(getPath('data/$songPath/inst.ogg', SOUND, null, modsAllowed));
@@ -373,6 +379,13 @@ class Paths
 			candidates.push(getPath('data/$songPath/voices-$currentChartAudioSuffix.ogg', SOUND, null, modsAllowed));
 			candidates.push(getPath('data/$songPath/song/voices-$currentChartAudioSuffix.ogg', SOUND, null, modsAllowed));
 		}
+
+		// 变体难度的人声同样在 songs/<歌>-<变体>/ 里（Voices-Player.ogg / Voices-Opponent.ogg）。
+		// 与 inst() 一样，必须排在无后缀候选之前。
+		var variant:String = Difficulty.getAudioVariant();
+		if (variant != null)
+			candidates.push(getPath('$songPath-$variant/$voiceName.$SOUND_EXT', SOUND, 'songs', modsAllowed));
+
 		candidates.push(getPath('$songPath/$voiceName.$SOUND_EXT', SOUND, 'songs', modsAllowed));
 		candidates.push(getPath('data/$songPath/${voiceName.toLowerCase()}.ogg', SOUND, null, modsAllowed));
 		candidates.push(getPath('data/$songPath/song/${voiceName.toLowerCase()}.ogg', SOUND, null, modsAllowed));

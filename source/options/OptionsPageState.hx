@@ -863,6 +863,23 @@ class OptionsPageState extends MusicBeatState
         return false;
     }
 
+    /**
+     * 正在展开的字符串下拉。
+     * 它支持键盘逐项选（见 StringSelect.handleKeyNav），宿主得把按键让给它；
+     * ColorSelect 仍是纯鼠标驱动的，不在其中。
+     */
+    function findOpenStringSelect():options.objects.backend.StringSelect
+    {
+        for (r in rows)
+        {
+            var w:FlxSpriteGroup = r.widget;
+            if (w != null && Std.isOfType(w, options.objects.backend.StringSelect)
+                && cast(w, options.objects.backend.StringSelect).isOpen)
+                return cast(w, options.objects.backend.StringSelect);
+        }
+        return null;
+    }
+
     // =========================================================
     // 搜索框里的按键判定
     //
@@ -1090,6 +1107,11 @@ class OptionsPageState extends MusicBeatState
 
         // 下拉/调色板展开时滚轮归它们用，别再驱动列表
         if (contentScroller != null) contentScroller.inputAllow = !isAnyPopupOpen();
+
+        // 字符串下拉展开时，方向键 / 回车 / ESC 归它自己 —— 键盘也能开列表逐项选。
+        // 必须放在下面的 BACK 分支之前，否则 ESC 会把整个设置页关掉。
+        var openSel:options.objects.backend.StringSelect = findOpenStringSelect();
+        if (openSel != null && openSel.handleKeyNav()) return;
 
         // ---------- 返回 ----------
         // 判 focusZone 而不是 PsychUIInputText.focusOn：按 ESC 时输入组件会自己

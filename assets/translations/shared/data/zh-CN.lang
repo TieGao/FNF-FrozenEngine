@@ -345,6 +345,9 @@ freeplay_notes_missing: "音符: --"
 freeplay_keys: "键数: {1}"
 freeplay_keys_missing: "键数: --"
 freeplay_rating_missing: "评级: --"
+freeplay_musican: "作曲: {1}"
+freeplay_charter: "谱师: {1}"
+freeplay_plays: "游玩: {1} 次"
 freeplay_tip: "按SPACE试听/按CTRL打开修改器菜单/按RESET清除分数"
 
 charting_help_prompt: "按F1查看帮助"
@@ -363,6 +366,13 @@ mod_restart: "* 移动或切换MOD会重启游戏"
 reload_button: "重新加载"
 enable_all_button: "全部启用"
 disable_all_button: "全部禁用"
+mod_folder_open: "打开文件夹"
+mod_info_folder: "目录: {1}"
+mod_info_songs: "歌曲: {1}"
+mod_info_charts: "谱面: {1}"
+mod_info_category: "分类: {1}"
+mod_info_enabled: "状态: 已启用"
+mod_info_disabled: "状态: 已禁用"
 
 // ============================================
 // 重置分数/成就

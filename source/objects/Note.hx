@@ -457,7 +457,12 @@ class Note extends FlxSprite
 
 		x = 0;
 		y = 0;
-		x += (ClientPrefs.data.middleScroll ? PlayState.STRUM_X_MIDDLESCROLL : PlayState.STRUM_X) + 50;
+		// createdFrom 可能为 null（谱面编辑器/预览），也可能不是 PlayState（EditorPlayState 会传 this）
+		// → 只有确认是 PlayState 时才问它 middlescroll 是否真的生效，否则回退到原始偏好值
+		var middleActive:Bool = ClientPrefs.data.middleScroll;
+		if (Std.isOfType(createdFrom, PlayState))
+			middleActive = (cast createdFrom : PlayState).middleScrollActive();
+		x += (middleActive ? PlayState.STRUM_X_MIDDLESCROLL : PlayState.STRUM_X) + 50;
 		y -= 2000;
 		this.strumTime = strumTime;
 		if(!inEditor) this.strumTime += ClientPrefs.data.noteOffset;

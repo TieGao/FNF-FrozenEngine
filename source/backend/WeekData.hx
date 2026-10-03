@@ -237,4 +237,51 @@ class WeekData {
 		var week = weeksLoaded.get(weekName);
 		return (week != null ) ? week.section : 0;
 	}
+
+	/**
+	 * 取单曲的「音乐人 / 作曲」。
+	 * week.json 的 songs 项是数组元组，扩展后为：
+	 *   [歌名, 角色, 颜色, 音乐人, [各难度谱师]]
+	 * 旧版 3 元组（以及没有第 4 项的）返回 null，交给上层回退。
+	 */
+	public static function getSongMusican(song:Array<Dynamic>):String {
+		if (song == null || song.length < 4) return null;
+		var value:Dynamic = song[3];
+		if (value == null || !Std.isOfType(value, String)) return null;
+		var str:String = cast value;
+		return (str.length > 0) ? str : null;
+	}
+
+	/**
+	 * 取单曲的「各难度谱师」数组（按难度顺序）。
+	 * 既支持 ["A","B","C"] 数组形式，也支持 {normal:"A", hard:"B"} 映射形式（后者由 SongMetaConfig 处理）。
+	 */
+	public static function getSongCharters(song:Array<Dynamic>):Array<String> {
+		if (song == null || song.length < 5) return null;
+		var value:Dynamic = song[4];
+		if (value == null || !Std.isOfType(value, Array)) return null;
+		var list:Array<Dynamic> = cast value;
+		var out:Array<String> = [];
+		for (entry in list)
+			out.push(entry == null ? "" : Std.string(entry));
+		return (out.length > 0) ? out : null;
+	}
+
+	/**
+	 * 在指定周目里按歌名找元组条目（用于取音乐人 / 谱师）。
+	 */
+	public static function findSongEntry(?data:WeekData = null, songName:String):Array<Dynamic> {
+		if (songName == null || songName.length == 0) return null;
+		var week:WeekData = (data != null) ? data : getCurrentWeek();
+		if (week == null || week.songs == null) return null;
+
+		for (entry in week.songs)
+		{
+			if (entry == null || !Std.isOfType(entry, Array)) continue;
+			var tuple:Array<Dynamic> = cast entry;
+			if (tuple.length > 0 && Std.string(tuple[0]) == songName)
+				return tuple;
+		}
+		return null;
+	}
 }

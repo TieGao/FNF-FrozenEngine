@@ -9,8 +9,11 @@ import flixel.util.FlxColor;
 /**
  * 字符串选项下拉条
  *
- * Win10 风格：4px 圆角、无描边（原来的样子）
+ * Win10 风格：4px 圆角、无描边
  * Win8  风格：方角 + 2px 描边（Metro 下拉）
+ *
+ * 列表超过 MAX_VISIBLE_ROWS 行时弹层高度封顶，靠滚轮（鼠标悬停弹层上）或上下键翻动，
+ * 右侧画一条滑块。键盘回车是「打开列表 → 上下选 → 回车确认」，不再直接循环改值。
  */
 class StringSelect extends FlxSpriteGroup
 {
@@ -25,6 +28,8 @@ class StringSelect extends FlxSpriteGroup
     var popupBorder:FlxSprite;
     var popupItems:Array<Rect> = [];
     var popupTexts:Array<FlxText> = [];
+    /** 列表放不下时右侧的滚动条滑块；放得下时为 null */
+    var popupThumb:Rect;
 
     var topLayer:FlxSpriteGroup;
 
@@ -39,9 +44,23 @@ class StringSelect extends FlxSpriteGroup
     var hover:Bool = false;
     var pressing:Bool = false;
 
+    /** 下拉里第一个可见项的下标（列表超长时才有意义） */
+    var scrollIndex:Int = 0;
+    /** 键盘在下拉里高亮的那一项（-1 = 还没用键盘操作过） */
+    var keyIndex:Int = -1;
+
     // 下拉项尺寸 / 边缘留白
     static inline var ITEM_H:Float = 32.0;
     static inline var EDGE_MARGIN:Float = 4.0;
+
+    /**
+     * 下拉最多显示多少行，超出的部分靠滚轮 / 上下键翻。
+     * 弹层高度因此有上限，长列表（语言、音效之类）不会顶穿屏幕。
+     */
+    static inline var MAX_VISIBLE_ROWS:Int = 8;
+    /** 右侧滚动条的宽度 / 滑块绘制基准高度 */
+    static inline var THUMB_W:Float = 3.0;
+    static inline var THUMB_BASE_H:Float = 32.0;
 
     // 手动绘制的箭头
     var arrowGfx:FlxSprite;
@@ -124,12 +143,44 @@ class StringSelect extends FlxSpriteGroup
         if (border != null) border.color = borderColor();
     }
 
-    /** 下拉可视行数：还原为显示全部选项 */
+    /** 下拉可视行数：最多 MAX_VISIBLE_ROWS 行 */
     function visibleRows():Int
     {
         var opts = follow.options;
         if (opts == null) return 0;
-        return opts.length;
+        return opts.length > MAX_VISIBLE_ROWS ? MAX_VISIBLE_ROWS : opts.length;
+    }
+
+    /** 还能往下滚多少项（0 = 列表放得下，不用滚） */
+    function maxScrollIndex():Int
+    {
+        var opts = follow.options;
+        if (opts == null) return 0;
+        var m:Int = opts.length - visibleRows();
+        return m > 0 ? m : 0;
+    }
+
+    /** 当前值在 options 里的下标 */
+    function currentOptionIndex():Int
+    {
+        var opts = follow.options;
+        if (opts == null || opts.length == 0) return 0;
+
+        var i:Int = opts.indexOf(Std.string(follow.getValue()));
+        if (i < 0) i = follow.curOption;
+        return Std.int(FlxMath.bound(i, 0, opts.length - 1));
+    }
+
+    /** 把下标 idx 的项滚进可视窗口 */
+    function scrollToShow(idx:Int):Void
+    {
+        var rows:Int = visibleRows();
+        if (rows <= 0) return;
+
+        if (scrollIndex > idx) scrollIndex = idx;
+        else if (idx >= scrollIndex + rows) scrollIndex = idx - rows + 1;
+
+        scrollIndex = Std.int(FlxMath.bound(scrollIndex, 0, maxScrollIndex()));
     }
 
     function getPopupHeight():Float
@@ -140,29 +191,61 @@ class StringSelect extends FlxSpriteGroup
     }
 
     /**
-     * 还原：不再有滚动偏移，所有项全部可见。
+     * 按 scrollIndex 重新摆放下拉项（滚出窗口的项直接隐藏）。
      *
      * ⚠️ FlxSpriteGroup 的成员坐标是**绝对**的：`popup.add(x)` 时 preAdd 已经把
      * popup 自己的 x/y 加进了成员的 x/y，而 FlxSpriteGroup.draw() 只是逐个
      * `member.draw()`，绘制时**不会**再叠加父级偏移。
      * 所以这里必须写 `popup.y + 局部Y`；直接写局部 Y 会让整列文字/高亮跑到屏幕顶部
      * （背景块位置正确、内容却飞到最上面，就是这个原因）。
+     * 同理，弹层位置一变（syncPopupPosition）就得重跑一遍，否则内容会和背景错位。
      */
     function applyPopupScroll():Void
     {
         var oy:Float = (popup != null) ? popup.y : 0;
+        var rows:Int = visibleRows();
 
         for (i in 0...popupItems.length)
         {
-            var y:Float = oy + 4 + i * ITEM_H;
+            var slot:Int = i - scrollIndex;
+            var inView:Bool = slot >= 0 && slot < rows;
+            var y:Float = oy + 4 + slot * ITEM_H;
 
             popupItems[i].y = y;
             if (i < popupTexts.length)
                 popupTexts[i].y = y + (ITEM_H - popupTexts[i].height) * 0.5;
 
-            popupItems[i].visible = true;
-            if (i < popupTexts.length) popupTexts[i].visible = true;
+            popupItems[i].visible = inView;
+            if (i < popupTexts.length) popupTexts[i].visible = inView;
+
+            popupItems[i].alpha = (inView && i == keyIndex) ? 1.0 : 0.0;
         }
+
+        updateThumb();
+    }
+
+    /** 列表放不下时，右侧滑块标出当前滚到哪一段 */
+    function updateThumb():Void
+    {
+        if (popupThumb == null) return;
+
+        var total:Int = popupItems.length;
+        var rows:Int = visibleRows();
+        if (rows <= 0 || total <= rows)
+        {
+            popupThumb.visible = false;
+            return;
+        }
+
+        var trackH:Float = rows * ITEM_H;
+        var h:Float = Math.max(18, trackH * rows / total);
+        var maxIdx:Int = maxScrollIndex();
+
+        popupThumb.visible = true;
+        popupThumb.setGraphicSize(Std.int(THUMB_W), Std.int(h));
+        popupThumb.updateHitbox();
+        popupThumb.x = popup.x + mainW - THUMB_W - 3;
+        popupThumb.y = popup.y + 4 + (trackH - h) * (maxIdx > 0 ? scrollIndex / maxIdx : 0);
     }
 
     function syncPopupPosition()
@@ -210,6 +293,9 @@ class StringSelect extends FlxSpriteGroup
         // 不能再减一次 this.x / this.y（会少偏移一次）。
         popup.x = viewX;
         popup.y = viewY;
+
+        // 成员坐标是绝对的，弹层一移动就得重新摆一遍，否则内容会和背景错位
+        applyPopupScroll();
     }
 
     function redrawArrow()
@@ -301,6 +387,7 @@ class StringSelect extends FlxSpriteGroup
         popupTexts = [];
         popupBg = null;
         popupBorder = null;
+        popupThumb = null;
     }
 
     function buildPopup()
@@ -340,6 +427,15 @@ class StringSelect extends FlxSpriteGroup
             t.antialiasing = ClientPrefs.data.antialiasing;
             popup.add(t);
             popupTexts.push(t);
+        }
+
+        // 滑块最后加，保证画在列表项上面
+        popupThumb = null;
+        if (maxScrollIndex() > 0)
+        {
+            popupThumb = new Rect(0, 0, THUMB_W, THUMB_BASE_H, 2, 2, iconColor(), 1);
+            popupThumb.antialiasing = false;
+            popup.add(popupThumb);
         }
 
         applyPopupScroll();
@@ -386,6 +482,15 @@ class StringSelect extends FlxSpriteGroup
         // 如果鼠标在下拉菜单上，主条不再抢悬停（避免覆盖时误判）
         var overPopup = isOpen && popup.visible && popupBg != null && OptionInput.overlaps(popupBg);
 
+        // ---- 列表放不下时：滚轮在弹层上滚动 ----
+        // 宿主界面的列表滚动在弹层展开时已经被让出来（scroller.inputAllow），
+        // 所以这里读到的滚轮不会和页面滚动打架。
+        if (isOpen && overPopup && mouse.wheel != 0 && maxScrollIndex() > 0)
+        {
+            scrollIndex = Std.int(FlxMath.bound(scrollIndex - mouse.wheel, 0, maxScrollIndex()));
+            applyPopupScroll();
+        }
+
         // ---- 主条悬浮/按下反馈 ----
         var wasHover = hover;
         hover = OptionInput.overlaps(bg) && !overPopup;
@@ -415,17 +520,14 @@ class StringSelect extends FlxSpriteGroup
             FlxTween.cancelTweensOf(bg);
             FlxTween.color(bg, 0.1, bg.color, computeMainColor(), {ease: FlxEase.quadOut});
 
-            isOpen = !isOpen;
             if (isOpen)
             {
-                buildPopup();
-                syncPopupPosition();
-                popup.visible = true;
-                openedThisFrame = true;
+                closePopup();
             }
             else
             {
-                popup.visible = false;
+                openPopup(false);
+                openedThisFrame = true;
             }
             FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
 
@@ -447,9 +549,11 @@ class StringSelect extends FlxSpriteGroup
         for (i in 0...popupItems.length)
         {
             var it = popupItems[i];
-            var itHover = OptionInput.overlaps(it);
+            if (!it.visible) continue;   // 滚出窗口的项不参与悬停 / 点击
 
-            it.alpha = itHover ? 1.0 : 0.0;
+            var itHover = OptionInput.overlaps(it);
+            // 键盘高亮和鼠标悬停共用同一条底色
+            it.alpha = (itHover || i == keyIndex) ? 1.0 : 0.0;
 
             if (itHover && mouse.justReleased)
             {
@@ -458,32 +562,126 @@ class StringSelect extends FlxSpriteGroup
                 follow.change();
                 follow.saveCurrentValue();
                 refreshValue();
-                isOpen = false;
-                popup.visible = false;
-                redrawArrow();
+                closePopup();
                 FlxG.sound.play(Paths.sound('confirmMenu'), 0.6);
                 return;
             }
         }
 
-        // 点外面关闭（主条和弹窗都不算外面）
-        if (mouse.justPressed && !OptionInput.overlaps(bg) && !overPopup)
+        // 点外面关闭（主条和弹窗都不算外面）；右键也算
+        if ((mouse.justPressed || mouse.justPressedRight) && !OptionInput.overlaps(bg) && !overPopup)
         {
-            isOpen = false;
-            popup.visible = false;
-            redrawArrow();
-            refreshValue();
+            closePopup();
         }
+    }
+
+    /** 打开下拉；byKeyboard = true 时把高亮定在当前值上（键盘回车走这条） */
+    public function openPopup(byKeyboard:Bool = false):Void
+    {
+        if (isOpen) return;
+
+        scrollIndex = 0;
+        keyIndex = byKeyboard ? currentOptionIndex() : -1;
+        if (byKeyboard) scrollToShow(keyIndex);
+
+        buildPopup();
+        syncPopupPosition();
+        if (popup != null) popup.visible = true;
+
+        isOpen = true;
+        redrawArrow();
+        refreshValue();
     }
 
     /** 关闭下拉（键盘切换到别的行时用） */
     public function closePopup():Void
     {
+        keyIndex = -1;
         if (!isOpen) return;
         isOpen = false;
         if (popup != null) popup.visible = false;
         redrawArrow();
         refreshValue();
+    }
+
+    /**
+     * 下拉展开时接管键盘：上下选、回车确认、ESC 关闭、R 复位。
+     *
+     * 宿主界面在键鼠处理之前调用；返回 true 表示这次按键已经被下拉吃掉，
+     * 宿主不要再拿它去动行选中 / 关界面。
+     */
+    public function handleKeyNav():Bool
+    {
+        if (!isOpen) return false;
+
+        var c:Controls = Controls.instance;
+        if (c == null) return false;
+
+        // TAB 让给宿主：先收起下拉，再让它去切区域
+        if (FlxG.keys.justPressed.TAB)
+        {
+            closePopup();
+            return false;
+        }
+
+        if (c.UI_UP_P)   moveKey(-1);
+        if (c.UI_DOWN_P) moveKey(1);
+
+        if (c.ACCEPT)
+        {
+            confirmKeySelection();
+            return true;
+        }
+
+        if (c.BACK)
+        {
+            closePopup();
+            FlxG.sound.play(Paths.sound('cancelMenu'), 0.6);
+            return true;
+        }
+
+        if (c.RESET)
+        {
+            OptionNav.reset(follow, this);
+            keyIndex = currentOptionIndex();
+            scrollToShow(keyIndex);
+            applyPopupScroll();
+            return true;
+        }
+
+        return true;
+    }
+
+    /** 键盘在下拉里上下移动高亮项 */
+    function moveKey(dir:Int):Void
+    {
+        var opts = follow.options;
+        if (opts == null || opts.length == 0) return;
+
+        var idx:Int = (keyIndex < 0) ? currentOptionIndex() : keyIndex;
+        var next:Int = Std.int(FlxMath.bound(idx + dir, 0, opts.length - 1));
+        if (next == keyIndex) return;
+
+        keyIndex = next;
+        scrollToShow(keyIndex);
+        applyPopupScroll();
+        FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+    }
+
+    /** 回车：把高亮项写成当前值并收起下拉 */
+    function confirmKeySelection():Void
+    {
+        var opts = follow.options;
+        var idx:Int = keyIndex;
+        if (opts == null || idx < 0 || idx >= opts.length) return;
+
+        follow.setValue(opts[idx]);
+        follow.curOption = idx;
+        follow.change();
+        follow.saveCurrentValue();
+        refreshValue();
+        closePopup();
+        FlxG.sound.play(Paths.sound('confirmMenu'), 0.6);
     }
 
     /** 主题切换后重新套用配色（行被重建时无需调用） */
@@ -495,6 +693,7 @@ class StringSelect extends FlxSpriteGroup
         if (popupBorder != null) popupBorder.color = UIControlTheme.border();
         for (it in popupItems) it.color = popupItemColor();
         for (t in popupTexts) t.color = mainTextColor();
+        if (popupThumb != null) popupThumb.color = iconColor();
         redrawArrow();
         refreshValue();
     }

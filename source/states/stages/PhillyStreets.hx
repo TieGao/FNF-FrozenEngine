@@ -45,7 +45,11 @@ class PhillyStreets extends BaseStage
 
 	var darkenable:Array<FlxSprite> = [];
 	var abot:ABotSpeaker;
-	override function create()
+
+	/**
+	 * 舞台道具。erect 变体（`PhillyStreetsErect`）整体替换这一段 —— art 路径和坐标都不一样。
+	 */
+	function createStageProps():Void
 	{
 		if(!ClientPrefs.data.lowQuality)
 		{
@@ -121,7 +125,12 @@ class PhillyStreets extends BaseStage
 		var phillyForeground:BGSprite = new BGSprite('phillyStreets/phillyForeground', 88, 317, 1, 1);
 		add(phillyForeground);
 		darkenable.push(phillyForeground);
-		
+	}
+
+	override function create()
+	{
+		createStageProps();
+
 		if(!ClientPrefs.data.lowQuality)
 		{
 			picoFade = new FlxSprite();
