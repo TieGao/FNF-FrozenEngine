@@ -856,6 +856,7 @@ class NewPauseSubState extends MusicBeatSubstate
 			FlxG.sound.playMusic(Paths.music(Paths.formatToSongPath(ClientPrefs.data.pauseMusic)), pauseMusic.volume);
 			FlxTween.tween(FlxG.sound.music, {volume: 1}, 0.8);
 			FlxG.sound.music.time = pauseMusic.time;
+			pauseMusic.looped = true;  
 		}
 		
 		PsychOptionsState.onPlayState = KEOptionsMenu.onPlayState = true;

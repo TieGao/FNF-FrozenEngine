@@ -467,7 +467,7 @@ class ResultsScreen extends MusicBeatSubstate
         pauseMusic.volume = 0;
         pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
         FlxG.sound.list.add(pauseMusic);
-        
+        pauseMusic.looped = true;  
         FlxTween.tween(pauseMusic, {volume: 1}, 0.8);
     }
 
