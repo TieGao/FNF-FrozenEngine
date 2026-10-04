@@ -78,6 +78,52 @@ class Song
 	public var format:String = 'psych_v1';
 	public var mirrorNotes:Bool = false;
 
+	public static function getKeyCount(songJson:Dynamic):Int
+	{
+		if(songJson == null) return 4;
+
+		var columns:Int = 4;
+		var value:Dynamic = Reflect.field(songJson, 'mania');
+		if(Std.isOfType(value, Int))
+			columns = Std.int(value) + 1;
+		else
+		{
+			value = Reflect.field(songJson, 'keyCount');
+			if(Std.isOfType(value, Int))
+				columns = Std.int(value);
+			else
+			{
+				value = Reflect.field(songJson, 'keycount');
+				if(Std.isOfType(value, Int))
+					columns = Std.int(value);
+			}
+		}
+		return Std.int(Math.max(4, columns));
+	}
+
+	public static inline function shouldSplitCustomTracks(songJson:Dynamic, enabled:Bool):Bool
+	{
+		if(!enabled || songJson == null || Reflect.field(songJson, 'noConvert') != true)
+			return false;
+
+		var columns:Int = getKeyCount(songJson);
+		return columns >= 8 && columns % 2 == 0;
+	}
+
+	public static function getPlayableColumnCount(songJson:Dynamic, ?splitCustomTracks:Bool = false):Int
+	{
+		var columns:Int = getKeyCount(songJson);
+		return shouldSplitCustomTracks(songJson, splitCustomTracks) ? Std.int(columns / 2) : columns;
+	}
+
+	public static function isOpponentLane(rawLane:Int, songJson:Dynamic, ?splitCustomTracks:Bool = false):Bool
+	{
+		var boundary:Int = shouldSplitCustomTracks(songJson, splitCustomTracks)
+			? Std.int(getKeyCount(songJson) / 2)
+			: getKeyCount(songJson);
+		return rawLane >= boundary;
+	}
+
 	public static function convert(songJson:Dynamic) // Convert old charts to psych_v1 format
 	{
 		if(songJson.gfVersion == null)
@@ -122,11 +168,7 @@ class Song
 		// 任何多 k 谱（8K 等）都会被压扁、丢掉轨道身份。
 		// 读取优先级刻意与 Note.getColumnsPerPlayer 一致（mania -> keyCount -> keycount），
 		// 保证对真实多 k 谱两者结果相同。
-		var columns:Int = 4;
-		if(songJson.mania != null) columns = Std.int(songJson.mania) + 1;
-		else if(songJson.keyCount != null) columns = Std.int(songJson.keyCount);
-		else if(songJson.keycount != null) columns = Std.int(songJson.keycount);
-		columns = Std.int(Math.max(4, columns));
+		var columns:Int = getKeyCount(songJson);
 
 		for (section in sectionsData)
 		{

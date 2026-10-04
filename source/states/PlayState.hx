@@ -607,11 +607,12 @@ class PlayState extends MusicBeatState
 			SONG.player2 = ClientPrefs.data.customChartOpponent;
 			SONG.gfVersion = ClientPrefs.data.customChartGirlfriend;
 			swapPlayerOpponent = ClientPrefs.data.customChartSwapSides;
-			if (ClientPrefs.data.customChart8KTo4K)
+			if (Song.shouldSplitCustomTracks(SONG, ClientPrefs.data.customChartTrackSplit))
 			{
-				SONG.mania = 3;
-				SONG.keyCount = 4;
-				SONG.keycount = 4;
+				var splitColumns:Int = Song.getPlayableColumnCount(SONG, true);
+				SONG.mania = splitColumns - 1;
+				SONG.keyCount = splitColumns;
+				SONG.keycount = splitColumns;
 			}
 		}
 
@@ -1375,6 +1376,12 @@ class PlayState extends MusicBeatState
 	}
 
 	public var videoCutscene:VideoSprite = null;
+
+	#if VIDEOS_ALLOWED
+	// 上一帧的暂停状态，用于检测 paused 边沿、同步视频播放
+	var _videoPauseState:Bool = false;
+	#end
+
 	public function startVideo(name:String, forMidSong:Bool = false, canSkip:Bool = true, loop:Bool = false, playOnLoad:Bool = true, group:String = "", place = 0)
 	{
 		#if VIDEOS_ALLOWED
@@ -1991,9 +1998,9 @@ public function reloadCounterColors()
 					if(note[1] == null) continue;
 					var data:Int = Std.int(note[1]);
 					if(data < 0) continue;
-					var base = Math.floor(data / 4) * 4;
-					var col = data % 4;
-					note[1] = base + 3 - col;
+					var base = Math.floor(data / totalColumns) * totalColumns;
+					var col = data % totalColumns;
+					note[1] = base + totalColumns - 1 - col;
 				}
 			}
 		}
@@ -2379,6 +2386,20 @@ public function reloadCounterColors()
 		openPauseMenu();
 		PauseSubState.restartSong();
 	}
+	#if VIDEOS_ALLOWED
+	// 视频跟随游戏暂停：只在 paused 发生变化的那一帧切换，避免每帧重复调用
+	if (videoCutscene != null && !videoCutscene.alreadyDestroyed)
+	{
+		if (paused != _videoPauseState)
+		{
+			_videoPauseState = paused;
+			if (paused) videoCutscene.pause();
+			else videoCutscene.resume();
+		}
+	}
+	else if (videoCutscene == null)
+		_videoPauseState = paused; // 无视频时保持同步，避免新视频建立瞬间被误暂停
+	#end
 		if(!inCutscene && !paused && !freezeCamera) {
 			FlxG.camera.followLerp = 0.04 * cameraSpeed * playbackRate;
 			var idleAnim:Bool = (boyfriend.getAnimationName().startsWith('idle') || boyfriend.getAnimationName().startsWith('danceLeft') || boyfriend.getAnimationName().startsWith('danceRight'));

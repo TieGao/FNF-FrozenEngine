@@ -38,6 +38,7 @@ class CustomChartData
     static inline var INDEX_FILE:String = '.chart-index.json';
     static inline var INFO_CACHE_FILE:String = '.freeplay-info.json';
     static inline var INDEX_VERSION:Int = 2;
+    static inline var INFO_CACHE_VERSION:Int = 2;
     public static var weeksLoaded:Map<String, CustomChartWeek> = new Map<String, CustomChartWeek>();
     public static var weeksList:Array<String> = [];
 
@@ -349,7 +350,8 @@ class CustomChartData
         {
             var chart:Dynamic = loadChart(song, difficulty.name);
             if (chart != null)
-                song.info.set(difficulty.name, SongInfoParser.getSongInfoFromChart(cast chart, difficulty.name));
+                song.info.set(difficulty.name, SongInfoParser.getSongInfoFromChart(
+                    cast chart, difficulty.name, ClientPrefs.data.customChartTrackSplit));
         }
         saveInfoCache(song);
     }
@@ -367,7 +369,9 @@ class CustomChartData
         try
         {
             var cached:Dynamic = Json.parse(File.getContent(cachePath));
-            if (cached == null || cached.sourceStamp != getDirectoryStamp(song.directory) || cached.data == null)
+            if (cached == null || cached.version != INFO_CACHE_VERSION
+                || cached.trackSplit != ClientPrefs.data.customChartTrackSplit
+                || cached.sourceStamp != getDirectoryStamp(song.directory) || cached.data == null)
                 return result;
 
             for (difficulty in Reflect.fields(cached.data))
@@ -388,6 +392,8 @@ class CustomChartData
             for (difficulty in song.info.keys())
                 Reflect.setField(data, difficulty, song.info.get(difficulty));
             File.saveContent('${song.directory}/$INFO_CACHE_FILE', Json.stringify({
+                version: INFO_CACHE_VERSION,
+                trackSplit: ClientPrefs.data.customChartTrackSplit,
                 sourceStamp: getDirectoryStamp(song.directory),
                 data: data
             }));

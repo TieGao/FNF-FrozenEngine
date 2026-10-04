@@ -22,7 +22,7 @@ import sys.FileSystem;
  * 继承 options.Win8CharmSettings 的单页设置页，三个分组：
  *   Custom Chart  自定义谱面用的分类 / mod 文件夹
  *   Resources     谱面用到的舞台与角色
- *   Playback      8K→4K 映射、交换玩家/对手轨道
+ *   Playback      自定义谱轨道拆分、交换玩家/对手轨道
  *
  * 换 mod 文件夹后靠 refreshModDependentOptions 刷新 Stage / 角色列表。
  */
@@ -41,7 +41,7 @@ class KEExtraSettingsSubState extends Win8CharmSettings
 	var playerOpt:Option;
 	var girlfriendOpt:Option;
 	var opponentOpt:Option;
-	var eightKOpt:Option;
+	var trackSplitOpt:Option;
 	var swapOpt:Option;
 
 	public function new()
@@ -88,8 +88,8 @@ class KEExtraSettingsSubState extends Win8CharmSettings
 		opponentOpt = new Option('Opponent', 'Dad character used by custom charts',
 			'customChartOpponent', STRING, characters);
 
-		eightKOpt = new Option('Play 8K as 4K', 'Map 8-key charts onto four playable columns',
-			'customChart8KTo4K', BOOL);
+		trackSplitOpt = new Option('Track Split', 'Split even custom charts with 8 or more lanes into player and opponent halves',
+			'customChartTrackSplit', BOOL);
 
 		swapOpt = new Option('Swap Player/Opponent Lanes', 'Swap the player and opponent note tracks without enabling Opponent Mode',
 			'customChartSwapSides', BOOL);
@@ -111,7 +111,7 @@ class KEExtraSettingsSubState extends Win8CharmSettings
 				id: 'playback',
 				title: 'Playback',
 				description: 'How custom charts are mapped onto the playfield',
-				options: [eightKOpt, swapOpt]
+				options: [trackSplitOpt, swapOpt]
 			}
 		];
 	}

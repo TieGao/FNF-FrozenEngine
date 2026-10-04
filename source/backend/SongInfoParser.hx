@@ -27,11 +27,11 @@ typedef ParsedSongInfo = {
 
 class SongInfoParser
 {
-    public static function getSongInfoFromChart(chart:SwagSong, ?difficulty:String = null):ParsedSongInfo
+    public static function getSongInfoFromChart(chart:SwagSong, ?difficulty:String = null, ?splitCustomTracks:Bool = false):ParsedSongInfo
     {
         if (chart == null)
             return getDefaultInfo();
-        return parseChartData(Json.stringify(chart), difficulty);
+        return parseChartData(Json.stringify(chart), difficulty, splitCustomTracks);
     }
 
     /**
@@ -139,7 +139,7 @@ class SongInfoParser
                         length: songLength,
                         formattedLength: formatLength(songLength),
                         noteCount: totalNoteCount,
-                        keyCount: getKeyCount(swagSong),
+                        keyCount: Song.getKeyCount(swagSong),
                         playerNoteCount: sideCounts.player,
                         opponentNoteCount: sideCounts.opponent,
                         difficultyRating: selectedRating,
@@ -279,7 +279,7 @@ class SongInfoParser
         return count;
     }
 
-    private static function parseChartData(rawData:String, ?difficulty:String = null):ParsedSongInfo
+    private static function parseChartData(rawData:String, ?difficulty:String = null, ?splitCustomTracks:Bool = false):ParsedSongInfo
     {
         var bpm:Float = 0;
         var songLength:Float = 0;
@@ -304,7 +304,7 @@ class SongInfoParser
             var swagSong:SwagSong = Song.parseJSON(rawData);
 
             bpm = swagSong.bpm;
-            keyCount = getKeyCount(swagSong);
+            keyCount = Song.getKeyCount(swagSong);
             album = swagSong.album;
 
             // 获取歌曲时长
@@ -333,11 +333,11 @@ class SongInfoParser
             var difficultyMode:String = DiffRating.normalizeMode(gameplayMode);
 
             // ★★★ 使用 DiffRating 计算三种模式的评分 ★★★
-            playerRating   = DiffRating.calcForSong(swagSong, DiffRating.MODE_NORMAL);
-            opponentRating = DiffRating.calcForSong(swagSong, DiffRating.MODE_OPPONENT);
-            coopRating     = DiffRating.calcForSong(swagSong, DiffRating.MODE_COOP);
+            playerRating   = DiffRating.calcForSong(swagSong, DiffRating.MODE_NORMAL, splitCustomTracks);
+            opponentRating = DiffRating.calcForSong(swagSong, DiffRating.MODE_OPPONENT, splitCustomTracks);
+            coopRating     = DiffRating.calcForSong(swagSong, DiffRating.MODE_COOP, splitCustomTracks);
 
-            sideCounts = countNoteSides(swagSong);
+            sideCounts = countNoteSides(swagSong, splitCustomTracks);
             noteCount = sideCounts.player + sideCounts.opponent;
 
             playerRating = Math.floor(playerRating * 100) / 100;
@@ -376,7 +376,7 @@ class SongInfoParser
         };
     }
 
-    private static function countNoteSides(swagSong:SwagSong):{player:Int, opponent:Int}
+    private static function countNoteSides(swagSong:SwagSong, ?splitCustomTracks:Bool = false):{player:Int, opponent:Int}
     {
         var counts:{player:Int, opponent:Int} = {player: 0, opponent: 0};
         if (swagSong == null || swagSong.notes == null) return counts;
@@ -386,44 +386,15 @@ class SongInfoParser
             for (note in section.sectionNotes)
             {
                 if (note == null || note.length < 2) continue;
-                var noteData:Int = Std.int(Math.abs(note[1]));
-                // note[1] 已经被归一化为 0-3 表示玩家音符，4-7 表示对手音符。
-                if (noteData < 4)
+                var noteData:Int = Std.int(note[1]);
+                if (noteData < 0) continue;
+                if (!Song.isOpponentLane(noteData, swagSong, splitCustomTracks))
                     counts.player++;
                 else
                     counts.opponent++;
             }
         }
         return counts;
-    }
-
-    /**
-     * 读取谱面键数。
-     * 优先级刻意与 Note.getColumnsPerPlayer 以及 Song.convert 保持一致
-     * （mania -> keyCount -> keycount，最后下限 4），保证三处对同一份谱面得到同一结果。
-     * 不直接调用 Note.getColumnsPerPlayer 是因为它 import states.PlayState，
-     * 会让 backend 包反向依赖 states，形成类型环。
-     */
-    private static function getKeyCount(swagSong:SwagSong):Int
-    {
-        if (swagSong == null) return 4;
-        var columns:Int = 4;
-        var value:Dynamic = Reflect.field(swagSong, 'mania');
-        if (Std.isOfType(value, Int))
-            columns = Std.int(value) + 1;
-        else
-        {
-            value = Reflect.field(swagSong, 'keyCount');
-            if (Std.isOfType(value, Int))
-                columns = Std.int(value);
-            else
-            {
-                value = Reflect.field(swagSong, 'keycount');
-                if (Std.isOfType(value, Int))
-                    columns = Std.int(value);
-            }
-        }
-        return Std.int(Math.max(4, columns));
     }
 
     public static function formatLength(seconds:Float):String

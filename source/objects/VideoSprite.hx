@@ -66,7 +66,7 @@ class VideoSprite extends FlxSpriteGroup {
 		videoSprite.load(videoName, shouldLoop ? ['input-repeat=65545'] : null);
 	}
 
-	var alreadyDestroyed:Bool = false;
+	public var alreadyDestroyed:Bool = false;
 	override function destroy()
 	{
 		if(alreadyDestroyed)

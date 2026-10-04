@@ -10,6 +10,8 @@ import backend.Song;
  *     玩家侧: 0 .. columns-1
  *     对手侧: columns .. 2*columns-1
  *   其中 columns = song.mania + 1（4K 时 mania=3, columns=4）。
+ * 标准谱按 [0, columns) / [columns, 2*columns) 区分两侧；
+ * noConvert 自定义谱启用轨道拆分时，按原始键数的一半区分两侧。
  *
  *   因此这里 resolvePlayableLane 不再读取 section.mustHitSection，
  *   也不再使用 rawLane > song.mania 去翻转归属，
@@ -22,7 +24,7 @@ import backend.Song;
  *
  * 设置读取：
  *   - opponentplay -> normal / opponent / coop
- *   - mirrornotes  -> 4K 镜像
+ *   - mirrornotes  -> 按当前 K 数镜像
  */
 class DiffRating
 {
@@ -96,13 +98,13 @@ class DiffRating
     // 评分计算
     ///////////////////////////////////////////////////////////////////////////
 
-    public static function calcForSong(song:SwagSong, ?mode:String = MODE_NORMAL):Float
+    public static function calcForSong(song:SwagSong, ?mode:String = MODE_NORMAL, ?splitCustomTracks:Bool = false):Float
     {
         if (song == null || song.notes == null || song.notes.length == 0) return 0;
 
         mode = normalizeMode(mode);
 
-        var columns:Int = getColumnCount(song);
+        var columns:Int = getColumnCount(song, splitCustomTracks);
 
         var objs:Array<ManiaObj> = [];
 
@@ -116,7 +118,7 @@ class DiffRating
                 if (n == null || n.length < 2) continue;
                 var rawLane:Int = Std.int(n[1]);
                 if (rawLane < 0) continue;
-                var lane:Int = resolvePlayableLane(rawLane, song, mode, columns);
+                var lane:Int = resolvePlayableLane(rawLane, song, mode, columns, splitCustomTracks);
                 if (lane < 0) continue;
                 var start:Float = n[0];
                 var sustain:Float = (n.length >= 3 && n[2] != null) ? n[2] : 0.0;
@@ -239,24 +241,22 @@ class DiffRating
     // lane 解析（配套 backend.Song.hx 的归一化 lane）
     ///////////////////////////////////////////////////////////////////////////
 
-    public static inline function getColumnCount(song:SwagSong):Int
+    public static function getColumnCount(song:SwagSong, ?splitCustomTracks:Bool = false):Int
     {
-        var columns:Int = (song != null && song.mania != null) ? song.mania + 1 : 4;
-        if (columns <= 0) columns = 4;
-        return columns;
+        return Song.getPlayableColumnCount(song, splitCustomTracks);
     }
 
     /**
-     * 归一化后：
+     * 标准谱归一化后：
      *   rawLane ∈ [0, columns)          -> 玩家侧
      *   rawLane ∈ [columns, 2*columns)  -> 对手侧
      *
      * 返回该 note 在“可游玩侧”的列索引（0 .. columns-1），
      * 若该 note 不属于当前 mode 的可游玩侧则返回 -1。
      */
-    static function resolvePlayableLane(rawLane:Int, song:SwagSong, mode:String, columns:Int):Int
+    static function resolvePlayableLane(rawLane:Int, song:SwagSong, mode:String, columns:Int, splitCustomTracks:Bool):Int
     {
-        var isOpponentSide:Bool = rawLane >= columns;
+        var isOpponentSide:Bool = Song.isOpponentLane(rawLane, song, splitCustomTracks);
 
         var mustPress:Bool;
         switch (mode)
@@ -275,12 +275,7 @@ class DiffRating
         if (lane < 0) lane += columns;
 
         var flipChart:Bool = ClientPrefs.getGameplaySetting('mirrornotes', false, true);
-        if (flipChart && columns == 4)
-        {
-            lane -= Std.int((lane - 1.5) * 2);
-            if (lane < 0) lane = 0;
-            if (lane > 3) lane = 3;
-        }
+        if (flipChart) lane = columns - 1 - lane;
 
         return lane;
     }

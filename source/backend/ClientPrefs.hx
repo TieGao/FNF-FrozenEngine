@@ -154,7 +154,7 @@ import states.TitleState;
 	public var customChartPlayer:String = 'bf';
 	public var customChartOpponent:String = 'dad';
 	public var customChartGirlfriend:String = 'gf';
-	public var customChart8KTo4K:Bool = false;
+	public var customChartTrackSplit:Bool = false;
 	public var customChartSwapSides:Bool = false;
 
 	public var msInErrorBar:Bool = false; // 是否在误差条上显示ms文本
@@ -689,6 +689,10 @@ class ClientPrefs {
 		for (key in Reflect.fields(data))
 			if (key != 'gameplaySettings' && Reflect.hasField(FlxG.save.data, key))
 				Reflect.setField(data, key, Reflect.field(FlxG.save.data, key));
+
+		if (!Reflect.hasField(FlxG.save.data, 'customChartTrackSplit')
+			&& Reflect.hasField(FlxG.save.data, 'customChart8KTo4K'))
+			data.customChartTrackSplit = Reflect.field(FlxG.save.data, 'customChart8KTo4K');
 
 		if (Reflect.hasField(FlxG.save.data, 'keOptions') && !Reflect.hasField(FlxG.save.data, 'optionstype'))
 		{
