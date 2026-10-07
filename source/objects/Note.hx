@@ -129,6 +129,55 @@ class Note extends FlxSprite
 		15 => 0.35,
 		16 => 0.32
 	];
+
+	// 多键颜色套系：index = keyCount - 1，每项数组长度 = 该键数 lane 数，元素 = ClientPrefs.arrowRGB 的色槽索引。
+	// 1–9K 直接沿用 Psych EK 的 keys[mania].notes 排列（mania = keyCount-1）；10–16K 用 (lane*7)%16 截断到 K 项，
+	// gcd(7,16)=1 使相邻 lane 色槽差恒为 7/9，最大对比且铺满 0–15。改这套排列即可调整多键配色顺序。
+	public static final NOTE_COLOR_SCHEME:Array<Array<Int>> = [
+		[0],                                                    // 1K
+		[0,3],                                                  // 2K
+		[0,1,3],                                                // 3K
+		[0,1,2,3],                                              // 4K
+		[0,1,2,5,3],                                            // 5K
+		[0,1,2,6,5,3],                                          // 6K
+		[0,1,2,5,6,1,3],                                        // 7K
+		[0,1,2,3,4,5,6,7],                                      // 8K
+		[0,1,2,3,10,4,5,6,7],                                   // 9K
+		[0,1,2,3,10,10,4,5,6,7],                                // 10K
+		[0,1,2,3,10,9,10,4,5,6,7],                              // 11K
+		[0,1,2,3,4,5,6,7,8,9,10,11],                            // 12K
+		[0,1,2,3,4,5,14,6,7,8,9,10,11],                         // 13K  引入第4色阶“上=14”
+		[0,1,2,3,4,5,13,14,6,7,8,9,10,11],                      // 14K
+		[0,1,2,3,4,5,14,13,14,6,7,8,9,10,11],                   // 15K  引入第4色阶“下=13”
+		[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]                 // 16K  全色阶
+	];
+
+	/**
+	 * 解析某键数下某 lane 应使用的色槽索引（arrowRGB / arrowRGBPixel 下标）。
+	 * 套系不存在时回退到原固定序列 `lane % 色槽数`，保证 4K 及以下行为不变。
+	 */
+	public static function getNoteColorIndex(keyCount:Int, lane:Int):Int
+	{
+		var idx:Int = Std.int(Math.max(0, keyCount - 1));
+		if (idx < NOTE_COLOR_SCHEME.length)
+		{
+			var arr:Array<Int> = NOTE_COLOR_SCHEME[idx];
+			if (arr != null && lane >= 0 && lane < arr.length)
+				return arr[lane];
+		}
+		var colorSets:Array<Array<FlxColor>> = (!PlayState.isPixelStage) ? ClientPrefs.data.arrowRGB : ClientPrefs.data.arrowRGBPixel;
+		return Std.int(Math.abs(lane) % colorSets.length);
+	}
+
+	/**
+	 * 多 k 音符的箭头指向索引（0=左 1=下 2=上 3=右），跟随套系而非固定的 lane%4。
+	 * 原版 PE 没有 ROMBUS 四边形，只用现有四向；方向由色彩集下标推导，与颜色同源。
+	 */
+	public static function getNoteDirectionIndex(keyCount:Int, noteData:Int):Int
+	{
+		return getNoteColorIndex(keyCount, noteData) % colArray.length;
+	}
+
 	public static var defaultNoteSkin(default, never):String = 'noteSkins/NOTE_assets';
 	public static var BASE_SWAG_WIDTH:Float = 160 * 0.7;
 
@@ -255,7 +304,7 @@ class Note extends FlxSprite
 		var colorSets:Array<Array<FlxColor>> = (!PlayState.isPixelStage) ? ClientPrefs.data.arrowRGB : ClientPrefs.data.arrowRGBPixel;
 		if(colorSets != null && colorSets.length > 0 && noteData > -1)
 		{
-			var colorIndex:Int = Std.int(Math.abs(noteData) % colorSets.length);
+			var colorIndex:Int = getNoteColorIndex(getColumnsPerPlayer(), noteData);
 			arr = colorSets[colorIndex];
 		}
 
@@ -485,7 +534,7 @@ class Note extends FlxSprite
 			var spacing = getNoteSpacing(keys);
 			x += spacing * noteData;
 			if(!isSustainNote) {
-				var animToPlay:String = colArray[noteData % colArray.length];
+				var animToPlay:String = colArray[getNoteDirectionIndex(getColumnsPerPlayer(), noteData)];
 				animation.play(animToPlay + 'Scroll');
 			}
 		}
@@ -503,7 +552,7 @@ class Note extends FlxSprite
 			offsetX += width / 2;
 			copyAngle = false;
 
-			animation.play(colArray[noteData % colArray.length] + 'holdend');
+			animation.play(colArray[getNoteDirectionIndex(getColumnsPerPlayer(), noteData)] + 'holdend');
 
 			updateHitbox();
 
@@ -514,7 +563,7 @@ class Note extends FlxSprite
 
 			if (prevNote.isSustainNote)
 			{
-				prevNote.animation.play(colArray[prevNote.noteData % colArray.length] + 'hold');
+				prevNote.animation.play(colArray[getNoteDirectionIndex(getColumnsPerPlayer(), prevNote.noteData)] + 'hold');
 
 				prevNote.scale.y *= Conductor.stepCrochet / 100 * 1.05;
 				if(createdFrom != null && createdFrom.songSpeed != null) prevNote.scale.y *= createdFrom.songSpeed;
@@ -551,7 +600,7 @@ class Note extends FlxSprite
 			var colorSets:Array<Array<FlxColor>> = (!PlayState.isPixelStage) ? ClientPrefs.data.arrowRGB : ClientPrefs.data.arrowRGBPixel;
 			if(colorSets != null && colorSets.length > 0 && noteData > -1)
 			{
-				var colorIndex:Int = Std.int(Math.abs(noteData) % colorSets.length);
+				var colorIndex:Int = getNoteColorIndex(getColumnsPerPlayer(), noteData);
 				arr = colorSets[colorIndex];
 			}
 			
@@ -656,7 +705,7 @@ class Note extends FlxSprite
 	}
 
 	function loadNoteAnims() {
-		var idx:Int = Std.int(Math.abs(noteData) % colArray.length);
+		var idx:Int = getNoteDirectionIndex(getColumnsPerPlayer(), noteData);
 		if (colArray[idx] == null) return;
 
 		if (isSustainNote) {
@@ -675,7 +724,7 @@ class Note extends FlxSprite
 	}
 
 	function loadPixelNoteAnims() {
-		var idx:Int = Std.int(Math.abs(noteData) % colArray.length);
+		var idx:Int = getNoteDirectionIndex(getColumnsPerPlayer(), noteData);
 		if (colArray[idx] == null) return;
 
 		if (isSustainNote) {

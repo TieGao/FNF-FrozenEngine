@@ -445,29 +445,10 @@ class ResultsScreen extends MusicBeatSubstate
             FlxG.sound.music.stop();
         }
         
-        // 创建音乐对象
-        pauseMusic = new FlxSound();
-        try
-        {
-            var pauseSong:String = getPauseSong();
-            if(pauseSong != null) 
-            {
-                pauseMusic.load(Paths.music(pauseSong), true);
-            }
-            else
-            {
-                pauseMusic.load(Paths.music('breakfast'), true);
-            }
-        }
-        catch(e:Dynamic) 
-        {
-            pauseMusic.load(Paths.music('breakfast'), true);
-        }
-        
-        pauseMusic.volume = 0;
+        var pauseSong:String = getPauseSong();
+        var musicPath = (pauseSong != null) ? Paths.music(pauseSong) : Paths.music('breakfast');
+        pauseMusic = FlxG.sound.load(musicPath, 0, true);  // volume=0, looped=true
         pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
-        FlxG.sound.list.add(pauseMusic);
-        pauseMusic.looped = true;  
         FlxTween.tween(pauseMusic, {volume: 1}, 0.8);
     }
 

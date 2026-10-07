@@ -69,17 +69,13 @@ class PauseSubState extends MusicBeatSubstate
 		}
 		difficultyChoices.push('BACK');
 
-		pauseMusic = new FlxSound();
-		try
-		{
-			var pauseSong:String = getPauseSong();
-			if(pauseSong != null) pauseMusic.load(Paths.music(pauseSong), true);
+		var pauseSong:String = getPauseSong();
+		if(pauseSong != null) {
+			pauseMusic = FlxG.sound.load(Paths.music(pauseSong), 0, true);  // volume=0, looped=true
+			pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
+		} else {
+			pauseMusic = FlxG.sound.load(null, 0, false);  // 空对象防止后续调用报错
 		}
-		catch(e:Dynamic) {}
-		pauseMusic.volume = 0;
-		pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
-
-		FlxG.sound.list.add(pauseMusic);
 
 		if(ClientPrefs.data.coolBackdrop)
 		{

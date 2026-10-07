@@ -310,63 +310,64 @@ class ClientPrefs {
 		'note_down'		=> [S, DOWN],
 		'note_right'	=> [D, RIGHT],
 
-		'note_5k_1'     => [ONE],
-		'note_5k_2'     => [TWO],
-		'note_5k_3'     => [THREE],
-		'note_5k_4'     => [FOUR],
-		'note_5k_5'     => [FIVE],
-		
-		// 6k (使用 1-6 数字键)
-		'note_6k_1'     => [ONE],
-		'note_6k_2'     => [TWO],
-		'note_6k_3'     => [THREE],
-		'note_6k_4'     => [FOUR],
-		'note_6k_5'     => [FIVE],
-		'note_6k_6'     => [SIX],
-		
-		// 7k (使用 1-7 数字键)
-		'note_7k_1'     => [ONE],
-		'note_7k_2'     => [TWO],
-		'note_7k_3'     => [THREE],
-		'note_7k_4'     => [FOUR],
-		'note_7k_5'     => [FIVE],
-		'note_7k_6'     => [SIX],
-		'note_7k_7'     => [SEVEN],
-		
-		// 8k (使用 1-8 数字键)
-		'note_8k_1'     => [ONE],
-		'note_8k_2'     => [TWO],
-		'note_8k_3'     => [THREE],
-		'note_8k_4'     => [FOUR],
-		'note_8k_5'     => [FIVE],
-		'note_8k_6'     => [SIX],
-		'note_8k_7'     => [SEVEN],
-		'note_8k_8'     => [EIGHT],
-		
-		// 9k (使用 1-9 数字键)
-		'note_9k_1'     => [ONE],
-		'note_9k_2'     => [TWO],
-		'note_9k_3'     => [THREE],
-		'note_9k_4'     => [FOUR],
-		'note_9k_5'     => [FIVE],
-		'note_9k_6'     => [SIX],
-		'note_9k_7'     => [SEVEN],
-		'note_9k_8'     => [EIGHT],
-		'note_9k_9'     => [NINE],
-		
-		// 10k (使用 1-9, 0)
-		'note_10k_1'    => [ONE],
-		'note_10k_2'    => [TWO],
-		'note_10k_3'    => [THREE],
-		'note_10k_4'    => [FOUR],
-		'note_10k_5'    => [FIVE],
-		'note_10k_6'    => [SIX],
-		'note_10k_7'    => [SEVEN],
-		'note_10k_8'    => [EIGHT],
-		'note_10k_9'    => [NINE],
-		'note_10k_10'   => [ZERO],
-		
-		// 11k (使用 QWERTY 第一行)
+		// 5K —— 单列：D F G H J（中间五键，双手自然展开）
+		'note_5k_1'     => [D],
+		'note_5k_2'     => [F],
+		'note_5k_3'     => [SPACE],
+		'note_5k_4'     => [J],
+		'note_5k_5'     => [K],
+
+		// 6K —— 单列：S D F  J K L（左右各三键，中间留空）
+		'note_6k_1'     => [S],
+		'note_6k_2'     => [D],
+		'note_6k_3'     => [F],
+		'note_6k_4'     => [J],
+		'note_6k_5'     => [K],
+		'note_6k_6'     => [L],
+
+		// 7K —— 单列：S D F  H J K L（中央留空便于识别）
+		'note_7k_1'     => [S],
+		'note_7k_2'     => [D],
+		'note_7k_3'     => [F],
+		'note_7k_4'     => [H],
+		'note_7k_5'     => [J],
+		'note_7k_6'     => [K],
+		'note_7k_7'     => [L],
+
+		// 8K —— 单列：A S D F  J K L M（左右各四键，全部字母）
+		'note_8k_1'     => [A],
+		'note_8k_2'     => [S],
+		'note_8k_3'     => [D],
+		'note_8k_4'     => [F],
+		'note_8k_5'     => [J],
+		'note_8k_6'     => [K],
+		'note_8k_7'     => [L],
+		'note_8k_8'     => [M],
+
+		// 9K —— 两列：左 Q W E R / 右 U I O P
+		'note_9k_1'     => [Q],
+		'note_9k_2'     => [W],
+		'note_9k_3'     => [E],
+		'note_9k_4'     => [R],
+		'note_9k_5'     => [U],
+		'note_9k_6'     => [I],
+		'note_9k_7'     => [O],
+		'note_9k_8'     => [P],
+		'note_9k_9'     => [Y],
+
+		// 10K —— 两列：左 Q W E R T / 右 Y U I O P
+		'note_10k_1'    => [Q],
+		'note_10k_2'    => [W],
+		'note_10k_3'    => [E],
+		'note_10k_4'    => [R],
+		'note_10k_5'    => [T],
+		'note_10k_6'    => [Y],
+		'note_10k_7'    => [U],
+		'note_10k_8'    => [I],
+		'note_10k_9'    => [O],
+		'note_10k_10'   => [P],
+
+		// 11K —— 两列：左 Q W E R T / 右 Y U I O P G
 		'note_11k_1'    => [Q],
 		'note_11k_2'    => [W],
 		'note_11k_3'    => [E],
@@ -377,107 +378,108 @@ class ClientPrefs {
 		'note_11k_8'    => [I],
 		'note_11k_9'    => [O],
 		'note_11k_10'   => [P],
-		'note_11k_11'   => [S],
-		
-		// 12k (使用 QWERTY 第一行 + 数字)
-		'note_12k_1'    => [Q],
-		'note_12k_2'    => [W],
-		'note_12k_3'    => [E],
-		'note_12k_4'    => [R],
-		'note_12k_5'    => [T],
-		'note_12k_6'    => [Y],
-		'note_12k_7'    => [U],
-		'note_12k_8'    => [I],
-		'note_12k_9'    => [O],
-		'note_12k_10'   => [P],
-		'note_12k_11'   => [S],
-		'note_12k_12'   => [A],
-		
-		// 13k (使用 QWERTY 第一行 + 数字 + 符号)
+		'note_11k_11'   => [G],
+
+		// 12K —— 两列：左 A S D F G H / 右 J K L Z X C
+		'note_12k_1'    => [A],
+		'note_12k_2'    => [S],
+		'note_12k_3'    => [D],
+		'note_12k_4'    => [F],
+		'note_12k_5'    => [G],
+		'note_12k_6'    => [H],
+		'note_12k_7'    => [J],
+		'note_12k_8'    => [K],
+		'note_12k_9'    => [L],
+		'note_12k_10'   => [Z],
+		'note_12k_11'   => [X],
+		'note_12k_12'   => [C],
+
+		// 13K —— 两列：左 Q W E R T A S / 右 Y U I O P H J
 		'note_13k_1'    => [Q],
 		'note_13k_2'    => [W],
 		'note_13k_3'    => [E],
 		'note_13k_4'    => [R],
 		'note_13k_5'    => [T],
-		'note_13k_6'    => [Y],
-		'note_13k_7'    => [U],
-		'note_13k_8'    => [I],
-		'note_13k_9'    => [O],
-		'note_13k_10'   => [P],
-		'note_13k_11'   => [S],
-		'note_13k_12'   => [A],
-		'note_13k_13'   => [],
-		
-		// 14k (使用 QWERTY 第一行 + ASDF 行)
+		'note_13k_6'    => [A],
+		'note_13k_7'    => [S],
+		'note_13k_8'    => [Y],
+		'note_13k_9'    => [U],
+		'note_13k_10'   => [I],
+		'note_13k_11'   => [O],
+		'note_13k_12'   => [H],
+		'note_13k_13'   => [J],
+
+		// 14K —— 两列：左 Q W E R T A S D / 右 Y U I O P H J K
 		'note_14k_1'    => [Q],
 		'note_14k_2'    => [W],
 		'note_14k_3'    => [E],
 		'note_14k_4'    => [R],
 		'note_14k_5'    => [T],
-		'note_14k_6'    => [Y],
-		'note_14k_7'    => [U],
-		'note_14k_8'    => [I],
-		'note_14k_9'    => [O],
-		'note_14k_10'   => [P],
-		'note_14k_11'   => [A],
-		'note_14k_12'   => [S],
-		'note_14k_13'   => [D],
-		'note_14k_14'   => [F],
-		
-		// 15k (使用 QWERTY 第一行 + ASDF 行 + G)
+		'note_14k_6'    => [A],
+		'note_14k_7'    => [S],
+		'note_14k_8'    => [D],
+		'note_14k_9'    => [Y],
+		'note_14k_10'   => [U],
+		'note_14k_11'   => [I],
+		'note_14k_12'   => [O],
+		'note_14k_13'   => [H],
+		'note_14k_14'   => [J],
+
+		// 15K —— 两列：左 Q W E R T A S D F / 右 Y U I O P H J K L
 		'note_15k_1'    => [Q],
 		'note_15k_2'    => [W],
 		'note_15k_3'    => [E],
 		'note_15k_4'    => [R],
 		'note_15k_5'    => [T],
-		'note_15k_6'    => [Y],
-		'note_15k_7'    => [U],
-		'note_15k_8'    => [I],
-		'note_15k_9'    => [O],
-		'note_15k_10'   => [P],
-		'note_15k_11'   => [A],
-		'note_15k_12'   => [S],
-		'note_15k_13'   => [D],
-		'note_15k_14'   => [F],
-		'note_15k_15'   => [G],
-		
-		// 16k (使用 QWERTY 第一行 + ASDF 行 + GH)
+		'note_15k_6'    => [A],
+		'note_15k_7'    => [S],
+		'note_15k_8'    => [D],
+		'note_15k_9'    => [F],
+		'note_15k_10'   => [Y],
+		'note_15k_11'   => [U],
+		'note_15k_12'   => [I],
+		'note_15k_13'   => [O],
+		'note_15k_14'   => [H],
+		'note_15k_15'   => [J],
+
+		// 16K —— 两列：左 Q W E R T A S D F G / 右 Y U I O P H J K L B
 		'note_16k_1'    => [Q],
 		'note_16k_2'    => [W],
 		'note_16k_3'    => [E],
 		'note_16k_4'    => [R],
 		'note_16k_5'    => [T],
-		'note_16k_6'    => [Y],
-		'note_16k_7'    => [U],
-		'note_16k_8'    => [I],
-		'note_16k_9'    => [O],
-		'note_16k_10'   => [P],
-		'note_16k_11'   => [A],
-		'note_16k_12'   => [S],
-		'note_16k_13'   => [D],
-		'note_16k_14'   => [F],
-		'note_16k_15'   => [G],
-		'note_16k_16'   => [H],
-		
+		'note_16k_6'    => [A],
+		'note_16k_7'    => [S],
+		'note_16k_8'    => [D],
+		'note_16k_9'    => [F],
+		'note_16k_10'   => [G],
+		'note_16k_11'   => [Y],
+		'note_16k_12'   => [U],
+		'note_16k_13'   => [I],
+		'note_16k_14'   => [O],
+		'note_16k_15'   => [H],
+		'note_16k_16'   => [J],
+
 		'ui_up'			=> [W, UP],
 		'ui_left'		=> [A, LEFT],
 		'ui_down'		=> [S, DOWN],
 		'ui_right'		=> [D, RIGHT],
-		
+
 		'accept'		=> [SPACE, ENTER],
 		'back'			=> [BACKSPACE, ESCAPE],
 		'pause'			=> [ENTER, ESCAPE],
 		'reset'			=> [R],
-		
+
 		'volume_mute'	=> [ZERO],
 		'volume_up'		=> [NUMPADPLUS, PLUS],
 		'volume_down'	=> [NUMPADMINUS, MINUS],
-		
+
 		'debug_1'		=> [SEVEN],
 		'debug_2'		=> [EIGHT],
-		
+
 		'fullscreen'	=> [F11]
 	];
+	
 	public static var gamepadBinds:Map<String, Array<FlxGamepadInputID>> = [
 		'note_up'		=> [DPAD_UP, Y],
 		'note_left'		=> [DPAD_LEFT, X],

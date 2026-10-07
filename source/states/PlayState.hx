@@ -4636,7 +4636,7 @@ public function reloadCounterColors()
 			var postfix:String = '';
 			if(note != null) postfix = note.animSuffix;
 
-			var idx:Int = Std.int(Math.abs(direction) % singAnimations.length);
+			var idx:Int = (note != null) ? Note.getNoteDirectionIndex(Note.getColumnsPerPlayer(), note.noteData) : Std.int(Math.abs(direction) % singAnimations.length);
 			var animToPlay:String;
 			if(char.hasMissAnimations)
 				animToPlay = singAnimations[idx] + 'miss' + postfix;
@@ -4683,7 +4683,7 @@ public function reloadCounterColors()
 		else if(!note.noAnimation)
 		{
 			var char:Character = (opponentMode == "opponent") ? boyfriend : dad;
-			var animToPlay:String = singAnimations[Std.int(Math.abs(note.noteData) % singAnimations.length)] + note.animSuffix;
+			var animToPlay:String = singAnimations[Note.getNoteDirectionIndex(Note.getColumnsPerPlayer(), note.noteData)] + note.animSuffix;
 			if(note.gfNote) char = gf;
 
 			if(char != null)
@@ -4747,7 +4747,7 @@ public function reloadCounterColors()
 		{
 			if(!note.noAnimation)
 			{
-				var animToPlay:String = singAnimations[Std.int(Math.abs(note.noteData) % singAnimations.length)] + note.animSuffix;
+				var animToPlay:String = singAnimations[Note.getNoteDirectionIndex(Note.getColumnsPerPlayer(), note.noteData)] + note.animSuffix;
 
 				var char:Character = boyfriend;
 				var animCheck:String = 'hey';

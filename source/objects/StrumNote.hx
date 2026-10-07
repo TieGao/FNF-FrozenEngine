@@ -36,7 +36,7 @@ class StrumNote extends FlxSprite
 		var arr:Array<FlxColor> = null;
 		if(colorSets != null && colorSets.length > 0)
 		{
-			var colorIndex:Int = Std.int(Math.abs(leData) % colorSets.length);
+			var colorIndex:Int = Note.getNoteColorIndex(Note.getColumnsPerPlayer(), leData);
 			arr = colorSets[colorIndex];
 		}
 		
@@ -73,6 +73,8 @@ class StrumNote extends FlxSprite
 		var lastAnim:String = null;
 		if(animation.curAnim != null) lastAnim = animation.curAnim.name;
 
+		var dirIdx:Int = Note.getNoteDirectionIndex(Note.getColumnsPerPlayer(), noteData);
+
 
 		var keys = Note.getColumnsPerPlayer();  // 获取当前键数
     	var scale = Note.getNoteScaleForKeys(keys); // 复用同一个函数
@@ -91,7 +93,7 @@ class StrumNote extends FlxSprite
 			animation.add('red', [7]);
 			animation.add('blue', [5]);
 			animation.add('purple', [4]);
-			switch (Math.abs(noteData) % 4)
+			switch (dirIdx)
 			{
 				case 0:
 					animation.add('static', [0]);
@@ -122,7 +124,7 @@ class StrumNote extends FlxSprite
 			antialiasing = ClientPrefs.data.antialiasing;
 			setGraphicSize(Std.int(width * scale));
 
-			switch (Math.abs(noteData) % 4)
+			switch (dirIdx)
 			{
 				case 0:
 					animation.addByPrefix('static', 'arrowLEFT');

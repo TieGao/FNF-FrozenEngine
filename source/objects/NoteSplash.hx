@@ -213,8 +213,11 @@ class NoteSplash extends FlxSprite
 		if (note != null)
 			noteData = note.noteData;
 
+		// 捕获原始 lane（在下方随机化 variant 之前）；splash 颜色必须锁定 lane，不能用被随机污染的 noteData 取色
+		var noteLane:Int = (note != null) ? note.noteData : noteData;
+
 		if (randomize && maxAnims > 1)
-			noteData = noteData % Note.colArray.length + (FlxG.random.int(0, maxAnims - 1) * Note.colArray.length);
+			noteData = Note.getNoteDirectionIndex(Note.getColumnsPerPlayer(), noteLane) + (FlxG.random.int(0, maxAnims - 1) * Note.colArray.length);
 
 		this.noteData = noteData;
 		var anim:String = playDefaultAnim();
@@ -222,7 +225,7 @@ class NoteSplash extends FlxSprite
 		var tempShader:RGBPalette = null;
 		if (config.allowRGB)
 		{
-			Note.initializeGlobalRGBShader(noteData % Note.colArray.length);
+			Note.initializeGlobalRGBShader(noteLane);
 			if (inEditor || (note == null || note.noteSplashData.useRGBShader) && (PlayState.SONG == null || !PlayState.SONG.disableNoteRGB))
 			{
 				tempShader = new RGBPalette();
@@ -238,7 +241,7 @@ class NoteSplash extends FlxSprite
 
 							var colorSets:Array<Array<FlxColor>> = (!PlayState.isPixelStage) ? 
 								ClientPrefs.data.arrowRGB : ClientPrefs.data.arrowRGBPixel;
-							var colorIndex:Int = Std.int(Math.abs(noteData) % colorSets.length);
+							var colorIndex:Int = Note.getNoteColorIndex(Note.getColumnsPerPlayer(), noteLane);
 							var arr:Array<FlxColor> = colorSets[colorIndex];
 
 							var rgb = colors[i];
@@ -264,7 +267,7 @@ class NoteSplash extends FlxSprite
 							else if (i == 2) tempShader.b = color;
 						}
 					}
-					else tempShader.copyValues(Note.globalRgbShaders[noteData % Note.colArray.length]);
+					else tempShader.copyValues(Note.globalRgbShaders[noteLane]);
 
 					if (note != null)
 					{
@@ -273,7 +276,7 @@ class NoteSplash extends FlxSprite
 						if (note.noteSplashData.b != -1) tempShader.b = note.noteSplashData.b;
 					}
 				}
-				else tempShader.copyValues(Note.globalRgbShaders[noteData % Note.colArray.length]);
+				else tempShader.copyValues(Note.globalRgbShaders[noteLane]);
 			}
 		}
 		rgbShader.copyValues(tempShader);

@@ -106,17 +106,16 @@ class NewPauseSubState extends MusicBeatSubstate
 	
 	function initPauseMusic()
 	{
-		pauseMusic = new FlxSound();
-		try
-		{
-			var pauseSong:String = getPauseSong();
-			if(pauseSong != null) 
-				pauseMusic.load(Paths.music(pauseSong), true);
-		}
-		catch(e:Dynamic) {}
+		var pauseSong:String = getPauseSong();
+		if(pauseSong == null) return;
+
+		// 使用新的 API，直接通过 load 方法设置 looped = true
+		pauseMusic = FlxG.sound.load(Paths.music(pauseSong), 0, true);
 		
 		pauseMusic.volume = 0;
+		// play 方法现在不需要传参来设置循环了
 		pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
+		
 		FlxG.sound.list.add(pauseMusic);
 	}
 	
