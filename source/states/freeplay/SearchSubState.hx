@@ -9,7 +9,6 @@ import flixel.math.FlxMath;
 import flixel.util.FlxColor;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
-import objects.HealthIcon;
 import states.FreeplayState;
 
 class SearchSubState extends MusicBeatSubstate
@@ -55,6 +54,9 @@ class SearchSubState extends MusicBeatSubstate
     var scrollStartY:Float = 0;
     var scrollEndY:Float = 0;
 
+    /** 按下时记录的卡片，松手时用来判定"是否同一张卡" */
+    var pressedCard:SearchCard = null;
+
     public function new(songs:Array<NewSongMetaData>, onSelectCallback:NewSongMetaData->Void)
     {
         super();
@@ -93,7 +95,7 @@ class SearchSubState extends MusicBeatSubstate
 
         inputText = new PsychUIInputText(Std.int(searchContainerX + 34), Std.int(searchContainerY), Std.int(360), "", 22);
         inputText.bg.visible = false;
-        inputText.behindText.visible = false; 
+        inputText.behindText.visible = false;
         inputText.textObj.color = FlxColor.WHITE;
         inputText.textObj.alignment = LEFT;
         inputText.forceCase = backend.ui.CaseMode.LOWER_CASE;
@@ -188,6 +190,7 @@ class SearchSubState extends MusicBeatSubstate
 
     function updateFilter(text:String)
     {
+        clearPressedCard();
         var lower = text.toLowerCase().trim();
         if (lower.length == 0)
         {
@@ -209,8 +212,16 @@ class SearchSubState extends MusicBeatSubstate
         repositionCards();
     }
 
+    function clearPressedCard():Void
+    {
+        var card = pressedCard;
+        pressedCard = null;
+        if (card != null) card.setPressed(false);
+    }
+
     function hideAllCards()
     {
+        clearPressedCard();
         for (card in cardPool)
         {
             card.visible = false;
@@ -232,16 +243,28 @@ class SearchSubState extends MusicBeatSubstate
         for (card in cardPool) card.visible = false;
 
         var poolIndex = 0;
+        var pressedCardAssigned:Bool = false;
         for (i in visibleStart...visibleEnd)
         {
             if (i >= filteredSongs.length) break;
             var card = getCard(poolIndex);
-            card.setSong(filteredSongs[i]);
+            var song = filteredSongs[i];
+            if (card == pressedCard)
+            {
+                if (card.songData == song)
+                    pressedCardAssigned = true;
+                else
+                    clearPressedCard();
+            }
+            if (card.songData != song)
+                card.setSong(song);
             var posY = scrollStartY + i * (cardHeight + 10) - scrollOffset;
             card.updatePosition((FlxG.width - cardWidth) / 2, posY);
             card.visible = true;
             poolIndex++;
         }
+        if (pressedCard != null && !pressedCardAssigned)
+            clearPressedCard();
     }
 
     override function update(elapsed:Float)
@@ -270,13 +293,13 @@ class SearchSubState extends MusicBeatSubstate
             var isOverCard = false;
             for (card in cardPool)
             {
-                if (card.visible && card.checkMouseOver())
+                if (card.visible && card.overlapsMouse())
                 {
                     isOverCard = true;
                     break;
                 }
             }
-            
+
             if (!isOverInput && !isOverCard && filteredSongs.length > 0)
             {
                 isDragging = true;
@@ -305,12 +328,12 @@ class SearchSubState extends MusicBeatSubstate
                 {
                     dragVelocity = 0;
                 }
-                
+
                 var deltaScroll = (dragStartY - FlxG.mouse.viewY);
                 var newOffset = FlxMath.bound(dragStartScroll + deltaScroll, 0, maxScroll);
                 scrollOffset = newOffset;
                 repositionCards();
-                
+
                 lastDragY = FlxG.mouse.viewY;
                 lastDragTime = currentTime;
             }
@@ -330,14 +353,14 @@ class SearchSubState extends MusicBeatSubstate
         {
             var damping:Float = 0.96;
             var minVelocity:Float = 10;
-            
+
             var deltaScroll = inertiaVelocity * elapsed * 60;
             var newOffset = scrollOffset + deltaScroll;
             scrollOffset = FlxMath.bound(newOffset, 0, maxScroll);
             repositionCards();
-            
+
             inertiaVelocity *= damping;
-            
+
             if (scrollOffset <= 0 || scrollOffset >= maxScroll)
             {
                 inertiaVelocity = 0;
@@ -383,21 +406,57 @@ class SearchSubState extends MusicBeatSubstate
             }
         }
 
-        // ---- 点击卡片 ----
+        // ---- 点击卡片（松手生效：按下与松开必须在同一张卡上） ----
+        // 修复：pressedCard 提到成员变量，跨帧保持
         if (FlxG.mouse.justPressed)
         {
+            clearPressedCard();
             for (card in cardPool)
             {
-                if (card.visible && card.checkMouseOver())
+                if (card.visible && card.overlapsMouse())
                 {
-                    if (card.songData != null)
-                    {
-                        onSelect(card.songData);
-                        closeSubstate();
-                        return;
-                    }
+                    pressedCard = card;
+                    break;
                 }
             }
+            if (pressedCard != null)
+                pressedCard.setPressed(true);
+        }
+
+        if (FlxG.mouse.justReleased)
+        {
+            var releasedCard:SearchCard = null;
+            for (card in cardPool)
+            {
+                if (card.visible && card.overlapsMouse())
+                {
+                    releasedCard = card;
+                    break;
+                }
+            }
+
+            // 按下与松开同一张卡才触发
+            if (releasedCard != null && releasedCard == pressedCard && releasedCard.songData != null)
+            {
+                var selectedSong = releasedCard.songData;
+                clearPressedCard();
+                onSelect(selectedSong);
+                closeSubstate();
+                return;
+            }
+
+            clearPressedCard();
+        }
+        else if (pressedCard != null && !FlxG.mouse.pressed)
+        {
+            clearPressedCard();
+        }
+
+        // 悬停效果（每帧刷新）
+        for (card in cardPool)
+        {
+            if (card.visible)
+                card.setHovered(card.overlapsMouse());
         }
 
         // ---- 关闭 ----
@@ -412,11 +471,13 @@ class SearchSubState extends MusicBeatSubstate
             closeSubstate();
         }
     }
+
     // -------- 关闭子状态（带 FadeOut） --------
     function closeSubstate()
     {
         if (isClosing) return;
         isClosing = true;
+        clearPressedCard();
 
         // 清除输入焦点，防止后续输入干扰
         PsychUIInputText.focusOn = null;
@@ -444,6 +505,7 @@ class SearchSubState extends MusicBeatSubstate
 
     override function destroy()
     {
+        clearPressedCard();
         // 清理卡片池
         for (card in cardPool) {
             card.destroy();
@@ -455,93 +517,86 @@ class SearchSubState extends MusicBeatSubstate
     }
 }
 
-// ---------- SearchCard 保持不变（不参与 Fade） ----------
-class SearchCard extends FlxTypedGroup<FlxSprite>
+// ---------- SearchCard 使用共用的 FreeplayListItem 外壳 ----------
+class SearchCard extends FreeplayListItem
 {
     public var songData:NewSongMetaData;
-    public var bgSprite:FlxSprite;
-    var icon:HealthIcon;
+    public var icon:HealthIcon;
     var songNameText:FlxText;
     var modFolderText:FlxText;
     var colorRect:FlxSprite;
-    var _isHovering:Bool = false;
-
     var _cardWidth:Float;
     var _cardHeight:Float;
 
     public function new(song:NewSongMetaData, cardHeight:Float, cardWidth:Float)
     {
-        super();
+        super(Math.round(cardWidth), Math.round(cardHeight));
 
         _cardWidth = cardWidth;
         _cardHeight = cardHeight;
 
-        bgSprite = new FlxSprite(0, 0);
-        bgSprite.makeGraphic(Math.round(_cardWidth), Math.round(_cardHeight), FlxColor.fromRGB(45, 45, 45));
-        bgSprite.alpha = 0.85;
-        add(bgSprite);
+        // 浅色卡片背景（这个列表原本就不靠 blur 面板，而是实色块 + 悬停变亮）
+        setColors(FlxColor.fromRGB(45, 45, 45), FlxColor.fromRGB(70, 70, 70),
+            FlxColor.fromRGB(90, 90, 90), FlxColor.fromRGB(70, 70, 70), 0.85);
+
+        // 注意：所有子元素坐标一次性在构造里定好，之后只靠 setItemPosition 移动整行，
+        // 不要再在 updatePosition 里写 icon.x 之类的绝对坐标 —— 那会触发
+        // FlxSpriteGroup 的增量传播，把成员坐标反复叠加，最终内容漂到左上角外。
+        colorRect = new FlxSprite(0, 0);
+        colorRect.makeGraphic(6, Math.round(_cardHeight), song.color);
+        colorRect.alpha = 0.9;
+        colorRect.x = _cardWidth - 6;
+        colorRect.y = 0;
+        content.add(colorRect);
 
         icon = new HealthIcon(song.songCharacter, false, true, song.folder);
         icon.scale.set(0.65, 0.65);
         icon.updateHitbox();
-        add(icon);
+        // 图标相对 content 的坐标（content 本身在行的左上角）
+        icon.x = -50;
+        icon.y = (_cardHeight - icon.height) / 2;
+        content.add(icon);
 
         songNameText = new FlxText(0, 0, 0, song.songName, 20);
         songNameText.antialiasing = ClientPrefs.data.antialiasing;
         songNameText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT);
-        add(songNameText);
+        songNameText.x = 90;
+        songNameText.y = 14;
+        content.add(songNameText);
 
         modFolderText = new FlxText(0, 0, 0, "Mod: " + song.folder, 13);
         modFolderText.antialiasing = ClientPrefs.data.antialiasing;
         modFolderText.setFormat(Paths.font("vcr.ttf"), 13, FlxColor.GRAY, LEFT);
-        add(modFolderText);
-
-        colorRect = new FlxSprite(0, 0);
-        colorRect.makeGraphic(6, Math.round(_cardHeight), song.color);
-        colorRect.alpha = 0.9;
-        add(colorRect);
+        modFolderText.x = 90;
+        modFolderText.y = _cardHeight - 22;
+        content.add(modFolderText);
 
         setSong(song);
-        updatePosition(0, 0);
     }
 
     public function updatePosition(x:Float, y:Float)
     {
-        bgSprite.x = x;
-        bgSprite.y = y;
-
-        icon.x = x -50;
-        icon.y = y -50 + (_cardHeight - icon.height) / 2;
-
-        songNameText.x = x + icon.width + 24;
-        songNameText.y = y + 14;
-
-        modFolderText.x = songNameText.x;
-        modFolderText.y = y + _cardHeight - 22;
-
-        colorRect.x = x + _cardWidth - 6;
-        colorRect.y = y;
+        // 走 setItemPosition：只动 bg / content 这一层，
+        // 内容（icon、文字、色条）的相对坐标保持不变，不会漂移。
+        setItemPosition(x, y);
     }
 
     public function setSong(song:NewSongMetaData)
     {
         this.songData = song;
-        
-        // 重置悬停状态
-        _isHovering = false;
-        bgSprite.color = FlxColor.fromRGB(45, 45, 45);
-        bgSprite.alpha = 0.85;
-        
+
+        setHovered(false);
+        setSelected(false);
+        setPressed(false);
+
         if (songNameText != null) {
             songNameText.text = song.songName;
             songNameText.color = FlxColor.WHITE;
         }
         if (modFolderText != null) modFolderText.text = "Mod: " + song.folder;
-        
-        // 确保色块颜色正确更新
+
         if (colorRect != null) {
             colorRect.color = song.color;
-            // 重新绘制色块以确保颜色生效
             colorRect.makeGraphic(6, Math.round(_cardHeight), song.color);
             colorRect.alpha = 0.9;
         }
@@ -556,23 +611,8 @@ class SearchCard extends FlxTypedGroup<FlxSprite>
     public function checkMouseOver():Bool
     {
         if (!this.visible || songData == null) return false;
-        var over = FlxG.mouse.overlaps(bgSprite);
-        
-        if (over != _isHovering)
-        {
-            _isHovering = over;
-            if (over)
-            {
-                bgSprite.color = FlxColor.fromRGB(70, 70, 70);
-                bgSprite.alpha = 1;
-            }
-            else
-            {
-                bgSprite.color = FlxColor.fromRGB(45, 45, 45);
-                bgSprite.alpha = 0.85;
-            }
-        }
-        
+        var over = overlapsMouse();
+        setHovered(over);
         return over;
     }
 }

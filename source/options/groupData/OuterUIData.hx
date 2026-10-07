@@ -46,6 +46,9 @@ class OuterUIData
         audioGain.decimals = 2;
         sub.add(audioGain);
 
+        sub.add(new Option('Freeplay List Style', 'Background style of the Freeplay list items (search / mod folder / replay)',
+            'freeplayListStyle', STRING, ['blur', 'win8', 'win10']));
+
         return cat;
     }
 }

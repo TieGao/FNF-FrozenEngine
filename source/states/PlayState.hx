@@ -2660,6 +2660,15 @@ public function reloadCounterColors()
 		persistentDraw = true;
 		paused = true;
 
+		#if VIDEOS_ALLOWED
+		// 暂停子状态会停掉 PlayState.update()，所以要在打开菜单前同步暂停 mid-song 视频。
+		if (videoCutscene != null && videoCutscene.waiting && !videoCutscene.alreadyDestroyed)
+		{
+			_videoPauseState = paused;
+			videoCutscene.pause();
+		}
+		#end
+
 		if(FlxG.sound.music != null) {
 			FlxG.sound.music.pause();
 			vocals.pause();

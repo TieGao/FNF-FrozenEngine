@@ -28,6 +28,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 {
 	var modsList:Array<ModFolderItem> = [];
 	var curSelected:Int = 0;
+	var pressedItem:Int = -1;
 	var parent:FreeplayState;
 
 	var bgList:FlxFilteredSprite;
@@ -225,7 +226,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 		add(selectedModInfo);
 
 		// 打开当前模组目录（系统文件管理器）
-		openFolderButton = new PsychUIButton(0, FlxG.height - 110,
+		openFolderButton = new PsychUIButton(0, FlxG.height - 70,
 			Language.getPhrase('mod_folder_open', 'OPEN FOLDER'), openSelectedFolder, 450, 44);
 		openFolderButton.text.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER);
 		openFolderButton.text.fieldWidth = 450;
@@ -334,12 +335,23 @@ class ModFolderSubstate extends MusicBeatSubstate
 		scrollBar.y = scrollBarTrack.y + scrollRatio * availableSpace;
 	}
 
+	function clearPressedItem():Void
+	{
+		pressedItem = -1;
+		if (modsGroup == null || modsGroup.members == null) return;
+		for (item in modsGroup.members)
+		{
+			if (item != null) item.setPressed(false);
+		}
+	}
+
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
 
 		if (shouldClose)
 		{
+			clearPressedItem();
 			closingTimer += elapsed;
 			if (closingTimer >= 0.65)
 			{
@@ -367,23 +379,63 @@ class ModFolderSubstate extends MusicBeatSubstate
 		else if (controls.BACK || FlxG.mouse.justPressedRight)
 			close();
 
+		if (shouldClose)
+		{
+			clearPressedItem();
+			return;
+		}
+
 		// 「打开文件夹」按钮盖在列表底部，指针在它上面时列表不吃点击 / 不响应悬停
 		var overOpenFolder:Bool = (openFolderButton != null && FlxG.mouse.overlaps(openFolderButton));
 
-		// 鼠标支持 - 点击项目
-		if (!overOpenFolder)
+		// 按下项保存在成员中，才能在后续松开帧与命中项比较。
+		var releasedItem:Int = -1;
+		if (overOpenFolder)
 		{
+			clearPressedItem();
+		}
+		else if (FlxG.mouse.justPressed)
+		{
+			clearPressedItem();
 			for (i in 0...modsGroup.members.length)
 			{
 				var item = modsGroup.members[i];
-				if (item.visible && FlxG.mouse.overlaps(item) && FlxG.mouse.justPressed)
+				if (item.visible && item.overlapsMouse())
 				{
-					curSelected = i;
-					scrollToItemMiddle(i);
-					updateSelection();
-					selectMod();
+					pressedItem = i;
+					item.setPressed(true);
 					break;
 				}
+			}
+		}
+		else if (pressedItem >= 0 && !FlxG.mouse.pressed && !FlxG.mouse.justReleased)
+		{
+			clearPressedItem();
+		}
+
+		if (FlxG.mouse.justReleased)
+		{
+			if (!overOpenFolder)
+			{
+				for (i in 0...modsGroup.members.length)
+				{
+					var item = modsGroup.members[i];
+					if (item.visible && item.overlapsMouse())
+					{
+						releasedItem = i;
+						break;
+					}
+				}
+			}
+
+			var clickedItem:Int = pressedItem;
+			clearPressedItem();
+			if (!overOpenFolder && releasedItem >= 0 && releasedItem == clickedItem)
+			{
+				curSelected = releasedItem;
+				scrollToItemMiddle(releasedItem);
+				updateSelection();
+				selectMod();
 			}
 		}
 
@@ -391,7 +443,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 		for (i in 0...modsGroup.members.length)
 		{
 			var item = modsGroup.members[i];
-			if (item.visible && !overOpenFolder && FlxG.mouse.overlaps(item))
+			if (item.visible && !overOpenFolder && item.overlapsMouse())
 			{
 				item.updateHover(true);
 			}
@@ -626,6 +678,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 	override function close()
 	{
+		clearPressedItem();
 		if (shouldClose) 
 		{
 			#if !flash
@@ -669,9 +722,8 @@ class ModFolderSubstate extends MusicBeatSubstate
 /**
  * 模组项目 - 用于显示单个模组
  */
-class ModFolderItem extends FlxSpriteGroup
+class ModFolderItem extends FreeplayListItem
 {
-	public var selectBg:FlxFilteredSprite;
 	public var icon:FlxSprite;
 	public var text:FlxText;
 
@@ -679,39 +731,33 @@ class ModFolderItem extends FlxSpriteGroup
 	public var desc:String = 'No description';
 	public var folder:Null<String>;
 	public var chartCategory:Null<String>;
-	public var isSelected:Bool = false;
-	public var isHovered:Bool = false;
 
-	static inline var WIDTH:Int = 450;
-	static inline var HEIGHT:Int = 80;
+	static inline var WIDTH:Int = FreeplayListItem.DEFAULT_WIDTH;
+	static inline var HEIGHT:Int = FreeplayListItem.DEFAULT_HEIGHT;
 
 	public function new(name:String, desc:String, color:Int, ?folder:String, index:Int, ?chartCategory:Null<String>)
 	{
-		super();
+		super(WIDTH, HEIGHT);
 
 		this.name = name;
 		this.desc = desc;
 		this.folder = folder;
 		this.chartCategory = chartCategory;
 
-		selectBg = new FlxFilteredSprite();
-		selectBg.makeGraphic(WIDTH, HEIGHT, FlxColor.WHITE);
-		selectBg.filters = [new BlurFilter(30,30,BitmapFilterQuality.HIGH)];
-		selectBg.color = color;
-		selectBg.alpha = 0.3;
-		add(selectBg);
+		// 配色沿用这个列表原来的绿/蓝三点式（选中绿是它的既有语义）
+		setColors(0xFF888888, 0xFF4488FF, 0xFF66AAFF, 0xFF00FF00, 0.3);
 
 		icon = new FlxSprite(5, 5);
 		icon.antialiasing = ClientPrefs.data.antialiasing;
 		icon.scale.set(0.5, 0.5);
-		add(icon);
+		content.add(icon);
 
 		text = new FlxText(75, 32, 280, name, 20);
 		text.antialiasing = ClientPrefs.data.antialiasing;
 		text.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 		text.borderSize = 2;
 		text.y -= Std.int(text.height / 2);
-		add(text);
+		content.add(text);
 
 		if (folder != null)
 		{
@@ -754,44 +800,14 @@ class ModFolderItem extends FlxSpriteGroup
 
 	public function updateSelection(isSelected:Bool)
 	{
-		this.isSelected = isSelected;
-		if (isSelected)
-		{
-			selectBg.alpha = 0.8;
-			selectBg.color = 0xFF00FF00;
-			text.color = FlxColor.WHITE;
-		}
-		else if (isHovered)
-		{
-			selectBg.alpha = 0.5;
-			selectBg.color = 0xFF4488FF;
-			text.color = 0xFFDDDDDD;
-		}
-		else
-		{
-			selectBg.alpha = 0.3;
-			selectBg.color = 0xFF888888;
-			text.color = 0xFFCCCCCC;
-		}
+		setSelected(isSelected);
+		text.color = isSelected ? FlxColor.WHITE : (isHovered ? 0xFFDDDDDD : 0xFFCCCCCC);
 	}
 
 	public function updateHover(isHovered:Bool)
 	{
-		this.isHovered = isHovered;
+		setHovered(isHovered);
 		if (!isSelected)
-		{
-			if (isHovered)
-			{
-				selectBg.alpha = 0.5;
-				selectBg.color = 0xFF4488FF;
-				text.color = 0xFFDDDDDD;
-			}
-			else
-			{
-				selectBg.alpha = 0.3;
-				selectBg.color = 0xFF888888;
-				text.color = 0xFFCCCCCC;
-			}
-		}
+			text.color = isHovered ? 0xFFDDDDDD : 0xFFCCCCCC;
 	}
 }

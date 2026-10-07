@@ -392,8 +392,8 @@ class Replay
             
             var replayDir:String = ensureReplayDirExists(currentMod);
             
-            var songNameForFile:String = StringTools.replace(StringTools.replace(replay.songName, " ", "_"), ":", "_");
-            var diffName:String = replay.difficultyName.toLowerCase();
+            var songNameForFile:String = sanitizeForFileName(replay.songName);
+            var diffName:String = sanitizeForFileName(replay.difficultyName).toLowerCase();
             var time:Float = Date.now().getTime();
             var fileName:String = 'Replay_${songNameForFile}_${diffName}_${time}.replay';
             var fullFilePath:String = replayDir + fileName;
@@ -735,6 +735,24 @@ class Replay
         #end
         
         return rootDir + "base/";
+    }
+    
+    // 把歌名/难度名变成合法的 Windows 文件名片段。
+    // 保留字母数字和下划线，其余字符（\ / : * ? " < > | 以及所有标点）统一换成下划线：
+    // 歌名可以带 ' , . # & ( ) ? 之类，其中 ? 等在 Windows 上非法，写文件会直接抛异常，
+    // 结果就是 replay 存不下来、列表里也找不到这首。
+    public static function sanitizeForFileName(input:String):String
+    {
+        if (input == null || input.length == 0) return "unknown";
+        var out = new StringBuf();
+        for (i in 0...input.length) {
+            var c = input.charAt(i);
+            if ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == "_")
+                out.add(c);
+            else
+                out.add("_");
+        }
+        return out.toString();
     }
     
     public static function ensureReplayDirExists(?modName:String = null):String

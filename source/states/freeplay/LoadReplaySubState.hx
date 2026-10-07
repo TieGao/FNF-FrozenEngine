@@ -39,6 +39,7 @@ class LoadReplaySubState extends MusicBeatSubstate
 {
     var replayFiles:Array<ReplayEntry> = [];
     var curSelected:Int = 0;
+    var pressedItem:Int = -1;
     var parent:FreeplayState;
 
     // 当前歌曲信息
@@ -260,13 +261,20 @@ class LoadReplaySubState extends MusicBeatSubstate
             return;
         }
 
-        // 规范化歌曲名：移除特殊字符，统一转为小写
+        // 规范化歌曲名，用于模糊匹配。
+        // replay 里存的是谱面内部 song 字段，Freeplay 传进来的是周 JSON 的显示名，
+        // 两者只在空格/连字符上必然一致（"Dad Battle" vs "dad-battle"），其余标点
+        // （' , . ! # & ( ) : 等）两边写法可能不同。因此只保留字母数字，
+        // 把一切非字母数字字符都丢掉，才能让显示名和 slug 落到同一个 key。
         function normalizeSongName(name:String):String {
             if (name == null) return "";
-            return StringTools.replace(StringTools.replace(StringTools.replace(
-                name.toLowerCase().trim(),
-                " ", ""
-            ), "-", ""), "_", "");
+            var out = new StringBuf();
+            for (i in 0...name.length) {
+                var c = name.charAt(i).toLowerCase();
+                if ((c >= "a" && c <= "z") || (c >= "0" && c <= "9"))
+                    out.add(c);
+            }
+            return out.toString();
         }
 
         var normalizedCurrent:String = normalizeSongName(currentSongName);
@@ -382,6 +390,7 @@ class LoadReplaySubState extends MusicBeatSubstate
 
     function rebuildItems()
     {
+        clearPressedItem();
         for (item in replaysGroup)
         {
             item.destroy();
@@ -413,6 +422,16 @@ class LoadReplaySubState extends MusicBeatSubstate
         noReplaysText.visible = replayFiles.length == 0;
     }
 
+    function clearPressedItem():Void
+    {
+        pressedItem = -1;
+        if (replaysGroup == null || replaysGroup.members == null) return;
+        for (item in replaysGroup.members)
+        {
+            if (item != null) item.setPressed(false);
+        }
+    }
+
     function updateItemsPosition()
     {
         var panelY:Float = bgList.y + PADDING_TOP + 55;
@@ -437,6 +456,7 @@ class LoadReplaySubState extends MusicBeatSubstate
 
         if (shouldClose)
         {
+            clearPressedItem();
             closingTimer += elapsed;
             if (closingTimer >= 0.65)
             {
@@ -448,6 +468,7 @@ class LoadReplaySubState extends MusicBeatSubstate
 
         if (waitingForDeleteConfirm)
         {
+            clearPressedItem();
             if (FlxG.keys.justPressed.Y) confirmDelete();
             else if (FlxG.keys.justPressed.N || FlxG.keys.justPressed.ESCAPE) cancelDelete();
             return;
@@ -476,17 +497,53 @@ class LoadReplaySubState extends MusicBeatSubstate
                 promptDelete(replayFiles[curSelected].filename);
         }
 
-        // 鼠标支持
-        for (i in 0...replaysGroup.members.length)
+        if (shouldClose || waitingForDeleteConfirm)
         {
-            var item = replaysGroup.members[i];
-            if (item.visible && FlxG.mouse.overlaps(item) && FlxG.mouse.justPressed)
+            clearPressedItem();
+            return;
+        }
+
+        // 按下项保存在成员中，才能在后续松开帧与命中项比较。
+        var releasedItem:Int = -1;
+        if (FlxG.mouse.justPressed)
+        {
+            clearPressedItem();
+            for (i in 0...replaysGroup.members.length)
             {
-                curSelected = i;
-                scrollToItemMiddle(i);
+                var item = replaysGroup.members[i];
+                if (item.visible && item.overlapsMouse())
+                {
+                    pressedItem = i;
+                    item.setPressed(true);
+                    break;
+                }
+            }
+        }
+        else if (pressedItem >= 0 && !FlxG.mouse.pressed && !FlxG.mouse.justReleased)
+        {
+            clearPressedItem();
+        }
+
+        if (FlxG.mouse.justReleased)
+        {
+            for (i in 0...replaysGroup.members.length)
+            {
+                var item = replaysGroup.members[i];
+                if (item.visible && item.overlapsMouse())
+                {
+                    releasedItem = i;
+                    break;
+                }
+            }
+
+            var clickedItem:Int = pressedItem;
+            clearPressedItem();
+            if (releasedItem >= 0 && releasedItem == clickedItem)
+            {
+                curSelected = releasedItem;
+                scrollToItemMiddle(releasedItem);
                 updateSelection();
                 loadSelectedReplay();
-                break;
             }
         }
 
@@ -494,7 +551,7 @@ class LoadReplaySubState extends MusicBeatSubstate
         for (i in 0...replaysGroup.members.length)
         {
             var item = replaysGroup.members[i];
-            if (item.visible && FlxG.mouse.overlaps(item))
+            if (item.visible && item.overlapsMouse())
             {
                 item.updateHover(true);
             }
@@ -696,6 +753,7 @@ class LoadReplaySubState extends MusicBeatSubstate
 
     function promptDelete(filename:String)
     {
+        clearPressedItem();
         replayToDelete = filename;
         waitingForDeleteConfirm = true;
         var displayName = filename;
@@ -757,6 +815,7 @@ class LoadReplaySubState extends MusicBeatSubstate
 
     override function close()
     {
+        clearPressedItem();
         if (shouldClose) 
         {
             #if !flash
@@ -837,6 +896,7 @@ class LoadReplaySubState extends MusicBeatSubstate
 
     override function destroy()
     {
+        clearPressedItem();
         for (item in replaysGroup)
         {
             item.destroy();
@@ -872,9 +932,8 @@ typedef ReplayEntry = {
 /**
  * 回放项目 - 带进度条
  */
-class ReplayItem extends FlxSpriteGroup
+class ReplayItem extends FreeplayListItem
 {
-    public var selectBg:FlxFilteredSprite;
     public var songText:FlxText;
     public var infoText:FlxText;
     public var ratingText:FlxText;
@@ -885,28 +944,22 @@ class ReplayItem extends FlxSpriteGroup
 
     public var filename:String;
     public var dateStr:String;
-    public var isSelected:Bool = false;
-    public var isHovered:Bool = false;
 
-    static inline var WIDTH:Int = 450;
-    static inline var HEIGHT:Int = 80;
+    static inline var WIDTH:Int = FreeplayListItem.DEFAULT_WIDTH;
+    static inline var HEIGHT:Int = FreeplayListItem.DEFAULT_HEIGHT;
 
     public function new(songName:String, accuracy:Float, modDir:String, filename:String, 
                          dateStr:String, difficulty:String, modFolder:String, 
                          rating:String, ratingFC:String, index:Int)
     {
-        super();
+        super(WIDTH, HEIGHT);
 
         this.filename = filename;
         this.dateStr = dateStr;
 
-        // 背景
-        selectBg = new FlxFilteredSprite();
-        selectBg.makeGraphic(WIDTH, HEIGHT, FlxColor.WHITE);
-        selectBg.filters = [new BlurFilter(30, 30, BitmapFilterQuality.HIGH)];
-        selectBg.color = 0xFF888888;
-        selectBg.alpha = 0.3;
-        add(selectBg);
+        // 配色沿用这个列表原来的蓝灰三点式
+        setColors(0xFF888888, FlxColor.fromRGB(40, 55, 80), FlxColor.fromRGB(70, 95, 140),
+            FlxColor.fromRGB(50, 70, 110), 0.3);
 
         // 歌曲名称
         var displayName = songName;
@@ -915,7 +968,7 @@ class ReplayItem extends FlxSpriteGroup
         songText.antialiasing = ClientPrefs.data.antialiasing;
         songText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
         songText.borderSize = 2;
-        add(songText);
+        content.add(songText);
 
         // 评级
         var ratingDisplay = rating != null ? rating : "N/A";
@@ -927,23 +980,23 @@ class ReplayItem extends FlxSpriteGroup
         ratingText.antialiasing = ClientPrefs.data.antialiasing;
         ratingText.setFormat(Paths.font("vcr.ttf"), 16, getRatingColor(rating), RIGHT, OUTLINE, FlxColor.BLACK);
         ratingText.borderSize = 1;
-        add(ratingText);
+        content.add(ratingText);
 
         // 日期和难度
         infoText = new FlxText(15, 26, WIDTH - 120, '$difficulty  •  $dateStr', 14);
         infoText.antialiasing = ClientPrefs.data.antialiasing;
         infoText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.GRAY, LEFT, OUTLINE, FlxColor.BLACK);
         infoText.borderSize = 1;
-        add(infoText);
+        content.add(infoText);
 
         // 完成度进度条
         progressBarBg = new FlxSprite(15, 48).makeGraphic(WIDTH - 130, 6, FlxColor.fromRGB(50, 50, 70));
         progressBarBg.alpha = 0.6;
-        add(progressBarBg);
+        content.add(progressBarBg);
 
         var fillWidth = Std.int((WIDTH - 130) * Math.min(accuracy, 100) / 100);
         progressBarFill = new FlxSprite(15, 48).makeGraphic(fillWidth, 6, getAccuracyColor(accuracy));
-        add(progressBarFill);
+        content.add(progressBarFill);
 
         // 准确率显示在进度条上
         var accStr:String = FlxMath.roundDecimal(accuracy, 2) + '%';
@@ -951,7 +1004,7 @@ class ReplayItem extends FlxSpriteGroup
         progressText.setFormat(Paths.font("vcr.ttf"), 11, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         progressText.borderSize = 1;
         progressText.x = 15 + (WIDTH - 130) / 2 - progressText.width / 2;
-        add(progressText);
+        content.add(progressText);
 
         // MOD标签
         if (modFolder != null && modFolder.length > 0 && modFolder != "" && modFolder != "base")
@@ -961,48 +1014,20 @@ class ReplayItem extends FlxSpriteGroup
             modTag = new FlxText(WIDTH - 55, 30, 50, displayMod, 11);
             modTag.setFormat(Paths.font("vcr.ttf"), 11, FlxColor.YELLOW, RIGHT, OUTLINE, FlxColor.BLACK);
             modTag.borderSize = 1;
-            add(modTag);
+            content.add(modTag);
         }
 
-        updateSelection(false);
+        setSelected(false);
     }
 
     public function updateSelection(isSelected:Bool)
     {
-        this.isSelected = isSelected;
-        if (this.isSelected)
-        {
-            selectBg.color = FlxColor.fromRGB(50, 70, 110);
-            selectBg.alpha = 0.9;
-        }
-        else if (isHovered)
-        {
-            selectBg.color = FlxColor.fromRGB(40, 55, 80);
-            selectBg.alpha = 0.6;
-        }
-        else
-        {
-            selectBg.color = 0xFF888888;
-            selectBg.alpha = 0.3;
-        }
+        setSelected(isSelected);
     }
 
     public function updateHover(isHovered:Bool)
     {
-        this.isHovered = isHovered;
-        if (!isSelected)
-        {
-            if (isHovered)
-            {
-                selectBg.color = FlxColor.fromRGB(40, 55, 80);
-                selectBg.alpha = 0.6;
-            }
-            else
-            {
-                selectBg.color = 0xFF888888;
-                selectBg.alpha = 0.3;
-            }
-        }
+        setHovered(isHovered);
     }
 
     function getAccuracyColor(acc:Float):FlxColor

@@ -1282,6 +1282,8 @@ function onScrollChange()
 				KEOption.create("Save Freeplay Cache", "Save freeplay song metadata cache to disk", "saveFreeplayCache", "bool"),
 				KEOption.create("Space Back Ground EveryWhere", "Show space background everywhere", "globalspace", "bool"),
 				KEOption.create("Mod Folder Manager", "Organize mods in Freeplay using folder selector", "freeplayModFolder", "bool"),
+				KEOption.createStringOption("Freeplay List Style", "Background style of the Freeplay list items (search / mod folder / replay)",
+					"freeplayListStyle", ["blur", "win8", "win10"], "blur"),
 				KEOption.create("Audio Display Number", "Change the relax audio number", "relaxAudioNumber", "int", 16, 1, 64, 1),
 				KEOption.create("Audio Display Quality", "Change the relax audio display quality", "relaxAudioDisplayQuality", "int", 4, 1, 8, 1),
 				KEOption.create("Audio Display Update Speed", "Change the relax audio display update speed", "audioDisplayUpdate", "int", 33, 33, 100, 1),

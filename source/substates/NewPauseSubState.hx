@@ -58,12 +58,9 @@ class NewPauseSubState extends MusicBeatSubstate
 	var difficultyBg:FlxSprite;
 	
 	var timeNotMoving:Float = 0;
+	// 当前鼠标指向的项（-1 = 未指向任何项）。鼠标模式下它直接决定选中项与执行目标。
 	var mouseOverItem:Int = -1;
 	var lastMousePos:FlxPoint;
-	
-	// 点击判定区域偏移量（与旧版一致）
-	var clickHitboxOffsetX:Float = 0;
-	var clickHitboxOffsetY:Float = 0;
 	
 	// ========== 动画常量 ==========
 	static final SIDEBAR_ANIM_TIME:Float = 0.45;
@@ -412,7 +409,8 @@ class NewPauseSubState extends MusicBeatSubstate
 		}
 	}
 	
-	// ========== 鼠标悬停检测 ==========
+	// ========== 鼠标悬停检测（悬浮即选中） ==========
+	// 悬浮到某一项就直接把它设为选中项；悬浮到空白处保留上一次的选中，不清空。
 	function updateMouseOver()
 	{
 		var newMouseOver:Int = -1;
@@ -434,59 +432,41 @@ class NewPauseSubState extends MusicBeatSubstate
 			for (i in 0...menuItems.length)
 			{
 				var icon = menuIcons.get(menuItems[i]);
-				if (icon != null && icon.visible)
+				if (icon != null && icon.visible && FlxG.mouse.overlaps(icon, cameras[0]))
 				{
-					var originalX:Float = icon.x;
-					var originalY:Float = icon.y;
-					icon.x += clickHitboxOffsetX;
-					icon.y += clickHitboxOffsetY;
-					var overlaps:Bool = FlxG.mouse.overlaps(icon, cameras[0]);
-					icon.x = originalX;
-					icon.y = originalY;
-					
-					if (overlaps)
-					{
-						newMouseOver = i;
-						break;
-					}
+					newMouseOver = i;
+					break;
 				}
 			}
 		}
 		
-		if (newMouseOver != mouseOverItem)
+		mouseOverItem = newMouseOver;
+		
+		if (newMouseOver == -1)
 		{
-			mouseOverItem = newMouseOver;
+			// 移出图标栏：curSelected 保持不变，只刷新一次视觉避免残留
 			updateSelectionVisual();
+			return;
+		}
+		
+		if (curSelected != newMouseOver)
+		{
+			if (inDifficultyMode) changeDifficultySelection(newMouseOver - curSelected);
+			else changeSelection(newMouseOver - curSelected);
 		}
 	}
 	
-	// ========== 鼠标点击处理 ==========
+	// ========== 鼠标点击处理（单击立即生效） ==========
+	// 悬浮已经把 curSelected 同步到鼠标指向项，所以左键按下直接执行，不再需要"先选后确认"。
 	function handleMouseClick()
 	{
 		if (mouseOverItem == -1) return;
 		
-		if (inDifficultyMode)
-		{
-			if (mouseOverItem != curSelected)
-			{
-				changeDifficultySelection(mouseOverItem - curSelected);
-			}
-			else
-			{
-				executeDifficultyAction();
-			}
-		}
-		else
-		{
-			if (mouseOverItem != curSelected)
-			{
-				changeSelection(mouseOverItem - curSelected);
-			}
-			else
-			{
-				executeMenuItem();
-			}
-		}
+		curSelected = mouseOverItem;
+		updateSelectionVisual();
+		
+		if (inDifficultyMode) executeDifficultyAction();
+		else executeMenuItem();
 	}
 	
 	// ========== 更新选择视觉 ==========
@@ -508,13 +488,6 @@ class NewPauseSubState extends MusicBeatSubstate
 					textBg.alpha = 1;
 					diffText.color = FlxColor.CYAN;
 					diffText.size = 28;
-				}
-				else if ( i == mouseOverItem)
-				{
-					textBg.color = 0x33FFFF00;
-					textBg.alpha = 0.8;
-					diffText.color = 0xFFFFFF00;
-					diffText.size = 26;
 				}
 				else
 				{
@@ -542,13 +515,6 @@ class NewPauseSubState extends MusicBeatSubstate
 					iconBg.alpha = 1;
 					icon.color = FlxColor.WHITE;
 					icon.alpha = 1.0;
-				}
-				else if ( i == mouseOverItem)
-				{
-					iconBg.color = 0x33FFFF00;
-					iconBg.alpha = 0.8;
-					icon.color = 0xFFFFFF00;
-					icon.alpha = 0.9;
 				}
 				else
 				{

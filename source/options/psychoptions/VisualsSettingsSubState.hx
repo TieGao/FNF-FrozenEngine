@@ -344,6 +344,13 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			BOOL);
 		addOption(option);
 
+		var option:Option = new Option('Freeplay List Style',
+			"Background style of the Freeplay list items (search / mod folder / replay)",
+			'freeplayListStyle',
+			STRING,
+			['blur', 'win8', 'win10']);
+		addOption(option);
+
 		var option:Option = new Option('Custom Color',
 			"If checked, timeBar and Scoretxt will change to opponent's icon color",
 			'customColor',

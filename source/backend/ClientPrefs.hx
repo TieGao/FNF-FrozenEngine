@@ -119,6 +119,13 @@ import states.TitleState;
 	public var globalspace:Bool = false;
 	public var cardGlow:Bool = true; // 新增：在 Freeplay 卡片下显示呼吸发光
 	public var freeplayModFolder:Bool = true; // 使用模组文件夹管理器隔离歌曲
+	/**
+	 * Freeplay 列表项（搜索 / 模组选择 / 回放选择）的背景风格。
+	 *   'blur'  → FlxFilteredSprite + BlurFilter 柔光面板（默认）
+	 *   'win8'  → 直角扁平色块
+	 *   'win10' → 实色块 + 顶边高光
+	 */
+	public var freeplayListStyle:String = 'blur';
 	public var scoreScreen:Bool = true;
 	public var optionstype:String = 'new';
 	public var colorMode:String = 'dark';
