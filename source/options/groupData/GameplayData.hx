@@ -37,8 +37,8 @@ class GameplayData
         sub.add(new Option('Pause Music', 'Choose pause screen music', 'pauseMusic', STRING, ['None', 'Tea Time', 'Breakfast', 'Breakfast (Pico)']));
 
         var ratingOffset = new Option('Rating Offset', 'Adjust note hit timing', 'ratingOffset', INT);
-        ratingOffset.minValue = -30;
-        ratingOffset.maxValue = 30;
+        ratingOffset.minValue = -100;
+        ratingOffset.maxValue = 100;
         ratingOffset.changeValue = 1;
         sub.add(ratingOffset);
 

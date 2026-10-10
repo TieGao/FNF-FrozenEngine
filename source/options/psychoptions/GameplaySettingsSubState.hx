@@ -70,8 +70,8 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 			INT);
 		option.displayFormat = '%vms';
 		option.scrollSpeed = 20;
-		option.minValue = -30;
-		option.maxValue = 30;
+		option.minValue = -100;
+		option.maxValue = 100;
 		addOption(option);
 
 		var option:Option = new Option('Enable Marvelous',
