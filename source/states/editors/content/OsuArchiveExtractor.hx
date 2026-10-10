@@ -118,7 +118,7 @@ class OsuArchiveExtractor
         {
             var songPath = Paths.formatToSongPath(songName);
             var targetDir = (chartCategory != null && chartSongDir != null)
-                ? 'mods/charts/$chartCategory/$chartSongDir/'
+                ? '${Paths.CHART_ROOT}/$chartCategory/$chartSongDir/'
                 : 'songs/$songPath/';
 
             // 创建目录

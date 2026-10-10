@@ -76,6 +76,8 @@ class LoadReplaySubState extends MusicBeatSubstate
     var waitingForDeleteConfirm:Bool = false;
     var replayToDelete:String = "";
     var headerText:FlxText;
+    var sortText:FlxText;
+    var sortMode:Int = 0;   // 0=日期降序, 1=准确率降序
 
     public function new(parent:FreeplayState, songName:String, modFolder:String, difficultyName:String)
     {
@@ -124,13 +126,22 @@ class LoadReplaySubState extends MusicBeatSubstate
         add(headerText);
 
         // 子标题 - 显示模组和当前难度
-        var subText:String = 'Mod: ' + (currentModFolder != null && currentModFolder.length > 0 ? currentModFolder : 'Base Game');
+        var subText:String = 'Mod: ' + ((parent != null && parent.isContentMode()) ? 'Custom Charts'
+            : (currentModFolder != null && currentModFolder.length > 0 ? currentModFolder : 'Base Game'));
         subText += '  |  Current: $currentDifficultyName';
         var subHeader = new FlxText(bgList.x + 10, bgList.y + 32, panelWidth - 20, subText, 14);
         subHeader.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.GRAY, CENTER, OUTLINE, FlxColor.BLACK);
         subHeader.borderSize = 1;
         subHeader.antialiasing = ClientPrefs.data.antialiasing;
         add(subHeader);
+
+        // 顶部排序指示（点击切换 日期/准确率）
+        sortText = new FlxText(bgList.x + 10, bgList.y + 50, panelWidth - 20, '', 14);
+        sortText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.LIME, CENTER, OUTLINE, FlxColor.BLACK);
+        sortText.borderSize = 1;
+        sortText.antialiasing = ClientPrefs.data.antialiasing;
+        add(sortText);
+        updateSortText();
 
         // 创建回放项目组
         replaysGroup = new FlxTypedGroup<ReplayItem>();
@@ -157,21 +168,21 @@ class LoadReplaySubState extends MusicBeatSubstate
         add(deleteConfirmText);
 
         // 右侧信息显示区域
-        selectedReplayName = new FlxText(FlxG.width * 0.2 + 20, 130, 300, "Select a Replay", 28);
+        selectedReplayName = new FlxText(FlxG.width * 0.2 + 20, 120, 340, "Select a Replay", 28);
         selectedReplayName.antialiasing = ClientPrefs.data.antialiasing;
         selectedReplayName.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
         selectedReplayName.borderSize = 2;
         selectedReplayName.scrollFactor.set();
         add(selectedReplayName);
 
-        selectedReplayInfo = new FlxText(FlxG.width * 0.2 + 20, 175, 300, "", 18);
+        selectedReplayInfo = new FlxText(FlxG.width * 0.2 + 20, 220, 340, "", 16);
         selectedReplayInfo.antialiasing = ClientPrefs.data.antialiasing;
-        selectedReplayInfo.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.GRAY, CENTER, OUTLINE, FlxColor.BLACK);
+        selectedReplayInfo.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.GRAY, CENTER, OUTLINE, FlxColor.BLACK);
         selectedReplayInfo.borderSize = 1;
         selectedReplayInfo.scrollFactor.set();
         add(selectedReplayInfo);
 
-        selectedReplayAccuracy = new FlxText(FlxG.width * 0.2 + 20, 215, 300, "", 32);
+        selectedReplayAccuracy = new FlxText(FlxG.width * 0.2 + 20, 160, 340, "", 32);
         selectedReplayAccuracy.antialiasing = ClientPrefs.data.antialiasing;
         selectedReplayAccuracy.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.CYAN, CENTER, OUTLINE, FlxColor.BLACK);
         selectedReplayAccuracy.borderSize = 2;
@@ -180,7 +191,7 @@ class LoadReplaySubState extends MusicBeatSubstate
 
         // 操作提示
         var controlsText:FlxText = new FlxText(FlxG.width * 0.2 + 20, FlxG.height - 70, FlxG.width,
-            "↑/↓: Navigate  |  ENTER: Load  |  F: Delete  |  ESC: Close", 16);
+            "↑/↓: Navigate | ENTER: Load | F: Delete | Click Sort header to toggle | ESC/Click Outside: Close", 16);
         controlsText.antialiasing = ClientPrefs.data.antialiasing;
         controlsText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.GRAY, CENTER, OUTLINE, FlxColor.BLACK);
         controlsText.borderSize = 1;
@@ -194,6 +205,7 @@ class LoadReplaySubState extends MusicBeatSubstate
         // 弹出动画
         bgList.x = startX;
         headerText.x = startX + 10;
+        sortText.x = startX + 10;
         selectedReplayName.x = startX + 50;
         selectedReplayInfo.x = startX + 50;
         selectedReplayAccuracy.x = startX + 50;
@@ -205,6 +217,7 @@ class LoadReplaySubState extends MusicBeatSubstate
 
         FlxTween.tween(bgList, {x: targetX}, 0.6, {ease: FlxEase.circOut});
         FlxTween.tween(headerText, {x: targetX + 10}, 0.6, {ease: FlxEase.circOut});
+        FlxTween.tween(sortText, {x: targetX + 10}, 0.6, {ease: FlxEase.circOut});
         FlxTween.tween(selectedReplayName, {x: targetX - 450}, 0.6, {ease: FlxEase.circOut});
         FlxTween.tween(selectedReplayInfo, {x: targetX - 450}, 0.6, {ease: FlxEase.circOut});
         FlxTween.tween(selectedReplayAccuracy, {x: targetX - 450}, 0.6, {ease: FlxEase.circOut});
@@ -251,8 +264,9 @@ class LoadReplaySubState extends MusicBeatSubstate
         #if sys
         replayFiles = [];
 
-        // 如果模组文件夹为空，使用 "base" 作为默认
-        var modFolder = currentModFolder != null && currentModFolder.length > 0 ? currentModFolder : "base";
+        // 自定义谱面 replay 独立归档在 custom/；其余按 mod 目录，空则 base。
+        var modFolder:String = (parent != null && parent.isContentMode()) ? FrameReplay.CUSTOM_REPLAY_BUCKET
+            : (currentModFolder != null && currentModFolder.length > 0 ? currentModFolder : "base");
         var replayDir = "assets/replays/" + modFolder + "/";
         
         if (!FileSystem.exists(replayDir))
@@ -320,7 +334,14 @@ class LoadReplaySubState extends MusicBeatSubstate
                     noteSpeed: json.noteSpeed != null ? Std.parseFloat(Std.string(json.noteSpeed)) : 1.5,
                     rawJson: json,
                     dateStr: extractDateFromReplay(json),
-                    fullPath: filePath
+                    fullPath: filePath,
+                    isCustomChart: json.isCustomChart != null ? (json.isCustomChart == true) : (modFolder == FrameReplay.CUSTOM_REPLAY_BUCKET),
+                    sustainOffset: json.sustainOffset != null ? Std.parseFloat(Std.string(json.sustainOffset)) : 0,
+                    keyCount: json.keyCount != null ? Std.parseInt(Std.string(json.keyCount)) : 4,
+                    keyLayout: buildKeyLayout(json.laneKeys),
+                    mirrorNotes: json.mirrorNotes == true,
+                    timestampMs: extractTimestampMs(json),
+                    dateTimeStr: extractDateTimeFromReplay(json)
                 };
                 
                 replayFiles.push(entry);
@@ -331,13 +352,95 @@ class LoadReplaySubState extends MusicBeatSubstate
             }
         }
         
-        // 按日期排序（最新在前）
-        replayFiles.sort(function(a, b):Int {
-            return Reflect.compare(b.dateStr, a.dateStr);
-        });
+        // 排序（默认日期降序，最新在前）
+        sortReplays();
         #end
     }
     
+    /** 从 replay 的 timestamp 解析出 Date；解析不出返回 null。 */
+    function parseReplayDate(json:Dynamic):Date
+    {
+        if (json == null) return null;
+        var timestamp = json.timestamp;
+        if (timestamp == null) return null;
+        try
+        {
+            if (Std.isOfType(timestamp, Date))
+                return cast timestamp;
+
+            if (Std.isOfType(timestamp, String))
+            {
+                var str:String = cast timestamp;
+                try { return Date.fromString(str); } catch (e:Dynamic) {}
+                var parts = str.split('T')[0].split(' ');
+                parts = parts[0].split('-');
+                if (parts.length >= 3)
+                {
+                    var year = Std.parseInt(parts[0]);
+                    var month = Std.parseInt(parts[1]);
+                    var day = Std.parseInt(parts[2]);
+                    if (year != null && month != null && day != null)
+                        return new Date(year, month - 1, day, 0, 0, 0);
+                }
+                return null;
+            }
+
+            if (Std.isOfType(timestamp, Float) || Std.isOfType(timestamp, Int))
+            {
+                var num:Float = Std.parseFloat(Std.string(timestamp));
+                if (!Math.isNaN(num)) return Date.fromTime(num);
+            }
+        }
+        catch (e:Dynamic) {}
+        return null;
+    }
+
+    function formatReplayDate(date:Date, withTime:Bool):String
+    {
+        var year = StringTools.lpad(Std.string(date.getFullYear()), '0', 4);
+        var month = StringTools.lpad(Std.string(date.getMonth() + 1), '0', 2);
+        var day = StringTools.lpad(Std.string(date.getDate()), '0', 2);
+        if (!withTime) return '$year-$month-$day';
+        var hour = StringTools.lpad(Std.string(date.getHours()), '0', 2);
+        var minute = StringTools.lpad(Std.string(date.getMinutes()), '0', 2);
+        var second = StringTools.lpad(Std.string(date.getSeconds()), '0', 2);
+        return '$year-$month-$day $hour:$minute:$second';
+    }
+
+    function extractDateTimeFromReplay(json:Dynamic):String
+    {
+        var date:Date = parseReplayDate(json);
+        if (date == null) return "0000-00-00 00:00:00";
+        return formatReplayDate(date, true);
+    }
+
+    function extractTimestampMs(json:Dynamic):Float
+    {
+        var date:Date = parseReplayDate(json);
+        return date == null ? 0 : date.getTime();
+    }
+
+    /** laneKeys（lane -> 键名数组）取每 lane 首键名拼成键型串，如 "ASWD"。 */
+    function buildKeyLayout(laneKeys:Dynamic):String
+    {
+        if (laneKeys == null) return "----";
+        var out:String = "";
+        try
+        {
+            var lanes:Array<Dynamic> = cast laneKeys;
+            for (lane in lanes)
+            {
+                var keys:Array<Dynamic> = cast lane;
+                if (keys != null && keys.length > 0 && keys[0] != null)
+                    out += Std.string(keys[0]);
+                else
+                    out += "?";
+            }
+        }
+        catch (e:Dynamic) {}
+        return out.length > 0 ? out : "----";
+    }
+
     function extractDateFromReplay(json:Dynamic):String
     {
         var timestamp = json.timestamp;
@@ -386,6 +489,83 @@ class LoadReplaySubState extends MusicBeatSubstate
             }
         } catch(e:Dynamic) {}
         return "0000-00-00";
+    }
+
+    /** 按当前 sortMode 重排 replayFiles。 */
+    function sortReplays():Void
+    {
+        if (sortMode == 1)
+        {
+            replayFiles.sort(function(a, b):Int {
+                return Reflect.compare(b.accuracy, a.accuracy);
+            });
+        }
+        else
+        {
+            replayFiles.sort(function(a, b):Int {
+                return Reflect.compare(b.timestampMs, a.timestampMs);
+            });
+        }
+    }
+
+    function updateSortText():Void
+    {
+        if (sortText == null) return;
+        sortText.text = (sortMode == 1) ? 'Sort: Accuracy ↓  (click to change)' : 'Sort: Date ↓  (click to change)';
+    }
+
+    function toggleSort():Void
+    {
+        var keepFile:String = (curSelected >= 0 && curSelected < replayFiles.length) ? replayFiles[curSelected].filename : null;
+        sortMode = (sortMode == 0) ? 1 : 0;
+        sortReplays();
+        if (keepFile != null)
+        {
+            for (i in 0...replayFiles.length)
+            {
+                if (replayFiles[i].filename == keepFile) { curSelected = i; break; }
+            }
+        }
+        if (replayFiles.length > 0 && (curSelected < 0 || curSelected >= replayFiles.length)) curSelected = 0;
+        rebuildItems();
+        updateMaxScroll();
+        updateItemsPosition();
+        updateSelection();
+        updateSortText();
+        FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+    }
+
+    function buildInfoText(entry:ReplayEntry):String
+    {
+        var lines:Array<String> = [];
+        var diffLine:String = 'Difficulty: ' + entry.difficultyName;
+        if (entry.isCustomChart) diffLine += '   [Custom Chart]';
+        lines.push(diffLine);
+        lines.push('Time: ' + entry.dateTimeStr);
+        lines.push('Sustain Offset: ' + FlxMath.roundDecimal(entry.sustainOffset, 2));
+        lines.push('Keys: ' + entry.keyCount + 'K (' + entry.keyLayout + ')');
+        lines.push('Mirror: ' + (entry.mirrorNotes ? 'ON' : 'OFF'));
+        lines.push('Score: ' + entry.score + '   Misses: ' + entry.misses);
+        return lines.join('\n');
+    }
+
+    /** 面板完整矩形（含顶部表头）——点它外面即退出。 */
+    function isMouseOverPanel():Bool
+    {
+        if (bgList == null) return false;
+        var mouseX = FlxG.mouse.viewX;
+        var mouseY = FlxG.mouse.viewY;
+        return mouseX >= bgList.x && mouseX <= bgList.x + bgList.width &&
+               mouseY >= bgList.y && mouseY <= bgList.y + bgList.height;
+    }
+
+    function isMouseOverSortText():Bool
+    {
+        if (sortText == null) return false;
+        var mouseX = FlxG.mouse.viewX;
+        var mouseY = FlxG.mouse.viewY;
+        return mouseX >= sortText.x && mouseX <= sortText.x + sortText.width &&
+               mouseY >= sortText.y && mouseY <= sortText.y + sortText.height;
     }
 
     function rebuildItems()
@@ -480,6 +660,20 @@ class LoadReplaySubState extends MusicBeatSubstate
             var newScroll = scrollPos - FlxG.mouse.wheel * 40;
             scrollPos = Math.max(0, Math.min(newScroll, maxScrollPos));
             updateItemsPosition();
+        }
+
+        // 点击面板外空白处退出
+        if (FlxG.mouse.justPressed && !isMouseOverPanel())
+        {
+            close();
+            return;
+        }
+
+        // 点击顶部排序文字切换 日期/准确率
+        if (FlxG.mouse.justPressed && isMouseOverSortText())
+        {
+            toggleSort();
+            return;
         }
 
         if (controls.UI_UP_P)
@@ -608,8 +802,8 @@ class LoadReplaySubState extends MusicBeatSubstate
         {
             var entry = replayFiles[curSelected];
             selectedReplayName.text = entry.songName;
-            selectedReplayInfo.text = entry.difficultyName + '  •  ' + entry.dateStr;
-            
+            selectedReplayInfo.text = buildInfoText(entry);
+
             var accStr:String = FlxMath.roundDecimal(entry.accuracy, 2) + '%';
             selectedReplayAccuracy.text = accStr;
             selectedReplayAccuracy.color = getAccuracyColor(entry.accuracy);
@@ -663,7 +857,7 @@ class LoadReplaySubState extends MusicBeatSubstate
         {
             var diffLower = rep.replay.difficultyName.toLowerCase();
             if (diffLower.indexOf('easy') >= 0) difficultyID = 0;
-            else if (diffLower.indexOf('normal') >= 0 || diffLower.indexOf('standard') >= 0) difficultyID = 1;
+            else if (diffLower.indexOf('normal') >= 0) difficultyID = 1;
             else if (diffLower.indexOf('hard') >= 0) difficultyID = 2;
             else difficultyID = rep.replay.songDiff;
         }
@@ -681,7 +875,7 @@ class LoadReplaySubState extends MusicBeatSubstate
             if (difficultyName != null)
             {
                 var lowerDiff = difficultyName.toLowerCase();
-                if (lowerDiff != 'normal' && lowerDiff != 'standard')
+                if (lowerDiff != 'normal')
                     diffSuffix = '-' + lowerDiff;
             }
             var jsonToLoad = songName + diffSuffix;
@@ -854,6 +1048,7 @@ class LoadReplaySubState extends MusicBeatSubstate
         FlxTween.tween(selectedReplayName, {x: startX + 50, alpha: 0}, 0.6, {ease: FlxEase.circOut});
         FlxTween.tween(selectedReplayInfo, {x: startX + 50, alpha: 0}, 0.6, {ease: FlxEase.circOut});
         FlxTween.tween(selectedReplayAccuracy, {x: startX + 50, alpha: 0}, 0.6, {ease: FlxEase.circOut});
+        FlxTween.tween(sortText, {x: startX + 10, alpha: 0}, 0.6, {ease: FlxEase.circOut});
 
         // ===== 操作提示 =====
         for (member in members)
@@ -927,6 +1122,14 @@ typedef ReplayEntry = {
     var dateStr:String;
     var rawJson:Dynamic;
     var fullPath:String;
+    // 新增字段
+    var isCustomChart:Bool;
+    var sustainOffset:Float;
+    var keyCount:Int;
+    var keyLayout:String;
+    var mirrorNotes:Bool;
+    var timestampMs:Float;
+    var dateTimeStr:String;
 }
 
 /**

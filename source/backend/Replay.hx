@@ -68,6 +68,13 @@ typedef ReplayData = {
     var chartHasVSliceMetadata:Bool;
     var chartAudioSuffix:String;
     var sm:Bool;
+
+    // 扩展元数据（旧档没有这些键，读时判 null）
+    @:optional var isCustomChart:Bool;      // 是否自定义谱面（决定归档目录）
+    @:optional var sustainOffset:Float;     // ClientPrefs.data.noteSustainsOffset
+    @:optional var keyCount:Int;            // 谱面键数
+    @:optional var laneKeys:Array<Array<String>>; // lane -> 物理键名数组（录制时键位）
+    @:optional var mirrorNotes:Bool;        // 录制时 mirror 开关
 }
 
 /**
@@ -77,6 +84,9 @@ class Replay
 {
     // ========== 版本信息 ==========
     public static var version:String = "2.0";
+
+    /** 自定义谱面 replay 的独立归档目录名 */
+    public static inline var CUSTOM_REPLAY_BUCKET:String = 'custom';
     
     // ========== 实例变量 ==========
     
@@ -94,6 +104,9 @@ class Replay
         /** 高保真判定映射 */
     public var hasJudgments(default, null):Bool = false;
     private var judgmentMap:Map<String, NoteJudgment> = new Map<String, NoteJudgment>();
+
+    /** 录制时键位映射：物理键名 -> lane / bind（回放时优先按它还原轨道） */
+    private var recordedLaneMap:Map<String, {keyIndex:Int, bindIndex:Int}> = new Map<String, {keyIndex:Int, bindIndex:Int}>();
     public var replayVersion(default, null):Int = 1;
     
     /** 录制相关 */
@@ -146,7 +159,12 @@ class Replay
             chartDirectory: "",
             chartHasVSliceMetadata: false,
             chartAudioSuffix: "",
-            sm: false
+            sm: false,
+            isCustomChart: false,
+            sustainOffset: 0,
+            keyCount: 4,
+            laneKeys: [],
+            mirrorNotes: false
         };
         
         if (cachedKeyNames == null) {
@@ -326,6 +344,29 @@ class Replay
         }
     
     
+    /**
+     * 录制时的键位映射：逐 lane 取该 lane 的物理键名。
+     * 4 键走 note_left/down/up/right（与 recordFrameInput / getInputBindNames 同一套回退），
+     * 其余直接用 keysArray（note_<n>k_<i>）。
+     */
+    private function buildLaneKeys(keysArray:Array<String>):Array<Array<String>>
+    {
+        var result:Array<Array<String>> = [];
+        if (keysArray == null || keysArray.length == 0) return result;
+
+        for (name in getInputBindNames(keysArray))
+        {
+            var lane:Array<String> = [];
+            var binds = Controls.instance.keyboardBinds.get(name);
+            if (binds != null)
+            {
+                for (key in binds) lane.push(InputFormatter.getKeyName(key));
+            }
+            result.push(lane);
+        }
+        return result;
+    }
+
     public function finishRecording(playState:PlayState):Void
     {
         isRecording = false;
@@ -357,6 +398,12 @@ class Replay
             replay.chartDirectory = replay.chartPath;
             replay.chartHasVSliceMetadata = Paths.currentChartHasVSliceMetadata;
             replay.chartAudioSuffix = Paths.currentChartAudioSuffix != null ? Paths.currentChartAudioSuffix : "";
+
+            replay.isCustomChart = Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0;
+            replay.sustainOffset = ClientPrefs.data.noteSustainsOffset;
+            replay.mirrorNotes = ClientPrefs.getGameplaySetting('mirrornotes');
+            replay.keyCount = Note.getColumnsPerPlayer(PlayState.SONG);
+            replay.laneKeys = buildLaneKeys(playState != null ? playState.keysArray : null);
         }
         
         replay.frameData = frameData;
@@ -381,9 +428,15 @@ class Replay
     {
         #if sys
         try {
+            // 自定义谱面的 replay 一律独立归档到 assets/replays/custom/。
+            // content 模式下 Mods.currentModDirectory = customChartModFolder，若跟着它走，
+            // 自定义谱面 replay 会混进某个 mod 的目录，而列表侧按 base 找 -> 存了看不到。
             var currentMod:String = "";
+            if (replay.isCustomChart == true) {
+                currentMod = CUSTOM_REPLAY_BUCKET;
+            }
             #if MODS_ALLOWED
-            if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0) {
+            else if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0) {
                 currentMod = Mods.currentModDirectory;
             }
             #end
@@ -443,6 +496,7 @@ class Replay
             
             // 构建判定映射
             buildJudgmentMap();
+            buildRecordedLaneMap();
             
             if (data.replayGameVer != version) {
                 trace('Warning: Replay version mismatch. Replay: ${data.replayGameVer}, Current: $version');
@@ -493,6 +547,34 @@ class Replay
     public function getRecordedJudgment(strumTime:Float, noteData:Int):NoteJudgment
     {
         return judgmentMap.get('${roundToTwo(strumTime)}_${noteData}');
+    }
+
+    /**
+     * 由 replay.laneKeys 反查「物理键名 -> lane/bind」。
+     * 回放时优先用它还原轨道，玩家改了键位也能打对。
+     */
+    private function buildRecordedLaneMap():Void
+    {
+        recordedLaneMap = new Map<String, {keyIndex:Int, bindIndex:Int}>();
+        if (replay == null || replay.laneKeys == null) return;
+        for (laneIndex in 0...replay.laneKeys.length)
+        {
+            var lane:Array<String> = replay.laneKeys[laneIndex];
+            if (lane == null) continue;
+            for (bindIndex in 0...lane.length)
+            {
+                var name:String = lane[bindIndex];
+                if (name != null && !recordedLaneMap.exists(name))
+                    recordedLaneMap.set(name, {keyIndex: laneIndex, bindIndex: bindIndex});
+            }
+        }
+    }
+
+    private function getRecordedKeyBinding(keyName:String):{keyIndex:Int, bindIndex:Int}
+    {
+        if (recordedLaneMap != null && recordedLaneMap.exists(keyName))
+            return recordedLaneMap.get(keyName);
+        return {keyIndex: -1, bindIndex: 0};
     }
     
     private function findReplayFile(path:String):String
@@ -616,8 +698,10 @@ class Replay
         
         keysHeld.set(keyName, true);
         
-        var binding = getKeyBinding(key, playState);
-        if (binding.keyIndex >= 0) {
+        // 优先按录制时的键位还原轨道，避免玩家改键后回放打错 lane
+        var binding = getRecordedKeyBinding(keyName);
+        if (binding.keyIndex < 0) binding = getKeyBinding(key, playState);
+        if (binding.keyIndex >= 0 && binding.keyIndex < playState.keysArray.length) {
             playState.keyPressed(binding.keyIndex, binding.bindIndex);
         }
     }
@@ -639,8 +723,10 @@ class Replay
         
         keysHeld.remove(keyName);
         
-        var binding = getKeyBinding(key, playState);
-        if (binding.keyIndex >= 0) {
+        // 优先按录制时的键位还原轨道
+        var binding = getRecordedKeyBinding(keyName);
+        if (binding.keyIndex < 0) binding = getKeyBinding(key, playState);
+        if (binding.keyIndex >= 0 && binding.keyIndex < playState.keysArray.length) {
             playState.keyReleased(binding.keyIndex, binding.bindIndex);
         }
     }

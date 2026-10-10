@@ -13,7 +13,7 @@ import haxe.Json;
 
 class ChartSourceSelectSubstate extends MusicBeatSubstate
 {
-	public static final chartRoot:String = 'mods/charts';
+	public static final chartRoot:String = Paths.CHART_ROOT;
 	public static final categories:Array<String> = ['v_slice'];
 
 	// 修改回调签名，增加 variant 参数
@@ -78,7 +78,7 @@ class ChartSourceSelectSubstate extends MusicBeatSubstate
 		add(panel);
 
 		// 标题
-		titleText = new FlxText(0, 90, FlxG.width, 'Select chart from mods/charts', 28);
+		titleText = new FlxText(0, 90, FlxG.width, 'Select chart from ' + chartRoot, 28);
 		titleText.setFormat(Paths.font('vcr.ttf'), 28, FlxColor.WHITE, CENTER);
 		titleText.scrollFactor.set();
 		add(titleText);
@@ -269,8 +269,8 @@ class ChartSourceSelectSubstate extends MusicBeatSubstate
 		if (entries.length < 1)
 		{
 			var msg:String = (currentSongDir == null) 
-				? 'No song folders found in ' + currentCategory + '.\nCreate folders in: mods/charts/' + currentCategory + '/'
-				: 'No chart files found in ' + currentSongDir + '.\nPlace .json files in: mods/charts/' + currentCategory + '/' + currentSongDir + '/';
+				? 'No song folders found in ' + currentCategory + '.\nCreate folders in: ' + chartRoot + '/' + currentCategory + '/'
+				: 'No chart files found in ' + currentSongDir + '.\nPlace .json files in: ' + chartRoot + '/' + currentCategory + '/' + currentSongDir + '/';
 			
 			var emptyText:FlxText = new FlxText(120, listY, FlxG.width - 240, msg, 18);
 			emptyText.setFormat(null, 18, FlxColor.GRAY, LEFT);

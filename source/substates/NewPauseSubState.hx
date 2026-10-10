@@ -555,7 +555,7 @@ class NewPauseSubState extends MusicBeatSubstate
 		super.update(elapsed);
 		
 		cantUnpause -= elapsed;
-		if(pauseMusic.volume < 0.5)
+		if(pauseMusic != null && pauseMusic.volume < 0.5)
 			pauseMusic.volume += 0.01 * elapsed;
 		
 		// 关闭动画期间菜单正在离开，唯一出口是"双击 accept 键瞬时关闭"

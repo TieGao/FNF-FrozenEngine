@@ -270,6 +270,7 @@ class PlayState extends MusicBeatState
 	}
 
 	public var botplaySine:Float = 0;
+	public var replaySine:Float = 0;   // ← 新增
 	public var botplayTxt:FlxText;
 	public var frameReplayTxt:FlxText;
 
@@ -283,10 +284,14 @@ class PlayState extends MusicBeatState
 	public var songScore:Int = 0;
 	public var songHits:Int = 0;
 	public var songMisses:Int = 0;
+	// 统计是否已记录，防止 endSong 被重复调用时重复计入全局存档
+	var statsRecorded:Bool = false;
 	public var scoreTxt:FlxText;
 
 	//KE replay system
 	public static var frameRep:FrameReplay;
+	// 跨状态切换时 frameRep 会被上一个 PlayState 的 destroy 清空，回放数据先经这里中转
+	public static var pendingReplay:FrameReplay = null;
 	public static var loadRep:Bool = false;
 	public static var inReplay:Bool = false; 
 	public static var replayFileName:String = "";
@@ -295,6 +300,22 @@ class PlayState extends MusicBeatState
 	public static var chartDirectory:String = null;
 	public static var chartHasVSliceMetadata:Bool = false;
 	public static var chartAudioSuffix:String = null;
+
+	// 回放时按录制时的 mirror 开关还原谱面；null = 用玩家当前设置
+	public static var replayMirrorOverride:Null<Bool> = null;
+
+	/**
+	 * 清空自定义谱面上下文。加载普通歌 / 剧情歌时必须调用 ——
+	 * 这四个字段是 static，不清就会把上一首自定义谱面的来源残留到下一首，
+	 * 进而在 create() / 结算页里被当成"本曲谱面来源"重新写回 Paths。
+	 */
+	public static function clearChartContext():Void
+	{
+		chartCategory = null;
+		chartDirectory = null;
+		chartHasVSliceMetadata = false;
+		chartAudioSuffix = null;
+	}
 
 	var scoreTxtColorTween:FlxTween;
 	var scoreTxtDefaultColor:FlxColor = 0xFFFFFFFF;
@@ -309,6 +330,11 @@ class PlayState extends MusicBeatState
 
 	public static var campaignScore:Int = 0;
 	public static var campaignMisses:Int = 0;
+	public static var campaignMarvelous:Int = 0;
+	public static var campaignSicks:Int = 0;
+	public static var campaignGoods:Int = 0;
+	public static var campaignBads:Int = 0;
+	public static var campaignShits:Int = 0;
 	public static var seenCutscene:Bool = false;
 	public static var deathCounter:Int = 0;
 
@@ -539,16 +565,20 @@ class PlayState extends MusicBeatState
 
 	override public function create()
 	{
-		if (Paths.currentChartCategory == null && chartCategory != null)
-			Paths.currentChartCategory = chartCategory;
-		if (Paths.currentChartDirectory == null && chartDirectory != null)
-			Paths.currentChartDirectory = chartDirectory;
-		if (Paths.currentChartCategory != null)
+		// 谱面上下文一律以 Paths 为准：Freeplay / 编辑器 / 回放进入前都已显式写好，
+		// 普通歌与剧情模式写的是 null。不再从 static chartCategory 回填 ——
+		// 那是上一首歌的残留，会把普通歌误判成自定义谱面（套用自定义舞台 / 角色 / 分轨）。
+		chartCategory = Paths.currentChartCategory;
+		chartDirectory = Paths.currentChartDirectory;
+		chartHasVSliceMetadata = Paths.currentChartHasVSliceMetadata;
+		chartAudioSuffix = Paths.currentChartAudioSuffix;
+
+		// 结算页发起的回放：接管 pendingReplay 里的回放数据
+		if (pendingReplay != null)
 		{
-			chartCategory = Paths.currentChartCategory;
-			chartDirectory = Paths.currentChartDirectory;
-			chartHasVSliceMetadata = Paths.currentChartHasVSliceMetadata;
-			chartAudioSuffix = Paths.currentChartAudioSuffix;
+			frameRep = pendingReplay;
+			pendingReplay = null;
+			loadRep = true;
 		}
 
 		 // ========== 回放系统初始化 ==========
@@ -578,6 +608,10 @@ class PlayState extends MusicBeatState
         
         trace('Replay mode activated with ${frameRep.replay.frameData.length} entries');
     }
+
+		// 回放时按录制时的 mirror 开关还原谱面；非回放时清空，避免 static 残留到下一首
+		replayMirrorOverride = (loadRep && frameRep != null && frameRep.replay != null)
+			? (frameRep.replay.mirrorNotes == true) : null;
 
 		FlxG.mouse.visible = false;
 	
@@ -1986,7 +2020,11 @@ public function reloadCounterColors()
 		var middleActive:Bool = middleScrollActive(); // coop 下恒 false
 		
 		// Apply mirror notes if enabled
-		if (ClientPrefs.getGameplaySetting('mirrornotes'))
+		// 回放时优先用录制时的 mirror 设置，保证 noteData 与录制一致
+		var mirrorOn:Bool = (replayMirrorOverride != null)
+			? (replayMirrorOverride == true)
+			: (ClientPrefs.getGameplaySetting('mirrornotes') == true);
+		if (mirrorOn)
 		{
 			for (sec in sectionsData)
 			{
@@ -2433,7 +2471,8 @@ public function reloadCounterColors()
 			botplayTxt.alpha = 1 - Math.sin((Math.PI * botplaySine) / 180);
 		}
 		if (frameReplayTxt != null && frameReplayTxt.visible) {
-			frameReplayTxt.alpha = 1 - Math.sin((Math.PI * botplaySine) / 180);
+			replaySine += 180 * elapsed;
+			frameReplayTxt.alpha = 1 - Math.sin((Math.PI * replaySine) / 180);
 		}
 
  		if (controls.PAUSE && startedCountdown && canPause || FlxG.mouse.justPressedRight || FlxG.mouse.justPressedMiddle)
@@ -3380,8 +3419,19 @@ public function reloadCounterColors()
 				}
 			}
 			
+			// ========== 记录本曲统计与周目累计 ==========
+			// 放在这里而不是结算页里：周目中途不弹结算页，统计也不能漏
+			if (!loadRep && !inReplay && !statsRecorded)
+			{
+				statsRecorded = true;
+				recordSongStats();
+				accumulateCampaignStats();
+			}
+
 			// ========== 根据模式显示结算界面 ==========
-			if (ClientPrefs.data.scoreScreen)
+			// 周目只在最后一首歌结束时结算，中途直接进下一首
+			var showResults:Bool = ClientPrefs.data.scoreScreen && (!isStoryMode || storyPlaylist.length <= 1);
+			if (showResults)
 			{	
 				if (ClientPrefs.data.blurEffects)
 				{
@@ -3428,6 +3478,73 @@ public function reloadCounterColors()
 				proceedToNextState();
 			}
 		}
+	}
+
+	/**
+	 * 把本曲统计记进全局存档（每首歌一次，与是否弹结算页无关）
+	 */
+	function recordSongStats():Void
+	{
+		if (ratingsData == null || ratingsData.length < 5) return;
+
+		var marvelous:Int = ratingsData[0].hits;
+		var sicks:Int = ratingsData[1].hits;
+		var goods:Int = ratingsData[2].hits;
+		var bads:Int = ratingsData[3].hits;
+		var shits:Int = ratingsData[4].hits;
+		var accuracy:Float = ratingPercent * 100;
+		var diffIndex:Int = getDifficultyStatIndex(Difficulty.getString());
+
+		ClientPrefs.data.totalScore += songScore;
+		ClientPrefs.data.totalPlays++;
+		ClientPrefs.data.totalSongsCleared++;
+
+		ClientPrefs.data.totalMarvelous += marvelous;
+		ClientPrefs.data.totalSicks += sicks;
+		ClientPrefs.data.totalGoods += goods;
+		ClientPrefs.data.totalBads += bads;
+		ClientPrefs.data.totalShits += shits;
+		ClientPrefs.data.totalMisses += songMisses;
+
+		if (songScore > ClientPrefs.data.highestScore) ClientPrefs.data.highestScore = songScore;
+		if (highestCombo > ClientPrefs.data.highestCombo) ClientPrefs.data.highestCombo = highestCombo;
+		if (accuracy > ClientPrefs.data.bestAccuracy) ClientPrefs.data.bestAccuracy = accuracy;
+
+		if (songMisses == 0 && shits == 0 && bads == 0) ClientPrefs.data.perfectClears++;
+		if (songMisses == 0) ClientPrefs.data.fullComboCount++;
+
+		if (diffIndex >= 0 && diffIndex < ClientPrefs.data.songsByDifficulty.length)
+			ClientPrefs.data.songsByDifficulty[diffIndex]++;
+
+		ClientPrefs.saveSettings();
+	}
+
+	/**
+	 * 把本曲统计累加进周目累计，供周目结算显示
+	 */
+	function accumulateCampaignStats():Void
+	{
+		if (!isStoryMode || ratingsData == null || ratingsData.length < 5) return;
+
+		campaignScore += songScore;
+		campaignMisses += songMisses;
+		campaignMarvelous += ratingsData[0].hits;
+		campaignSicks += ratingsData[1].hits;
+		campaignGoods += ratingsData[2].hits;
+		campaignBads += ratingsData[3].hits;
+		campaignShits += ratingsData[4].hits;
+	}
+
+	/**
+	 * 难度归一到 songsByDifficulty 的下标 [Easy, Normal, Hard]
+	 */
+	function getDifficultyStatIndex(difficulty:String):Int
+	{
+		var diffLower:String = difficulty != null ? difficulty.toLowerCase() : '';
+		if (diffLower.indexOf('easy') >= 0) return 0;
+		if (diffLower.indexOf('normal') >= 0) return 1;
+		if (diffLower.indexOf('hard') >= 0) return 2;
+		return 1;
 	}
 
 	// 辅助函数：查找最近的回放文件
@@ -3491,9 +3608,6 @@ public function reloadCounterColors()
 		
 		if (isStoryMode)
 		{
-			campaignScore += songScore;
-			campaignMisses += songMisses;
-
 			storyPlaylist.remove(storyPlaylist[0]);
 
 			if (storyPlaylist.length <= 0)

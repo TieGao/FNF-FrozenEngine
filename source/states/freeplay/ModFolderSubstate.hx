@@ -21,15 +21,32 @@ import sys.FileSystem;
 #end
 
 /**
- * ModFolder 子界面 - 用于在 Freeplay 中选择模组
- * 从左侧弹出，使用 FlxTween 和 FlxEase.circOut 进行动画
+ * ModFolder 子界面 - 在 Freeplay 里选择内容来源，从左侧弹出（FlxTween + FlxEase.circOut）。
+ *
+ * 两级菜单：
+ *   一级 Mods    —— 默认体系：ALL + 各模组文件夹
+ *   二级 Content —— 自定义谱面分类（后续可继续追加其它内容类型）
+ *
+ * 层级切换只发生在本界面内部；真正改变 Freeplay 模式的是 selectItem() 里对
+ * FreeplayState.enterContentMode() / exitContentMode() 的调用 —— 模式状态只由那两处写。
  */
 class ModFolderSubstate extends MusicBeatSubstate
 {
-	var modsList:Array<ModFolderItem> = [];
+	// 层级
+	static inline var LEVEL_MODS:Int = 0;
+	static inline var LEVEL_CONTENT:Int = 1;
+
+	// 列表项类型
+	static inline var KIND_ALL:String = 'all';           // 显示全部模组歌曲
+	static inline var KIND_MOD:String = 'mod';           // 某个模组
+	static inline var KIND_CONTENT:String = 'content';   // 进入 Content 二级
+	static inline var KIND_CATEGORY:String = 'category'; // 某个自定义谱面分类
+	static inline var KIND_BACK:String = 'back';         // 从 Content 返回 Mods
+
 	var curSelected:Int = 0;
 	var pressedItem:Int = -1;
 	var parent:FreeplayState;
+	var level:Int = LEVEL_MODS;
 
 	var bgList:FlxFilteredSprite;
 	var bgDim:FlxSprite;
@@ -40,7 +57,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 	var selectedModIcon:FlxSprite;
 
 	var openFolderButton:PsychUIButton;
-	
+
 	var modsGroup:FlxTypedGroup<ModFolderItem>;
 
 	var startX:Float;
@@ -54,18 +71,13 @@ class ModFolderSubstate extends MusicBeatSubstate
 	var totalItems:Int = 0;
 	var scrollBar:FlxSprite;
 	var scrollBarTrack:FlxSprite;
-	var scrollBarDragging:Bool = false;
-	var dragStartY:Float = 0;
-	var dragStartScroll:Float = 0;
 	var cardScroller:MouseMove;
-	static final customChartCategories:Array<{name:String, category:Null<String>, desc:String}> = [
-		{name: 'CUSTOM CHARTS', category: 'custom', desc: 'Show all custom charts'}
-	];
 
 	// 面板内部边距
 	static inline var PADDING_TOP:Int = 20;
 	static inline var PADDING_BOTTOM:Int = 20;
 	static inline var ITEM_SPACING:Int = 10;
+	static inline var PANEL_WIDTH:Int = 500;
 
 	public function new(parent:FreeplayState)
 	{
@@ -81,27 +93,17 @@ class ModFolderSubstate extends MusicBeatSubstate
 		bgDim.scrollFactor.set();
 		add(bgDim);
 
-		// 加载模组列表
-		var modsListData:ModsList = Mods.parseList();
-		var chartFolders:Array<String> = [];
-		#if sys
-		chartFolders = CustomChartData.listChartCategories();
-		#end
-		var customChartItemCount:Int = chartFolders.length > 0 ? customChartCategories.length : 0;
-		totalItems = modsListData.all.length + 1 + customChartItemCount + chartFolders.length;
+		// 已经在 Content 模式就直接从二级进，否则从一级进
+		level = (parent != null && parent.isContentMode()) ? LEVEL_CONTENT : LEVEL_MODS;
 
 		// 计算可见项目数量
 		var panelHeight:Int = FlxG.height;
 		visibleItemCount = Math.floor((panelHeight - PADDING_TOP - PADDING_BOTTOM) / (itemHeight + ITEM_SPACING));
 		if (visibleItemCount < 1) visibleItemCount = 1;
-		
-		// 最大滚动位置（像素）
-		maxScrollPos = Math.max(0, (totalItems * (itemHeight + ITEM_SPACING)) - (panelHeight - PADDING_TOP - PADDING_BOTTOM));
 
 		// 创建背景面板
-		var panelWidth:Int = 500;
 		bgList = new FlxFilteredSprite();
-		bgList.makeGraphic(panelWidth, panelHeight, FlxColor.BLACK,);
+		bgList.makeGraphic(PANEL_WIDTH, panelHeight, FlxColor.BLACK,);
 		bgList.filters = [new BlurFilter(30,30,BitmapFilterQuality.HIGH)];
 		bgList.alpha = 0.8;
 		bgList.scrollFactor.set();
@@ -111,97 +113,28 @@ class ModFolderSubstate extends MusicBeatSubstate
 		scrollBarTrack = new FlxSprite();
 		scrollBarTrack.makeGraphic(8, panelHeight - 40, FlxColor.GRAY);
 		scrollBarTrack.alpha = 0.3;
-		scrollBarTrack.x = bgList.x + panelWidth - 20;
+		scrollBarTrack.x = bgList.x + PANEL_WIDTH - 20;
 		scrollBarTrack.y = bgList.y + 20;
 		scrollBarTrack.scrollFactor.set();
-		//add(scrollBarTrack);
 
 		// 创建滚动条
 		scrollBar = new FlxSprite();
-		var trackHeight = scrollBarTrack.height;
-		var thumbHeight = Math.max(30, trackHeight * (visibleItemCount / totalItems));
-		scrollBar.makeGraphic(8, Std.int(thumbHeight), FlxColor.WHITE);
+		scrollBar.makeGraphic(8, 30, FlxColor.WHITE);
 		scrollBar.alpha = 0.6;
 		scrollBar.x = scrollBarTrack.x;
 		scrollBar.y = scrollBarTrack.y;
 		scrollBar.scrollFactor.set();
-		//add(scrollBar);
 
-		// 创建模组项目组
+		// 创建列表项组
 		modsGroup = new FlxTypedGroup<ModFolderItem>();
 		add(modsGroup);
 
-		var startY:Float = bgList.y + PADDING_TOP;
-
-		// 添加"所有歌曲"选项
-		var allSongsItem = new ModFolderItem("ALL", "Show all songs", 0xFFFFFFFF, null, 0, null);
-		allSongsItem.setPosition(bgList.x + 10, startY);
-		if (Mods.currentModDirectory == null && Paths.currentChartCategory == null)
-			curSelected = 0;
-		modsGroup.add(allSongsItem);
-
-		// 添加自定义谱面分类。该页面状态决定 Freeplay 显示全部模组歌曲还是谱面分类。
-		var itemIndex:Int = 1;
-		if (chartFolders.length > 0)
-		{
-			for (chartCategory in customChartCategories)
-			{
-				var chartItem = new ModFolderItem(chartCategory.name, chartCategory.desc, 0xFF4488FF, null, itemIndex, chartCategory.category);
-				chartItem.setPosition(bgList.x + 10, startY + (itemIndex * (itemHeight + ITEM_SPACING)));
-				modsGroup.add(chartItem);
-				if (Paths.currentChartCategory == chartCategory.category && Mods.currentModDirectory == null)
-					curSelected = itemIndex;
-				itemIndex++;
-			}
-		}
-
-		#if sys
-		// charts 下的一级目录就是自定义谱面的分类/来源。
-		for (folder in chartFolders)
-		{
-			var chartItem = new ModFolderItem(folder, 'Show charts from mods/charts/$folder', 0xFF4488FF, null, itemIndex, folder);
-			chartItem.setPosition(bgList.x + 10, startY + (itemIndex * (itemHeight + ITEM_SPACING)));
-			modsGroup.add(chartItem);
-			if (Paths.currentChartCategory == folder && Mods.currentModDirectory == null) curSelected = itemIndex;
-			itemIndex++;
-		}
-		#end
-
-		// 添加每个模组
-		for (mod in modsListData.all)
-		{
-			// 获取模组描述
-			var pack = Mods.getPack(mod);
-			var modName:String = mod;
-			var modDesc:String = 'No description';
-			if (pack != null)
-			{
-				if (pack.name != null) modName = pack.name;
-				if (pack.description != null) modDesc = pack.description;
-			}
-			
-			var modItem = new ModFolderItem(modName, modDesc, 0xFF888888, mod, itemIndex, null);
-			modItem.setPosition(bgList.x + 10, startY + (itemIndex * (itemHeight + ITEM_SPACING)));
-			modsGroup.add(modItem);
-			
-			if (Mods.currentModDirectory == mod)
-				curSelected = itemIndex;
-
-			itemIndex++;
-		}
-
-		// 初始化滚动位置，使选中项可见
-		var selectedIndex = curSelected;
-		var targetScroll = selectedIndex * (itemHeight + ITEM_SPACING) - (visibleItemCount * (itemHeight + ITEM_SPACING)) / 2 + (itemHeight / 2);
-		scrollPos = Math.max(0, Math.min(targetScroll, maxScrollPos));
-
-		// 模组信息显示区域 - 调整位置（右侧显示）
+		// 模组信息显示区域（右侧）
 		selectedModIcon = new FlxSprite(FlxG.width * 0.2, 80);
 		selectedModIcon.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModIcon.scrollFactor.set();
 		add(selectedModIcon);
 
-		// mod名字下移40像素
 		selectedModName = new FlxText(FlxG.width * 0.2 + 100, 240, 300, "", 32);
 		selectedModName.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModName.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
@@ -209,7 +142,6 @@ class ModFolderSubstate extends MusicBeatSubstate
 		selectedModName.borderSize = 2;
 		add(selectedModName);
 
-		// 描述在mod名字下20像素
 		selectedModDesc = new FlxText(FlxG.width * 0.2 + 100, 292, 300, "", 16);
 		selectedModDesc.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModDesc.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
@@ -217,7 +149,6 @@ class ModFolderSubstate extends MusicBeatSubstate
 		selectedModDesc.borderSize = 2;
 		add(selectedModDesc);
 
-		// 模组补充信息（文件夹名 / 歌曲数 / 启用状态）
 		selectedModInfo = new FlxText(FlxG.width * 0.2 + 100, 330, 300, "", 16);
 		selectedModInfo.antialiasing = ClientPrefs.data.antialiasing;
 		selectedModInfo.setFormat(Paths.font("vcr.ttf"), 16, 0xFFDDDDDD, CENTER, OUTLINE, FlxColor.BLACK);
@@ -225,7 +156,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 		selectedModInfo.borderSize = 2;
 		add(selectedModInfo);
 
-		// 打开当前模组目录（系统文件管理器）
+		// 打开当前项对应的目录（系统文件管理器）
 		openFolderButton = new PsychUIButton(0, FlxG.height - 70,
 			Language.getPhrase('mod_folder_open', 'OPEN FOLDER'), openSelectedFolder, 450, 44);
 		openFolderButton.text.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER);
@@ -236,47 +167,42 @@ class ModFolderSubstate extends MusicBeatSubstate
 		openFolderButton.scrollFactor.set();
 		add(openFolderButton);
 
-		// ===== 关键修改：从左侧弹出 =====
-		// 起始位置：屏幕左侧之外（负的宽度）
-		startX = -panelWidth - 250;
-		// 目标位置：屏幕左侧，留一点边距
+		// 建列表（定位依赖 bgList，必须排在面板创建之后）
+		buildList();
+
+		// ===== 弹出动画：从屏幕左侧外滑入 =====
+		startX = -PANEL_WIDTH - 250;
 		targetX = 10;
 
-		// 弹出动画 - 从左侧滑入
 		bgList.x = startX;
-		scrollBarTrack.x = startX + panelWidth - 20;
-		scrollBar.x = startX + panelWidth - 20;
-		selectedModIcon.x = startX ; // 图标在面板右侧
-		selectedModName.x = startX ;
-		selectedModDesc.x = startX ;
-		selectedModInfo.x = startX ;
+		scrollBarTrack.x = startX + PANEL_WIDTH - 20;
+		scrollBar.x = startX + PANEL_WIDTH - 20;
+		selectedModIcon.x = startX;
+		selectedModName.x = startX;
+		selectedModDesc.x = startX;
+		selectedModInfo.x = startX;
 		openFolderButton.x = startX + 10;
 
 		for (item in modsGroup)
-		{
 			item.x = startX + 10;
-		}
 
-		// 使用 FlxTween 和 FlxEase.circOut 从左侧弹出
 		FlxTween.tween(bgList, {x: targetX}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(scrollBarTrack, {x: targetX + panelWidth - 20}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(scrollBar, {x: targetX + panelWidth - 20}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModIcon, {x: targetX + panelWidth + 50}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModName, {x: targetX + panelWidth + 50}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModDesc, {x: targetX + panelWidth + 50}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModInfo, {x: targetX + panelWidth + 50}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(scrollBarTrack, {x: targetX + PANEL_WIDTH - 20}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(scrollBar, {x: targetX + PANEL_WIDTH - 20}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModIcon, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModName, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModDesc, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModInfo, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
 		FlxTween.tween(openFolderButton, {x: targetX + 10}, 0.6, {ease: FlxEase.circOut});
 
 		for (item in modsGroup)
-		{
 			FlxTween.tween(item, {x: targetX + 10}, 0.6, {ease: FlxEase.circOut});
-		}
 
 		FlxTween.tween(bgDim, {alpha: 0.5}, 0.6, {ease: FlxEase.circOut});
 
-		// 创建鼠标滚动控制器
-		cardScroller = new MouseMove(this, 'scrollPos', [0, maxScrollPos], 
-			[[0, FlxG.width], [0, FlxG.height]], 
+		// 鼠标滚动 / 拖拽控制器
+		cardScroller = new MouseMove(this, 'scrollPos', [0, Math.max(0, maxScrollPos)],
+			[[0, FlxG.width], [0, FlxG.height]],
 			function() { updateItemsPosition(); updateScrollBar(); }
 		);
 		cardScroller.useLerp = true;
@@ -293,21 +219,139 @@ class ModFolderSubstate extends MusicBeatSubstate
 		super.create();
 	}
 
+	// =========================================================
+	// 列表构建
+	// =========================================================
+
+	/**
+	 * 按当前层级重建列表项。
+	 * 列表项是 FlxSpriteGroup，remove / clear 都不会 destroy，必须自己收尾（否则只脱离绘制树、不释放）。
+	 */
+	function buildList():Void
+	{
+		var old:Array<ModFolderItem> = modsGroup.members.copy();
+		for (item in old)
+		{
+			if (item == null) continue;
+			modsGroup.remove(item, true);
+			item.destroy();
+		}
+		modsGroup.clear();
+
+		curSelected = 0;
+		var startY:Float = bgList.y + PADDING_TOP;
+		var itemIndex:Int = 0;
+
+		if (level == LEVEL_MODS)
+			itemIndex = buildModsLevel(startY, itemIndex);
+		else
+			itemIndex = buildContentLevel(startY, itemIndex);
+
+		totalItems = itemIndex;
+		maxScrollPos = Math.max(0, (totalItems * (itemHeight + ITEM_SPACING)) - (FlxG.height - PADDING_TOP - PADDING_BOTTOM));
+
+		// 滚动条拇指高度跟着条目数走
+		var trackHeight:Float = scrollBarTrack.height;
+		var thumbHeight:Float = Math.max(30, trackHeight * (visibleItemCount / Math.max(1, totalItems)));
+		scrollBar.makeGraphic(8, Std.int(thumbHeight), FlxColor.WHITE);
+		scrollBar.alpha = 0.6;
+
+		// 回到顶部。scrollPos 的实际写入方是滚动控制器，所以它的 target 也要一起复位。
+		scrollPos = 0;
+		if (cardScroller != null)
+		{
+			cardScroller.moveLimit = [0, maxScrollPos];
+			cardScroller.target = 0;
+			cardScroller.tweenData = 0;
+		}
+
+		updateItemsPosition();
+		updateScrollBar();
+		updateSelection();
+	}
+
+	/** 一级：ALL + CONTENT 入口 + 各模组 */
+	function buildModsLevel(startY:Float, itemIndex:Int):Int
+	{
+		addItem('ALL', Language.getPhrase('mod_folder_all_desc', 'Show all songs'),
+			null, null, KIND_ALL, itemIndex, startY,
+			Mods.currentModDirectory == null || Mods.currentModDirectory.length == 0);
+		itemIndex++;
+
+		addItem(Language.getPhrase('mod_folder_content', 'CONTENT'),
+			Language.getPhrase('mod_folder_content_desc', 'Custom charts and other content'),
+			null, null, KIND_CONTENT, itemIndex, startY, false);
+		itemIndex++;
+
+		for (mod in Mods.parseList().all)
+		{
+			var pack = Mods.getPack(mod);
+			var modName:String = mod;
+			var modDesc:String = Language.getPhrase('mod_folder_no_desc', 'No description');
+			if (pack != null)
+			{
+				if (pack.name != null) modName = pack.name;
+				if (pack.description != null) modDesc = pack.description;
+			}
+
+			addItem(modName, modDesc, mod, null, KIND_MOD, itemIndex, startY, Mods.currentModDirectory == mod);
+			itemIndex++;
+		}
+		return itemIndex;
+	}
+
+	/** 二级：返回 + 自定义谱面分类（后续可继续追加其它内容类型） */
+	function buildContentLevel(startY:Float, itemIndex:Int):Int
+	{
+		addItem(Language.getPhrase('mod_folder_back', '< BACK'),
+			Language.getPhrase('mod_folder_back_desc', 'Return to the mod list'),
+			null, null, KIND_BACK, itemIndex, startY, false);
+		itemIndex++;
+
+		#if sys
+		var chartFolders:Array<String> = CustomChartData.listChartCategories();
+		if (chartFolders.length > 0)
+		{
+			addItem('CUSTOM CHARTS', Language.getPhrase('mod_folder_charts_desc', 'Show all custom charts'),
+				null, 'custom', KIND_CATEGORY, itemIndex, startY, Paths.currentChartCategory == 'custom');
+			itemIndex++;
+
+			for (folder in chartFolders)
+			{
+				addItem(folder,
+					Language.getPhrase('mod_folder_category_desc', 'Show charts from {1}', [Paths.CHART_ROOT + '/' + folder]),
+					null, folder, KIND_CATEGORY, itemIndex, startY, Paths.currentChartCategory == folder);
+				itemIndex++;
+			}
+		}
+		#end
+
+		return itemIndex;
+	}
+
+	function addItem(name:String, desc:String, ?folder:String, ?chartCategory:String, kind:String, index:Int, startY:Float, selected:Bool):Void
+	{
+		var item = new ModFolderItem(name, desc, folder, chartCategory, kind);
+		item.setPosition(bgList.x + 10, startY + (index * (itemHeight + ITEM_SPACING)));
+		modsGroup.add(item);
+		if (selected) curSelected = index;
+	}
+
 	/**
 	 * 更新所有项目的位置（基于滚动偏移）
 	 */
 	function updateItemsPosition()
 	{
 		var panelY:Float = bgList.y + PADDING_TOP;
-		
+
 		for (i in 0...modsGroup.members.length)
 		{
 			var item = modsGroup.members[i];
 			var baseY:Float = panelY + i * (itemHeight + ITEM_SPACING);
 			var offsetY:Float = -scrollPos;
-			
+
 			item.y = baseY + offsetY;
-			
+
 			// 检查项目是否在可见区域内
 			var isVisible = item.y + itemHeight > bgList.y && item.y < bgList.y + bgList.height;
 			item.visible = isVisible;
@@ -325,13 +369,13 @@ class ModFolderSubstate extends MusicBeatSubstate
 			scrollBar.alpha = 0;
 			return;
 		}
-		
+
 		scrollBar.alpha = 0.6;
 		var trackHeight = scrollBarTrack.height;
 		var thumbHeight = scrollBar.height;
 		var scrollRatio = scrollPos / maxScrollPos;
 		var availableSpace = trackHeight - thumbHeight;
-		
+
 		scrollBar.y = scrollBarTrack.y + scrollRatio * availableSpace;
 	}
 
@@ -375,13 +419,30 @@ class ModFolderSubstate extends MusicBeatSubstate
 		else if (controls.UI_DOWN_P)
 			changeSelection(1);
 		else if (controls.ACCEPT)
-			selectMod();
+			selectItem();
 		else if (controls.BACK || FlxG.mouse.justPressedRight)
-			close();
+		{
+			// 二级里 BACK 先退回一级，一级里才真的关掉
+			if (level == LEVEL_CONTENT)
+			{
+				level = LEVEL_MODS;
+				buildList();
+				FlxG.sound.play(Paths.sound('cancelMenu'), 0.6);
+			}
+			else
+				close();
+		}
 
 		if (shouldClose)
 		{
 			clearPressedItem();
+			return;
+		}
+
+		// 点击面板外空白处退出
+		if (FlxG.mouse.justPressed && !isMouseOverPanel())
+		{
+			close();
 			return;
 		}
 
@@ -435,7 +496,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 				curSelected = releasedItem;
 				scrollToItemMiddle(releasedItem);
 				updateSelection();
-				selectMod();
+				selectItem();
 			}
 		}
 
@@ -465,6 +526,16 @@ class ModFolderSubstate extends MusicBeatSubstate
 			   mouseY >= bgList.y && mouseY <= bgList.y + bgList.height;
 	}
 
+	/** 面板完整矩形——点它外面即退出。 */
+	function isMouseOverPanel():Bool
+	{
+		if (bgList == null) return false;
+		var mouseX = FlxG.mouse.viewX;
+		var mouseY = FlxG.mouse.viewY;
+		return mouseX >= bgList.x && mouseX <= bgList.x + bgList.width &&
+			   mouseY >= bgList.y && mouseY <= bgList.y + bgList.height;
+	}
+
 	/**
 	 * 滚动到指定项目，使其出现在列表可视区域的中间
 	 */
@@ -472,27 +543,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 	{
 		var targetScroll = index * (itemHeight + ITEM_SPACING) - (visibleItemCount * (itemHeight + ITEM_SPACING)) / 2 + (itemHeight / 2);
 		targetScroll = Math.max(0, Math.min(targetScroll, maxScrollPos));
-		
-		if (cardScroller != null)
-		{
-			cardScroller.tweenData = targetScroll;
-		}
-		else
-		{
-			scrollPos = targetScroll;
-			updateItemsPosition();
-			updateScrollBar();
-		}
-	}
 
-	/**
-	 * 滚动到指定项目 (保留原有功能，用于鼠标点击等)
-	 */
-	function scrollToItem(index:Int)
-	{
-		var targetScroll = index * (itemHeight + ITEM_SPACING) - (visibleItemCount * (itemHeight + ITEM_SPACING)) / 2 + (itemHeight / 2);
-		targetScroll = Math.max(0, Math.min(targetScroll, maxScrollPos));
-		
 		if (cardScroller != null)
 		{
 			cardScroller.tweenData = targetScroll;
@@ -510,14 +561,16 @@ class ModFolderSubstate extends MusicBeatSubstate
 	 */
 	function changeSelection(change:Int = 0)
 	{
+		if (modsGroup.members.length == 0) return;
+
 		curSelected = FlxMath.wrap(curSelected + change, 0, modsGroup.members.length - 1);
-		
+
 		var selectedItem = modsGroup.members[curSelected];
 		if (selectedItem != null)
 		{
 			scrollToItemMiddle(curSelected);
 		}
-		
+
 		updateSelection();
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 	}
@@ -539,7 +592,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 			updateModInfoText(selectedItem);
 
 			// 加载模组图标
-			if (selectedItem.folder != null)
+			if (selectedItem.folder != null && selectedItem.folder.length > 0)
 			{
 				#if MODS_ALLOWED
 				var oldModDir = Mods.currentModDirectory;
@@ -585,11 +638,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 	}
 
 	/**
-	 * 在系统文件管理器里打开选中项对应的目录。
-	 * 模组项 → mods/<mod>；谱面分类项 → mods/charts/<category>；ALL → mods/
-	 */
-	/**
-	 * 右侧补充信息：文件夹 / 歌曲数 / 启用状态。ALL 与谱面分类只显示其含义与数量。
+	 * 右侧补充信息：按条目类型给文件夹 / 歌曲数 / 启用状态或分类说明。
 	 */
 	function updateModInfoText(item:ModFolderItem)
 	{
@@ -597,29 +646,30 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 		var lines:Array<String> = [];
 
-		if (item.folder != null && item.folder.length > 0)
+		switch (item.kind)
 		{
-			lines.push(Language.getPhrase('mod_info_folder', 'Folder: {1}', [item.folder]));
-			lines.push(Language.getPhrase('mod_info_songs', 'Songs: {1}', [parent != null ? parent.getSongCountForFolder(item.folder) : 0]));
-			var isEnabled:Bool = Mods.parseList().enabled.contains(item.folder);
-			lines.push(isEnabled
-				? Language.getPhrase('mod_info_enabled', 'Status: Enabled')
-				: Language.getPhrase('mod_info_disabled', 'Status: Disabled'));
-		}
-		else if (item.chartCategory != null && item.chartCategory.length > 0)
-		{
-			lines.push(Language.getPhrase('mod_info_category', 'Category: {1}', [item.chartCategory]));
-			if (item.chartCategory != 'custom' && parent != null)
-				lines.push(Language.getPhrase('mod_info_charts', 'Charts: {1}', [parent.getSongCountForFolder()]));
-		}
-		else if (parent != null)
-		{
-			lines.push(Language.getPhrase('mod_info_songs', 'Songs: {1}', [parent.getSongCountForFolder()]));
+			case KIND_MOD:
+				lines.push(Language.getPhrase('mod_info_folder', 'Folder: {1}', [item.folder]));
+				lines.push(Language.getPhrase('mod_info_songs', 'Songs: {1}', [parent != null ? parent.getSongCountForFolder(item.folder) : 0]));
+				var isEnabled:Bool = Mods.parseList().enabled.contains(item.folder);
+				lines.push(isEnabled
+					? Language.getPhrase('mod_info_enabled', 'Status: Enabled')
+					: Language.getPhrase('mod_info_disabled', 'Status: Disabled'));
+
+			case KIND_CATEGORY:
+				lines.push(Language.getPhrase('mod_info_category', 'Category: {1}', [item.chartCategory]));
+
+			default:
+				lines.push(Language.getPhrase('mod_info_songs', 'Songs: {1}', [parent != null ? parent.getSongCountForFolder() : 0]));
 		}
 
 		selectedModInfo.text = lines.join('\n');
 	}
 
+	/**
+	 * 在系统文件管理器里打开选中项对应的目录。
+	 * 模组项 → mods/<mod>；谱面分类项 → content/charts/<category>；其余 → mods/
+	 */
 	function openSelectedFolder()
 	{
 		if (shouldClose) return;
@@ -630,10 +680,11 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 		if (selectedItem != null)
 		{
-			if (selectedItem.folder != null && selectedItem.folder.length > 0)
+			if (selectedItem.kind == KIND_MOD && selectedItem.folder != null && selectedItem.folder.length > 0)
 				target = Paths.mods(selectedItem.folder + '/');
-			else if (selectedItem.chartCategory != null && selectedItem.chartCategory.length > 0 && selectedItem.chartCategory != 'custom')
-				target = Paths.mods('charts/' + selectedItem.chartCategory + '/');
+			else if (selectedItem.kind == KIND_CATEGORY && selectedItem.chartCategory != null
+				&& selectedItem.chartCategory.length > 0 && selectedItem.chartCategory != 'custom')
+				target = '${Paths.CHART_ROOT}/${selectedItem.chartCategory}/';
 		}
 
 		if (!FileSystem.exists(target))
@@ -643,25 +694,43 @@ class ModFolderSubstate extends MusicBeatSubstate
 		#end
 	}
 
-	function selectMod()
+	/**
+	 * 激活当前选中项。
+	 * 一级的 CONTENT / 二级的 BACK 只切层级、不关面板；其余都是真正改变 Freeplay 模式后关闭。
+	 */
+	function selectItem()
 	{
 		var selectedItem = modsGroup.members[curSelected];
-		if (selectedItem != null)
+		if (selectedItem == null) return;
+
+		switch (selectedItem.kind)
 		{
-			Paths.currentChartCategory = selectedItem.chartCategory;
-			if (selectedItem.chartCategory != null)
-				Mods.currentModDirectory = null;
-			else if (selectedItem.folder == null || selectedItem.folder.length == 0)
-				Mods.currentModDirectory = null;
-			else
-				Mods.currentModDirectory = selectedItem.folder;
+			case KIND_CONTENT:
+				FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+				level = LEVEL_CONTENT;
+				buildList();
+				return;
 
-			if (parent != null)
-			{
-				parent.onModFolderChanged();
-			}
+			case KIND_BACK:
+				FlxG.sound.play(Paths.sound('cancelMenu'), 0.6);
+				level = LEVEL_MODS;
+				buildList();
+				return;
 
-			FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
+			case KIND_ALL:
+				if (parent != null) parent.exitContentMode(null);
+				FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
+
+			case KIND_MOD:
+				if (parent != null) parent.exitContentMode(selectedItem.folder);
+				FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
+
+			case KIND_CATEGORY:
+				if (parent != null) parent.enterContentMode(selectedItem.chartCategory);
+				FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
+
+			default:
+				FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
 		}
 
 		close();
@@ -679,7 +748,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 	override function close()
 	{
 		clearPressedItem();
-		if (shouldClose) 
+		if (shouldClose)
 		{
 			#if !flash
 			FlxTransitionableState.skipNextTransOut = false;
@@ -687,19 +756,18 @@ class ModFolderSubstate extends MusicBeatSubstate
 			_closeNow();
 			return;
 		}
-		
+
 		shouldClose = true;
 		closingTimer = 0;
 
-		// ===== 关键修改：收回动画从左侧出去 =====
 		// 收回动画 - 滑向左侧
 		FlxTween.tween(bgList, {x: startX}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(scrollBarTrack, {x: startX + 400 - 20}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(scrollBar, {x: startX + 400 - 20}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModIcon, {x: startX }, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModName, {x: startX }, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModDesc, {x: startX }, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModInfo, {x: startX }, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(scrollBarTrack, {x: startX + PANEL_WIDTH - 20}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(scrollBar, {x: startX + PANEL_WIDTH - 20}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModIcon, {x: startX}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModName, {x: startX}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModDesc, {x: startX}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(selectedModInfo, {x: startX}, 0.6, {ease: FlxEase.circOut});
 		FlxTween.tween(openFolderButton, {x: startX + 10}, 0.6, {ease: FlxEase.circOut});
 
 		for (item in modsGroup)
@@ -708,19 +776,19 @@ class ModFolderSubstate extends MusicBeatSubstate
 		}
 
 		FlxTween.tween(bgDim, {alpha: 0}, 0.6, {ease: FlxEase.circOut});
-		
+
 		if (cardScroller != null)
 		{
 			remove(cardScroller);
 			cardScroller.destroy();
 			cardScroller = null;
 		}
-
     }
 }
 
 /**
- * 模组项目 - 用于显示单个模组
+ * 列表项 - 一级的 ALL / CONTENT / 模组，二级的 BACK / 谱面分类共用。
+ * kind 决定点击后做什么，见 ModFolderSubstate 里的 KIND_* 常量。
  */
 class ModFolderItem extends FreeplayListItem
 {
@@ -731,11 +799,12 @@ class ModFolderItem extends FreeplayListItem
 	public var desc:String = 'No description';
 	public var folder:Null<String>;
 	public var chartCategory:Null<String>;
+	public var kind:String = '';
 
 	static inline var WIDTH:Int = FreeplayListItem.DEFAULT_WIDTH;
 	static inline var HEIGHT:Int = FreeplayListItem.DEFAULT_HEIGHT;
 
-	public function new(name:String, desc:String, color:Int, ?folder:String, index:Int, ?chartCategory:Null<String>)
+	public function new(name:String, desc:String, ?folder:String, ?chartCategory:Null<String>, ?kind:String = '')
 	{
 		super(WIDTH, HEIGHT);
 
@@ -743,6 +812,7 @@ class ModFolderItem extends FreeplayListItem
 		this.desc = desc;
 		this.folder = folder;
 		this.chartCategory = chartCategory;
+		this.kind = kind;
 
 		// 配色沿用这个列表原来的绿/蓝三点式（选中绿是它的既有语义）
 		setColors(0xFF888888, 0xFF4488FF, 0xFF66AAFF, 0xFF00FF00, 0.3);
@@ -759,7 +829,7 @@ class ModFolderItem extends FreeplayListItem
 		text.y -= Std.int(text.height / 2);
 		content.add(text);
 
-		if (folder != null)
+		if (folder != null && folder.length > 0)
 		{
 			#if MODS_ALLOWED
 			var oldModDir = Mods.currentModDirectory;

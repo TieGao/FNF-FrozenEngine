@@ -190,6 +190,34 @@ class Song
 		}
 	}
 
+	/**
+	 * convert() 的逆运算：把 psych_v1 的绝对 lane 语义（lane<cols = 玩家侧）
+	 * 转回 Legacy（0.7.x）的"相对 lane + mustHitSection"语义。
+	 * 供编辑器导出降级谱面用，保证按 mustHitSection 解释的老引擎读出来归属不变。
+	 *
+	 * 与 convert() 保持同一套跳过条件：noConvert 谱自管 noteData，转回去只会毁数据。
+	 */
+	public static function convertNoteLanesToLegacy(songJson:Dynamic, ?columns:Int):Void
+	{
+		var sectionsData:Array<SwagSection> = songJson.notes;
+		if(sectionsData == null) return;
+		if(songJson.noConvert == true) return;
+
+		if(columns == null || columns < 1) columns = getKeyCount(songJson);
+
+		for (section in sectionsData)
+		{
+			var mustHit:Bool = (section.mustHitSection == true);
+			for (note in section.sectionNotes)
+			{
+				if(note[1] < 0) continue; // 事件 note 用负数 lane，不参与
+				var isPlayerSide:Bool = (note[1] < columns);
+				var sameSide:Bool = (isPlayerSide == mustHit);
+				note[1] = (note[1] % columns) + (sameSide ? 0 : columns);
+			}
+		}
+	}
+
 	public static var chartPath:String;
 	public static var loadedSongName:String;
 	public static function loadFromJson(jsonInput:String, ?folder:String):SwagSong

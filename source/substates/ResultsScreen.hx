@@ -7,6 +7,9 @@ import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
 import flixel.sound.FlxSound;
+#if sys
+import sys.FileSystem;
+#end
 
 import backend.Replay as FrameReplay;
 import backend.HitGraph;
@@ -136,7 +139,6 @@ class ResultsScreen extends MusicBeatSubstate
         var difficulty = Difficulty.getString();
         var isFullCombo = (misses == 0);
         var isPerfectClear = (misses == 0 && shits == 0 && bads == 0);
-        var difficultyIndex = getDifficultyIndex(difficulty);
         
         // 保存游戏统计数据
         gameStats = {
@@ -160,78 +162,32 @@ class ResultsScreen extends MusicBeatSubstate
             isPerfectClear: isPerfectClear
         };
         
-        if (mode == REPLAY_END) return;
-        // ========== 保存统计数据到 ClientPrefs ==========
-        saveGameStatsToClientPrefs();
+        // 全局统计由 PlayState 在每首歌结束时记录；周目中途不弹结算页也不会漏
+        applyCampaignStats();
     }
 
-    function getDifficultyIndex(difficulty:String):Int
+    /**
+     * 周目结算时用整个周目的累计值覆盖单曲统计
+     */
+    function applyCampaignStats():Void
     {
-        var diffLower = difficulty.toLowerCase();
-        if (diffLower.indexOf('easy') >= 0) return 0;
-        if (diffLower.indexOf('normal') >= 0) return 1;
-        if (diffLower.indexOf('hard') >= 0) return 2;
-        return 1; // 默认 Normal
+        if (!PlayState.isStoryMode || gameStats == null) return;
+
+        gameStats.marvelous = PlayState.campaignMarvelous;
+        gameStats.sicks = PlayState.campaignSicks;
+        gameStats.goods = PlayState.campaignGoods;
+        gameStats.bads = PlayState.campaignBads;
+        gameStats.shits = PlayState.campaignShits;
+        gameStats.misses = PlayState.campaignMisses;
+        gameStats.score = PlayState.campaignScore;
+        gameStats.totalNotesHit = gameStats.marvelous + gameStats.sicks + gameStats.goods + gameStats.bads + gameStats.shits;
+        gameStats.totalNotes = gameStats.totalNotesHit + gameStats.misses;
+        gameStats.accuracy = gameStats.totalNotes > 0 ? (gameStats.totalNotesHit / gameStats.totalNotes) * 100 : 0;
+        gameStats.isFullCombo = (gameStats.misses == 0);
+        gameStats.isPerfectClear = (gameStats.misses == 0 && gameStats.shits == 0 && gameStats.bads == 0);
+        gameStats.difficultyName = Difficulty.getString();
     }
 
-    function saveGameStatsToClientPrefs():Void
-    {
-        if (gameStats == null) return;
-        
-        var stats = gameStats;
-        
-        // 累计总分
-        ClientPrefs.data.totalScore += stats.score;
-        
-        // 总游玩次数
-        ClientPrefs.data.totalPlays++;
-        
-        // 通关次数（只有通关才算，游戏结束不算）
-        ClientPrefs.data.totalSongsCleared++;
-        
-        // 累计各种判定
-        ClientPrefs.data.totalMarvelous += stats.marvelous;
-        ClientPrefs.data.totalSicks += stats.sicks;
-        ClientPrefs.data.totalGoods += stats.goods;
-        ClientPrefs.data.totalBads += stats.bads;
-        ClientPrefs.data.totalShits += stats.shits;
-        ClientPrefs.data.totalMisses += stats.misses;
-        
-        // 历史最高分（单曲）
-        if (stats.score > ClientPrefs.data.highestScore) {
-            ClientPrefs.data.highestScore = stats.score;
-        }
-        
-        // 历史最高连击
-        if (stats.highestCombo > ClientPrefs.data.highestCombo) {
-            ClientPrefs.data.highestCombo = stats.highestCombo;
-        }
-        
-        // 历史最高准确率
-        if (stats.accuracy > ClientPrefs.data.bestAccuracy) {
-            ClientPrefs.data.bestAccuracy = stats.accuracy;
-        }
-        
-        // 完美通关
-        if (stats.isPerfectClear) {
-            ClientPrefs.data.perfectClears++;
-        }
-        
-        // Full Combo（无Miss）
-        if (stats.isFullCombo) {
-            ClientPrefs.data.fullComboCount++;
-        }
-        
-        // 各难度通关次数
-        var diffIndex = getDifficultyIndex(stats.difficultyName);
-        ClientPrefs.data.songsByDifficulty[diffIndex]++;
-        
-        // 保存到文件
-        ClientPrefs.saveSettings();
-        
-        trace('Game stats saved! Total Score: ${ClientPrefs.data.totalScore}, Total Plays: ${ClientPrefs.data.totalPlays}');
-    }
-    
     function createCommonUI():Void
     {
         anotherBackground = new FlxSprite(FlxG.width - 500, 45).makeGraphic(450, 240, FlxColor.BLACK);
@@ -270,8 +226,8 @@ class ResultsScreen extends MusicBeatSubstate
         contText.antialiasing = ClientPrefs.data.antialiasing;
         add(contText);
 
-        // F1 - 回放当前歌曲 (在所有模式下都可用)
-        replayLibText = new FlxText(-400, FlxG.height - 100, 400, 'F1 - Replay This Song');
+        // F1 - 播放刚录制的回放
+        replayLibText = new FlxText(-400, FlxG.height - 100, 400, 'F1 - View Replay');
         replayLibText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.CYAN, LEFT, OUTLINE, FlxColor.BLACK);
         replayLibText.borderSize = 4;
         replayLibText.scrollFactor.set();
@@ -280,8 +236,8 @@ class ResultsScreen extends MusicBeatSubstate
         replayLibText.antialiasing = ClientPrefs.data.antialiasing;
         add(replayLibText);
 
-        // F2 - 重新开始
-        replayText = new FlxText(-400, FlxG.height - 60, 400, 'F2 - Replay Song');
+        // F2 - 重玩本曲
+        replayText = new FlxText(-400, FlxG.height - 60, 400, 'F2 - Restart Song');
         replayText.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
         replayText.borderSize = 4;
         replayText.scrollFactor.set();
@@ -599,12 +555,12 @@ class ResultsScreen extends MusicBeatSubstate
                 }
         }
         
-        // F1 - 回放当前歌曲 (在所有模式下)
+        // F1 - 播放刚录制的回放
         if (FlxG.keys.justPressed.F1) {
-            replayCurrentSong();
+            viewReplay();
         }
         
-        // F2 - 重新开始
+        // F2 - 重玩本曲
         if (FlxG.keys.justPressed.F2) {
             restartSong();
         }
@@ -660,58 +616,67 @@ class ResultsScreen extends MusicBeatSubstate
     }
 
     /**
-     * 回放当前歌曲 - 进入录制模式
+     * 播放刚录制的回放 - 读盘并进入回放模式
      */
-    function replayCurrentSong()
+    function viewReplay()
     {
-        trace('Replaying current song from ResultsScreen');
+        trace('Viewing replay from ResultsScreen');
         
         var playState = PlayState.instance;
         if (playState == null) {
-            trace('ERROR: PlayState.instance is null, cannot replay song');
+            trace('ERROR: PlayState.instance is null, cannot view replay');
             FlxG.sound.play(Paths.sound('cancelMenu'));
             return;
         }
         
-        if (PlayState.SONG == null) {
-            trace('ERROR: PlayState.SONG is null, cannot replay song');
+        var filePath:String = (PlayState.frameRep != null) ? PlayState.frameRep.fullPath : null;
+        #if sys
+        if (filePath == null || filePath.length == 0 || !FileSystem.exists(filePath)) {
+            trace('ERROR: replay file not found: $filePath');
             FlxG.sound.play(Paths.sound('cancelMenu'));
+            showError("No replay file to play!");
+            return;
+        }
+        #end
+        
+        var rep:FrameReplay = FrameReplay.LoadReplay(filePath);
+        if (rep == null || !rep.isValid()) {
+            trace('ERROR: invalid replay file');
+            FlxG.sound.play(Paths.sound('cancelMenu'));
+            showError("Invalid replay file!");
             return;
         }
         
-        // 停止音乐
-        if (pauseMusic != null) {
-            pauseMusic.stop();
-        }
+        #if MODS_ALLOWED
+        if (rep.replay.modDirectory != null && rep.replay.modDirectory.length > 0)
+            Mods.currentModDirectory = rep.replay.modDirectory;
+        #end
         
-        // 移除相机
+        if (pauseMusic != null) pauseMusic.stop();
         FlxG.cameras.remove(camResults);
         
-        // 开始录制新回放
-        var frameRep = new FrameReplay("");
-        if (PlayState.chartCategory != null)
-        {
-            Paths.currentChartCategory = PlayState.chartCategory;
-            Paths.currentChartDirectory = PlayState.chartDirectory;
-            Paths.currentChartHasVSliceMetadata = PlayState.chartHasVSliceMetadata;
-            Paths.currentChartAudioSuffix = PlayState.chartAudioSuffix;
-        }
-        PlayState.frameRep = frameRep;
-        PlayState.loadRep = false;
-        PlayState.inReplay = false;
-        PlayState.replayFileName = null;
+        // 无条件同步：PlayState.chartCategory 为 null 就代表普通歌，此时必须把 Paths 一并清空，
+        // 否则上一首自定义谱面的来源会残留、被 Freeplay / PlayState 当成本曲的谱面上下文。
+        Paths.currentChartCategory = PlayState.chartCategory;
+        Paths.currentChartDirectory = PlayState.chartDirectory;
+        Paths.currentChartHasVSliceMetadata = PlayState.chartHasVSliceMetadata;
+        Paths.currentChartAudioSuffix = PlayState.chartAudioSuffix;
         
-        // 保留当前歌曲数据
+        // frameRep 会在旧 PlayState 的 destroy 里被清空，所以走 pendingReplay 中转
+        PlayState.pendingReplay = rep;
+        PlayState.frameRep = rep;
+        PlayState.loadRep = true;
+        PlayState.inReplay = true;
+        PlayState.replayFileName = filePath;
+        
+        // 回放按单曲进行，不继续周目
         PlayState.isStoryMode = false;
         
-        // 停止所有声音
         if (FlxG.sound.music != null) {
             FlxG.sound.music.stop();
         }
         
-        trace('Starting replay recording for: ${PlayState.SONG.song}');
-        
-        // 使用 LoadingState 切换到 PlayState
+        trace('Starting replay playback for: ${PlayState.SONG.song}');
         LoadingState.loadAndSwitchState(new PlayState());
     }
 
@@ -753,13 +718,12 @@ class ResultsScreen extends MusicBeatSubstate
         
         // 重新开始游戏
         PlayState.isStoryMode = false;
-        if (PlayState.chartCategory != null)
-        {
-            Paths.currentChartCategory = PlayState.chartCategory;
-            Paths.currentChartDirectory = PlayState.chartDirectory;
-            Paths.currentChartHasVSliceMetadata = PlayState.chartHasVSliceMetadata;
-            Paths.currentChartAudioSuffix = PlayState.chartAudioSuffix;
-        }
+        // 无条件同步：PlayState.chartCategory 为 null 就代表普通歌，此时必须把 Paths 一并清空，
+        // 否则上一首自定义谱面的来源会残留、被 Freeplay / PlayState 当成本曲的谱面上下文。
+        Paths.currentChartCategory = PlayState.chartCategory;
+        Paths.currentChartDirectory = PlayState.chartDirectory;
+        Paths.currentChartHasVSliceMetadata = PlayState.chartHasVSliceMetadata;
+        Paths.currentChartAudioSuffix = PlayState.chartAudioSuffix;
         LoadingState.loadAndSwitchState(new PlayState());
     }
 

@@ -271,14 +271,16 @@ class KEExtraSettingsSubState extends Win8CharmSettings
 		if (previousModDirectory != newModDirectory && newModDirectory != null)
 			refreshModDependentOptions(newModDirectory);
 
-		var previousChartCategory:String = Paths.currentChartCategory;
-		Paths.currentChartCategory = ClientPrefs.data.customChartFolder;
-		FreeplayState.selectedCustomChartCategory = Paths.currentChartCategory;
-		Mods.currentModDirectory = ClientPrefs.data.customChartModFolder;
-
-		if ((previousChartCategory != Paths.currentChartCategory || previousModDirectory != Mods.currentModDirectory)
-			&& FlxG.state != null && Std.isOfType(FlxG.state, FreeplayState))
-			cast(FlxG.state, FreeplayState).onModFolderChanged();
+		// 本面板只改"自定义谱面默认用哪套分类 / 资源"，不负责切换 Freeplay 的浏览模式。
+		// 只有 Freeplay 当前正处于 Content 模式时，才把新分类 / 资源目录同步过去；
+		// 否则（例如从主菜单打开本面板）绝不能把 Paths.currentChartCategory 写死成自定义分类
+		// —— 那会让下次进入 Freeplay 又被拉回 Content 模式。
+		if (FlxG.state != null && Std.isOfType(FlxG.state, FreeplayState))
+		{
+			var freeplay:FreeplayState = cast FlxG.state;
+			if (freeplay.isContentMode())
+				freeplay.enterContentMode(ClientPrefs.data.customChartFolder);
+		}
 
 		ClientPrefs.saveSettings();
 		close();

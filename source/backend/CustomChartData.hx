@@ -75,10 +75,10 @@ class CustomChartData
     public static function listChartCategories():Array<String>
     {
         var result:Array<String> = [];
-        if (!FileSystem.exists('mods/charts')) return result;
-        for (item in FileSystem.readDirectory('mods/charts'))
+        if (!FileSystem.exists(Paths.CHART_ROOT)) return result;
+        for (item in FileSystem.readDirectory(Paths.CHART_ROOT))
         {
-            var path:String = 'mods/charts/$item';
+            var path:String = '${Paths.CHART_ROOT}/$item';
             if (!item.startsWith('.') && FileSystem.isDirectory(path) && categoryHasChartFiles(path)) result.push(item);
         }
         return result;
@@ -106,7 +106,7 @@ class CustomChartData
     #if sys
     private static function loadCategory(category:String, result:Array<CustomChartSong>):Void
     {
-        var categoryPath:String = 'mods/charts/$category';
+        var categoryPath:String = '${Paths.CHART_ROOT}/$category';
         if (!FileSystem.exists(categoryPath) || !FileSystem.isDirectory(categoryPath))
             return;
 
@@ -403,7 +403,7 @@ class CustomChartData
 
     private static function loadCachedCategory(category:String, result:Array<CustomChartSong>):Bool
     {
-        var categoryPath:String = 'mods/charts/$category';
+        var categoryPath:String = '${Paths.CHART_ROOT}/$category';
         var indexPath:String = '$categoryPath/$INDEX_FILE';
         if (!FileSystem.exists(categoryPath) || !FileSystem.exists(indexPath)) return false;
 
@@ -438,7 +438,7 @@ class CustomChartData
 
     private static function saveCachedCategory(category:String, songs:Array<CustomChartSong>):Void
     {
-        var categoryPath:String = 'mods/charts/$category';
+        var categoryPath:String = '${Paths.CHART_ROOT}/$category';
         var indexPath:String = '$categoryPath/$INDEX_FILE';
         try
         {

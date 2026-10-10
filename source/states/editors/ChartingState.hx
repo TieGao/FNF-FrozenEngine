@@ -3562,7 +3562,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		tab_group.add(btn);
 
 		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Open from mods/charts...', function()
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Open from content/charts...', function()
 		{
 			upperBox.isMinimized = true;
 			upperBox.bg.visible = false;
@@ -3793,6 +3793,30 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			upperBox.bg.visible = false;
 
 			saveChart(false);
+		},btnWid);
+		btn.text.alignment = LEFT;
+		tab_group.add(btn);
+
+		btnY += 20;
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Save (Legacy)', function()
+		{
+			if(!fileDialog.completed) return;
+			upperBox.isMinimized = true;
+			upperBox.bg.visible = false;
+
+			saveChart(true, true);
+		},btnWid);
+		btn.text.alignment = LEFT;
+		tab_group.add(btn);
+
+		btnY += 20;
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Save as (Legacy)...', function()
+		{
+			if(!fileDialog.completed) return;
+			upperBox.isMinimized = true;
+			upperBox.bg.visible = false;
+
+			saveChart(false, true);
 		},btnWid);
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
@@ -4980,10 +5004,22 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		Reflect.setField(PlayState.SONG, 'keycount', GRID_COLUMNS_PER_PLAYER);
 	}
 
-	function saveChart(canQuickSave:Bool = true)
+	function saveChart(canQuickSave:Bool = true, legacy:Bool = false)
 	{
 		updateChartData();
-		var chartData:String = PsychJsonPrinter.print(PlayState.SONG, ['sectionNotes', 'events']);
+		var chartData:String;
+		if(legacy)
+		{
+			// Legacy（0.7.x）输出：lane 转回"相对 + mustHitSection"语义、去掉 format 字段，
+			// 并按老引擎的习惯套一层 {"song": {...}}（parseJSON 靠这层包裹认出老格式）。
+			// 深拷贝一份再改，不能动编辑器里那份 psych_v1 数据。
+			var legacySong:Dynamic = haxe.Json.parse(haxe.Json.stringify(PlayState.SONG));
+			Song.convertNoteLanesToLegacy(legacySong, Song.getKeyCount(PlayState.SONG));
+			if(Reflect.hasField(legacySong, 'format')) Reflect.deleteField(legacySong, 'format');
+			chartData = PsychJsonPrinter.print({song: legacySong}, ['sectionNotes', 'events']);
+		}
+		else
+			chartData = PsychJsonPrinter.print(PlayState.SONG, ['sectionNotes', 'events']);
 		if(canQuickSave && Song.chartPath != null)
 		{
 			File.saveContent(Song.chartPath, chartData);

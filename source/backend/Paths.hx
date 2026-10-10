@@ -283,13 +283,19 @@ class Paths
 		if (chartCategory != null && chartCategory.length > 0)
 		{
 			var chartDir:String = (currentChartDirectory != null && currentChartDirectory.length > 0)
-				? currentChartDirectory : 'mods/charts/$chartCategory/$songPath';
+				? currentChartDirectory : '$CHART_ROOT/$chartCategory/$songPath';
 			#if sys
-			var actualCategory:String = findCaseInsensitiveDirectory('mods/charts', chartCategory);
-			if (actualCategory != null)
+			// 只有当前目录未知时才靠分类名去猜路径。已经有精确目录时再猜一次，
+			// 一旦分类名指向别的目录（例如浏览聚合分类 'custom' 时恰好存在同名文件夹），
+			// 就会把正确目录覆盖成错的。
+			if (currentChartDirectory == null || currentChartDirectory.length == 0)
 			{
-				var actualSong:String = findCaseInsensitiveDirectory(actualCategory, songPath);
-				if (actualSong != null) chartDir = actualSong;
+				var actualCategory:String = findCaseInsensitiveDirectory(CHART_ROOT, chartCategory);
+				if (actualCategory != null)
+				{
+					var actualSong:String = findCaseInsensitiveDirectory(actualCategory, songPath);
+					if (actualSong != null) chartDir = actualSong;
+				}
 			}
 			#end
 			chartDir += '/';
@@ -395,13 +401,19 @@ class Paths
 		if (chartCategory != null && chartCategory.length > 0)
 		{
 			var chartDir:String = (currentChartDirectory != null && currentChartDirectory.length > 0)
-				? currentChartDirectory : 'mods/charts/$chartCategory/$songPath';
+				? currentChartDirectory : '$CHART_ROOT/$chartCategory/$songPath';
 			#if sys
-			var actualCategory:String = findCaseInsensitiveDirectory('mods/charts', chartCategory);
-			if (actualCategory != null)
+			// 只有当前目录未知时才靠分类名去猜路径。已经有精确目录时再猜一次，
+			// 一旦分类名指向别的目录（例如浏览聚合分类 'custom' 时恰好存在同名文件夹），
+			// 就会把正确目录覆盖成错的。
+			if (currentChartDirectory == null || currentChartDirectory.length == 0)
 			{
-				var actualSong:String = findCaseInsensitiveDirectory(actualCategory, songPath);
-				if (actualSong != null) chartDir = actualSong;
+				var actualCategory:String = findCaseInsensitiveDirectory(CHART_ROOT, chartCategory);
+				if (actualCategory != null)
+				{
+					var actualSong:String = findCaseInsensitiveDirectory(actualCategory, songPath);
+					if (actualSong != null) chartDir = actualSong;
+				}
 			}
 			#end
 			chartDir += '/';
@@ -698,10 +710,27 @@ class Paths
 	}
 
 	public static var currentTrackedSounds:Map<String, Sound> = [];
+	/** Content 体系根目录，与 mods/ 同级。自定义谱面等非 mod 内容都放这里。 */
+	public static final CONTENT_ROOT:String = 'content';
+	/** 自定义谱面根目录，位于 Content 体系下。 */
+	public static final CHART_ROOT:String = 'content/charts';
 	public static var currentChartCategory:String = null;
 	public static var currentChartDirectory:String = null;
 	public static var currentChartAudioSuffix:String = null;
 	public static var currentChartHasVSliceMetadata:Bool = false;
+
+	/**
+	 * 一次性写入整套自定义谱面上下文。
+	 * 四个字段必须一起改：分散赋值很容易漏项，把上一首的残留（尤其 hasVSlice / audioSuffix）带到下一首。
+	 */
+	public static function setChartContext(category:String, directory:String, hasVSlice:Bool = false, audioSuffix:String = null):Void
+	{
+		currentChartCategory = (category != null && category.length > 0) ? category : null;
+		currentChartDirectory = (directory != null && directory.length > 0) ? directory : null;
+		currentChartHasVSliceMetadata = hasVSlice;
+		currentChartAudioSuffix = audioSuffix;
+	}
+
 	public static function returnSound(key:String, ?path:String, ?modsAllowed:Bool = true, ?beepOnNull:Bool = true)
 	{
 		var file:String = getPath(Language.getFileTranslation(key) + '.$SOUND_EXT', SOUND, path, modsAllowed);

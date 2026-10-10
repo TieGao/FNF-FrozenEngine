@@ -72,6 +72,7 @@ class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 			block.makeGraphic(BLOCK_SIZE, BLOCK_SIZE, FlxColor.WHITE);
 			// origin 放中心：缩放绕中心做，视觉中心恒为 x + BLOCK_SIZE/2。
 			// 不能用 updateHitbox 那套补偿 —— 它会把 offset 挪走，命中区反而和画面对不上。
+			block.antialiasing = ClientPrefs.data.antialiasing;
 			block.origin.set(BLOCK_SIZE * 0.5, BLOCK_SIZE * 0.5);
 			block.scrollFactor.set();
 			block.y = centerY - BLOCK_SIZE * 0.5;
@@ -80,6 +81,7 @@ class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 			blocks.push(block);
 
 			var label:FlxText = new FlxText(0, 0, BLOCK_SIZE, Difficulty.getString(i), 11);
+			label.antialiasing = ClientPrefs.data.antialiasing;
 			label.setFormat(Paths.font('vcr.ttf'), 11, FlxColor.WHITE, CENTER);
 			label.scrollFactor.set();
 			label.visible = false;
@@ -87,6 +89,7 @@ class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 			labels.push(label);
 
 			var rating:FlxText = new FlxText(0, 0, BLOCK_SIZE, '--', 18);
+			rating.antialiasing = ClientPrefs.data.antialiasing;
 			rating.setFormat(Paths.font('vcr.ttf'), 18, FlxColor.WHITE, CENTER);
 			rating.scrollFactor.set();
 			rating.visible = false;
@@ -125,7 +128,7 @@ class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 				continue;
 
 			var v:Float = (provider == null) ? -1 : provider(i);
-			rating.text = (v < 0) ? '--' : Std.string(Math.round(v));
+			rating.text = (v < 0) ? '--' : Std.string(v);
 		}
 	}
 
