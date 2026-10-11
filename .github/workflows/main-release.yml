@@ -1,6 +1,11 @@
 name: Main + Release
-on: 
+on:
   workflow_dispatch:
+    inputs:
+      exclude_extra:
+        description: 'Base 包剔除额外内容数据（content/VanillaSongs 四类）'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -48,12 +53,6 @@ jobs:
             setupCommand: .\"setup/windows.bat"
             artifactName: windowsBuild-x86_64
             artifactPath: export\release\windows\bin\*
-          - name: Windows No Extra
-            os: windows-latest
-            buildArgs: "windows -D NO_EXTRA_BASE_GAME"
-            setupCommand: .\"setup/windows.bat"
-            artifactName: windowsBuild-no-extra
-            artifactPath: export\release\windows\bin\*
 
           # ================= Linux x86_64 =================
           - name: Linux
@@ -61,12 +60,6 @@ jobs:
             buildArgs: linux
             setupCommand: sh ./setup/unix.sh
             artifactName: linuxBuild-x86_64
-            artifactPath: export/release/linux/bin/*
-          - name: Linux No Extra
-            os: ubuntu-latest
-            buildArgs: "linux -D NO_EXTRA_BASE_GAME"
-            setupCommand: sh ./setup/unix.sh
-            artifactName: linuxBuild-no-extra
             artifactPath: export/release/linux/bin/*
 
           # ================= Linux ARM64 =================
@@ -76,12 +69,6 @@ jobs:
             setupCommand: sh ./setup/unix.sh
             artifactName: linuxBuild-arm64
             artifactPath: export/release/linux/bin/*
-          - name: Linux ARM64 No Extra
-            os: ubuntu-latest
-            buildArgs: "linux -arm64 -D HXCPP_ARM64 -D NO_EXTRA_BASE_GAME"
-            setupCommand: sh ./setup/unix.sh
-            artifactName: linuxBuild-arm64-no-extra
-            artifactPath: export/release/linux/bin/*
 
           # ================= macOS x86_64 =================
           - name: macOS x86_64
@@ -90,12 +77,6 @@ jobs:
             buildArgs: "mac -64 -D HXCPP_M64"
             artifactName: macOSBuild-x86_64
             artifactPath: export/release/macos/bin/*
-          - name: macOS x86_64 No Extra
-            os: macos-26
-            setupCommand: sh ./setup/unix.sh
-            buildArgs: "mac -64 -D HXCPP_M64 -D NO_EXTRA_BASE_GAME"
-            artifactName: macOSBuild-x86_64-no-extra
-            artifactPath: export/release/macos/bin/*
 
           # ================= macOS ARM64 =================
           - name: macOS ARM64
@@ -103,12 +84,6 @@ jobs:
             setupCommand: sh ./setup/unix.sh
             buildArgs: "mac -arm64 -D HXCPP_ARM64"
             artifactName: macOSBuild-arm64
-            artifactPath: export/release/macos/bin/*
-          - name: macOS ARM64 No Extra
-            os: macos-latest
-            setupCommand: sh ./setup/unix.sh
-            buildArgs: "mac -arm64 -D HXCPP_ARM64 -D NO_EXTRA_BASE_GAME"
-            artifactName: macOSBuild-arm64-no-extra
             artifactPath: export/release/macos/bin/*
     uses: ./.github/workflows/build.yml
     with:
@@ -131,15 +106,12 @@ jobs:
            name: windowsBuild-x86_64
            path: ${{ github.workspace }}/WindowsBuild
       - name: Pack Windows Build
-        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Windows.zip ${{ github.workspace }}/WindowsBuild/*
-
-      - name: Download Windows No Extra Build
-        uses: actions/download-artifact@main
-        with:
-           name: windowsBuild-no-extra
-           path: ${{ github.workspace }}/WindowsBuild-no-extra
-      - name: Pack Windows No Extra Build
-        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Windows-no-extra.zip ${{ github.workspace }}/WindowsBuild-no-extra/*
+        run: |
+          cd "${{ github.workspace }}/WindowsBuild"
+          if [ "${{ inputs.exclude_extra }}" = "true" ]; then
+            rm -rf content/VanillaSongs/Erect content/VanillaSongs/PicoMix content/VanillaSongs/BFMix content/VanillaSongs/Collab
+          fi
+          zip -r /home/runner/${{ env.PROJECT_NAME }}-Windows.zip .
 
       # ---------------- Linux x86_64 ----------------
       - name: Download Linux Build
@@ -148,15 +120,12 @@ jobs:
            name: linuxBuild-x86_64
            path: ${{ github.workspace }}/LinuxBuild
       - name: Pack Linux Build
-        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux.zip ${{ github.workspace }}/LinuxBuild/*
-
-      - name: Download Linux No Extra Build
-        uses: actions/download-artifact@main
-        with:
-           name: linuxBuild-no-extra
-           path: ${{ github.workspace }}/LinuxBuild-no-extra
-      - name: Pack Linux No Extra Build
-        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux-no-extra.zip ${{ github.workspace }}/LinuxBuild-no-extra/*
+        run: |
+          cd "${{ github.workspace }}/LinuxBuild"
+          if [ "${{ inputs.exclude_extra }}" = "true" ]; then
+            rm -rf content/VanillaSongs/Erect content/VanillaSongs/PicoMix content/VanillaSongs/BFMix content/VanillaSongs/Collab
+          fi
+          zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux.zip .
 
       # ---------------- Linux ARM64 ----------------
       - name: Download Linux ARM 64 Build
@@ -165,15 +134,12 @@ jobs:
            name: linuxBuild-arm64
            path: ${{ github.workspace }}/LinuxBuild-arm64
       - name: Pack Linux ARM64 Build
-        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux-arm64.zip ${{ github.workspace }}/LinuxBuild-arm64/*
-
-      - name: Download Linux ARM64 No Extra Build
-        uses: actions/download-artifact@main
-        with:
-           name: linuxBuild-arm64-no-extra
-           path: ${{ github.workspace }}/LinuxBuild-arm64-no-extra
-      - name: Pack Linux ARM64 No Extra Build
-        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux-arm64-no-extra.zip ${{ github.workspace }}/LinuxBuild-arm64-no-extra/*
+        run: |
+          cd "${{ github.workspace }}/LinuxBuild-arm64"
+          if [ "${{ inputs.exclude_extra }}" = "true" ]; then
+            rm -rf content/VanillaSongs/Erect content/VanillaSongs/PicoMix content/VanillaSongs/BFMix content/VanillaSongs/Collab
+          fi
+          zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux-arm64.zip .
 
       # ---------------- macOS x86_64 ----------------
       - name: Download macOS x86_64 Build
@@ -182,15 +148,12 @@ jobs:
            name: macOSBuild-x86_64
            path: ${{ github.workspace }}/macOSBuild-x86_64
       - name: Pack macOS x86_64 Build
-        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-x86_64.zip ${{ github.workspace }}/macOSBuild-x86_64/*
-
-      - name: Download macOS x86_64 No Extra Build
-        uses: actions/download-artifact@main
-        with:
-           name: macOSBuild-x86_64-no-extra
-           path: ${{ github.workspace }}/macOSBuild-x86_64-no-extra
-      - name: Pack macOS x86_64 No Extra Build
-        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-x86_64-no-extra.zip ${{ github.workspace }}/macOSBuild-x86_64-no-extra/*
+        run: |
+          cd "${{ github.workspace }}/macOSBuild-x86_64"
+          if [ "${{ inputs.exclude_extra }}" = "true" ]; then
+            rm -rf content/VanillaSongs/Erect content/VanillaSongs/PicoMix content/VanillaSongs/BFMix content/VanillaSongs/Collab
+          fi
+          zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-x86_64.zip .
 
       # ---------------- macOS ARM64 ----------------
       - name: Download macOS ARM64 Build
@@ -199,15 +162,12 @@ jobs:
            name: macOSBuild-arm64
            path: ${{ github.workspace }}/macOSBuild-arm64
       - name: Pack macOS ARM64 Build
-        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-arm64.zip ${{ github.workspace }}/macOSBuild-arm64/*
-
-      - name: Download macOS ARM64 No Extra Build
-        uses: actions/download-artifact@main
-        with:
-           name: macOSBuild-arm64-no-extra
-           path: ${{ github.workspace }}/macOSBuild-arm64-no-extra
-      - name: Pack macOS ARM64 No Extra Build
-        run: zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-arm64-no-extra.zip ${{ github.workspace }}/macOSBuild-arm64-no-extra/*
+        run: |
+          cd "${{ github.workspace }}/macOSBuild-arm64"
+          if [ "${{ inputs.exclude_extra }}" = "true" ]; then
+            rm -rf content/VanillaSongs/Erect content/VanillaSongs/PicoMix content/VanillaSongs/BFMix content/VanillaSongs/Collab
+          fi
+          zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-arm64.zip .
 
       # ---------------- Publish ----------------
       - name: Publish The Release

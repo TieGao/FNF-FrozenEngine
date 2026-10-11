@@ -1,0 +1,40 @@
+name: Extra Content Packages
+
+# 仅打包 Extra 内容数据（content/VanillaSongs 下各分类），不打引擎二进制。
+# 主 actions（Main + Release）发 release 后自动跟随触发，把分类包上传到同一个 release。
+#
+# 每个分类一个独立 zip：<PROJECT_NAME>-<分类>-extra.zip
+#   Erect / PicoMix / BFMix / Collab
+# 分类包只含 content/VanillaSongs/<分类> 的歌曲数据（谱面/音轨/事件/周定义）；
+# 舞台类与 pico/bf/collab 视觉资源已在主 base 二进制里（"仅剔除打包数据"约定），不在此重复。
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  PROJECT_NAME: FrozenEngine
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pack each category
+        run: |
+          cd "${{ github.workspace }}"
+          for cat in Erect PicoMix BFMix Collab; do
+            echo "Packing content/VanillaSongs/$cat"
+            zip -r "/home/runner/${{ env.PROJECT_NAME }}-${cat}-extra.zip" "content/VanillaSongs/$cat"
+          done
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            /home/runner/*-extra.zip

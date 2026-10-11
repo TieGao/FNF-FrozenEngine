@@ -172,6 +172,9 @@ class WeekData {
 		for (pack in FileSystem.readDirectory(groupPath))
 		{
 			if (pack.startsWith('.')) continue;
+			#if !BASE_GAME_ERECT_CONTENT
+			if (pack == 'Erect') continue; // 内容侧总开关：关掉 BASE_GAME_ERECT_CONTENT 则不注册 erect 内容包
+			#end
 			var packPath:String = '$groupPath/$pack';
 			if (!FileSystem.isDirectory(packPath)) continue;
 

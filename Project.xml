@@ -35,6 +35,7 @@
 
 	<section if="BASE_GAME_FILES">
 		<define name="BASE_GAME_ERECT"  unless="NO_EXTRA_BASE_GAME || NO_BASE_GAME_ERECT" />
+		<define name="BASE_GAME_ERECT_CONTENT" unless="NO_EXTRA_BASE_GAME || NO_BASE_GAME_ERECT || NO_BASE_GAME_ERECT_CONTENT" />
 		<define name="BASE_GAME_PICO"   unless="NO_EXTRA_BASE_GAME || NO_BASE_GAME_PICO" />
 		<define name="BASE_GAME_BF"     unless="NO_EXTRA_BASE_GAME || NO_BASE_GAME_BF" />
 		<define name="BASE_GAME_COLLAB" unless="NO_EXTRA_BASE_GAME || NO_BASE_GAME_COLLAB" />
