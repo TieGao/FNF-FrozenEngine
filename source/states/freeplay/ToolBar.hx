@@ -236,7 +236,7 @@ class ToolBar extends FlxSpriteGroup
             {label: Language.getPhrase("listen", "LISTEN"), action: toggleListenMode},
             {label: Language.getPhrase("editor", "EDITOR"), action: openChartEditor}
         ];
-        hasExtraButton = Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0;
+        hasExtraButton = Paths.isCustomChartCategory();
         if (hasExtraButton)
 			buttonData.insert(1, {label: "EXTRA", action: openExtraSettings});
 		var startX:Float = (FlxG.width - (buttonWidth * buttonData.length + buttonSpacing * (buttonData.length - 1))) / 2;
@@ -266,7 +266,7 @@ class ToolBar extends FlxSpriteGroup
 
     public function refreshChartModeButtons():Void
     {
-        var shouldShowExtra:Bool = Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0;
+        var shouldShowExtra:Bool = Paths.isCustomChartCategory();
         if (shouldShowExtra != hasExtraButton)
             createButtons();
     }

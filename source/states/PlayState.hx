@@ -300,6 +300,11 @@ class PlayState extends MusicBeatState
 	public static var chartDirectory:String = null;
 	public static var chartHasVSliceMetadata:Bool = false;
 	public static var chartAudioSuffix:String = null;
+	// 内容包资源根（如 content/VanillaSongs/Erect），供 content 谱面的舞台 / 角色 / 图片 / events 定位。
+	public static var chartContentRoot:String = null;
+	// 当前谱面 metadata 的曲师 / 谱师，暂停界面取数用（见 backend.SongCredits）。
+	public static var chartMetadataArtist:String = null;
+	public static var chartMetadataCharter:String = null;
 
 	// 回放时按录制时的 mirror 开关还原谱面；null = 用玩家当前设置
 	public static var replayMirrorOverride:Null<Bool> = null;
@@ -315,6 +320,9 @@ class PlayState extends MusicBeatState
 		chartDirectory = null;
 		chartHasVSliceMetadata = false;
 		chartAudioSuffix = null;
+		chartContentRoot = null;
+		chartMetadataArtist = null;
+		chartMetadataCharter = null;
 	}
 
 	var scoreTxtColorTween:FlxTween;
@@ -572,6 +580,9 @@ class PlayState extends MusicBeatState
 		chartDirectory = Paths.currentChartDirectory;
 		chartHasVSliceMetadata = Paths.currentChartHasVSliceMetadata;
 		chartAudioSuffix = Paths.currentChartAudioSuffix;
+		chartContentRoot = Paths.currentContentRoot;
+		chartMetadataArtist = Paths.currentChartMetaArtist;
+		chartMetadataCharter = Paths.currentChartMetaCharter;
 
 		// 结算页发起的回放：接管 pendingReplay 里的回放数据
 		if (pendingReplay != null)
@@ -633,7 +644,10 @@ class PlayState extends MusicBeatState
 
 		PauseSubState.songName = null; //Reset to default
 		playbackRate = ClientPrefs.getGameplaySetting('songspeed');
-		var pureChartMode:Bool = Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0;
+		// 自定义谱面专属覆盖（舞台 / 角色 / 交换左右 / 分轨）：只有 content/CustomCharts 下的谱面才套用。
+		var pureChartMode:Bool = Paths.isCustomChartCategory();
+		// 谱面上下文（含内容包）：只用来决定舞台资源目录的预加载来源，与"是否自定义谱面"无关。
+		var chartContextMode:Bool = Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0;
 		if (pureChartMode)
 		{
 			SONG.stage = ClientPrefs.data.customChartStage;
@@ -701,7 +715,7 @@ class PlayState extends MusicBeatState
 
 		GameOverSubstate.resetVariables();
 		songName = Paths.formatToSongPath(SONG.song);
-		if(pureChartMode)
+		if(chartContextMode)
 		{
 			StageData.loadDirectory(SONG);
 		}
@@ -3639,6 +3653,7 @@ public function reloadCounterColors()
 				FlxTransitionableState.skipNextTransOut = true;
 				prevCamFollow = camFollow;
 
+				WeekData.applyContentRoot(WeekData.getCurrentWeek());
 				Song.loadFromJson(PlayState.storyPlaylist[0] + difficulty, PlayState.storyPlaylist[0]);
 				FlxG.sound.music.stop();
 

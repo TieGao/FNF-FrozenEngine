@@ -72,7 +72,8 @@ class StageData {
 			stage = 'stage';
 
 		var stageFile:StageFile = getStageFile(stage);
-		forceNextDirectory = (stageFile != null) ? stageFile.directory : ''; //preventing crashes
+		forceNextDirectory = (stageFile != null && stageFile.directory != null) ? stageFile.directory : '';
+		Paths.setCurrentLevel(forceNextDirectory.length > 0 ? forceNextDirectory : 'shared');
 	}
 
 	public static function getStageFile(stage:String):StageFile {

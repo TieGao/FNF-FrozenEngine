@@ -2,6 +2,7 @@ package substates;
 
 import backend.Highscore;
 import backend.Song;
+import backend.SongCredits;
 
 import flixel.addons.display.FlxBackdrop;
 import flixel.addons.display.FlxGridOverlay;
@@ -38,6 +39,8 @@ class NewPauseSubState extends MusicBeatSubstate
 	var blueballedTxt:FlxText;
 	var practiceText:FlxText;
 	var chartingText:FlxText;
+	var artistText:FlxText;
+	var charterText:FlxText;
 	var bg:FlxSprite;
 	var backdrop:FlxBackdrop;
 	
@@ -153,26 +156,95 @@ class NewPauseSubState extends MusicBeatSubstate
 		add(sidebar);
 	}
 	
-	function createInfoPanel()
+		function createInfoPanel()
 	{
-		var panelY:Float = FlxG.height - 220;
-		infoPanelBg = new FlxSprite(50, panelY).makeGraphic(350, 180, FlxColor.BLACK);
+		var panelX:Float = 50;
+		var panelW:Float = 350;
+		var paddingTop:Float = 20;
+		var paddingBottom:Float = 20;
+		var padX:Float = 20;
+		var lineGap:Float = 5;
+
+		// 本局实际要显示的行（顺序即视觉顺序）
+		var lines:Array<{text:String, size:Int, color:FlxColor, gapAfter:Float}> = [];
+
+		lines.push({text: PlayState.SONG.song, size: 28, color: FlxColor.WHITE, gapAfter: 12});
+		lines.push({text: Difficulty.getString().toUpperCase(), size: 22, color: FlxColor.CYAN, gapAfter: 10});
+		lines.push({
+			text: Language.getPhrase("blueballed", "Blueballed: {1}", [PlayState.deathCounter]),
+			size: 20, color: FlxColor.WHITE, gapAfter: 12
+		});
+
+		var credits = SongCredits.forPlayState();
+		var creditArtist:String = SongCredits.getArtist(credits);
+		var creditCharter:String = SongCredits.getCharter(credits);
+
+		var hasArtist:Bool = creditArtist != null && creditArtist.length > 0;
+		var hasCharter:Bool = creditCharter != null && creditCharter.length > 0;
+		var hasPractice:Bool = PlayState.instance.practiceMode;
+		var hasCharting:Bool = PlayState.chartingMode;
+
+		if(hasArtist)
+			lines.push({
+				text: Language.getPhrase('pause_artist', 'Artist: {1}', [creditArtist]),
+				size: 18, color: FlxColor.WHITE, gapAfter: 5
+			});
+
+		if(hasCharter)
+			lines.push({
+				text: Language.getPhrase('pause_charter', 'Charter: {1}', [creditCharter]),
+				size: 18, color: FlxColor.WHITE, gapAfter: 12
+			});
+
+		if(hasPractice)
+			lines.push({
+				text: Language.getPhrase("Practice Mode", "Practice Mode").toUpperCase(),
+				size: 18, color: FlxColor.YELLOW, gapAfter: 5
+			});
+
+		if(hasCharting)
+			lines.push({
+				text: Language.getPhrase("Charting Mode", "Charting Mode").toUpperCase(),
+				size: 18, color: FlxColor.RED, gapAfter: 5
+			});
+
+		// 计算内容高度
+		var contentH:Float = 0;
+		for (i in 0...lines.length)
+		{
+			contentH += lines[i].size;
+			if(i < lines.length - 1) contentH += lines[i].gapAfter + lineGap;
+		}
+
+		var panelH:Float = paddingTop + contentH + paddingBottom;
+		var panelY:Float = FlxG.height - panelH - 40;   // 与屏幕底边保持 40px 间距
+
+		infoPanelBg = new FlxSprite(panelX, panelY).makeGraphic(Std.int(panelW), Std.int(panelH), FlxColor.BLACK);
 		infoPanelBg.alpha = 0;
 		infoPanelBg.scrollFactor.set();
 		add(infoPanelBg);
-		
-		var panelX:Float = 50;
-		var textY:Float = panelY + 20;
-		
-		levelInfo = createText(panelX + 20, textY, 310, PlayState.SONG.song, 28, FlxColor.WHITE);
-		levelDifficulty = createText(panelX + 20, textY + 40, 310, Difficulty.getString().toUpperCase(), 22, FlxColor.CYAN);
-		blueballedTxt = createText(panelX + 20, textY + 70, 310, Language.getPhrase("blueballed", "Blueballed: {1}", [PlayState.deathCounter]), 20, FlxColor.WHITE);
-		
-		practiceText = createText(panelX + 20, textY + 100, 310, Language.getPhrase("Practice Mode", "Practice Mode").toUpperCase(), 18, FlxColor.YELLOW);
-		practiceText.visible = PlayState.instance.practiceMode;
-		
-		chartingText = createText(panelX + 20, textY + 130, 310, Language.getPhrase("Charting Mode", "Charting Mode").toUpperCase(), 18, FlxColor.RED);
-		chartingText.visible = PlayState.chartingMode;
+
+		// 逐行创建文字
+		var curY:Float = panelY + paddingTop;
+		var textW:Float = panelW - padX * 2;
+		var created:Array<FlxText> = [];
+
+		for (i in 0...lines.length)
+		{
+			var line = lines[i];
+			created.push(createText(panelX + padX, curY, textW, line.text, line.size, line.color));
+			curY += line.size + line.gapAfter + lineGap;
+		}
+
+		// 按顺序回填成员变量（与 lines 推入顺序严格对应）
+		var idx:Int = 0;
+		levelInfo = created[idx++];
+		levelDifficulty = created[idx++];
+		blueballedTxt = created[idx++];
+		if(hasArtist) artistText = created[idx++];
+		if(hasCharter) charterText = created[idx++];
+		if(hasPractice) practiceText = created[idx++];
+		if(hasCharting) chartingText = created[idx++];
 	}
 	
 	function createText(x:Float, y:Float, width:Float, text:String, size:Int, color:FlxColor):FlxText
@@ -314,7 +386,7 @@ class NewPauseSubState extends MusicBeatSubstate
 	function cancelAllTweens():Void
 	{
 		var targets:Array<FlxSprite> = [bg, backdrop, sidebar, infoPanelBg, levelInfo,
-			levelDifficulty, blueballedTxt, practiceText, chartingText, difficultyBg];
+			levelDifficulty, blueballedTxt, practiceText, chartingText, artistText, charterText, difficultyBg];
 		for(t in targets) if(t != null) FlxTween.cancelTweensOf(t);
 		
 		for(itemName in menuItems)
@@ -367,6 +439,8 @@ class NewPauseSubState extends MusicBeatSubstate
 		levelInfo.alpha = 1;
 		levelDifficulty.alpha = 1;
 		blueballedTxt.alpha = 1;
+		artistText.alpha = 1;
+		charterText.alpha = 1;
 		if(practiceText.visible) practiceText.alpha = 1;
 		if(chartingText.visible) chartingText.alpha = 1;
 		
@@ -394,7 +468,7 @@ class NewPauseSubState extends MusicBeatSubstate
 	{
 		FlxTween.tween(infoPanelBg, {alpha: 0.9}, FADE_TIME, {ease: FlxEase.quadOut});
 		
-		var elements = [levelInfo, levelDifficulty, blueballedTxt];
+		var elements = [levelInfo, levelDifficulty, blueballedTxt, artistText, charterText];
 		if(practiceText.visible) elements.push(practiceText);
 		if(chartingText.visible) elements.push(chartingText);
 		
@@ -889,8 +963,8 @@ class NewPauseSubState extends MusicBeatSubstate
 		
 		toggleSidebarElements(false);
 		
-		var panelY:Float = FlxG.height - 220;
-		difficultyBg = new FlxSprite(50, panelY).makeGraphic(350, 180, FlxColor.BLACK);
+		var panelY:Float = FlxG.height - 290;
+		difficultyBg = new FlxSprite(50, panelY).makeGraphic(350, 250, FlxColor.BLACK);
 		difficultyBg.alpha = 0;
 		difficultyBg.scrollFactor.set();
 		add(difficultyBg);
@@ -1048,7 +1122,7 @@ class NewPauseSubState extends MusicBeatSubstate
 		if(bg != null) FlxTween.tween(bg, {alpha: 0}, FADE_TIME, {ease: FlxEase.quadOut});
 		if(backdrop != null) FlxTween.tween(backdrop, {alpha: 0}, FADE_TIME, {ease: FlxEase.quadOut});
 		
-		var infoElements = [infoPanelBg, levelInfo, levelDifficulty, blueballedTxt, practiceText, chartingText];
+		var infoElements = [infoPanelBg, levelInfo, levelDifficulty, blueballedTxt, artistText, charterText, practiceText, chartingText];
 		for(element in infoElements) if(element != null) fadeOutElement(element);
 		
 		if(difficultyBg != null) fadeOutElement(difficultyBg);

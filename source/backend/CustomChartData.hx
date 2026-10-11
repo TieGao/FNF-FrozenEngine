@@ -25,6 +25,20 @@ typedef CustomChartSong = {
     var audioPath:String;
     var difficulties:Array<CustomChartDifficulty>;
     var info:Map<String, Dynamic>;
+    /** 内容包资源根（相对仓库根），如 content/VanillaSongs/Erect；非内容包为 null。 */
+    var contentRoot:String;
+    /** 卡片显示名（内容包取 metadata.songName，如 "Bopeebo Erect"）；缺省 = name。 */
+    var displayName:String;
+    /** metadata 里的曲师 / 谱师（内容包才有）。 */
+    var artist:String;
+    var charter:String;
+}
+
+/** 内容包 metadata 里我们关心的字段。 */
+typedef CustomChartMetadataInfo = {
+    var songName:String;
+    var artist:String;
+    var charter:String;
 }
 
 typedef CustomChartWeek = {
@@ -37,8 +51,8 @@ class CustomChartData
 {
     static inline var INDEX_FILE:String = '.chart-index.json';
     static inline var INFO_CACHE_FILE:String = '.freeplay-info.json';
-    static inline var INDEX_VERSION:Int = 2;
-    static inline var INFO_CACHE_VERSION:Int = 2;
+    static inline var INDEX_VERSION:Int = 3;
+    static inline var INFO_CACHE_VERSION:Int = 3;
     public static var weeksLoaded:Map<String, CustomChartWeek> = new Map<String, CustomChartWeek>();
     public static var weeksList:Array<String> = [];
 
@@ -51,7 +65,13 @@ class CustomChartData
         if (category == null || category.length == 0)
             return result;
 
-        var categories:Array<String> = category == 'custom' ? listChartCategories() : [category];
+        // 'custom' = "全部自定义谱面分类"的聚合伪分类，展开成 content/CustomCharts 下每个子目录的相对路径。
+        var categories:Array<String> = [category];
+        if (category == 'custom')
+        {
+            categories = [];
+            for (name in listChartCategories()) categories.push('CustomCharts/$name');
+        }
         for (chartCategory in categories)
         {
             var weekSongs:Array<CustomChartSong> = [];
@@ -72,13 +92,35 @@ class CustomChartData
     }
 
     #if sys
+    /** content/CustomCharts 下的分类名（保留旧名给既有调用点）。 */
     public static function listChartCategories():Array<String>
+        return listSubCategories('CustomCharts');
+
+    /** content/ 下的一级内容大类（VanillaSongs / CustomCharts / NMVMODS …）。 */
+    public static function listContentGroups():Array<String>
     {
         var result:Array<String> = [];
-        if (!FileSystem.exists(Paths.CHART_ROOT)) return result;
-        for (item in FileSystem.readDirectory(Paths.CHART_ROOT))
+        if (!FileSystem.exists(Paths.CONTENT_ROOT)) return result;
+        for (item in FileSystem.readDirectory(Paths.CONTENT_ROOT))
         {
-            var path:String = '${Paths.CHART_ROOT}/$item';
+            var path:String = '${Paths.CONTENT_ROOT}/$item';
+            // VanillaSongs 的曲目由各自的 week.json 定义（见 WeekData.addContentPackWeeks），
+            // 不走 CustomCharts 这套目录扫描，所以不在这里列出来。
+            if (!item.startsWith('.') && item != 'VanillaSongs' && FileSystem.isDirectory(path)) result.push(item);
+        }
+        return result;
+    }
+
+    /** content/<group> 下"确实含谱面"的子分类名（自定义分类或内容包变体）。 */
+    public static function listSubCategories(group:String):Array<String>
+    {
+        var result:Array<String> = [];
+        if (group == null || group.length == 0) return result;
+        var groupPath:String = '${Paths.CONTENT_ROOT}/$group';
+        if (!FileSystem.exists(groupPath)) return result;
+        for (item in FileSystem.readDirectory(groupPath))
+        {
+            var path:String = '$groupPath/$item';
             if (!item.startsWith('.') && FileSystem.isDirectory(path) && categoryHasChartFiles(path)) result.push(item);
         }
         return result;
@@ -86,6 +128,9 @@ class CustomChartData
 
     private static function categoryHasChartFiles(directory:String):Bool
     {
+        // 内容包布局：shared/data 下放谱面。
+        if (FileSystem.exists('$directory/shared/data')) return true;
+
         for (item in FileSystem.readDirectory(directory))
         {
             if (item.startsWith('.')) continue;
@@ -106,9 +151,16 @@ class CustomChartData
     #if sys
     private static function loadCategory(category:String, result:Array<CustomChartSong>):Void
     {
-        var categoryPath:String = '${Paths.CHART_ROOT}/$category';
+        var categoryPath:String = '${Paths.CONTENT_ROOT}/$category';
         if (!FileSystem.exists(categoryPath) || !FileSystem.isDirectory(categoryPath))
             return;
+
+        // 内容包布局（shared/data + songs）：VanillaSongs 这类整包镜像 assets 的目录。
+        if (FileSystem.exists('$categoryPath/shared/data'))
+        {
+            loadPackCategory(category, categoryPath, result);
+            return;
+        }
 
         for (firstDirectory in FileSystem.readDirectory(categoryPath))
         {
@@ -129,7 +181,8 @@ class CustomChartData
             var detectedCategory:String = isVSlice ? 'v_slice' : detectCategory(category, difficulties[0].path);
             result.push({name: name, sourceCategory: category, category: detectedCategory, directory: directory,
                 audioPath: findAudio(directory, detectedCategory), difficulties: difficulties,
-                info: new Map<String, Dynamic>()});
+                info: new Map<String, Dynamic>(), contentRoot: null, displayName: name,
+                artist: null, charter: null});
             return;
         }
 
@@ -140,6 +193,90 @@ class CustomChartData
             if (!child.startsWith('.') && FileSystem.isDirectory(childPath))
                 collectSongDirectory(category, childPath, child, result);
         }
+    }
+
+    /**
+     * 内容包布局扫描（如 content/VanillaSongs/Erect）：
+     *   谱面 shared/data/<歌>/<歌>-<难度>.json；音轨 songs/<歌>-<变体>/。
+     * 整包与 assets/ 同构，资源定位靠 Paths.currentContentRoot，这里只负责列曲目与难度。
+     */
+    private static function loadPackCategory(category:String, categoryPath:String, result:Array<CustomChartSong>):Void
+    {
+        var dataPath:String = '$categoryPath/shared/data';
+        if (!FileSystem.exists(dataPath) || !FileSystem.isDirectory(dataPath)) return;
+
+        for (songDir in FileSystem.readDirectory(dataPath))
+        {
+            if (songDir.startsWith('.')) continue;
+            var dir:String = '$dataPath/$songDir';
+            if (!FileSystem.isDirectory(dir)) continue;
+
+            var difficulties:Array<CustomChartDifficulty> = collectPackChartFiles(dir, songDir);
+            if (difficulties.length == 0) continue;
+
+            var meta:CustomChartMetadataInfo = readMetadataInfo(dir);
+            var displayName:String = (meta != null && meta.songName != null && meta.songName.length > 0) ? meta.songName : songDir;
+
+            result.push({name: songDir, sourceCategory: category, category: 'fnf', directory: dir,
+                audioPath: null, difficulties: difficulties, info: new Map<String, Dynamic>(),
+                contentRoot: categoryPath, displayName: displayName,
+                artist: meta != null ? meta.artist : null, charter: meta != null ? meta.charter : null});
+        }
+    }
+
+    /**
+     * 内容包谱面文件名形如 <歌>-<难度>.json（bopeebo-erect.json）。
+     * 难度名 = 去掉 "<歌>-" 前缀后的 stem；靠前缀天然排除 events-erect.json，再显式排除 metadata。
+     */
+    private static function collectPackChartFiles(directory:String, songName:String):Array<CustomChartDifficulty>
+    {
+        var result:Array<CustomChartDifficulty> = [];
+        var prefix:String = songName.toLowerCase() + '-';
+        for (fileName in FileSystem.readDirectory(directory))
+        {
+            if (!isChartFile(fileName) || isMetadataFile(fileName)) continue;
+            var dot:Int = fileName.lastIndexOf('.');
+            var stem:String = dot > 0 ? fileName.substring(0, dot) : fileName;
+            if (!stem.toLowerCase().startsWith(prefix)) continue;
+            var difficultyName:String = stem.substring(prefix.length);
+            if (difficultyName.length == 0) continue;
+            result.push({name: difficultyName, path: '$directory/$fileName'});
+        }
+        result.sort(function(a, b) return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1);
+        return result;
+    }
+
+    /**
+     * 读某个歌曲数据目录下 metadata（*-metadata*.json）里的 artist / charter。
+     * 内容包（content/VanillaSongs/<包>/shared/data/<歌>）与 base（assets/shared/data/<歌>）共用；
+     * 找不到文件或字段返回 null，交给 SongCredits 继续往下一级回退。
+     */
+    public static function readMetadataCredits(directory:String):{artist:String, charter:String}
+    {
+        if (directory == null || directory.length == 0) return null;
+        if (!FileSystem.exists(directory)) return null;
+        var info:CustomChartMetadataInfo = readMetadataInfo(directory);
+        if (info == null) return null;
+        return {artist: info.artist, charter: info.charter};
+    }
+
+    /** 读 metadata 的 songName / artist / charter（文件缺失或解析失败返回 null）。 */
+    private static function readMetadataInfo(directory:String):CustomChartMetadataInfo
+    {
+        var metadataPath:String = findMetadata(directory);
+        if (metadataPath == null) return null;
+        try
+        {
+            var parsed:Dynamic = Json.parse(File.getContent(metadataPath));
+            if (parsed == null) return null;
+            return {
+                songName: parsed.songName != null ? Std.string(parsed.songName) : null,
+                artist: parsed.artist != null ? Std.string(parsed.artist) : null,
+                charter: parsed.charter != null ? Std.string(parsed.charter) : null
+            };
+        }
+        catch (e:Dynamic) {}
+        return null;
     }
 
     private static function collectChartFiles(directory:String):Array<CustomChartDifficulty>
@@ -403,7 +540,7 @@ class CustomChartData
 
     private static function loadCachedCategory(category:String, result:Array<CustomChartSong>):Bool
     {
-        var categoryPath:String = '${Paths.CHART_ROOT}/$category';
+        var categoryPath:String = '${Paths.CONTENT_ROOT}/$category';
         var indexPath:String = '$categoryPath/$INDEX_FILE';
         if (!FileSystem.exists(categoryPath) || !FileSystem.exists(indexPath)) return false;
 
@@ -424,7 +561,9 @@ class CustomChartData
                 }
                 if (difficulties.length == 0) return false;
                 var song:CustomChartSong = {name: entry.name, sourceCategory: category, category: entry.category, directory: entry.directory,
-                    audioPath: entry.audioPath, difficulties: difficulties, info: new Map<String, Dynamic>()};
+                    audioPath: entry.audioPath, difficulties: difficulties, info: new Map<String, Dynamic>(),
+                    contentRoot: entry.contentRoot, displayName: entry.displayName,
+                    artist: entry.artist, charter: entry.charter};
                 song.info = loadInfoCache(song);
                 result.push(song);
             }
@@ -438,14 +577,16 @@ class CustomChartData
 
     private static function saveCachedCategory(category:String, songs:Array<CustomChartSong>):Void
     {
-        var categoryPath:String = '${Paths.CHART_ROOT}/$category';
+        var categoryPath:String = '${Paths.CONTENT_ROOT}/$category';
         var indexPath:String = '$categoryPath/$INDEX_FILE';
         try
         {
             var serializable:Array<Dynamic> = [];
             for (song in songs)
                 serializable.push({name: song.name, sourceCategory: song.sourceCategory, category: song.category, directory: song.directory,
-                    audioPath: song.audioPath, difficulties: song.difficulties, info: song.info});
+                    audioPath: song.audioPath, difficulties: song.difficulties, info: song.info,
+                    contentRoot: song.contentRoot, displayName: song.displayName,
+                    artist: song.artist, charter: song.charter});
             File.saveContent(indexPath, Json.stringify({version: INDEX_VERSION, sourceStamp: getDirectoryStamp(categoryPath), songs: serializable}));
         }
         catch (e:Dynamic) {}

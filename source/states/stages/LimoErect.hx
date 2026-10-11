@@ -189,8 +189,8 @@ class LimoErect extends BaseStage
 			if (mist1 != null) mist1.y = 100 + (Math.sin(_timer)*200);
 			if (mist2 != null) mist2.y = 0 + (Math.sin(_timer*0.8)*100);
 			if (mist3 != null) mist3.y = -20 + (Math.sin(_timer*0.5)*200);
-			if (mist4 != null) mist4.y = -180 + (Math.sin(_timer*0.4)*300);
-			if (mist5 != null) mist5.y = -450 + (Math.sin(_timer*0.2)*150);
+			if (mist4 != null) mist4.y = 1180 + (Math.sin(_timer*0.4)*300);
+			if (mist5 != null) mist5.y = 1450 + (Math.sin(_timer*0.2)*150);
 		}
 
 		if(!ClientPrefs.data.lowQuality) {

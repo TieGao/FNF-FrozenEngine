@@ -9,6 +9,9 @@ import backend.SongMetaConfig;
 import backend.SongInfoParser;
 import backend.CustomChartData;
 import backend.CustomChartMetadata;
+import backend.StageData;
+import backend.SongCredits;
+import backend.SongCredits.SongCreditsContext;
 
 import objects.HealthIcon;
 
@@ -47,6 +50,13 @@ class FreeplayState extends MusicBeatState
     var allSongs:Array<NewSongMetaData> = []; // 所有歌曲
     var songsByFolder:Map<String, Array<NewSongMetaData>> = new Map(); // 按模组分类的歌曲
     var currentFolderFilter:String = null; // 当前模组过滤器（null 表示显示全部）
+
+    /** 原版「基础周」（assets 侧）的筛选键 —— 这些歌的 contentRoot 为 null。 */
+    public static inline var SOURCE_VANILLA_BASE:String = '__vanilla_base__';
+    /** ModFolder 一级来源筛选：'all' | 'vanilla' | 'mods'。CustomCharts 走 content 模式，不在这里。 */
+    public static var sourceFilter:String = 'all';
+    /** 二级细分：vanilla → 内容包资源根（SOURCE_VANILLA_BASE = 仅基础周）；mods → 模组目录名；null = 该来源全部。 */
+    public static var sourceSubFilter:String = null;
 
     var selector:FlxText;
 	public static var curSelected:Int = 0;
@@ -148,6 +158,12 @@ class FreeplayState extends MusicBeatState
         return Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0;
     }
 
+    /** 当前浏览的分类是不是「自定义谱面」（而非 VanillaSongs 这类内容包）。 */
+    public function isCustomChartMode():Bool
+    {
+        return Paths.isCustomChartCategory();
+    }
+
     /**
      * 进入 Content 模式的唯一入口：浏览指定分类（空 = 设置里的默认分类）。
      * 模式标志、谱面上下文、资源 mod 目录一次写全，避免出现半套状态。
@@ -172,6 +188,42 @@ class FreeplayState extends MusicBeatState
         Paths.setChartContext(null, null);
         Mods.currentModDirectory = (folder == null || folder.length == 0) ? null : folder;
         onModFolderChanged();
+    }
+
+    /**
+     * 按来源筛选歌曲 —— ModFolder 一级 / 二级菜单的落点。
+     * filter：'all'（原版 + 模组）/ 'vanilla'（仅原版，含 assets 基础周与 content/VanillaSongs 内容包）/ 'mods'（仅模组）。
+     * sub：vanilla 传内容包资源根（SOURCE_VANILLA_BASE = 仅基础周）、mods 传模组目录名，null = 该来源全部。
+     * CustomCharts 不走这里，仍由 enterContentMode 处理。
+     */
+    public function applySourceFilter(filter:String, sub:String = null):Void
+    {
+        sourceFilter = (filter == null || filter.length == 0) ? 'all' : filter;
+        sourceSubFilter = (sub != null && sub.length > 0) ? sub : null;
+        Paths.setChartContext(null, null);
+        Mods.currentModDirectory = null;
+        onModFolderChanged();
+    }
+
+    /** 当前来源筛选是否命中这首歌。原版与模组靠 folder 区分：空 folder = 原版。 */
+    function matchesSourceFilter(song:NewSongMetaData):Bool
+    {
+        if (song == null) return false;
+
+        if (sourceFilter == 'vanilla')
+        {
+            if (song.folder != null && song.folder.length > 0) return false;
+            if (sourceSubFilter == null) return true;
+            if (sourceSubFilter == SOURCE_VANILLA_BASE) return song.contentRoot == null;
+            return song.contentRoot == sourceSubFilter;
+        }
+        if (sourceFilter == 'mods')
+        {
+            if (song.folder == null || song.folder.length == 0) return false;
+            if (sourceSubFilter == null) return true;
+            return song.folder == sourceSubFilter;
+        }
+        return true;
     }
 
     override function create()
@@ -239,6 +291,13 @@ class FreeplayState extends MusicBeatState
             #if sys
             loadCustomChartSongs();
             #end
+        }
+        else if (sourceFilter != 'all')
+        {
+            var filtered:Array<NewSongMetaData> = [];
+            for (song in allSongs)
+                if (matchesSourceFilter(song)) filtered.push(song);
+            songs = filtered;
         }
 
         if (songs.length == 0)
@@ -477,17 +536,8 @@ class FreeplayState extends MusicBeatState
             add(highlightLine);
         }
 
-        var modDisplayText:String = "Mod: ";
-        if (ClientPrefs.data.freeplayModFolder)
-        {
-            modDisplayText += (Mods.currentModDirectory == null ? "ALL" : Mods.currentModDirectory);
-        }
-        else
-        {
-            modDisplayText += Mods.currentModDirectory;
-        }
-        
-        modFolderText = new FlxText(10, 50, 0, modDisplayText, 24);
+        var selectedSong:NewSongMetaData = (curSelected >= 0 && curSelected < songs.length) ? songs[curSelected] : null;
+        modFolderText = new FlxText(10, 50, 0, getModFolderDisplayText(selectedSong), 24);
         modFolderText.antialiasing = ClientPrefs.data.antialiasing;
         modFolderText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT);
         add(modFolderText);
@@ -665,6 +715,10 @@ class FreeplayState extends MusicBeatState
             {
                 song.songMusican = WeekData.getSongMusican(songEntry);
                 song.songCharters = WeekData.getSongCharters(songEntry);
+                song.contentRoot = weekData.contentRoot;
+                #if sys
+                applyMetadataCredits(song, weekData);
+                #end
             }
         }
         else
@@ -700,7 +754,8 @@ class FreeplayState extends MusicBeatState
         if (category == null || category.length == 0) category = 'custom';
         for (customSong in CustomChartData.load(category))
         {
-            var chart:NewSongMetaData = new NewSongMetaData(customSong.name, -1, 'bf', FlxColor.fromRGB(146, 113, 253));
+            var displayName:String = (customSong.displayName != null && customSong.displayName.length > 0) ? customSong.displayName : customSong.name;
+            var chart:NewSongMetaData = new NewSongMetaData(displayName, -1, 'bf', FlxColor.fromRGB(146, 113, 253));
             chart.folder = '';
             chart.customChart = new CustomChartMetadata(customSong);
             chart.difficultyInfo = cast chart.customChart.difficultyInfo;
@@ -733,17 +788,27 @@ class FreeplayState extends MusicBeatState
             var lowerDifficulty:String = difficultyName == null ? '' : difficultyName.toLowerCase();
             var hasVSlice:Bool = chart.customChart.category != null && chart.customChart.category.toLowerCase() == 'v_slice';
             var audioSuffix:String = hasVSlice && (lowerDifficulty == 'erect' || lowerDifficulty == 'pico') ? lowerDifficulty : null;
-            Paths.setChartContext(Paths.currentChartCategory, chart.customChart.directory, hasVSlice, audioSuffix);
+            Paths.setChartContext(Paths.currentChartCategory, chart.customChart.directory, hasVSlice, audioSuffix,
+                chart.customChart.contentRoot, chart.customChart.artist, chart.customChart.charter);
             Mods.currentModDirectory = ClientPrefs.data.customChartModFolder;
             PlayState.chartCategory = Paths.currentChartCategory;
             PlayState.chartDirectory = Paths.currentChartDirectory;
             PlayState.chartHasVSliceMetadata = Paths.currentChartHasVSliceMetadata;
             PlayState.chartAudioSuffix = Paths.currentChartAudioSuffix;
+            PlayState.chartContentRoot = Paths.currentContentRoot;
+            PlayState.chartMetadataArtist = Paths.currentChartMetaArtist;
+            PlayState.chartMetadataCharter = Paths.currentChartMetaCharter;
             var loaded:SwagSong = cast CustomChartData.loadChart(chart.customChart.song, difficultyName);
 
             if (loaded == null) return false;
             PlayState.SONG = loaded;
-            PlayState.SONG.song = chart.songName;
+            // SONG.song 用"基础歌名"（内容包 = 数据目录名），不能用卡片显示名：
+            // events / 音轨 / 舞台查找都按基础歌名拼路径。
+            PlayState.SONG.song = chart.customChart.song.name;
+            Song.loadedSongName = chart.customChart.song.name;
+            // 与 Song.loadFromJson 对齐：先定下舞台的 directory，LoadingState.loadNextDirectory()
+            // 才会把 currentLevel 设成它（内容包的舞台图在 <包>/week<N>/images/ 下）。
+            StageData.loadDirectory(PlayState.SONG);
             return true;
         }
         catch (e:Dynamic)
@@ -752,6 +817,30 @@ class FreeplayState extends MusicBeatState
             return false;
         }
     }
+    #if sys
+    /**
+     * 内容包 / base 歌的署名从包内 metadata 读（week 元组通常没有第 4/5 项）。
+     * 内容包取 <contentRoot>/shared/data/<歌>；base 取 assets/shared/data/<歌>；mod 歌暂不走这里。
+     */
+    function applyMetadataCredits(song:NewSongMetaData, weekData:WeekData):Void
+    {
+        if (song == null) return;
+
+        var songLower:String = Paths.formatToSongPath(song.songName);
+        var dir:String = null;
+        if (song.contentRoot != null && song.contentRoot.length > 0)
+            dir = '${song.contentRoot}/shared/data/$songLower';
+        else if (weekData == null || weekData.folder == null || weekData.folder.length == 0)
+            dir = Paths.getSharedPath('data/$songLower');
+
+        if (dir == null) return;
+        var credits = CustomChartData.readMetadataCredits(dir);
+        if (credits == null) return;
+        song.metaArtist = credits.artist;
+        song.metaCharter = credits.charter;
+    }
+    #end
+
     private function getFreeplaySongCacheKey(songName:String, folder:String):String
     {
         return (folder == null ? '' : folder) + '|' + songName;
@@ -1190,7 +1279,7 @@ class FreeplayState extends MusicBeatState
 
     /**
      * 右下角补充信息：音乐人 / 谱师 / 游玩次数。
-     * 数据来源优先级：songMeta.json 覆盖层 > week.json 元组 > 留空（该行不显示）。
+     * 曲师 / 谱师走 backend.SongCredits 的统一优先级链（metadata > songMeta.json > 谱面内嵌 > week 元组）。
      */
     function updateSongMetaTexts()
     {
@@ -1213,20 +1302,31 @@ class FreeplayState extends MusicBeatState
 
         var song:NewSongMetaData = songs[curSelected];
 
-        var musican:String = SongMetaConfig.getMusicanForSong(song.songName, song.folder);
-        if (musican == null || musican.length == 0) musican = song.songMusican;
+        var ctx:SongCreditsContext = {
+            songName: song.songName,
+            diffName: Difficulty.getString(curDifficulty, false),
+            diffIdx: curDifficulty,
+            modFolder: song.folder,
+            weekMusican: song.songMusican,
+            weekCharters: song.songCharters
+        };
+        if (song.customChart != null)
+        {
+            ctx.metadataArtist = song.customChart.artist;
+            ctx.metadataCharter = song.customChart.charter;
+        }
+        else if (song.metaArtist != null || song.metaCharter != null)
+        {
+            // 内容包 / base 歌：署名来自包内 metadata（addSong 时解析）
+            ctx.metadataArtist = song.metaArtist;
+            ctx.metadataCharter = song.metaCharter;
+        }
+
+        var musican:String = SongCredits.getArtist(ctx);
         musicanText.text = (musican != null && musican.length > 0)
             ? Language.getPhrase('freeplay_musican', 'BY: {1}', [musican]) : "";
 
-        var diffName:String = Difficulty.getString(curDifficulty, false);
-        var charter:String = SongMetaConfig.getCharterForSong(song.songName, diffName, curDifficulty, song.folder);
-        if ((charter == null || charter.length == 0) && song.songCharters != null && song.songCharters.length > 0)
-        {
-            var idx:Int = curDifficulty;
-            if (idx < 0) idx = 0;
-            if (idx >= song.songCharters.length) idx = song.songCharters.length - 1;
-            charter = song.songCharters[idx];
-        }
+        var charter:String = SongCredits.getCharter(ctx);
         charterText.text = (charter != null && charter.length > 0)
             ? Language.getPhrase('freeplay_charter', 'CHARTER: {1}', [charter]) : "";
 
@@ -1290,8 +1390,10 @@ class FreeplayState extends MusicBeatState
             }
             else
             {
-                // 试听普通歌同样要清空上下文，否则下一次进入 PlayState 会继承上一首自定义谱面
-                Paths.setChartContext(null, null);
+                // 试听普通歌同样要清空上下文，否则下一次进入 PlayState 会继承上一首自定义谱面；
+                // 内容包歌把资源根带上（谱面 / 音轨 / 舞台都走它的加性回退）
+                Paths.setChartContext(null, null, false, null, songs[curSelected].contentRoot,
+                    songs[curSelected].metaArtist, songs[curSelected].metaCharter);
                 PlayState.clearChartContext();
                 PlayState.SONG = Song.loadFromJson(poop, songLowercase);
             }
@@ -1836,8 +1938,9 @@ class FreeplayState extends MusicBeatState
             }
             else
             {
-                // 普通歌：显式清空自定义谱面上下文，别让上一首的残留跟进来
-                Paths.setChartContext(null, null);
+                // 普通歌 / 内容包歌：清空自定义谱面上下文；内容包把资源根带上
+                Paths.setChartContext(null, null, false, null, songs[curSelected].contentRoot,
+                    songs[curSelected].metaArtist, songs[curSelected].metaCharter);
                 PlayState.clearChartContext();
                 Song.loadFromJson(poop, songLowercase);
             }
@@ -2064,6 +2167,7 @@ class FreeplayState extends MusicBeatState
 
         Mods.currentModDirectory = isContentMode() ? ClientPrefs.data.customChartModFolder : songs[curSelected].folder;
         Paths.currentChartDirectory = songs[curSelected].customChart == null ? null : songs[curSelected].customChart.directory;
+        modFolderText.text = getModFolderDisplayText(songs[curSelected]);
         if (musicPlayer.playingMusic)
             return;
         _updateSongLastDifficulty();
@@ -2091,6 +2195,8 @@ class FreeplayState extends MusicBeatState
         
         if (!isContentMode())
         {
+            // 浏览普通歌 / 内容包歌时同步资源根，卡片与角色图才能取到包内资源
+            Paths.currentContentRoot = songs[curSelected].contentRoot;
             PlayState.storyWeek = songs[curSelected].week;
             var weekData = WeekData.weeksLoaded.get(WeekData.weeksList[PlayState.storyWeek]);
             if (weekData != null)
@@ -2155,12 +2261,6 @@ class FreeplayState extends MusicBeatState
         missingText.visible = false;
         missingTextBG.visible = false;
         
-        if (songs[curSelected].customChart != null && songs[curSelected].customChart.isValid())
-            modFolderText.text = "Chart Folder:" + (songs[curSelected].customChart.sourceFolder != null
-                ? songs[curSelected].customChart.sourceFolder : Paths.currentChartCategory);
-        else
-            modFolderText.text = "Mod: " + songs[curSelected].folder;
-
         for (i in visibleCardMin...visibleCardMax + 1)
         {
             if (i >= 0 && i < cards.length && cards[i] != null)
@@ -2272,6 +2372,40 @@ class FreeplayState extends MusicBeatState
             Difficulty.resetList();
     }
 
+    function getModFolderDisplayText(?song:NewSongMetaData):String
+    {
+        if (song != null && song.customChart != null && song.customChart.isValid())
+        {
+            var category:String = Paths.currentChartCategory;
+            if (category == null || category.length == 0 || category == 'custom')
+                category = song.customChart.sourceFolder;
+            if (category == null || category.length == 0)
+                category = 'custom';
+            if (category.startsWith('VanillaSongs/'))
+                return 'Vanilla: ' + category.substring('VanillaSongs/'.length);
+            return 'Chart Folder: ' + category;
+        }
+
+        if (sourceFilter == 'vanilla')
+        {
+            if (sourceSubFilter == null || sourceSubFilter == SOURCE_VANILLA_BASE)
+                return 'Vanilla';
+            var slash:Int = sourceSubFilter.lastIndexOf('/');
+            return 'Vanilla: ' + (slash >= 0 ? sourceSubFilter.substring(slash + 1) : sourceSubFilter);
+        }
+        if (sourceFilter == 'mods')
+        {
+            if (sourceSubFilter == null || sourceSubFilter.length == 0)
+                return 'Mods';
+            return 'Mod: ' + sourceSubFilter;
+        }
+
+        var folder:String = song != null ? song.folder : Mods.currentModDirectory;
+        if (folder == null || folder.length == 0)
+            folder = 'ALL';
+        return 'Mod: ' + folder;
+    }
+
     function openModFolderSelector()
     {
         var modFolder = new ModFolderSubstate(this);
@@ -2307,6 +2441,15 @@ class FreeplayState extends MusicBeatState
             loadCustomChartSongs();
             #end
         }
+        else if (sourceFilter != 'all')
+        {
+            // 来源筛选（ModFolder 一级 / 二级选的）：从 allSongs 里按来源过一遍。
+            // allSongs 只含原版与模组的歌 —— CustomCharts 走上面的 content 分支。
+            Paths.currentChartDirectory = null;
+            songs = [];
+            for (song in allSongs)
+                if (matchesSourceFilter(song)) songs.push(song);
+        }
         else if (ClientPrefs.data.freeplayModFolder)
         {
             Paths.currentChartDirectory = null;
@@ -2337,33 +2480,20 @@ class FreeplayState extends MusicBeatState
         visibleCardMin = 0;
         visibleCardMax = -1;
 
+        curSelected = 0;
+        var selectedSong:NewSongMetaData = songs.length > 0 ? songs[curSelected] : null;
+        modFolderText.text = getModFolderDisplayText(selectedSong);
+
         if (songs.length == 0)
         {
-            curSelected = 0;
             resetCardScroller();
             return;
         }
 
-        curSelected = 0;
         initializeCardSlots();
 
         // 重置滚动控制器
         resetCardScroller();
-
-        var modDisplayText:String = "Mod: ";
-        if (Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0)
-        {
-            modDisplayText = "Chart Folder:" + Paths.currentChartCategory;
-        }
-        else if (ClientPrefs.data.freeplayModFolder)
-        {
-            modDisplayText += (Mods.currentModDirectory == null || Mods.currentModDirectory.length == 0 ? "ALL" : Mods.currentModDirectory);
-        }
-        else
-        {
-            modDisplayText += (Mods.currentModDirectory == null ? "" : Mods.currentModDirectory);
-        }
-        modFolderText.text = modDisplayText;
 
         if (curSelected >= 0 && curSelected < songs.length)
         {

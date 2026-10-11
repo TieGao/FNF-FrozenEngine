@@ -102,6 +102,8 @@ pause_back: "Voltar"
 practice_mode: "Modo Prática"
 charting_mode: "Modo Charter"
 blueballed: "Broxadas: {1}"
+pause_artist: "Artista: {1}"
+pause_charter: "Chartista: {1}"
 
 // Main Menu
 images/mainmenu/menu_story_mode: "images/pt-BR/mainmenu/menu_story_mode"

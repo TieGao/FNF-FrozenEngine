@@ -15,6 +15,12 @@ class NewSongMetaData
     
     public var difficultyInfo:Map<String, ParsedSongInfo> = new Map<String, ParsedSongInfo>();
     public var customChart:CustomChartMetadata = null;
+    /** 内容包资源根（content/VanillaSongs/<包>）；普通周为 null。加载歌曲时写进 Paths。 */
+    public var contentRoot:String = null;
+
+    /** 内容包 / base 的 metadata 署名（曲师 / 谱师），addSong 时解析。 */
+    public var metaArtist:String = null;
+    public var metaCharter:String = null;
 
     /** 音乐人 / 作曲（来自 week.json 元组第 4 项） */
     public var songMusican:String = null;

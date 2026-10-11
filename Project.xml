@@ -104,12 +104,9 @@
 		<haxelib name="funkin.vis" if="BASE_GAME_FILES"/>
 	</section>
 
-	<!-- 混音分类。各自独立目录，靠 rename="assets" 和 base_game 合流到同一个 assets/ 虚拟树：
-	     assets/base_game_erect/songs/fresh/Inst-erect.ogg -> assets/songs/fresh/Inst-erect.ogg -->
-	<section if="BASE_GAME_ERECT">
-		<assets path="assets/base_game_erect" rename="assets" exclude="*.ogg" if="web"/>
-		<assets path="assets/base_game_erect" rename="assets" exclude="*.mp3"  unless="web"/>
-	</section>
+	<!-- erect 混音已迁到 content/VanillaSongs/Erect/（运行时内容包，见文件末尾的 <assets path='content'>）。
+	     BASE_GAME_ERECT 宏仍然保留，只用来编译 9 个 *Erect.hx 舞台类；
+	     舞台 / 角色 / 图片 / 谱面 / 音轨 / 事件等数据一律从内容包读取，不再走 assets 合流。 -->
 
 	<section if="BASE_GAME_PICO">
 		<assets path="assets/base_game_pico" rename="assets" exclude="*.ogg" if="web"/>

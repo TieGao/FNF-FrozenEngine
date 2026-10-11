@@ -43,6 +43,11 @@ typedef SwagSong =
     // 专辑 id（对应 assets/shared/albums/<id>.json）。原版挂在每个变体上，
     // 本引擎只读当前难度那一份，缺失时显示层回退到默认难度档。
     @:optional var album:String;
+
+    // 歌曲署名。原版谱面 JSON 自带这两个字段；V-Slice 转换时也会写入。
+    // 统一取数见 backend.SongCredits（暂停界面 / Freeplay 共用）。
+    @:optional var artist:String;
+    @:optional var charter:String;
 }
 
 typedef SwagSection =

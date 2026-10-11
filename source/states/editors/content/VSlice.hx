@@ -51,6 +51,9 @@ typedef VSlicePlayData =
 	var characters:VSliceCharacters;
 	var noteStyle:String;
 	var stage:String;
+	// 原版 metadata 里有，Psych 侧原本丢弃；补上供 Freeplay 专辑封面 / 评级使用。
+	@:optional var ratings:Dynamic;
+	@:optional var album:String;
 }
 
 typedef VSliceCharacters =
@@ -275,6 +278,8 @@ class VSlice
 
 			Reflect.setField(swagSong, 'artist', metadata.artist);
 			Reflect.setField(swagSong, 'charter', metadata.charter);
+			if (metadata.playData != null && metadata.playData.album != null)
+				Reflect.setField(swagSong, 'album', metadata.playData.album);
 			Reflect.setField(swagSong, 'generatedBy', 'Psych Engine v${MainMenuState.psychEngineVersion} - Chart Editor V-Slice Importer');
 			songDifficulties.set(diff, swagSong);
 		}

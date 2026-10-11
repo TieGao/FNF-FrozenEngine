@@ -378,7 +378,7 @@ class OsuConverter
 	private static function getChartSourceInfo(filePath:String):Array<String>
 	{
 		var normalized:String = filePath.replace('\\', '/');
-		var marker:String = '/charts/';
+		var marker:String = '/customcharts/';
 		var markerIndex:Int = normalized.toLowerCase().indexOf(marker);
 		if (markerIndex == -1) return [null, null];
 

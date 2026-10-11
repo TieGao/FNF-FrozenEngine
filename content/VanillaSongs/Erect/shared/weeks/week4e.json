@@ -1,0 +1,23 @@
+{
+	"songs": [
+		["Satin Panties", "mom", [252, 150, 215]],
+		["High", "mom", [252, 150, 215]]
+	],
+
+	"weekCharacters": [
+		"mom",
+		"bf",
+		"gf"
+	],
+	"weekBackground": "limo",
+
+	"storyName": "MOMMY MUST MURDER",
+	"weekBefore": "week3e",
+	"weekName": "Week 4 Erect",
+	"startUnlocked": true,
+
+	"difficulties": "Erect,Nightmare",
+
+	"hideStoryMode": false,
+	"hideFreeplay": false
+}

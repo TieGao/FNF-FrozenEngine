@@ -17,7 +17,7 @@
 	"weekName": "Week 2",
 	"startUnlocked": true,
 
-	"difficulties": "Easy,Normal,Hard,Erect,Nightmare",
+	"difficulties": "Easy,Normal,Hard",
 
 	"hideStoryMode": false,
 	"hideFreeplay": false

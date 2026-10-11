@@ -41,6 +41,9 @@ class SongInfoParser
     {
         var oldModDir = Mods.currentModDirectory;
         Mods.currentModDirectory = folder;
+        // 内容包歌的谱面在 content/VanillaSongs/<包>/shared/data 下，靠资源根命中
+        var oldContentRoot:String = Paths.currentContentRoot;
+        if (weekData != null) Paths.currentContentRoot = weekData.contentRoot;
 
         var songLowercase:String = Paths.formatToSongPath(songName);
         var diffFileName:String = getDifficultyFileName(difficulty, weekData);
@@ -54,6 +57,7 @@ class SongInfoParser
         }
 
         Mods.currentModDirectory = oldModDir;
+        Paths.currentContentRoot = oldContentRoot;
 
         if (chartData == null)
         {
@@ -69,6 +73,9 @@ class SongInfoParser
         var result:Map<String, ParsedSongInfo> = new Map();
         var oldModDir:String = Mods.currentModDirectory;
         Mods.currentModDirectory = folder;
+        // 内容包歌的谱面在 content/VanillaSongs/<包>/shared/data 下，靠资源根命中
+        var oldContentRoot:String = Paths.currentContentRoot;
+        if (weekData != null) Paths.currentContentRoot = weekData.contentRoot;
 
         var songLowercase:String = Paths.formatToSongPath(songName);
 
@@ -165,6 +172,7 @@ class SongInfoParser
         }
 
         Mods.currentModDirectory = oldModDir;
+        Paths.currentContentRoot = oldContentRoot;
         return result;
     }
 
@@ -237,6 +245,15 @@ class SongInfoParser
         #end
 
         var assetsPath:String = Paths.json(songLowercase + '/' + fileName);
+        #if sys
+        // 内容包是运行时磁盘资源、不在编译期 assets 清单里，Assets.exists 查不到；
+        // getPath 命中内容包时返回的本来就是磁盘路径，先按磁盘判存在。
+        if (FileSystem.exists(assetsPath))
+        {
+            chartData = File.getContent(assetsPath);
+            return chartData;
+        }
+        #end
         if (Assets.exists(assetsPath, TEXT))
         {
             chartData = Assets.getText(assetsPath);

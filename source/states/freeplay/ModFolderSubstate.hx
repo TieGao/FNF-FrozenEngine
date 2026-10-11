@@ -23,30 +23,35 @@ import sys.FileSystem;
 /**
  * ModFolder 子界面 - 在 Freeplay 里选择内容来源，从左侧弹出（FlxTween + FlxEase.circOut）。
  *
- * 两级菜单：
- *   一级 Mods    —— 默认体系：ALL + 各模组文件夹
- *   二级 Content —— 自定义谱面分类（后续可继续追加其它内容类型）
+ * 一级四类来源（NMVMODS 未实现，暂不列）：
+ *   ALL           —— 原版 + 模组（不含 CustomCharts），点击即筛选
+ *   Vanilla       —— 仅原版：assets 基础周 + content/VanillaSongs 各内容包（Erect / PicoMix …）
+ *   Mods          —— 仅 mods/ 下的模组
+ *   CustomCharts  —— content/CustomCharts 下的自定义谱面
+ * 二级：Vanilla / Mods / CustomCharts 各自的具体项，每层首项都是一个「ALL」。
  *
- * 层级切换只发生在本界面内部；真正改变 Freeplay 模式的是 selectItem() 里对
- * FreeplayState.enterContentMode() / exitContentMode() 的调用 —— 模式状态只由那两处写。
+ * 层级切换只发生在本界面内部。改变 Freeplay 状态的两个出口：
+ *   - 原版 / 模组：FreeplayState.applySourceFilter(filter, sub)
+ *   - 自定义谱面：FreeplayState.enterContentMode(category)
  */
 class ModFolderSubstate extends MusicBeatSubstate
 {
-	// 层级
-	static inline var LEVEL_MODS:Int = 0;
-	static inline var LEVEL_CONTENT:Int = 1;
+	// 层级：一级来源 → 二级（Vanilla / Mods / CustomCharts 各自的具体项）
+	static inline var LEVEL_ROOT:Int = 0;
+	static inline var LEVEL_VANILLA:Int = 1;
+	static inline var LEVEL_MODS:Int = 2;
+	static inline var LEVEL_CHARTS:Int = 3;
 
 	// 列表项类型
-	static inline var KIND_ALL:String = 'all';           // 显示全部模组歌曲
-	static inline var KIND_MOD:String = 'mod';           // 某个模组
-	static inline var KIND_CONTENT:String = 'content';   // 进入 Content 二级
-	static inline var KIND_CATEGORY:String = 'category'; // 某个自定义谱面分类
-	static inline var KIND_BACK:String = 'back';         // 从 Content 返回 Mods
+	static inline var KIND_SOURCE:String = 'source';     // 一级：进入某个来源的二级层（chartCategory = vanilla/mods/charts）
+	static inline var KIND_FILTER:String = 'filter';     // 叶子：按来源筛选（filter / filterSub 见 ModFolderItem）
+	static inline var KIND_CATEGORY:String = 'category'; // 叶子：content 分类（chartCategory = 相对 content 根的路径）
+	static inline var KIND_BACK:String = 'back';         // 返回上一级
 
 	var curSelected:Int = 0;
 	var pressedItem:Int = -1;
 	var parent:FreeplayState;
-	var level:Int = LEVEL_MODS;
+	var level:Int = LEVEL_ROOT;
 
 	var bgList:FlxFilteredSprite;
 	var bgDim:FlxSprite;
@@ -93,8 +98,17 @@ class ModFolderSubstate extends MusicBeatSubstate
 		bgDim.scrollFactor.set();
 		add(bgDim);
 
-		// 已经在 Content 模式就直接从二级进，否则从一级进
-		level = (parent != null && parent.isContentMode()) ? LEVEL_CONTENT : LEVEL_MODS;
+		// 已经处在某个筛选里就直接进对应二级，否则从一级进。
+		level = LEVEL_ROOT;
+		if (parent != null)
+		{
+			if (parent.isContentMode())
+				level = LEVEL_CHARTS;
+			else if (FreeplayState.sourceFilter == 'vanilla')
+				level = LEVEL_VANILLA;
+			else if (FreeplayState.sourceFilter == 'mods')
+				level = LEVEL_MODS;
+		}
 
 		// 计算可见项目数量
 		var panelHeight:Int = FlxG.height;
@@ -242,10 +256,17 @@ class ModFolderSubstate extends MusicBeatSubstate
 		var startY:Float = bgList.y + PADDING_TOP;
 		var itemIndex:Int = 0;
 
-		if (level == LEVEL_MODS)
-			itemIndex = buildModsLevel(startY, itemIndex);
-		else
-			itemIndex = buildContentLevel(startY, itemIndex);
+		switch (level)
+		{
+			case LEVEL_VANILLA:
+				itemIndex = buildVanillaLevel(startY, itemIndex);
+			case LEVEL_MODS:
+				itemIndex = buildModsLevel(startY, itemIndex);
+			case LEVEL_CHARTS:
+				itemIndex = buildChartsLevel(startY, itemIndex);
+			default:
+				itemIndex = buildRootLevel(startY, itemIndex);
+		}
 
 		totalItems = itemIndex;
 		maxScrollPos = Math.max(0, (totalItems * (itemHeight + ITEM_SPACING)) - (FlxG.height - PADDING_TOP - PADDING_BOTTOM));
@@ -270,17 +291,79 @@ class ModFolderSubstate extends MusicBeatSubstate
 		updateSelection();
 	}
 
-	/** 一级：ALL + CONTENT 入口 + 各模组 */
-	function buildModsLevel(startY:Float, itemIndex:Int):Int
+	/** 一级：ALL / Vanilla / Mods / CustomCharts 四类来源（NMVMODS 未实现，暂不列）。 */
+	function buildRootLevel(startY:Float, itemIndex:Int):Int
 	{
-		addItem('ALL', Language.getPhrase('mod_folder_all_desc', 'Show all songs'),
-			null, null, KIND_ALL, itemIndex, startY,
-			Mods.currentModDirectory == null || Mods.currentModDirectory.length == 0);
+		var contentMode:Bool = parent != null && parent.isContentMode();
+		var filter:String = FreeplayState.sourceFilter;
+
+		addItem(Language.getPhrase('mod_folder_all', 'ALL'),
+			Language.getPhrase('mod_folder_all_desc', 'Show all songs'),
+			null, null, KIND_FILTER, itemIndex, startY, !contentMode && filter == 'all', 'all', null);
 		itemIndex++;
 
-		addItem(Language.getPhrase('mod_folder_content', 'CONTENT'),
-			Language.getPhrase('mod_folder_content_desc', 'Custom charts and other content'),
-			null, null, KIND_CONTENT, itemIndex, startY, false);
+		addItem(Language.getPhrase('mod_folder_vanilla', 'Vanilla'),
+			Language.getPhrase('mod_folder_vanilla_desc', 'Official songs: base weeks + content packs'),
+			null, 'vanilla', KIND_SOURCE, itemIndex, startY, !contentMode && filter == 'vanilla');
+		itemIndex++;
+
+		addItem(Language.getPhrase('mod_folder_mods', 'Mods'),
+			Language.getPhrase('mod_folder_mods_desc', 'Songs from the mods/ folder'),
+			null, 'mods', KIND_SOURCE, itemIndex, startY, !contentMode && filter == 'mods');
+		itemIndex++;
+
+		addItem(Language.getPhrase('mod_folder_charts', 'CustomCharts'),
+			Language.getPhrase('mod_folder_charts_desc', 'Custom charts under content/CustomCharts'),
+			null, 'charts', KIND_SOURCE, itemIndex, startY, contentMode);
+		itemIndex++;
+
+		return itemIndex;
+	}
+
+	/** 二级：原版 —— 全部 / 基础周 / 各 content/VanillaSongs 内容包。 */
+	function buildVanillaLevel(startY:Float, itemIndex:Int):Int
+	{
+		itemIndex = addBackItem(startY, itemIndex);
+
+		var filter:String = FreeplayState.sourceFilter;
+		var sub:String = FreeplayState.sourceSubFilter;
+
+		addItem(Language.getPhrase('mod_folder_all_vanilla', 'ALL VANILLA'),
+			Language.getPhrase('mod_folder_all_vanilla_desc', 'Every official song'),
+			null, null, KIND_FILTER, itemIndex, startY, filter == 'vanilla' && sub == null, 'vanilla', null);
+		itemIndex++;
+
+		addItem(Language.getPhrase('mod_folder_vanilla_base', 'Vanilla (Base)'),
+			Language.getPhrase('mod_folder_vanilla_base_desc', 'Base-game weeks'),
+			null, null, KIND_FILTER, itemIndex, startY,
+			filter == 'vanilla' && sub == FreeplayState.SOURCE_VANILLA_BASE, 'vanilla', FreeplayState.SOURCE_VANILLA_BASE);
+		itemIndex++;
+
+		#if sys
+		for (pack in CustomChartData.listSubCategories('VanillaSongs'))
+		{
+			var root:String = '${Paths.CONTENT_ROOT}/VanillaSongs/$pack';
+			addItem(pack,
+				Language.getPhrase('mod_folder_group_desc', 'Browse {1}', [root]),
+				null, null, KIND_FILTER, itemIndex, startY, filter == 'vanilla' && sub == root, 'vanilla', root);
+			itemIndex++;
+		}
+		#end
+
+		return itemIndex;
+	}
+
+	/** 二级：模组 —— 全部模组 / 各 mods/ 下的模组。 */
+	function buildModsLevel(startY:Float, itemIndex:Int):Int
+	{
+		itemIndex = addBackItem(startY, itemIndex);
+
+		var filter:String = FreeplayState.sourceFilter;
+		var sub:String = FreeplayState.sourceSubFilter;
+
+		addItem(Language.getPhrase('mod_folder_all_mods', 'ALL MODS'),
+			Language.getPhrase('mod_folder_all_mods_desc', 'Every song from mods/'),
+			null, null, KIND_FILTER, itemIndex, startY, filter == 'mods' && sub == null, 'mods', null);
 		itemIndex++;
 
 		for (mod in Mods.parseList().all)
@@ -294,44 +377,54 @@ class ModFolderSubstate extends MusicBeatSubstate
 				if (pack.description != null) modDesc = pack.description;
 			}
 
-			addItem(modName, modDesc, mod, null, KIND_MOD, itemIndex, startY, Mods.currentModDirectory == mod);
+			addItem(modName, modDesc, mod, null, KIND_FILTER, itemIndex, startY, filter == 'mods' && sub == mod, 'mods', mod);
 			itemIndex++;
 		}
 		return itemIndex;
 	}
 
-	/** 二级：返回 + 自定义谱面分类（后续可继续追加其它内容类型） */
-	function buildContentLevel(startY:Float, itemIndex:Int):Int
+	/** 二级：自定义谱面 —— 全部聚合 / content/CustomCharts 下各分类。 */
+	function buildChartsLevel(startY:Float, itemIndex:Int):Int
 	{
-		addItem(Language.getPhrase('mod_folder_back', '< BACK'),
-			Language.getPhrase('mod_folder_back_desc', 'Return to the mod list'),
-			null, null, KIND_BACK, itemIndex, startY, false);
-		itemIndex++;
+		itemIndex = addBackItem(startY, itemIndex);
 
 		#if sys
-		var chartFolders:Array<String> = CustomChartData.listChartCategories();
-		if (chartFolders.length > 0)
-		{
-			addItem('CUSTOM CHARTS', Language.getPhrase('mod_folder_charts_desc', 'Show all custom charts'),
-				null, 'custom', KIND_CATEGORY, itemIndex, startY, Paths.currentChartCategory == 'custom');
-			itemIndex++;
+		var current:String = Paths.currentChartCategory;
+		var folders:Array<String> = CustomChartData.listSubCategories(Paths.CUSTOM_CHART_GROUP);
 
-			for (folder in chartFolders)
-			{
-				addItem(folder,
-					Language.getPhrase('mod_folder_category_desc', 'Show charts from {1}', [Paths.CHART_ROOT + '/' + folder]),
-					null, folder, KIND_CATEGORY, itemIndex, startY, Paths.currentChartCategory == folder);
-				itemIndex++;
-			}
+		if (folders.length > 0)
+		{
+			addItem('ALL CUSTOM CHARTS', Language.getPhrase('mod_folder_charts_desc', 'Show all custom charts'),
+				null, 'custom', KIND_CATEGORY, itemIndex, startY, current == 'custom');
+			itemIndex++;
+		}
+
+		for (folder in folders)
+		{
+			var path:String = Paths.CUSTOM_CHART_GROUP + '/' + folder;
+			addItem(folder,
+				Language.getPhrase('mod_folder_category_desc', 'Show charts from {1}', [Paths.CONTENT_ROOT + '/' + path]),
+				null, path, KIND_CATEGORY, itemIndex, startY, current == path);
+			itemIndex++;
 		}
 		#end
 
 		return itemIndex;
 	}
 
-	function addItem(name:String, desc:String, ?folder:String, ?chartCategory:String, kind:String, index:Int, startY:Float, selected:Bool):Void
+	/** 二级列表统一的返回项。 */
+	function addBackItem(startY:Float, itemIndex:Int):Int
 	{
-		var item = new ModFolderItem(name, desc, folder, chartCategory, kind);
+		addItem(Language.getPhrase('mod_folder_back', '< BACK'),
+			Language.getPhrase('mod_folder_back_desc', 'Return to the source list'),
+			null, null, KIND_BACK, itemIndex, startY, false);
+		return itemIndex + 1;
+	}
+
+
+	function addItem(name:String, desc:String, ?folder:String, ?chartCategory:String, kind:String, index:Int, startY:Float, selected:Bool, ?filter:String = null, ?filterSub:String = null):Void
+	{
+		var item = new ModFolderItem(name, desc, folder, chartCategory, kind, filter, filterSub);
 		item.setPosition(bgList.x + 10, startY + (index * (itemHeight + ITEM_SPACING)));
 		modsGroup.add(item);
 		if (selected) curSelected = index;
@@ -422,10 +515,10 @@ class ModFolderSubstate extends MusicBeatSubstate
 			selectItem();
 		else if (controls.BACK || FlxG.mouse.justPressedRight)
 		{
-			// 二级里 BACK 先退回一级，一级里才真的关掉
-			if (level == LEVEL_CONTENT)
+			// 逐级返回：二级回一级，一级才真的关掉
+			if (level != LEVEL_ROOT)
 			{
-				level = LEVEL_MODS;
+				level = LEVEL_ROOT;
 				buildList();
 				FlxG.sound.play(Paths.sound('cancelMenu'), 0.6);
 			}
@@ -648,13 +741,23 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 		switch (item.kind)
 		{
-			case KIND_MOD:
-				lines.push(Language.getPhrase('mod_info_folder', 'Folder: {1}', [item.folder]));
-				lines.push(Language.getPhrase('mod_info_songs', 'Songs: {1}', [parent != null ? parent.getSongCountForFolder(item.folder) : 0]));
-				var isEnabled:Bool = Mods.parseList().enabled.contains(item.folder);
-				lines.push(isEnabled
-					? Language.getPhrase('mod_info_enabled', 'Status: Enabled')
-					: Language.getPhrase('mod_info_disabled', 'Status: Disabled'));
+			case KIND_FILTER:
+				if (item.filter == 'mods' && item.filterSub != null && item.filterSub.length > 0)
+				{
+					lines.push(Language.getPhrase('mod_info_folder', 'Folder: {1}', ['mods/' + item.filterSub]));
+					lines.push(Language.getPhrase('mod_info_songs', 'Songs: {1}', [parent != null ? parent.getSongCountForFolder(item.filterSub) : 0]));
+					var isEnabled:Bool = Mods.parseList().enabled.contains(item.filterSub);
+					lines.push(isEnabled
+						? Language.getPhrase('mod_info_enabled', 'Status: Enabled')
+						: Language.getPhrase('mod_info_disabled', 'Status: Disabled'));
+				}
+				else if (item.filter == 'vanilla' && item.filterSub != null && item.filterSub != FreeplayState.SOURCE_VANILLA_BASE)
+				{
+					lines.push(Language.getPhrase('mod_info_folder', 'Folder: {1}', [item.filterSub]));
+					lines.push(Language.getPhrase('mod_info_songs', 'Songs: {1}', [parent != null ? parent.getSongCountForFolder() : 0]));
+				}
+				else
+					lines.push(Language.getPhrase('mod_info_songs', 'Songs: {1}', [parent != null ? parent.getSongCountForFolder() : 0]));
 
 			case KIND_CATEGORY:
 				lines.push(Language.getPhrase('mod_info_category', 'Category: {1}', [item.chartCategory]));
@@ -668,7 +771,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 	/**
 	 * 在系统文件管理器里打开选中项对应的目录。
-	 * 模组项 → mods/<mod>；谱面分类项 → content/charts/<category>；其余 → mods/
+	 * 模组项 → mods/<mod>；内容项 → content/<大类>/<分类>；其余 → mods/
 	 */
 	function openSelectedFolder()
 	{
@@ -680,11 +783,17 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 		if (selectedItem != null)
 		{
-			if (selectedItem.kind == KIND_MOD && selectedItem.folder != null && selectedItem.folder.length > 0)
-				target = Paths.mods(selectedItem.folder + '/');
+			if (selectedItem.kind == KIND_FILTER && selectedItem.filter == 'mods'
+				&& selectedItem.filterSub != null && selectedItem.filterSub.length > 0)
+				target = Paths.mods(selectedItem.filterSub + '/');
+			else if (selectedItem.kind == KIND_FILTER && selectedItem.filter == 'vanilla'
+				&& selectedItem.filterSub != null && selectedItem.filterSub != FreeplayState.SOURCE_VANILLA_BASE)
+				target = selectedItem.filterSub + '/';
 			else if (selectedItem.kind == KIND_CATEGORY && selectedItem.chartCategory != null
 				&& selectedItem.chartCategory.length > 0 && selectedItem.chartCategory != 'custom')
-				target = '${Paths.CHART_ROOT}/${selectedItem.chartCategory}/';
+				target = '${Paths.CONTENT_ROOT}/${selectedItem.chartCategory}/';
+			else if (selectedItem.kind == KIND_SOURCE && selectedItem.chartCategory == 'charts')
+				target = '${Paths.CONTENT_ROOT}/${Paths.CUSTOM_CHART_GROUP}/';
 		}
 
 		if (!FileSystem.exists(target))
@@ -705,24 +814,25 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 		switch (selectedItem.kind)
 		{
-			case KIND_CONTENT:
+			case KIND_SOURCE:
 				FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
-				level = LEVEL_CONTENT;
+				level = switch (selectedItem.chartCategory)
+				{
+					case 'vanilla': LEVEL_VANILLA;
+					case 'mods':    LEVEL_MODS;
+					default:        LEVEL_CHARTS;
+				}
 				buildList();
 				return;
 
 			case KIND_BACK:
 				FlxG.sound.play(Paths.sound('cancelMenu'), 0.6);
-				level = LEVEL_MODS;
+				level = LEVEL_ROOT;
 				buildList();
 				return;
 
-			case KIND_ALL:
-				if (parent != null) parent.exitContentMode(null);
-				FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
-
-			case KIND_MOD:
-				if (parent != null) parent.exitContentMode(selectedItem.folder);
+			case KIND_FILTER:
+				if (parent != null) parent.applySourceFilter(selectedItem.filter, selectedItem.filterSub);
 				FlxG.sound.play(Paths.sound('confirmMenu'), 0.7);
 
 			case KIND_CATEGORY:
@@ -787,7 +897,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 }
 
 /**
- * 列表项 - 一级的 ALL / CONTENT / 模组，二级的 BACK / 谱面分类共用。
+ * 列表项 - 一级的 ALL / Vanilla / Mods / CustomCharts，二级的 BACK / 具体项共用。
  * kind 决定点击后做什么，见 ModFolderSubstate 里的 KIND_* 常量。
  */
 class ModFolderItem extends FreeplayListItem
@@ -800,11 +910,15 @@ class ModFolderItem extends FreeplayListItem
 	public var folder:Null<String>;
 	public var chartCategory:Null<String>;
 	public var kind:String = '';
+	/** KIND_FILTER 用：'all' | 'vanilla' | 'mods'。 */
+	public var filter:String = null;
+	/** KIND_FILTER 用：vanilla → 内容包资源根（SOURCE_VANILLA_BASE = 仅基础周）；mods → 模组目录名；null = 全部。 */
+	public var filterSub:String = null;
 
 	static inline var WIDTH:Int = FreeplayListItem.DEFAULT_WIDTH;
 	static inline var HEIGHT:Int = FreeplayListItem.DEFAULT_HEIGHT;
 
-	public function new(name:String, desc:String, ?folder:String, ?chartCategory:Null<String>, ?kind:String = '')
+	public function new(name:String, desc:String, ?folder:String, ?chartCategory:Null<String>, ?kind:String = '', ?filter:String = null, ?filterSub:String = null)
 	{
 		super(WIDTH, HEIGHT);
 
@@ -813,6 +927,8 @@ class ModFolderItem extends FreeplayListItem
 		this.folder = folder;
 		this.chartCategory = chartCategory;
 		this.kind = kind;
+		this.filter = filter;
+		this.filterSub = filterSub;
 
 		// 配色沿用这个列表原来的绿/蓝三点式（选中绿是它的既有语义）
 		setColors(0xFF888888, 0xFF4488FF, 0xFF66AAFF, 0xFF00FF00, 0.3);

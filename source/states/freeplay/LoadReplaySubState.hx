@@ -7,6 +7,7 @@ import backend.Mods;
 import backend.Song;
 import backend.Paths;
 import backend.CustomChartData;
+import backend.StageData;
 
 
 import flixel.group.FlxGroup.FlxTypedGroup;
@@ -126,8 +127,11 @@ class LoadReplaySubState extends MusicBeatSubstate
         add(headerText);
 
         // 子标题 - 显示模组和当前难度
-        var subText:String = 'Mod: ' + ((parent != null && parent.isContentMode()) ? 'Custom Charts'
-            : (currentModFolder != null && currentModFolder.length > 0 ? currentModFolder : 'Base Game'));
+        // content 模式下按大类区分：自定义谱面印 Custom Charts，内容包印它的分类路径。
+        var sourceLabel:String = (currentModFolder != null && currentModFolder.length > 0) ? currentModFolder : 'Base Game';
+        if (parent != null && parent.isContentMode())
+            sourceLabel = parent.isCustomChartMode() ? 'Custom Charts' : Paths.currentChartCategory;
+        var subText:String = 'Mod: ' + sourceLabel;
         subText += '  |  Current: $currentDifficultyName';
         var subHeader = new FlxText(bgList.x + 10, bgList.y + 32, panelWidth - 20, subText, 14);
         subHeader.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.GRAY, CENTER, OUTLINE, FlxColor.BLACK);
@@ -265,7 +269,7 @@ class LoadReplaySubState extends MusicBeatSubstate
         replayFiles = [];
 
         // 自定义谱面 replay 独立归档在 custom/；其余按 mod 目录，空则 base。
-        var modFolder:String = (parent != null && parent.isContentMode()) ? FrameReplay.CUSTOM_REPLAY_BUCKET
+        var modFolder:String = (parent != null && parent.isCustomChartMode()) ? FrameReplay.CUSTOM_REPLAY_BUCKET
             : (currentModFolder != null && currentModFolder.length > 0 ? currentModFolder : "base");
         var replayDir = "assets/replays/" + modFolder + "/";
         
@@ -882,17 +886,7 @@ class LoadReplaySubState extends MusicBeatSubstate
             trace('Loading JSON: $jsonToLoad');
             if (rep.replay.chartCategory != null && rep.replay.chartCategory.length > 0)
             {
-                Paths.currentChartCategory = rep.replay.chartCategory;
-                Paths.currentChartDirectory = rep.replay.chartDirectory != null && rep.replay.chartDirectory.length > 0
-                    ? rep.replay.chartDirectory : rep.replay.chartPath;
-                Paths.currentChartHasVSliceMetadata = rep.replay.chartHasVSliceMetadata;
-                Paths.currentChartAudioSuffix = rep.replay.chartAudioSuffix;
-                PlayState.chartCategory = Paths.currentChartCategory;
-                PlayState.chartDirectory = Paths.currentChartDirectory;
-                PlayState.chartHasVSliceMetadata = Paths.currentChartHasVSliceMetadata;
-                PlayState.chartAudioSuffix = Paths.currentChartAudioSuffix;
-
-                var customSongs = CustomChartData.load(Paths.currentChartCategory);
+                var customSongs = CustomChartData.load(rep.replay.chartCategory);
                 var customSong:CustomChartSong = null;
                 for (candidate in customSongs)
                 {
@@ -905,11 +899,31 @@ class LoadReplaySubState extends MusicBeatSubstate
                 if (customSong == null)
                     throw 'Custom chart not found: $songName';
 
-                Paths.currentChartDirectory = customSong.directory;
+                // 资源根 / 曲师谱师按谱面目录重新推导；回放里存的 chartContentRoot 只作兜底
+                // （内容包目录被挪走时仍能定位到 songs/ 下的变体音轨）。
+                var contentRoot:String = customSong.contentRoot;
+                if ((contentRoot == null || contentRoot.length == 0) && rep.replay.chartContentRoot != null)
+                    contentRoot = rep.replay.chartContentRoot;
+
+                Paths.setChartContext(rep.replay.chartCategory, customSong.directory,
+                    rep.replay.chartHasVSliceMetadata, rep.replay.chartAudioSuffix,
+                    contentRoot, customSong.artist, customSong.charter);
+                PlayState.chartCategory = Paths.currentChartCategory;
+                PlayState.chartDirectory = Paths.currentChartDirectory;
+                PlayState.chartHasVSliceMetadata = Paths.currentChartHasVSliceMetadata;
+                PlayState.chartAudioSuffix = Paths.currentChartAudioSuffix;
+                PlayState.chartContentRoot = Paths.currentContentRoot;
+                PlayState.chartMetadataArtist = Paths.currentChartMetaArtist;
+                PlayState.chartMetadataCharter = Paths.currentChartMetaCharter;
+
                 PlayState.SONG = cast CustomChartData.loadChart(customSong, difficultyName);
+                StageData.loadDirectory(PlayState.SONG); // 同上：内容包回放也要定下舞台目录
             }
             else
             {
+                // 普通歌回放：清掉上一次 content 浏览留下的谱面上下文，
+                // 否则 PlayState.create() 会把普通歌误判成 content 模式。
+                Paths.setChartContext(null, null);
                 PlayState.SONG = Song.loadFromJson(jsonToLoad, songName);
             }
             

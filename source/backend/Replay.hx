@@ -67,6 +67,8 @@ typedef ReplayData = {
     var chartDirectory:String;
     var chartHasVSliceMetadata:Bool;
     var chartAudioSuffix:String;
+    /** 内容包资源根（如 content/VanillaSongs/Erect）；非内容包为空。旧档没有这个键。 */
+    @:optional var chartContentRoot:String;
     var sm:Bool;
 
     // 扩展元数据（旧档没有这些键，读时判 null）
@@ -159,6 +161,7 @@ class Replay
             chartDirectory: "",
             chartHasVSliceMetadata: false,
             chartAudioSuffix: "",
+            chartContentRoot: "",
             sm: false,
             isCustomChart: false,
             sustainOffset: 0,
@@ -398,8 +401,9 @@ class Replay
             replay.chartDirectory = replay.chartPath;
             replay.chartHasVSliceMetadata = Paths.currentChartHasVSliceMetadata;
             replay.chartAudioSuffix = Paths.currentChartAudioSuffix != null ? Paths.currentChartAudioSuffix : "";
+            replay.chartContentRoot = Paths.currentContentRoot != null ? Paths.currentContentRoot : "";
 
-            replay.isCustomChart = Paths.currentChartCategory != null && Paths.currentChartCategory.length > 0;
+            replay.isCustomChart = Paths.isCustomChartCategory();
             replay.sustainOffset = ClientPrefs.data.noteSustainsOffset;
             replay.mirrorNotes = ClientPrefs.getGameplaySetting('mirrornotes');
             replay.keyCount = Note.getColumnsPerPlayer(PlayState.SONG);
@@ -434,6 +438,11 @@ class Replay
             var currentMod:String = "";
             if (replay.isCustomChart == true) {
                 currentMod = CUSTOM_REPLAY_BUCKET;
+            }
+            else if (replay.chartContentRoot != null && replay.chartContentRoot.length > 0) {
+                // 内容包（VanillaSongs/*）不是 mod，归档到 base/ —— 与回放列表的读取口径一致
+                // （列表侧读 Freeplay 传进来的 songs[].folder，内容包为空 → base）。
+                currentMod = "";
             }
             #if MODS_ALLOWED
             else if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0) {

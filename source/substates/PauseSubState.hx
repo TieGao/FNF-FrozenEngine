@@ -3,6 +3,7 @@ package substates;
 import backend.WeekData;
 import backend.Highscore;
 import backend.Song;
+import backend.SongCredits;
 
 import flixel.util.FlxStringUtil;
 import flixel.addons.display.FlxBackdrop;
@@ -114,7 +115,28 @@ class PauseSubState extends MusicBeatSubstate
 		blueballedTxt.updateHitbox();
 		add(blueballedTxt);
 
-		practiceText = new FlxText(20, 15 + 101, 0, Language.getPhrase("Practice Mode").toUpperCase(), 32);
+		// 曲师 / 谱师：走 SongCredits 统一优先级链（metadata > songMeta.json > 谱面内嵌 > week 元组）。
+		var credits = SongCredits.forPlayState();
+		var creditArtist:String = SongCredits.getArtist(credits);
+		var creditCharter:String = SongCredits.getCharter(credits);
+
+		var artistText:FlxText = new FlxText(20, 15 + 92, 0,
+			(creditArtist != null && creditArtist.length > 0) ? Language.getPhrase('pause_artist', 'Artist: {1}', [creditArtist]) : '', 24);
+		artistText.antialiasing = ClientPrefs.data.antialiasing;
+		artistText.scrollFactor.set();
+		artistText.setFormat(Paths.font('vcr.ttf'), 24);
+		artistText.updateHitbox();
+		add(artistText);
+
+		var charterText:FlxText = new FlxText(20, 15 + 120, 0,
+			(creditCharter != null && creditCharter.length > 0) ? Language.getPhrase('pause_charter', 'Charter: {1}', [creditCharter]) : '', 24);
+		charterText.antialiasing = ClientPrefs.data.antialiasing;
+		charterText.scrollFactor.set();
+		charterText.setFormat(Paths.font('vcr.ttf'), 24);
+		charterText.updateHitbox();
+		add(charterText);
+
+		practiceText = new FlxText(20, 15 + 152, 0, Language.getPhrase("Practice Mode").toUpperCase(), 32);
 		practiceText.antialiasing = ClientPrefs.data.antialiasing;
 		practiceText.scrollFactor.set();
 		practiceText.setFormat(Paths.font('vcr.ttf'), 32);
@@ -136,15 +158,21 @@ class PauseSubState extends MusicBeatSubstate
 		blueballedTxt.alpha = 0;
 		levelDifficulty.alpha = 0;
 		levelInfo.alpha = 0;
+		artistText.alpha = 0;
+		charterText.alpha = 0;
 
 		levelInfo.x = FlxG.width - (levelInfo.width + 20);
 		levelDifficulty.x = FlxG.width - (levelDifficulty.width + 20);
 		blueballedTxt.x = FlxG.width - (blueballedTxt.width + 20);
+		artistText.x = FlxG.width - (artistText.width + 20);
+		charterText.x = FlxG.width - (charterText.width + 20);
 
 		FlxTween.tween(bg, {alpha: 0.6}, 0.4, {ease: FlxEase.quartInOut});
 		FlxTween.tween(levelInfo, {alpha: 1, y: 20}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.3});
 		FlxTween.tween(levelDifficulty, {alpha: 1, y: levelDifficulty.y + 5}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.5});
 		FlxTween.tween(blueballedTxt, {alpha: 1, y: blueballedTxt.y + 5}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.7});
+		FlxTween.tween(artistText, {alpha: 1, y: artistText.y + 5}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.8});
+		FlxTween.tween(charterText, {alpha: 1, y: charterText.y + 5}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.9});
 
 		grpMenuShit = new FlxTypedGroup<Alphabet>();
 		add(grpMenuShit);

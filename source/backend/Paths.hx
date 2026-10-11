@@ -164,6 +164,29 @@ class Paths
 		}
 		#end
 
+		// 内容包（content/）优先于 assets/：内部与 assets 同构，按 parentfolder / currentLevel / shared
+		// 三段依次探测。命中即返回，找不到落回下面的 assets 分支 —— 加性回退、不排他。
+		if (currentContentRoot != null && currentContentRoot.length > 0)
+		{
+			var contentCandidates:Array<String> = [];
+			if (parentfolder != null)
+				contentCandidates.push('$currentContentRoot/$parentfolder/$file');
+			else
+			{
+				if (currentLevel != null && currentLevel != 'shared')
+					contentCandidates.push('$currentContentRoot/$currentLevel/$file');
+				contentCandidates.push('$currentContentRoot/shared/$file');
+			}
+			for (candidate in contentCandidates)
+			{
+				#if sys
+				if (FileSystem.exists(candidate)) return candidate;
+				#else
+				if (OpenFlAssets.exists(candidate, type)) return candidate;
+				#end
+			}
+		}
+
 		if (parentfolder != null)
 			return getFolderPath(file, parentfolder);
 
@@ -270,7 +293,14 @@ class Paths
 		// ⚠️ 必须排在无后缀候选之前 —— 否则变体难度会命中原曲的 Inst.ogg。
 		var variant:String = Difficulty.getAudioVariant();
 		if (variant != null)
+		{
 			candidates.push(getPath('$songPath-$variant/Inst.$SOUND_EXT', SOUND, 'songs', modsAllowed));
+			#if sys
+			// 目录名大小写可能与难度名不一致，精确路径 miss 时会静默回退原曲；补一条不敏感解析出的真实目录。
+			var variantDir:String = resolveVariantSongDir(songPath, variant);
+			if (variantDir != null) candidates.push('$variantDir/Inst.$SOUND_EXT');
+			#end
+		}
 
 		// Keep the normal Psych Engine path first, then support chart-pack layouts.
 		candidates.push(getPath('$songPath/Inst.$SOUND_EXT', SOUND, 'songs', modsAllowed));
@@ -347,6 +377,25 @@ class Paths
 				return '$basePath/$item';
 		return null;
 	}
+
+	/**
+	 * 变体音轨目录名的大小写可能与难度名不一致（磁盘是 <歌>-Erect，难度名可能是 erect）。
+	 * 大小写敏感的文件系统上精确路径会 miss，随后静默回退到原曲音轨 —— 这里按不敏感方式
+	 * 解析出真实目录；解析不到返回 null，由调用方回退到常规候选。
+	 */
+	static function resolveVariantSongDir(songPath:String, variant:String):String
+	{
+		var roots:Array<String> = [];
+		if (currentContentRoot != null && currentContentRoot.length > 0)
+			roots.push('$currentContentRoot/songs');
+		roots.push('assets/songs');
+		for (root in roots)
+		{
+			var found:String = findCaseInsensitiveDirectory(root, '$songPath-$variant');
+			if (found != null) return found;
+		}
+		return null;
+	}
 	#end
 
 	static function loadSoundCandidate(file:String):Sound
@@ -390,7 +439,13 @@ class Paths
 		// 与 inst() 一样，必须排在无后缀候选之前。
 		var variant:String = Difficulty.getAudioVariant();
 		if (variant != null)
+		{
 			candidates.push(getPath('$songPath-$variant/$voiceName.$SOUND_EXT', SOUND, 'songs', modsAllowed));
+			#if sys
+			var variantDir:String = resolveVariantSongDir(songPath, variant);
+			if (variantDir != null) candidates.push('$variantDir/$voiceName.$SOUND_EXT');
+			#end
+		}
 
 		candidates.push(getPath('$songPath/$voiceName.$SOUND_EXT', SOUND, 'songs', modsAllowed));
 		candidates.push(getPath('data/$songPath/${voiceName.toLowerCase()}.ogg', SOUND, null, modsAllowed));
@@ -474,6 +529,12 @@ class Paths
         cacheKey = Mods.currentModDirectory + ":" + key;
     }
     #end
+
+    if (currentContentRoot != null && currentContentRoot.length > 0)
+    {
+        var level:String = (currentLevel != null && currentLevel.length > 0) ? currentLevel : 'shared';
+        cacheKey = '$cacheKey|$currentContentRoot/$level';
+    }
     
     // 检查全局缓存（使用模组隔离的键）
     if (currentTrackedAssets.exists(cacheKey))
@@ -605,7 +666,12 @@ class Paths
 				return true;
 		}
 		#end
-		return (OpenFlAssets.exists(getPath(key, type, parentFolder, false)));
+		var resolved:String = getPath(key, type, parentFolder, false);
+		#if sys
+		// 内容包是运行时磁盘资源、不在编译期 assets 清单里，OpenFlAssets.exists 查不到。
+		if (FileSystem.exists(resolved)) return true;
+		#end
+		return OpenFlAssets.exists(resolved);
 	}
 
 	static public function getAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
@@ -710,26 +776,73 @@ class Paths
 	}
 
 	public static var currentTrackedSounds:Map<String, Sound> = [];
-	/** Content 体系根目录，与 mods/ 同级。自定义谱面等非 mod 内容都放这里。 */
+	/** Content 体系根目录，与 mods/ 同级。三类内容（VanillaSongs / CustomCharts / NMVMODS）都在这里。 */
 	public static final CONTENT_ROOT:String = 'content';
+	/** content 下「自定义谱面」这一大类的目录名。 */
+	public static final CUSTOM_CHART_GROUP:String = 'CustomCharts';
 	/** 自定义谱面根目录，位于 Content 体系下。 */
-	public static final CHART_ROOT:String = 'content/charts';
+	public static final CHART_ROOT:String = CONTENT_ROOT + '/' + CUSTOM_CHART_GROUP;
 	public static var currentChartCategory:String = null;
 	public static var currentChartDirectory:String = null;
 	public static var currentChartAudioSuffix:String = null;
 	public static var currentChartHasVSliceMetadata:Bool = false;
+	/**
+	 * 内容包资源根（相对仓库根），如 content/VanillaSongs/Erect。
+	 * 非空时 getPath() 会优先在这里找资源（舞台 json / 角色 json / 图片 / events 等），
+	 * 找不到再落回 assets/ —— 加性回退、不排他，所以舞台类里混用的 base 资源仍能命中。
+	 */
+	public static var currentContentRoot:String = null;
+	/** 当前谱面 metadata 里的曲师 / 谱师（content 谱面加载时写入，暂停界面取数用）。 */
+	public static var currentChartMetaArtist:String = null;
+	public static var currentChartMetaCharter:String = null;
 
 	/**
 	 * 一次性写入整套自定义谱面上下文。
-	 * 四个字段必须一起改：分散赋值很容易漏项，把上一首的残留（尤其 hasVSlice / audioSuffix）带到下一首。
+	 * 这些字段必须一起改：分散赋值很容易漏项，把上一首的残留（尤其 hasVSlice / audioSuffix）带到下一首。
 	 */
-	public static function setChartContext(category:String, directory:String, hasVSlice:Bool = false, audioSuffix:String = null):Void
+	public static function setChartContext(category:String, directory:String, hasVSlice:Bool = false, audioSuffix:String = null,
+		contentRoot:String = null, metaArtist:String = null, metaCharter:String = null):Void
 	{
 		currentChartCategory = (category != null && category.length > 0) ? category : null;
 		currentChartDirectory = (directory != null && directory.length > 0) ? directory : null;
 		currentChartHasVSliceMetadata = hasVSlice;
 		currentChartAudioSuffix = audioSuffix;
+		currentContentRoot = (contentRoot != null && contentRoot.length > 0) ? contentRoot : null;
+		currentChartMetaArtist = metaArtist;
+		currentChartMetaCharter = metaCharter;
 	}
+
+	/**
+	 * 分类是不是「自定义谱面」。
+	 * content 模式下只有 CustomCharts 算自定义谱面；VanillaSongs / NMVMODS 是内容包，不算。
+	 * 必须看分类路径而不是 currentContentRoot —— 浏览态还没选歌，currentContentRoot 是空的。
+	 */
+	public static function isCustomChartCategory(?category:String = null):Bool
+	{
+		var cat:String = (category != null && category.length > 0) ? category : currentChartCategory;
+		if (cat == null || cat.length == 0) return false;
+		if (cat == 'custom') return true;   // 「全部自定义谱面」聚合伪分类
+		return cat == CUSTOM_CHART_GROUP || cat.indexOf(CUSTOM_CHART_GROUP + '/') == 0;
+	}
+
+	#if sys
+	/**
+	 * 确保 content 下的自定义谱面目录存在，用户可直接往里放谱面。
+	 * v_slice 是编辑器「从 content 打开谱面」对话框用的默认子分类。
+	 */
+	public static function ensureContentDirs():Void
+	{
+		// 顺序不能换：createDirectory 不递归，父目录必须先存在。
+		for (dir in [CONTENT_ROOT, CHART_ROOT, CHART_ROOT + '/v_slice'])
+		{
+			try
+			{
+				if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
+			}
+			catch (e:Dynamic) {}
+		}
+	}
+	#end
 
 	public static function returnSound(key:String, ?path:String, ?modsAllowed:Bool = true, ?beepOnNull:Bool = true)
 	{

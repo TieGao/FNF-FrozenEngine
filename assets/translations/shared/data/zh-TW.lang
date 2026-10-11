@@ -92,6 +92,8 @@ pause_back: "返回"
 practice_mode: "練習模式"
 charting_mode: "製譜模式"
 blueballed: "死亡次數: {1}"
+pause_artist: "曲師: {1}"
+pause_charter: "譜師: {1}"
 
 // Story Mode
 week_score: "最佳得分: {1}"

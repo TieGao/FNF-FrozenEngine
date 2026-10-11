@@ -20,6 +20,8 @@ typedef WeekFile =
 	var difficulties:String;
 	// 新增：section字段，用于分类周目
 	var ?section:Null<Int>;
+	/** 内容包周定义的资源根（content/VanillaSongs/<包>）；普通周为 null，由扫描位置推导。 */
+	var ?contentRoot:String;
 }
 
 class WeekData {
@@ -41,6 +43,8 @@ class WeekData {
 	public var difficulties:String;
 	// 新增：section字段
 	public var section:Int = 0;
+	/** 内容包资源根（content/VanillaSongs/<包>）；普通周为 null。 */
+	public var contentRoot:String = null;
 
 	public var fileName:String;
 
@@ -147,6 +151,65 @@ class WeekData {
 			}
 		}
 		#end
+
+		#if sys
+		addContentPackWeeks(isStoryMode);
+		#end
+	}
+
+	/**
+	 * 扫描内容包自带的周定义（content/VanillaSongs/<包>/shared/weeks/*.json）。
+	 * 内容包与 assets 同构，周定义放 shared/weeks 下；资源根由包目录推导，
+	 * 加载歌曲时靠 applyContentRoot 把资源定位切到包内。
+	 * 只扫 VanillaSongs —— CustomCharts 的曲目由 CustomChartData 扫描，不走周定义。
+	 */
+	#if sys
+	private static function addContentPackWeeks(isStoryMode:Null<Bool>)
+	{
+		var groupPath:String = '${Paths.CONTENT_ROOT}/VanillaSongs';
+		if (!FileSystem.exists(groupPath)) return;
+
+		for (pack in FileSystem.readDirectory(groupPath))
+		{
+			if (pack.startsWith('.')) continue;
+			var packPath:String = '$groupPath/$pack';
+			if (!FileSystem.isDirectory(packPath)) continue;
+
+			var weeksDir:String = '$packPath/shared/weeks';
+			if (!FileSystem.exists(weeksDir)) continue;
+
+			for (file in FileSystem.readDirectory(weeksDir))
+			{
+				if (!file.endsWith('.json')) continue;
+				var weekName:String = file.substr(0, file.length - 5);
+				if (weeksLoaded.exists(weekName)) continue;
+
+				var week:WeekFile = getWeekFile('$weeksDir/$file');
+				if (week == null) continue;
+
+				var weekFile:WeekData = new WeekData(week, weekName);
+				weekFile.contentRoot = packPath;
+
+				if (isStoryMode == null || (isStoryMode && !weekFile.hideStoryMode) || (!isStoryMode && !weekFile.hideFreeplay))
+				{
+					weeksLoaded.set(weekName, weekFile);
+					weeksList.push(weekName);
+				}
+			}
+		}
+	}
+	#end
+
+	/**
+	 * 按周设置内容包资源根；普通周（contentRoot 为空）即清空回退。
+	 * 加载歌曲前调用 —— 内容包的谱面 / 音轨 / 舞台 / 角色 / events 都靠
+	 * Paths.currentContentRoot 的加性回退命中。
+	 */
+	public static function applyContentRoot(?data:WeekData = null)
+	{
+		if (data == null) data = getCurrentWeek();
+		var root:String = (data != null) ? data.contentRoot : null;
+		Paths.setChartContext(null, null, false, null, root);
 	}
 
 	private static function addWeek(weekToCheck:String, path:String, directory:String, i:Int, originalLength:Int)

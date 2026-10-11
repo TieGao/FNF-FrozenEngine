@@ -3562,7 +3562,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		tab_group.add(btn);
 
 		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Open from content/charts...', function()
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Open from content/CustomCharts...', function()
 		{
 			upperBox.isMinimized = true;
 			upperBox.bg.visible = false;
@@ -6145,7 +6145,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	function getChartSourceInfo(filePath:String):Array<String>
 	{
 		var normalized:String = filePath.replace('\\', '/');
-		var marker:String = '/charts/';
+		var marker:String = '/customcharts/';
 		var markerIndex:Int = normalized.toLowerCase().indexOf(marker);
 		if (markerIndex == -1) return [null, null];
 
