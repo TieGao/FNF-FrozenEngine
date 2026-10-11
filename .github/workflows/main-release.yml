@@ -37,7 +37,7 @@ jobs:
         run: |
           commit_hash=${GITHUB_SHA::7}
           echo "Latest commit hash is $commit_hash"
-          echo "::set-output name=COMMIT_HASH::$commit_hash"
+          echo "COMMIT_HASH=$commit_hash" >> "$GITHUB_OUTPUT"
 
   build:
     name: ${{ matrix.name }}
@@ -98,6 +98,8 @@ jobs:
     needs: [get-commit-hash, build]
     runs-on: ubuntu-latest
     permissions: write-all
+    outputs:
+      tag: devbuild-${{ needs.get-commit-hash.outputs.commit_hash }}
     steps:
       # ---------------- Windows ----------------
       - name: Download Windows Build
@@ -178,3 +180,12 @@ jobs:
           prerelease: true
           files: |
             /home/runner/*.zip
+
+  # ---------------- Extra Content ----------------
+  extra-content:
+    needs: Releaser
+    permissions:
+      contents: write
+    uses: ./.github/workflows/extra-content.yml
+    with:
+      tag: devbuild-${{ needs.get-commit-hash.outputs.commit_hash }}

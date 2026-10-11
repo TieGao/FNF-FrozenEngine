@@ -1,7 +1,9 @@
 name: Extra Content Packages
 
 # 仅打包 Extra 内容数据（content/VanillaSongs 下各分类），不打引擎二进制。
-# 主 actions（Main + Release）发 release 后自动跟随触发，把分类包上传到同一个 release。
+# 触发方式：
+#   1) workflow_call：由 Main + Release 的 Releaser job 自动调用；
+#   2) workflow_dispatch：在 Actions 页面手动触发，需要填已存在的 release tag。
 #
 # 每个分类一个独立 zip：<PROJECT_NAME>-<分类>-extra.zip
 #   Erect / PicoMix / BFMix / Collab
@@ -9,8 +11,18 @@ name: Extra Content Packages
 # 舞台类与 pico/bf/collab 视觉资源已在主 base 二进制里（"仅剔除打包数据"约定），不在此重复。
 
 on:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Release tag to upload extra packages to'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to upload extra packages to (must already exist)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -22,8 +34,19 @@ jobs:
   pack:
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve tag
+        id: resolve_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.resolve_tag.outputs.tag }}
 
       - name: Pack each category
         run: |
@@ -36,5 +59,6 @@ jobs:
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.resolve_tag.outputs.tag }}
           files: |
             /home/runner/*-extra.zip
