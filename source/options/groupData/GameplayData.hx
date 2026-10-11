@@ -34,15 +34,12 @@ class GameplayData
                 hitsoundList[i] = 'hitsounds/' + hitsoundList[i];
         }
         sub.add(new Option('Hitsound', 'Choose the note hit sound', 'hitsound', STRING, hitsoundList));
-        sub.add(new Option('Pause Music', 'Choose pause screen music', 'pauseMusic', STRING, ['None', 'Tea Time', 'Breakfast', 'Breakfast (Pico)']));
 
         var ratingOffset = new Option('Rating Offset', 'Adjust note hit timing', 'ratingOffset', INT);
         ratingOffset.minValue = -100;
         ratingOffset.maxValue = 100;
         ratingOffset.changeValue = 1;
         sub.add(ratingOffset);
-
-        sub.add(new Option('Show Stage', 'Show the stage', 'showStage', BOOL));
 
         var noteSustainsOffset = new Option('Note Sustains Offset', 'Adjust the timing offset for note sustains', 'noteSustainsOffset', FLOAT);
         noteSustainsOffset.minValue = 0;

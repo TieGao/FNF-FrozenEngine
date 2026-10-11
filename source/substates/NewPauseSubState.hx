@@ -43,6 +43,9 @@ class NewPauseSubState extends MusicBeatSubstate
 	var charterText:FlxText;
 	var bg:FlxSprite;
 	var backdrop:FlxBackdrop;
+	// 信息面板的行（顺序 = 显示顺序）。visible 决定该行是否参与排版，
+	// Practice / Charting 切换时靠它重算面板高度。
+	var infoLines:Array<{txt:FlxText, gapAfter:Float}> = [];
 	
 	// ========== 菜单控制 ==========
 	var menuItems:Array<String> = [];
@@ -71,6 +74,18 @@ class NewPauseSubState extends MusicBeatSubstate
 	static final ICON_STAGGER:Float = 0.05;
 	static final DOUBLE_ENTER_WINDOW:Float = 0.3;
 
+	// ========== 左下角面板几何 ==========
+	static final PANEL_X:Float = 50;
+	static final PANEL_W:Float = 350;
+	static final PANEL_BOTTOM_MARGIN:Float = 40;
+	static final INFO_PAD_TOP:Float = 20;
+	static final INFO_PAD_BOTTOM:Float = 20;
+	static final INFO_PAD_X:Float = 20;
+	static final INFO_LINE_GAP:Float = 5;
+	static final DIFF_PAD:Float = 20;
+	static final DIFF_ITEM_H:Float = 35;
+	static final DIFF_ROW_H:Float = 30;
+
 	public static var songName:String = null;
 
 	override function create()
@@ -91,7 +106,7 @@ class NewPauseSubState extends MusicBeatSubstate
 	function initMenuItems()
 	{
 		menuItems = ['Resume', 'Restart Song', 'Change Difficulty', 'Options', 'Exit to menu'];
-
+		if(Difficulty.list.length < 2) menuItems.remove('Change Difficulty');
 		if(PlayState.chartingMode || PlayState.instance.practiceMode || PlayState.instance.cpuControlled)
 		{
 			menuItems.insert(menuItems.length - 1, 'Tool');
@@ -156,95 +171,106 @@ class NewPauseSubState extends MusicBeatSubstate
 		add(sidebar);
 	}
 	
-		function createInfoPanel()
+			function createInfoPanel()
 	{
-		var panelX:Float = 50;
-		var panelW:Float = 350;
-		var paddingTop:Float = 20;
-		var paddingBottom:Float = 20;
-		var padX:Float = 20;
-		var lineGap:Float = 5;
-
-		// 本局实际要显示的行（顺序即视觉顺序）
-		var lines:Array<{text:String, size:Int, color:FlxColor, gapAfter:Float}> = [];
-
-		lines.push({text: PlayState.SONG.song, size: 28, color: FlxColor.WHITE, gapAfter: 12});
-		lines.push({text: Difficulty.getString().toUpperCase(), size: 22, color: FlxColor.CYAN, gapAfter: 10});
-		lines.push({
-			text: Language.getPhrase("blueballed", "Blueballed: {1}", [PlayState.deathCounter]),
-			size: 20, color: FlxColor.WHITE, gapAfter: 12
-		});
-
+		// 每行: 内容 + 字号 + 颜色 + 行后额外间距 + 是否初始可见
 		var credits = SongCredits.forPlayState();
 		var creditArtist:String = SongCredits.getArtist(credits);
 		var creditCharter:String = SongCredits.getCharter(credits);
 
-		var hasArtist:Bool = creditArtist != null && creditArtist.length > 0;
-		var hasCharter:Bool = creditCharter != null && creditCharter.length > 0;
-		var hasPractice:Bool = PlayState.instance.practiceMode;
-		var hasCharting:Bool = PlayState.chartingMode;
-
-		if(hasArtist)
-			lines.push({
-				text: Language.getPhrase('pause_artist', 'Artist: {1}', [creditArtist]),
-				size: 18, color: FlxColor.WHITE, gapAfter: 5
-			});
-
-		if(hasCharter)
-			lines.push({
-				text: Language.getPhrase('pause_charter', 'Charter: {1}', [creditCharter]),
-				size: 18, color: FlxColor.WHITE, gapAfter: 12
-			});
-
-		if(hasPractice)
-			lines.push({
+		var lines:Array<{text:String, size:Int, color:FlxColor, gapAfter:Float, visible:Bool}> = [
+			{text: PlayState.SONG.song, size: 28, color: FlxColor.WHITE, gapAfter: 12, visible: true},
+			{text: Difficulty.getString().toUpperCase(), size: 22, color: FlxColor.CYAN, gapAfter: 10, visible: true},
+			{
+				text: Language.getPhrase("blueballed", "Blueballed: {1}", [PlayState.deathCounter]),
+				size: 20, color: FlxColor.WHITE, gapAfter: 12, visible: true
+			},
+			{
+				text: (creditArtist != null && creditArtist.length > 0)
+					? Language.getPhrase('pause_artist', 'Artist: {1}', [creditArtist]) : '',
+				size: 18, color: FlxColor.WHITE, gapAfter: 5,
+				visible: creditArtist != null && creditArtist.length > 0
+			},
+			{
+				text: (creditCharter != null && creditCharter.length > 0)
+					? Language.getPhrase('pause_charter', 'Charter: {1}', [creditCharter]) : '',
+				size: 18, color: FlxColor.WHITE, gapAfter: 12,
+				visible: creditCharter != null && creditCharter.length > 0
+			},
+			{
 				text: Language.getPhrase("Practice Mode", "Practice Mode").toUpperCase(),
-				size: 18, color: FlxColor.YELLOW, gapAfter: 5
-			});
-
-		if(hasCharting)
-			lines.push({
+				size: 18, color: FlxColor.YELLOW, gapAfter: 5,
+				visible: PlayState.instance.practiceMode
+			},
+			{
 				text: Language.getPhrase("Charting Mode", "Charting Mode").toUpperCase(),
-				size: 18, color: FlxColor.RED, gapAfter: 5
-			});
+				size: 18, color: FlxColor.RED, gapAfter: 5,
+				visible: PlayState.chartingMode
+			},
+		];
 
-		// 计算内容高度
-		var contentH:Float = 0;
-		for (i in 0...lines.length)
-		{
-			contentH += lines[i].size;
-			if(i < lines.length - 1) contentH += lines[i].gapAfter + lineGap;
-		}
-
-		var panelH:Float = paddingTop + contentH + paddingBottom;
-		var panelY:Float = FlxG.height - panelH - 40;   // 与屏幕底边保持 40px 间距
-
-		infoPanelBg = new FlxSprite(panelX, panelY).makeGraphic(Std.int(panelW), Std.int(panelH), FlxColor.BLACK);
+		infoPanelBg = new FlxSprite(PANEL_X, 0);
 		infoPanelBg.alpha = 0;
 		infoPanelBg.scrollFactor.set();
 		add(infoPanelBg);
 
-		// 逐行创建文字
-		var curY:Float = panelY + paddingTop;
-		var textW:Float = panelW - padX * 2;
+		var textW:Float = PANEL_W - INFO_PAD_X * 2;
 		var created:Array<FlxText> = [];
 
 		for (i in 0...lines.length)
 		{
 			var line = lines[i];
-			created.push(createText(panelX + padX, curY, textW, line.text, line.size, line.color));
-			curY += line.size + line.gapAfter + lineGap;
+			var txt = createText(PANEL_X + INFO_PAD_X, 0, textW, line.text, line.size, line.color);
+			txt.visible = line.visible;
+			infoLines.push({txt: txt, gapAfter: line.gapAfter});
+			created.push(txt);
 		}
 
-		// 按顺序回填成员变量（与 lines 推入顺序严格对应）
-		var idx:Int = 0;
-		levelInfo = created[idx++];
-		levelDifficulty = created[idx++];
-		blueballedTxt = created[idx++];
-		if(hasArtist) artistText = created[idx++];
-		if(hasCharter) charterText = created[idx++];
-		if(hasPractice) practiceText = created[idx++];
-		if(hasCharting) chartingText = created[idx++];
+		// 回填成员变量（顺序与 lines 严格对应）
+		levelInfo       = created[0];
+		levelDifficulty = created[1];
+		blueballedTxt   = created[2];
+		artistText      = created[3];
+		charterText     = created[4];
+		practiceText    = created[5];
+		chartingText    = created[6];
+
+		layoutInfoPanel();
+	}
+
+	/**
+	 * 按「当前可见的行」重算信息面板高度与每行位置。
+	 * 不可见的行（Practice / Charting）不占高度，否则面板底部会留一块空白。
+	 */
+	function layoutInfoPanel():Void
+	{
+		if(infoPanelBg == null) return;
+
+		var visible:Array<{txt:FlxText, gapAfter:Float}> = [];
+		for(line in infoLines)
+			if(line.txt.visible) visible.push(line);
+
+		var contentH:Float = 0;
+		for(i in 0...visible.length)
+		{
+			contentH += visible[i].txt.size;
+			if(i < visible.length - 1) contentH += visible[i].gapAfter + INFO_LINE_GAP;
+		}
+
+		var panelH:Float = INFO_PAD_TOP + contentH + INFO_PAD_BOTTOM;
+		var panelY:Float = FlxG.height - panelH - PANEL_BOTTOM_MARGIN;
+
+		// 纯黑矩形，按新高度重画。同尺寸会命中 FlxG.bitmap 缓存，不会反复分配。
+		infoPanelBg.y = panelY;
+		infoPanelBg.makeGraphic(Std.int(PANEL_W), Std.int(panelH), FlxColor.BLACK);
+
+		var curY:Float = panelY + INFO_PAD_TOP;
+		for(line in visible)
+		{
+			line.txt.x = PANEL_X + INFO_PAD_X;
+			line.txt.y = curY;
+			curY += line.txt.size + line.gapAfter + INFO_LINE_GAP;
+		}
 	}
 	
 	function createText(x:Float, y:Float, width:Float, text:String, size:Int, color:FlxColor):FlxText
@@ -866,11 +892,12 @@ class NewPauseSubState extends MusicBeatSubstate
 		}
 	}
 	
-	/** 同步左下角信息面板上跟游戏状态相关的那两行 */
+	/** 同步左下角信息面板上跟游戏状态相关的那两行，并重算面板高度 */
 	public function refreshInfoPanel():Void
 	{
 		if(practiceText != null) practiceText.visible = PlayState.instance.practiceMode;
 		if(chartingText != null) chartingText.visible = PlayState.chartingMode;
+		layoutInfoPanel();
 	}
 	
 	function openOptions()
@@ -962,27 +989,33 @@ class NewPauseSubState extends MusicBeatSubstate
 		mouseOverItem = -1;
 		
 		toggleSidebarElements(false);
+		fadeInfoPanel(false);
 		
-		var panelY:Float = FlxG.height - 290;
-		difficultyBg = new FlxSprite(50, panelY).makeGraphic(350, 250, FlxColor.BLACK);
+		// 面板高度跟着难度条数走：上下各留 DIFF_PAD，行距 DIFF_ITEM_H
+		var diffCount:Int = difficultyChoices.length;
+		var diffContentH:Float = (diffCount - 1) * DIFF_ITEM_H + DIFF_ROW_H;
+		var panelH:Float = DIFF_PAD * 2 + diffContentH;
+		var panelY:Float = FlxG.height - panelH - PANEL_BOTTOM_MARGIN;
+		
+		difficultyBg = new FlxSprite(PANEL_X, panelY).makeGraphic(Std.int(PANEL_W), Std.int(panelH), FlxColor.BLACK);
 		difficultyBg.alpha = 0;
 		difficultyBg.scrollFactor.set();
 		add(difficultyBg);
 		
-		var startY:Float = panelY + 20;
+		var startY:Float = panelY + DIFF_PAD;
 		for(i in 0...difficultyChoices.length)
 		{
 			var diffName = difficultyChoices[i];
-			var yPos = startY + (i * 35);
+			var yPos = startY + (i * DIFF_ITEM_H);
 			
-			var textBg = new FlxSprite(70, yPos - 5);
-			textBg.makeGraphic(330, 30, 0x00FFFFFF);
+			var textBg = new FlxSprite(70, yPos);
+			textBg.makeGraphic(330, Std.int(DIFF_ROW_H), 0x00FFFFFF);
 			textBg.scrollFactor.set();
 			textBg.alpha = 0;
 			add(textBg);
 			difficultyBgs.set(diffName, textBg);
 			
-			var diffText = createText(70, yPos, 330, diffName, 24, FlxColor.WHITE);
+			var diffText = createText(70, yPos + 5, 330, diffName, 24, FlxColor.WHITE);
 			diffText.alpha = 0;
 			difficultyTexts.set(diffName, diffText);
 		}
@@ -1018,6 +1051,7 @@ class NewPauseSubState extends MusicBeatSubstate
 		
 		fadeOutDifficultyUI();
 		toggleSidebarElements(true);
+		fadeInfoPanel(true);
 		
 		curSelected = 0;
 		updateSelectionVisual();
@@ -1042,6 +1076,26 @@ class NewPauseSubState extends MusicBeatSubstate
 		}
 	}
 	
+	/**
+	 * 难度子页打开 / 关闭时把左下角信息面板整体淡出 / 淡入。
+	 * 用 alpha 而不是 visible —— visible 被 layoutInfoPanel 当成「这一行该不该占高度」的语义，
+	 * 直接改它会把 Practice / Charting 行的显隐状态弄丢。
+	 */
+	function fadeInfoPanel(shown:Bool):Void
+	{
+		if(infoPanelBg != null)
+		{
+			FlxTween.cancelTweensOf(infoPanelBg);
+			FlxTween.tween(infoPanelBg, {alpha: shown ? 0.9 : 0}, FADE_TIME * 0.8, {ease: FlxEase.quadOut});
+		}
+
+		for(line in infoLines)
+		{
+			FlxTween.cancelTweensOf(line.txt);
+			FlxTween.tween(line.txt, {alpha: shown ? 1 : 0}, FADE_TIME * 0.8, {ease: FlxEase.quadOut});
+		}
+	}
+
 	function fadeOutDifficultyUI()
 	{
 		if(difficultyBg != null)
@@ -1126,6 +1180,16 @@ class NewPauseSubState extends MusicBeatSubstate
 		for(element in infoElements) if(element != null) fadeOutElement(element);
 		
 		if(difficultyBg != null) fadeOutElement(difficultyBg);
+		
+		// 难度子页开着时按 ESC 会直接走 closeMenu()，列表那几行也得跟着淡出，
+		// 否则它们会脱离底板单独留在屏上。正常模式下这两个 map 是空的，循环天然空转。
+		for(diffName in difficultyChoices)
+		{
+			var diffText = difficultyTexts.get(diffName);
+			var textBg = difficultyBgs.get(diffName);
+			if(diffText != null) fadeOutElement(diffText);
+			if(textBg != null) fadeOutElement(textBg);
+		}
 	}
 	
 	function fadeOutElement(element:Dynamic)

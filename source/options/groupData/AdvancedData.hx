@@ -28,8 +28,6 @@ class AdvancedData
         sub.add(new Option('Lua Script Parser', 'Parse lua scripts before a song loads: native (off), check syntax only, or preload their assets', 'luaScriptParser', STRING, ['native', 'check', 'preload']));
         sub.add(new Option('Disable GC While Playing', 'Disable hxcpp garbage collection during gameplay', 'disablePlayStateGC', BOOL));
         sub.add(new Option('Discord RPC', 'Enable Discord Rich Presence', 'discordRPC', BOOL));
-        sub.add(new Option('Replay', '[Score Menu and Replay Required]', 'saveReplays', BOOL));
-        sub.add(new Option('High Quality Replays', 'Enable high-quality replays', 'replayQuality', BOOL));
         sub.add(new Option('Options Style', 'Choose which options menu style to use', 'optionstype', STRING, ['new', 'psych', 'ke']));
         sub.add(new Option('Use Default Mouse Cursor', 'Use ur system\'s default mouse cursor in game', 'useSystemCursor', BOOL));
 

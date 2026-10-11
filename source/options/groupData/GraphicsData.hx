@@ -50,7 +50,7 @@ class GraphicsData
         sub.add(new Option('Low Quality', 'Reduce graphics for performance', 'lowQuality', BOOL));
         sub.add(new Option('Anti-Aliasing', 'Smoother visuals', 'antialiasing', BOOL));
 
-        var dpiOpt = new Option('dpiScale', 'Scale the game based on your screen\'s DPI', 'useDpiSettings', BOOL);
+        var dpiOpt = new Option('DPI Scale', 'Scale the game based on your screen\'s DPI', 'useDpiSettings', BOOL);
         dpiOpt.onChange = checkAndApplyResolution;
         sub.add(dpiOpt);
 
@@ -65,7 +65,7 @@ class GraphicsData
         sub.add(wideOpt);
 
         sub.add(new Option('GPU Caching', 'Use GPU for texture caching', 'cacheOnGPU', BOOL));
-        sub.add(new Option('Devide Draw And Update', 'Draw and Update in separate threads', 'devideDrawAndUpdate', BOOL));
+        sub.add(new Option('Divide Draw And Update', 'Draw and Update in separate threads', 'devideDrawAndUpdate', BOOL));
 
         var fps = new Option('Framerate', 'Target framerate', 'framerate', INT);
         fps.minValue = 60; fps.maxValue = 480; fps.changeValue = 1; sub.add(fps);

@@ -1154,11 +1154,11 @@ function onScrollChange()
 			KEOption.create("Anti-Aliasing", "Smoother visuals", "antialiasing", "bool"),
 			// 修改 Resolution 选项 - 动态获取最大索引
 			KEOption.create("Resolution", "Change the game's render resolution.", "renderResolution", "int", 0, 0, maxResIdx, 1),
-			KEOption.create("dpiScale", "Scale the game based on your screen's DPI", "useDpiSettings", "bool"),
+			KEOption.create("DPI Scale", "Scale the game based on your screen's DPI", "useDpiSettings", "bool"),
 			KEOption.create("Shaders", "Enable shader effects", "shaders", "bool"),
 			KEOption.create("Wide Screen", "Enable 21:9 widescreen mode", "wideScreen", "bool"),
 			KEOption.create("GPU Caching", "Use GPU for texture caching", "cacheOnGPU", "bool"),
-			KEOption.create("Devide Draw And Update", "Draw and Update in separate threads", "devideDrawAndUpdate", "bool"),
+			KEOption.create("Divide Draw And Update", "Draw and Update in separate threads", "devideDrawAndUpdate", "bool"),
 			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 480, 1),
 			KEOption.create("Update Rate", "Target update rate", "updaterate", "int", 60, 60, 480, 1),
 			KEOption.create("Unlimited FPS", "Remove framerate cap (also for update rate)", "unlimitedFPS", "bool"),

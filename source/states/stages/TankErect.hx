@@ -33,6 +33,7 @@ class TankErect extends BaseStage
 			sniper.animation.addByPrefix('sip', 'tanksippingBaked instance ', 24, false);
 			sniper.animation.play('idle');
 			sniper.setGraphicSize(Std.int(sniper.width * 1.15));
+			sniper.antialiasing = ClientPrefs.data.antialiasing;
 			sniper.updateHitbox();
 			add(sniper);
 
@@ -41,6 +42,7 @@ class TankErect extends BaseStage
 			tankGuy.animation.addByPrefix('idle', 'BLTank2 instance ', 24, false);
 			tankGuy.animation.play('idle');
 			tankGuy.setGraphicSize(Std.int(tankGuy.width * 1.15));
+			sniper.antialiasing = ClientPrefs.data.antialiasing;
 			tankGuy.updateHitbox();
 			add(tankGuy);
 		}

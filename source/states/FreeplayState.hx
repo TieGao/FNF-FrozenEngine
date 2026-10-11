@@ -1269,7 +1269,7 @@ class FreeplayState extends MusicBeatState
 
     function makeSongMetaText(y:Float):FlxText
     {
-        var t:FlxText = new FlxText(FlxG.width - 320, y, 300, "", 100);
+        var t:FlxText = new FlxText(FlxG.width - 320, y, 750, "", 18);
         t.setFormat(Paths.font("vcr.ttf"), 18, 0xFFAAAAAA, RIGHT, OUTLINE, FlxColor.BLACK);
         t.borderSize = 1;
         t.antialiasing = ClientPrefs.data.antialiasing;

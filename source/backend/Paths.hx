@@ -177,6 +177,17 @@ class Paths
 					contentCandidates.push('$currentContentRoot/$currentLevel/$file');
 				contentCandidates.push('$currentContentRoot/shared/$file');
 			}
+			for (dependencyRoot in currentContentDependencyRoots)
+			{
+				if (parentfolder != null)
+					contentCandidates.push('$dependencyRoot/$parentfolder/$file');
+				else
+				{
+					if (currentLevel != null && currentLevel != 'shared')
+						contentCandidates.push('$dependencyRoot/$currentLevel/$file');
+					contentCandidates.push('$dependencyRoot/shared/$file');
+				}
+			}
 			for (candidate in contentCandidates)
 			{
 				#if sys
@@ -388,6 +399,7 @@ class Paths
 		var roots:Array<String> = [];
 		if (currentContentRoot != null && currentContentRoot.length > 0)
 			roots.push('$currentContentRoot/songs');
+		for (dependencyRoot in currentContentDependencyRoots) roots.push('$dependencyRoot/songs');
 		roots.push('assets/songs');
 		for (root in roots)
 		{
@@ -533,7 +545,7 @@ class Paths
     if (currentContentRoot != null && currentContentRoot.length > 0)
     {
         var level:String = (currentLevel != null && currentLevel.length > 0) ? currentLevel : 'shared';
-        cacheKey = '$cacheKey|$currentContentRoot/$level';
+        cacheKey = '$cacheKey|$currentContentRoot/$level|${currentContentDependencyRoots.join(":")}';
     }
     
     // 检查全局缓存（使用模组隔离的键）
@@ -792,9 +804,34 @@ class Paths
 	 * 找不到再落回 assets/ —— 加性回退、不排他，所以舞台类里混用的 base 资源仍能命中。
 	 */
 	public static var currentContentRoot:String = null;
+	public static var currentContentDependencyRoots:Array<String> = [];
 	/** 当前谱面 metadata 里的曲师 / 谱师（content 谱面加载时写入，暂停界面取数用）。 */
 	public static var currentChartMetaArtist:String = null;
 	public static var currentChartMetaCharter:String = null;
+
+	#if sys
+	static function loadContentDependencies(root:String):Array<String>
+	{
+		var result:Array<String> = [];
+		if (root == null || root.length == 0) return result;
+		var manifest:String = '$root/dependencies.json';
+		if (!FileSystem.exists(manifest)) return result;
+		try
+		{
+			var data:Dynamic = Json.parse(File.getContent(manifest));
+			var names:Dynamic = Reflect.field(data, 'dependencies');
+			if (!Std.isOfType(names, Array)) return result;
+			for (name in (cast names:Array<Dynamic>))
+			{
+				if (!Std.isOfType(name, String) || !~/^[A-Za-z0-9_-]+$/.match(name)) continue;
+				var dependency:String = 'content/VanillaSongs/$name';
+				if (FileSystem.isDirectory(dependency)) result.push(dependency);
+			}
+		}
+		catch (e:Dynamic) {}
+		return result;
+	}
+	#end
 
 	/**
 	 * 一次性写入整套自定义谱面上下文。
@@ -808,6 +845,11 @@ class Paths
 		currentChartHasVSliceMetadata = hasVSlice;
 		currentChartAudioSuffix = audioSuffix;
 		currentContentRoot = (contentRoot != null && contentRoot.length > 0) ? contentRoot : null;
+		#if sys
+		currentContentDependencyRoots = loadContentDependencies(currentContentRoot);
+		#else
+		currentContentDependencyRoots = [];
+		#end
 		currentChartMetaArtist = metaArtist;
 		currentChartMetaCharter = metaCharter;
 	}

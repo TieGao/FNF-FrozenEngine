@@ -49,6 +49,11 @@ class OuterUIData
         sub.add(new Option('Freeplay List Style', 'Background style of the Freeplay list items (search / mod folder / replay)',
             'freeplayListStyle', STRING, ['blur', 'win8', 'win10']));
 
+        // 菜单/场景过渡相关的显示效果。
+        var menu = cat.section('Menu', 'Menu');
+        menu.add(new Option('Transition Type', 'Choose the transition animation style when switching scenes', 'transitionType', STRING, ['fade', 'pixel', 'loading']));
+        menu.add(new Option('Blur Effect', 'Enable blur effect on background elements', 'blurEffects', BOOL));
+
         return cat;
     }
 }

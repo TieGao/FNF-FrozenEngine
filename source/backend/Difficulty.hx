@@ -40,7 +40,7 @@ class Difficulty
 			case 'normal':             0xFFFFE228;
 			case 'hard':               0xFFFF286C;
 			case 'erect':              0xFF28C3FF;
-			case 'pico':               0xFFF29B30;
+			case 'pico', 'pico easy', 'pico normal', 'pico hard': 0xFFF29B30;
 			case 'nightmare', 'hmnf':  0xFFB91C1C;
 			default:                   0xFF888888;
 		}
@@ -142,6 +142,7 @@ class Difficulty
 		return switch (lower)
 		{
 			case 'erect': 'Erect';
+			case 'pico', 'pico easy', 'pico normal', 'pico hard': 'Pico';
 			default: name;
 		}
 	}

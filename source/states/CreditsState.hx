@@ -88,6 +88,9 @@ class CreditsState extends MusicBeatState
 		#end
 
 		var defaultList:Array<Array<String>> = [ //Name - Icon name - Description - Link - BG Color
+            ["Frozen Engine Creator"],
+            ["Ice_Axe",         "iceaxe",       "Creator of Frozen Engine","https://github.com/TieGao",     "87CEEB"],
+            [""],
             ["Psych Engine Team"],
             ["Shadow Mario",        "shadowmario",      "Main Programmer and Head of Psych Engine",                 "https://ko-fi.com/shadowmario",    "444444"],
             ["Riveren",             "riveren",          "Main Artist/Animator of Psych Engine",                     "https://x.com/riverennn",          "14967B"],
@@ -114,11 +117,14 @@ class CreditsState extends MusicBeatState
             ["evilsk8r",            "evilsk8r",         "Artist of Friday Night Funkin'",                           "https://x.com/evilsk8r",           "5ABD4B"],
             ["kawaisprite",         "kawaisprite",      "Composer of Friday Night Funkin'",                         "https://x.com/kawaisprite",        "378FC7"],
             [""],
+            ["Erect Mode"],
+            ["Ledonic",             "ledonic",          "Ported the remixes",                                      "https://x.com/ledonic852",         "3897FF"],
+            ["Cyachao",             "",                 "Provided the updated rain shader\nObtained at the Psych Ward (Official Psych Discord Server)", "https://gamebanana.com/members/2142156", "A1A1A1"],
+            ["MrCatz",              "mrcatz",           "Made the 'Hey!' animation for the bottom characters\n in the Week 5 Erect stage", "https://mrcatstudios.straw.page", "342C3C"],
+            [""],
             ["Psych Engine Discord"],
             ["Join the Psych Ward!", "discord", "", "https://discord.gg/2ka77eMXDv", "5165F6"],
             [""],
-            ["Frozen Engine Creator"],
-            ["Ice_Axe",         "iceaxe",       "Creator of Frozen Engine","https://github.com/TieGao",     "87CEEB"],
 			["Special Thanks"],
 			["beihu", "novaflare", "Original of KeyboardViewer", "https://space.bilibili.com/511083372", "FF69B4"],
 			//["MaybeMaru","","Chart Converter Lib","https://lib.haxe.org/p/moonchart/", "FF69B4"]

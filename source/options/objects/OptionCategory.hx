@@ -23,7 +23,10 @@ class OptionCategory
     {
         this.id = id;
         this.rawDisplayName = displayName;
-        this.displayName = displayName;
+        // 和 Option.name / KEOptionCata 一样，构造时就把标题翻好。displayName 原本只在
+        // refreshLanguage() 里翻，而那只在语言热切换时被调，首次构建没人调它 ——
+        // 结果是导航栏选项卡和页头 "X > Y" 印出英文原名。rawDisplayName 留给热切换用。
+        this.displayName = Language.getPhrase('options.category.${id}.title', displayName);
         this.icon = icon;
     }
 

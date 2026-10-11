@@ -3,6 +3,7 @@ package states.stages;
 #if BASE_GAME_ERECT
 import states.stages.objects.*;
 import flixel.addons.display.FlxBackdrop;
+import flixel.util.FlxAxes;
 import states.stages.Limo.HenchmenKillState;
 import shaders.AdjustColorShader;
 
@@ -50,7 +51,7 @@ class LimoErect extends BaseStage
 		add(skyBG);
 
 		if(!ClientPrefs.data.lowQuality) {
-			mist5 = new FlxBackdrop(Paths.image('limo/erect/mistMid'));
+			mist5 = new FlxBackdrop(Paths.image('limo/erect/mistMid'), FlxAxes.X);
 			mist5.setPosition(-650, -400);
 			mist5.scrollFactor.set(0.2, 0.2);
 			mist5.blend = ADD;
@@ -102,7 +103,7 @@ class LimoErect extends BaseStage
 			Paths.sound('dancerdeath');
 			setDefaultGF('gf-car');
 
-			mist3 = new FlxBackdrop(Paths.image('limo/erect/mistMid'));
+			mist3 = new FlxBackdrop(Paths.image('limo/erect/mistMid'), FlxAxes.X);
 			mist3.setPosition(-650, -100);
 			mist3.scrollFactor.set(0.8, 0.8);
 			mist3.blend = ADD;
@@ -112,7 +113,7 @@ class LimoErect extends BaseStage
 			mist3.scale.set(1.5, 1.5);
 			add(mist3);
 
-			mist4 = new FlxBackdrop(Paths.image('limo/erect/mistBack'));
+			mist4 = new FlxBackdrop(Paths.image('limo/erect/mistBack'), FlxAxes.X);
 			mist4.setPosition(-650, -380);
 			mist4.scrollFactor.set(0.6, 0.6);
 			mist4.blend = ADD;
@@ -126,7 +127,7 @@ class LimoErect extends BaseStage
 	override function createPost()
 	{
 		if(!ClientPrefs.data.lowQuality) {
-			mist1 = new FlxBackdrop(Paths.image('limo/erect/mistMid'));
+			mist1 = new FlxBackdrop(Paths.image('limo/erect/mistMid'), FlxAxes.X);
 			mist1.setPosition(-650, -100);
 			mist1.scrollFactor.set(1.1, 1.1);
 			mist1.blend = ADD;
@@ -135,7 +136,7 @@ class LimoErect extends BaseStage
 			mist1.velocity.x = 1700;
 			add(mist1);
 
-			mist2 = new FlxBackdrop(Paths.image('limo/erect/mistBack'));
+			mist2 = new FlxBackdrop(Paths.image('limo/erect/mistBack'), FlxAxes.X);
 			mist2.setPosition(-650, -100);
 			mist2.scrollFactor.set(1.2, 1.2);
 			mist2.blend = ADD;
@@ -189,8 +190,8 @@ class LimoErect extends BaseStage
 			if (mist1 != null) mist1.y = 100 + (Math.sin(_timer)*200);
 			if (mist2 != null) mist2.y = 0 + (Math.sin(_timer*0.8)*100);
 			if (mist3 != null) mist3.y = -20 + (Math.sin(_timer*0.5)*200);
-			if (mist4 != null) mist4.y = 1180 + (Math.sin(_timer*0.4)*300);
-			if (mist5 != null) mist5.y = 1450 + (Math.sin(_timer*0.2)*150);
+			if (mist4 != null) mist4.y = -180 + (Math.sin(_timer*0.4)*300);
+			if (mist5 != null) mist5.y = -450 + (Math.sin(_timer*0.2)*150);
 		}
 
 		if(!ClientPrefs.data.lowQuality) {

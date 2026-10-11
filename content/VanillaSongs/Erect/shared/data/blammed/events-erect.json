@@ -257,16 +257,6 @@
 				]
 			],
 			[
-				45529.41,
-				[
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					]
-				]
-			],
-			[
 				45882.3529411764,
 				[
 					[
@@ -277,11 +267,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -297,11 +282,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -328,11 +308,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -347,21 +322,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					]
-				]
-			],
-			[
-				47647.06,
-				[
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -382,16 +342,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					]
-				]
-			],
-			[
-				48352.94,
-				[
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -423,11 +373,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -442,11 +387,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -473,11 +413,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -492,21 +427,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					]
-				]
-			],
-			[
-				50470.59,
-				[
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -537,16 +457,6 @@
 				]
 			],
 			[
-				51176.47,
-				[
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					]
-				]
-			],
-			[
 				51529.4117647059,
 				[
 					[
@@ -557,11 +467,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -577,11 +482,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -608,11 +508,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -627,21 +522,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					]
-				]
-			],
-			[
-				53294.12,
-				[
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -662,16 +542,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					]
-				]
-			],
-			[
-				54000.0,
-				[
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -703,11 +573,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -723,11 +588,6 @@
 						"Set Property",
 						"cameraSpeed",
 						"2"
-					],
-					[
-						"Camera Follow Pos",
-						"570",
-						"550"
 					]
 				]
 			],
@@ -748,16 +608,6 @@
 						"Set Camera Target",
 						",570,520",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					],
-					[
-						"Camera Follow Pos",
-						"570",
-						"520"
 					]
 				]
 			],
@@ -793,11 +643,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -808,11 +653,6 @@
 						"Set Camera Target",
 						",630,520",
 						""
-					],
-					[
-						"Camera Follow Pos",
-						"630",
-						"520"
 					]
 				]
 			],
@@ -833,16 +673,6 @@
 						"Set Camera Target",
 						",570,520",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					],
-					[
-						"Camera Follow Pos",
-						"600",
-						"490"
 					]
 				]
 			],
@@ -853,16 +683,6 @@
 						"Set Camera Target",
 						",630,520",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					],
-					[
-						"Camera Follow Pos",
-						"630",
-						"520"
 					]
 				]
 			],
@@ -893,21 +713,6 @@
 						"Set Property",
 						"cameraSpeed",
 						"1"
-					],
-					[
-						"Camera Follow Pos",
-						"",
-						""
-					]
-				]
-			],
-			[
-				56823.53,
-				[
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -923,11 +728,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -942,11 +742,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -973,11 +768,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -992,21 +782,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					]
-				]
-			],
-			[
-				58941.18,
-				[
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -1027,16 +802,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					]
-				]
-			],
-			[
-				59647.06,
-				[
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -1068,11 +833,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -1087,11 +847,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -1118,11 +873,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -1137,21 +887,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					]
-				]
-			],
-			[
-				61764.71,
-				[
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -1182,16 +917,6 @@
 				]
 			],
 			[
-				62470.59,
-				[
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					]
-				]
-			],
-			[
 				62823.5294117647,
 				[
 					[
@@ -1202,11 +927,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -1222,11 +942,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -1253,11 +968,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -1272,21 +982,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					]
-				]
-			],
-			[
-				64588.24,
-				[
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -1307,16 +1002,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					]
-				]
-			],
-			[
-				65294.12,
-				[
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -1348,11 +1033,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -1367,11 +1047,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]
@@ -1398,11 +1073,6 @@
 						"Philly Glow",
 						"2",
 						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
 					]
 				]
 			],
@@ -1417,21 +1087,6 @@
 					[
 						"Philly Glow",
 						"2",
-						""
-					],
-					[
-						"Add Camera Zoom",
-						"",
-						""
-					]
-				]
-			],
-			[
-				67411.76,
-				[
-					[
-						"Add Camera Zoom",
-						"",
 						""
 					]
 				]

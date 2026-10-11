@@ -1,0 +1,35 @@
+{
+	"songs": [
+		[
+			"Senpai",
+			"senpai-pixel",
+			[
+				255,
+				120,
+				191
+			]
+		],
+		[
+			"Roses",
+			"senpai-pixel",
+			[
+				255,
+				120,
+				191
+			]
+		]
+	],
+	"weekCharacters": [
+		"senpai",
+		"bf",
+		"gf"
+	],
+	"weekBackground": "school",
+	"storyName": "Pico Mix",
+	"weekBefore": "tutorial",
+	"weekName": "Week 6 Pico Mix",
+	"startUnlocked": true,
+	"difficulties": "Pico Easy,Pico Normal,Pico Hard",
+	"hideStoryMode": false,
+	"hideFreeplay": false
+}

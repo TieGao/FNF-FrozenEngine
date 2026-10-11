@@ -104,7 +104,13 @@ class ComponentsData
         guideLineAlpha.decimals = 2;
         sub5.add(guideLineAlpha);
 
+        var replay = cat.section('Replay', 'Replay');
+        replay.add(new Option('Replay', '[Score Menu and Replay Required]', 'saveReplays', BOOL));
+        replay.add(new Option('High Quality Replays', 'Enable high-quality replays', 'replayQuality', BOOL));
 
+        var results = cat.section('Results', 'Results');
+        results.add(new Option('Score Screen', 'Show Kade-style results', 'scoreScreen', BOOL));
+        results.add(new Option('Skip Results Screen Fade Out', 'Skip the exit results screen animation', 'skipResultExitAnim', BOOL));
 
         return cat;
     }

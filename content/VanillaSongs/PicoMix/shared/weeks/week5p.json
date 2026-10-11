@@ -1,0 +1,35 @@
+{
+	"songs": [
+		[
+			"Cocoa",
+			"parents",
+			[
+				160,
+				209,
+				255
+			]
+		],
+		[
+			"Eggnog",
+			"parents",
+			[
+				160,
+				209,
+				255
+			]
+		]
+	],
+	"weekCharacters": [
+		"parents-christmas",
+		"bf",
+		"gf"
+	],
+	"weekBackground": "christmas",
+	"storyName": "Pico Mix",
+	"weekBefore": "tutorial",
+	"weekName": "Week 5 Pico Mix",
+	"startUnlocked": true,
+	"difficulties": "Pico Easy,Pico Normal,Pico Hard",
+	"hideStoryMode": false,
+	"hideFreeplay": false
+}
