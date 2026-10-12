@@ -7,7 +7,7 @@ name: Cache Build
 #
 # 为什么拆成两个文件：release 那条链（main-release.yml 等）调的是 build.yml —— 出
 # release 时宁可全量重编，也不想让缓存变成发布产物的一个变量。带缓存的构建只给
-# desktop-build.yml / mobile-build.yml / cache-release.yml 用。
+# desktop-build.yml / mobile-build.yml 用。
 #
 # ── 缓存怎么才真正命中（对齐 CNE 的「依赖 + 编译产物」）──
 #  1) 依赖目录：钉到仓库内 .haxelib/（与 CNE 完全一致）。相对路径跨 OS 唯一，缓存里
