@@ -105,26 +105,6 @@
 		<haxelib name="funkin.vis" if="BASE_GAME_FILES"/>
 	</section>
 
-	<!-- erect 混音已迁到 content/VanillaSongs/Erect/（运行时内容包，见文件末尾的 <assets path='content'>）。
-	     BASE_GAME_ERECT 宏仍然保留，只用来编译 9 个 *Erect.hx 舞台类；
-	     舞台 / 角色 / 图片 / 谱面 / 音轨 / 事件等数据一律从内容包读取，不再走 assets 合流。 -->
-
-	<section if="BASE_GAME_PICO">
-		<assets path="assets/base_game_pico" rename="assets" exclude="*.ogg" if="web"/>
-		<assets path="assets/base_game_pico" rename="assets" exclude="*.mp3"  unless="web"/>
-	</section>
-
-	<section if="BASE_GAME_BF">
-		<assets path="assets/base_game_bf" rename="assets" exclude="*.ogg" if="web"/>
-		<assets path="assets/base_game_bf" rename="assets" exclude="*.mp3"  unless="web"/>
-	</section>
-
-	<!-- 联动内容（原版目前只有 LE SSERAFIM：关卡 sserafim / 曲 spaghetti / 舞台 / 角色 / 过场） -->
-	<section if="BASE_GAME_COLLAB">
-		<assets path="assets/base_game_collab" rename="assets" exclude="*.ogg" if="web"/>
-		<assets path="assets/base_game_collab" rename="assets" exclude="*.mp3"  unless="web"/>
-	</section>
-
 	<define name="CHECK_FOR_UPDATES"/>
 
 	<section if="MODS_ALLOWED">
@@ -133,7 +113,30 @@
 		<assets path='list.txt' rename='modsList.txt' />
 	</section>
 
-	<assets path='content' rename='content' embed='false' />
+	<!-- 内容包数据（运行时加载；embed='false' 只是不塞进可执行文件，仍会进安装包）。
+	     content/VanillaSongs 下四类各自跟随对应的 BASE_GAME_* 宏把关，与 assets/base_game_* 口径一致：
+	     CI 传 -D NO_BASE_GAME_XXX（只剔数据）或 -D NO_EXTRA_BASE_GAME（连舞台类一起剔）即可从包里去掉。
+	     桌面端也走条件打包 —— 之前是"打包后再 rm content/VanillaSongs/*"，但 macOS 产物是
+	     FrozenEngine.app/Contents/Resources/，工作目录顶层根本没有 content/，那边 rm 一直是空操作，
+	     所以 mac 包始终带着全套额外内容。改用编译期把关后三个桌面平台一视同仁。
+	     注意 Erect 用的是 BASE_GAME_ERECT_CONTENT（只管数据）—— 这样即使剔除内容包，
+	     9 个 *Erect.hx 舞台类仍由 BASE_GAME_ERECT 保持编译，Erect 相关代码不会编不进去。
+	     CustomCharts / NMVMODS 属用户内容（目录缺失时由 Paths.ensureContentDirs() 运行时补建），始终打包。 -->
+	<assets path='content/CustomCharts' rename='content/CustomCharts' embed='false' />
+	<assets path='content/NMVMODS'     rename='content/NMVMODS'     embed='false' />
+	<assets path='content/readme.txt'  rename='content/readme.txt'  embed='false' />
+	<section if="BASE_GAME_ERECT_CONTENT">
+		<assets path='content/VanillaSongs/Erect' rename='content/VanillaSongs/Erect' embed='false' />
+	</section>
+	<section if="BASE_GAME_PICO">
+		<assets path='content/VanillaSongs/PicoMix' rename='content/VanillaSongs/PicoMix' embed='false' />
+	</section>
+	<section if="BASE_GAME_BF">
+		<assets path='content/VanillaSongs/BFMix' rename='content/VanillaSongs/BFMix' embed='false' />
+	</section>
+	<section if="BASE_GAME_COLLAB">
+		<assets path='content/VanillaSongs/Collab' rename='content/VanillaSongs/Collab' embed='false' />
+	</section>
 	<assets path='art/readme.txt' rename='do NOT readme.txt' />
 
 	<!-- OpenAL config -->

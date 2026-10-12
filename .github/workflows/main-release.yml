@@ -2,8 +2,13 @@ name: Main + Release
 on:
   workflow_dispatch:
     inputs:
+      tag:
+        description: '发版 tag（留空 = devbuild-<commit-hash>；填了就整套流程都用它，可复用已存在的 tag）'
+        required: false
+        type: string
+        default: ''
       exclude_extra:
-        description: 'Base 包剔除额外内容数据（content/VanillaSongs 四类）'
+        description: 'Base 包剔除额外内容数据（content/VanillaSongs 四类；编译期宏把关，不再"打包后 rm"）'
         type: boolean
         default: false
 
@@ -46,10 +51,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # 每行的 noExtraArgs 是 exclude_extra=true 时追加的编译宏。
+          # 内容包资源在 Project.xml 里由 BASE_GAME_* / BASE_GAME_ERECT_CONTENT 条件打包，
+          # 桌面三平台一视同仁 —— 不再靠"打包后 rm"（mac 产物是 FrozenEngine.app，工作目录顶层
+          # 没有 content/，那条 rm 一直是空操作，所以 mac 包始终多带一套额外内容）。
           # ================= Windows =================
           - name: Windows
             os: windows-latest
             buildArgs: windows
+            noExtraArgs: "-D NO_BASE_GAME_ERECT_CONTENT -D NO_BASE_GAME_PICO -D NO_BASE_GAME_BF -D NO_BASE_GAME_COLLAB"
             setupCommand: .\"setup/windows.bat"
             artifactName: windowsBuild-x86_64
             artifactPath: export\release\windows\bin\*
@@ -58,6 +68,7 @@ jobs:
           - name: Linux
             os: ubuntu-latest
             buildArgs: linux
+            noExtraArgs: "-D NO_BASE_GAME_ERECT_CONTENT -D NO_BASE_GAME_PICO -D NO_BASE_GAME_BF -D NO_BASE_GAME_COLLAB"
             setupCommand: sh ./setup/unix.sh
             artifactName: linuxBuild-x86_64
             artifactPath: export/release/linux/bin/*
@@ -66,6 +77,7 @@ jobs:
           - name: Linux ARM64
             os: ubuntu-latest
             buildArgs: "linux -arm64 -D HXCPP_ARM64"
+            noExtraArgs: "-D NO_BASE_GAME_ERECT_CONTENT -D NO_BASE_GAME_PICO -D NO_BASE_GAME_BF -D NO_BASE_GAME_COLLAB"
             setupCommand: sh ./setup/unix.sh
             artifactName: linuxBuild-arm64
             artifactPath: export/release/linux/bin/*
@@ -75,6 +87,7 @@ jobs:
             os: macos-26
             setupCommand: sh ./setup/unix.sh
             buildArgs: "mac -64 -D HXCPP_M64"
+            noExtraArgs: "-D NO_BASE_GAME_ERECT_CONTENT -D NO_BASE_GAME_PICO -D NO_BASE_GAME_BF -D NO_BASE_GAME_COLLAB"
             artifactName: macOSBuild-x86_64
             artifactPath: export/release/macos/bin/*
 
@@ -83,6 +96,7 @@ jobs:
             os: macos-latest
             setupCommand: sh ./setup/unix.sh
             buildArgs: "mac -arm64 -D HXCPP_ARM64"
+            noExtraArgs: "-D NO_BASE_GAME_ERECT_CONTENT -D NO_BASE_GAME_PICO -D NO_BASE_GAME_BF -D NO_BASE_GAME_COLLAB"
             artifactName: macOSBuild-arm64
             artifactPath: export/release/macos/bin/*
     uses: ./.github/workflows/build.yml
@@ -90,7 +104,7 @@ jobs:
         name: ${{ matrix.name }}
         os: ${{ matrix.os }}
         setupCommand: ${{ matrix.setupCommand }}
-        buildArgs: ${{ matrix.buildArgs }}
+        buildArgs: ${{ inputs.exclude_extra && format('{0} {1}', matrix.buildArgs, matrix.noExtraArgs) || matrix.buildArgs }}
         artifactName: ${{ matrix.artifactName }}
         artifactPath: ${{ matrix.artifactPath }}
 
@@ -99,8 +113,29 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     outputs:
-      tag: devbuild-${{ needs.get-commit-hash.outputs.commit_hash }}
+      tag: ${{ steps.resolve_tag.outputs.tag }}
     steps:
+      # 发版前先定死 tag：workflow_dispatch 填了 inputs.tag 就用它（能直接复用已存在的
+      # tag，比如补发 extra-content），留空则回落到 devbuild-<commit-hash>。
+      # 下游 extra-content 统一引用本 job 的 outputs.tag —— 之前它虽然 needs: Releaser，
+      # 却去引用 needs.get-commit-hash.outputs.commit_hash，而 get-commit-hash 不在它的
+      # needs 里，表达式求值为空，tag 被拼成 "devbuild-"，checkout 直接失败。
+      - name: Resolve release tag
+        id: resolve_tag
+        run: |
+          tag="${{ inputs.tag }}"
+          if [ -z "$tag" ]; then
+            tag="devbuild-${{ needs.get-commit-hash.outputs.commit_hash }}"
+          fi
+          name="${{ inputs.tag }}"
+          if [ -z "$name" ]; then
+            name="DevBuild ${{ needs.get-commit-hash.outputs.commit_hash }}"
+          fi
+          echo "Release tag:  $tag"
+          echo "Release name: $name"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
       # ---------------- Windows ----------------
       - name: Download Windows Build
         uses: actions/download-artifact@main
@@ -110,9 +145,6 @@ jobs:
       - name: Pack Windows Build
         run: |
           cd "${{ github.workspace }}/WindowsBuild"
-          if [ "${{ inputs.exclude_extra }}" = "true" ]; then
-            rm -rf content/VanillaSongs/Erect content/VanillaSongs/PicoMix content/VanillaSongs/BFMix content/VanillaSongs/Collab
-          fi
           zip -r /home/runner/${{ env.PROJECT_NAME }}-Windows.zip .
 
       # ---------------- Linux x86_64 ----------------
@@ -124,9 +156,6 @@ jobs:
       - name: Pack Linux Build
         run: |
           cd "${{ github.workspace }}/LinuxBuild"
-          if [ "${{ inputs.exclude_extra }}" = "true" ]; then
-            rm -rf content/VanillaSongs/Erect content/VanillaSongs/PicoMix content/VanillaSongs/BFMix content/VanillaSongs/Collab
-          fi
           zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux.zip .
 
       # ---------------- Linux ARM64 ----------------
@@ -138,9 +167,6 @@ jobs:
       - name: Pack Linux ARM64 Build
         run: |
           cd "${{ github.workspace }}/LinuxBuild-arm64"
-          if [ "${{ inputs.exclude_extra }}" = "true" ]; then
-            rm -rf content/VanillaSongs/Erect content/VanillaSongs/PicoMix content/VanillaSongs/BFMix content/VanillaSongs/Collab
-          fi
           zip -r /home/runner/${{ env.PROJECT_NAME }}-Linux-arm64.zip .
 
       # ---------------- macOS x86_64 ----------------
@@ -152,9 +178,6 @@ jobs:
       - name: Pack macOS x86_64 Build
         run: |
           cd "${{ github.workspace }}/macOSBuild-x86_64"
-          if [ "${{ inputs.exclude_extra }}" = "true" ]; then
-            rm -rf content/VanillaSongs/Erect content/VanillaSongs/PicoMix content/VanillaSongs/BFMix content/VanillaSongs/Collab
-          fi
           zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-x86_64.zip .
 
       # ---------------- macOS ARM64 ----------------
@@ -166,17 +189,14 @@ jobs:
       - name: Pack macOS ARM64 Build
         run: |
           cd "${{ github.workspace }}/macOSBuild-arm64"
-          if [ "${{ inputs.exclude_extra }}" = "true" ]; then
-            rm -rf content/VanillaSongs/Erect content/VanillaSongs/PicoMix content/VanillaSongs/BFMix content/VanillaSongs/Collab
-          fi
           zip -r /home/runner/${{ env.PROJECT_NAME }}-macOS-arm64.zip .
 
       # ---------------- Publish ----------------
       - name: Publish The Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "DevBuild ${{ needs.get-commit-hash.outputs.commit_hash }}"
-          tag_name: "devbuild-${{ needs.get-commit-hash.outputs.commit_hash }}"
+          name: ${{ steps.resolve_tag.outputs.name }}
+          tag_name: ${{ steps.resolve_tag.outputs.tag }}
           prerelease: true
           files: |
             /home/runner/*.zip
@@ -188,4 +208,4 @@ jobs:
       contents: write
     uses: ./.github/workflows/extra-content.yml
     with:
-      tag: devbuild-${{ needs.get-commit-hash.outputs.commit_hash }}
+      tag: ${{ needs.Releaser.outputs.tag }}
