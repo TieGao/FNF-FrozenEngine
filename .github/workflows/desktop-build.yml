@@ -10,6 +10,12 @@ name: Desktop Build
 
 on:
   workflow_dispatch:
+    inputs:
+      dependencies_to_update:
+        description: '填 all = 重新校验 / 安装全部 haxelib；留空（默认）= 直接用缓存里的 .haxelib/，跳过安装'
+        required: false
+        type: string
+        default: ''
   # 每天 06:00 UTC 在默认分支跑一次：既当真·日常构建，也把缓存写进 main 作用域，
   # 好让 PR 构建能通过 restore-keys 读到这里预热好的缓存（PR 自身的缓存存在
   # refs/pull/N/merge，只有该 PR 的 re-run 能读）。
@@ -60,3 +66,4 @@ jobs:
         buildArgs: ${{ matrix.buildArgs }}
         artifactName: ${{ matrix.artifactName }}
         artifactPath: ${{ matrix.artifactPath }}
+        dependencies_to_update: ${{ inputs.dependencies_to_update }}

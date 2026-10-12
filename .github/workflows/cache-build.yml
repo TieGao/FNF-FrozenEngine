@@ -39,6 +39,14 @@ on:
       artifactPath:
         required: true
         type: string
+      # 依赖策略（参考 NovaFlare 的 dependencies_to_update，语义按本仓的固定依赖清单收敛成两态）：
+      #   留空  → 直接用 restore 回来的 .haxelib/，跳过整个依赖安装步骤（不联网，最快）
+      #   非空  → 跑 setup 清单，重新校验 / 拉取全部依赖（等价于改动前的默认行为）
+      # 本仓的 setup 是写死的 pinned 清单（不是 hmm.json），所以没有 NF 那种"只更新某几个库"的粒度。
+      dependencies_to_update:
+        required: false
+        type: string
+        default: ''
 
 env:
   HAXE_VERSION: 4.3.7
@@ -127,8 +135,40 @@ jobs:
             .haxelib/
             .hxcpp_cache
 
+      # 依赖策略判定必须放在 Restore 之后 —— 判断依据就是 restore 的产物。
+      # 留空且缓存可用 → cached：跳过安装。
+      # 留空但缓存是冷的（或明显残缺）→ install：回退到完整安装，别让构建裸奔。
+      # 显式传了值 → install：重新校验 / 拉取全部依赖。
+      # 哨兵检查 lime + hxcpp：缓存 save 是 if: always() 的，失败轮也可能写进一份残缺的
+      # .haxelib/；只判"目录非空"挡不住这种，缺了这两个必备库就老实重装。
+      - name: Resolve haxelib strategy
+        id: haxelib
+        shell: bash
+        run: |
+          want='${{ inputs.dependencies_to_update }}'
+          if [ -z "$want" ] && [ -d .haxelib/lime ] && [ -d .haxelib/hxcpp ]; then
+            mode=cached
+            echo "dependencies_to_update 留空且缓存可用 → 跳过依赖安装，直接用 .haxelib/"
+          elif [ -z "$want" ]; then
+            mode=install
+            echo "dependencies_to_update 留空，但 .haxelib/ 里没有 lime / hxcpp（冷缓存或缓存残缺）→ 回退完整安装"
+          else
+            mode=install
+            echo "dependencies_to_update=$want → 重新校验 / 安装全部依赖"
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
       - name: Install Libraries
+        if: steps.haxelib.outputs.mode == 'install'
         run: ${{ inputs.setupCommand }}
+
+      - name: Use cached Libraries
+        if: steps.haxelib.outputs.mode == 'cached'
+        shell: bash
+        run: |
+          echo "dependencies_to_update 留空 → 跳过 Install Libraries，直接用缓存里的 .haxelib/"
+          echo "已缓存条目（前 20 个）："
+          ls -A .haxelib | head -20
 
       - name: Configure Android
         if: inputs.name == 'Android'
