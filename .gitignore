@@ -7,6 +7,8 @@ art/buildScripts/test_x64-debug-officialrelease.bat
 
 ### VS Code
 export/*
+# CI（cache-build.yml）把 haxelib 仓库钉到仓库内 .haxelib/ 以便缓存依赖，别提交进去。
+.haxelib/
 .vscode/*
 HaxeToolkit/
 #.github/

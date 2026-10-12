@@ -3,8 +3,13 @@
 # REMINDER THAT YOU NEED HAXE INSTALLED PRIOR TO USING THIS
 # https://haxe.org/download
 cd ..
-echo Makking the main haxelib and setuping folder in same time..
-mkdir ~/haxelib && haxelib setup ~/haxelib
+# CI 里 workflow 已把 haxelib 钉到项目内 .haxelib/（HAXELIB_REPO 注入），这里别再 setup 到
+# ~/haxelib 把配置覆盖掉，否则依赖落到家目录、缓存里的 .haxelib/ 是空的。
+# 本地开发不设该变量，行为完全不变。
+if [ -z "$HAXELIB_REPO" ]; then
+  echo Makking the main haxelib and setuping folder in same time..
+  mkdir ~/haxelib && haxelib setup ~/haxelib
+fi
 echo Installing dependencies...
 echo This might take a few moments depending on your internet speed.
 haxelib install flixel 6.2.0 --skip-dependencies
