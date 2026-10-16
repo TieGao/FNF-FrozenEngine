@@ -51,6 +51,7 @@ import crowplexus.hscript.Printer;
 #end
 
 import backend.Replay as FrameReplay;
+import backend.Bread;
 
 
 
@@ -573,6 +574,7 @@ class PlayState extends MusicBeatState
 
 	override public function create()
 	{
+		Bread.crumb('PS.create enter song=' + SONG.song + ' stage=' + SONG.stage + ' gf=' + SONG.gfVersion + ' p1=' + SONG.player1 + ' p2=' + SONG.player2);
 		// 谱面上下文一律以 Paths 为准：Freeplay / 编辑器 / 回放进入前都已显式写好，
 		// 普通歌与剧情模式写的是 null。不再从 static chartCategory 回填 ——
 		// 那是上一首歌的残留，会把普通歌误判成自定义谱面（套用自定义舞台 / 角色 / 分轨）。
@@ -727,6 +729,7 @@ class PlayState extends MusicBeatState
 		else
 			curStage = "";
 		var stageData:StageFile = StageData.getStageFile(curStage);
+		Bread.crumb('PS stage json ok objects=' + (stageData.objects == null ? -1 : stageData.objects.length));
 		defaultCamZoom = stageData.defaultZoom;
 
 		stageUI = "normal";
@@ -800,20 +803,27 @@ class PlayState extends MusicBeatState
 		if (!stageData.hide_girlfriend)
 		{
 			if(SONG.gfVersion == null || SONG.gfVersion.length < 1) SONG.gfVersion = 'gf'; //Fix for the Chart Editor
+			Bread.crumb('PS gf begin ' + SONG.gfVersion);
 			gf = new Character(0, 0, SONG.gfVersion);
+			Bread.crumb('PS gf done');
 			startCharacterPos(gf);
 			gfGroup.scrollFactor.set(0.95, 0.95);
 			if((ClientPrefs.data.customChartGirlfriend != "NONE" && pureChartMode) || !pureChartMode)gfGroup.add(gf);
 		}
 
+		Bread.crumb('PS dad begin ' + SONG.player2);
 		dad = new Character(0, 0, SONG.player2);
+		Bread.crumb('PS dad done');
 		startCharacterPos(dad, true);
 		if((ClientPrefs.data.customChartOpponent != "NONE" && pureChartMode) || !pureChartMode)dadGroup.add(dad);
 
+		Bread.crumb('PS bf begin ' + SONG.player1);
 		boyfriend = new Character(0, 0, SONG.player1, true);
+		Bread.crumb('PS bf done');
 		startCharacterPos(boyfriend);
 		if((ClientPrefs.data.customChartPlayer != "NONE" && pureChartMode) || !pureChartMode)boyfriendGroup.add(boyfriend);
-		
+
+		Bread.crumb('PS objects begin');
 		if(stageData.objects != null && stageData.objects.length > 0)
 		{
 			var list:Map<String, FlxSprite> = StageData.addObjectsToState(stageData.objects, !stageData.hide_girlfriend ? gfGroup : null, dadGroup, boyfriendGroup, this);
@@ -827,6 +837,7 @@ class PlayState extends MusicBeatState
 			add(dadGroup);
 			add(boyfriendGroup);
 		}
+		Bread.crumb('PS stage+chars added');
 		
 		#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
 		// "SCRIPTS FOLDER" SCRIPTS

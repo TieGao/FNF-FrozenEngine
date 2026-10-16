@@ -5,9 +5,9 @@
 				85,
 				[
 					[
-						"SetCameraBop",
-						"3",
-						"8"
+						"Set Camera Bop",
+						"8",
+						"3"
 					]
 				]
 			],
@@ -15,9 +15,9 @@
 				2828,
 				[
 					[
-						"SetCameraBop",
-						"0.4",
-						"1"
+						"Set Camera Bop",
+						"1",
+						"0.4"
 					]
 				]
 			],
@@ -25,9 +25,9 @@
 				13628,
 				[
 					[
-						"SetCameraBop",
-						"1",
-						"2"
+						"Set Camera Bop",
+						"2",
+						"1"
 					]
 				]
 			],
@@ -35,7 +35,7 @@
 				35571,
 				[
 					[
-						"SetCameraBop",
+						"Set Camera Bop",
 						"1",
 						"1"
 					]
@@ -45,9 +45,9 @@
 				43885,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.04,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -55,9 +55,9 @@
 				44400,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.08,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -65,9 +65,9 @@
 				44914,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.12,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -75,9 +75,9 @@
 				45428,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.16,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -85,9 +85,9 @@
 				46542,
 				[
 					[
-						"SetCameraBop",
-						"2",
-						"8"
+						"Set Camera Bop",
+						"8",
+						"2"
 					]
 				]
 			],
@@ -95,9 +95,9 @@
 				46628.5714285714,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"0.9,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -105,9 +105,9 @@
 				54857,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"0.94,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -115,9 +115,9 @@
 				55371,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"0.98,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -125,9 +125,9 @@
 				55885,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.02,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -135,9 +135,9 @@
 				56399,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.06,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -145,9 +145,9 @@
 				56914,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -155,9 +155,9 @@
 				57600,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"0.9,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -165,9 +165,9 @@
 				68485,
 				[
 					[
-						"SetCameraBop",
-						"1.2",
-						"1"
+						"Set Camera Bop",
+						"1",
+						"1.2"
 					]
 				]
 			],
@@ -175,9 +175,9 @@
 				68571.4285714286,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -185,9 +185,9 @@
 				76800,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -195,9 +195,9 @@
 				79542.8571428571,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -205,9 +205,9 @@
 				87771,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -215,9 +215,9 @@
 				90428,
 				[
 					[
-						"SetCameraBop",
-						"1",
-						"4"
+						"Set Camera Bop",
+						"4",
+						"1"
 					]
 				]
 			],
@@ -225,9 +225,9 @@
 				90514,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -235,9 +235,9 @@
 				101400,
 				[
 					[
-						"SetCameraBop",
-						"0",
-						"4"
+						"Set Camera Bop",
+						"4",
+						"0"
 					]
 				]
 			]

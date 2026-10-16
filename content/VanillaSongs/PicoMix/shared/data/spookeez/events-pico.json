@@ -5,9 +5,9 @@
 				100,
 				[
 					[
-						"SetCameraBop",
-						"0.8",
-						"2"
+						"Set Camera Bop",
+						"2",
+						"0.8"
 					]
 				]
 			],
@@ -15,9 +15,9 @@
 				6016.66666666667,
 				[
 					[
-						"PlayAnimation",
+						"Play Animation",
 						"hey",
-						"True"
+						"boyfriend"
 					]
 				]
 			],
@@ -25,19 +25,9 @@
 				6300,
 				[
 					[
-						"SetCameraBop",
-						"1",
-						"2"
-					]
-				]
-			],
-			[
-				15583.3333333333,
-				[
-					[
-						"PlayAnimation",
-						"cheer",
-						"True"
+						"Set Camera Bop",
+						"2",
+						"1"
 					]
 				]
 			],
@@ -45,9 +35,9 @@
 				17800,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -55,9 +45,9 @@
 				18783.3333333333,
 				[
 					[
-						"PlayAnimation",
+						"Play Animation",
 						"cheer",
-						"True"
+						"boyfriend"
 					]
 				]
 			],
@@ -65,9 +55,9 @@
 				18800,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -75,9 +65,9 @@
 				28000,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.05,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -85,9 +75,9 @@
 				28300,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -95,9 +85,9 @@
 				28800,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.15,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -105,9 +95,9 @@
 				31000,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -115,9 +105,9 @@
 				31200,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.05,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -125,19 +115,9 @@
 				32000,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
-					]
-				]
-			],
-			[
-				41183.3333333333,
-				[
-					[
-						"PlayAnimation",
-						"cheer",
-						"True"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -145,9 +125,9 @@
 				43400,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -155,9 +135,9 @@
 				44383.3333333333,
 				[
 					[
-						"PlayAnimation",
+						"Play Animation",
 						"cheer",
-						"True"
+						"boyfriend"
 					]
 				]
 			],
@@ -165,9 +145,9 @@
 				44400,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -175,9 +155,9 @@
 				48200,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"0.9,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -185,9 +165,9 @@
 				51200,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -195,9 +175,9 @@
 				53600,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.05,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -205,9 +185,9 @@
 				53900,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -215,9 +195,9 @@
 				54400,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.15,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -225,9 +205,9 @@
 				56800,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -235,9 +215,9 @@
 				57200,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.05,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -245,9 +225,9 @@
 				57500,
 				[
 					[
-						"SetCameraBop",
-						"1.1",
-						"1"
+						"Set Camera Bop",
+						"1",
+						"1.1"
 					]
 				]
 			],
@@ -255,9 +235,9 @@
 				57600,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -265,9 +245,9 @@
 				62400,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"0.9,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -275,9 +255,9 @@
 				64000,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -285,9 +265,9 @@
 				64800,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.04,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -295,9 +275,9 @@
 				65200,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.08,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -305,9 +285,9 @@
 				66400,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.12,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -315,9 +295,9 @@
 				66800,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.16,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -325,9 +305,9 @@
 				68000,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.2,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -335,9 +315,9 @@
 				68400,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.24,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -345,9 +325,9 @@
 				69800,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.2,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -355,9 +335,9 @@
 				70000,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1.1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -365,9 +345,9 @@
 				70400,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -375,9 +355,9 @@
 				75200,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"0.9,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -385,9 +365,9 @@
 				76800,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expo"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -395,9 +375,9 @@
 				78400,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.04,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -405,9 +385,9 @@
 				80000,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.08,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -415,9 +395,9 @@
 				80800,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.12,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -425,9 +405,9 @@
 				81200,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.16,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -435,9 +415,9 @@
 				81600,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"0.9,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -445,9 +425,9 @@
 				83100,
 				[
 					[
-						"SetCameraBop",
-						"0",
-						"4"
+						"Set Camera Bop",
+						"4",
+						"0"
 					]
 				]
 			],
@@ -455,9 +435,9 @@
 				83200,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -465,9 +445,9 @@
 				88000,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"0.9,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -475,9 +455,9 @@
 				89600,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -485,9 +465,9 @@
 				91200,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.04,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -495,9 +475,9 @@
 				92800,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.08,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -505,9 +485,9 @@
 				93600,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.12,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -515,9 +495,9 @@
 				94000,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.16,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -525,9 +505,9 @@
 				94400,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.12,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -535,9 +515,9 @@
 				95200,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.08,stage",
+						"16,expoOut"
 					]
 				]
 			],
@@ -545,9 +525,9 @@
 				95600,
 				[
 					[
-						"ZoomCamera",
-						"16",
-						"expoOut"
+						"Set Camera Zoom",
+						"1.04,stage",
+						"16,expoOut"
 					]
 				]
 			]

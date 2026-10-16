@@ -103,6 +103,7 @@ class LoadingState extends MusicBeatState
 	
 	override function create()
 	{
+		backend.Bread.crumb('Loading.create');
 		persistentUpdate = true;
 		barGroup = new FlxSpriteGroup();
 		add(barGroup);

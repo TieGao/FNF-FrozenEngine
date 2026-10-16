@@ -57,6 +57,7 @@ class CoolUtil
 
 	inline public static function colorFromString(color:String):FlxColor
 	{
+		if(color == null) return FlxColor.WHITE; // StageData objects 缺 color 字段时为 null，release 下 EReg.split(null) 是原生段错误
 		var hideChars = ~/[\t\n\r]/;
 		var color:String = hideChars.split(color).join('').trim();
 		if(color.startsWith('0x')) color = color.substring(color.length - 6);

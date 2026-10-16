@@ -164,7 +164,9 @@ class Character extends FlxSprite
 			atlas.showPivot = false;
 			try
 			{
+				backend.Bread.crumb('char[' + curCharacter + '] atlas begin ' + json.image);
 				Paths.loadAnimateAtlas(atlas, json.image);
+				backend.Bread.crumb('char[' + curCharacter + '] atlas parsed');
 
 				// 逐动画的额外图集（原版 `multianimateatlas`：死亡 / 变体动画常放在另一张分尸图里）。
 				// 引擎的角色 json 只有 `image` 一个字段，所以额外图集写在动画条目自己的 `assetPath` 上，
@@ -180,7 +182,13 @@ class Character extends FlxSprite
 						extraAtlasPaths.push(extra);
 					}
 				}
-				for (extra in extraAtlasPaths) atlas.addExtraAtlas(extra);
+				for (extra in extraAtlasPaths)
+				{
+					backend.Bread.crumb('char[' + curCharacter + '] extra atlas ' + extra);
+					atlas.addExtraAtlas(extra);
+					backend.Bread.crumb('char[' + curCharacter + '] extra atlas done');
+				}
+				backend.Bread.crumb('char[' + curCharacter + '] atlas ok');
 			}
 			catch(e:haxe.Exception)
 			{

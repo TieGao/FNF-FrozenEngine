@@ -1426,15 +1426,14 @@ class FreeplayState extends MusicBeatState
         rankSparksAdd.color = color;
         add(rankSparksAdd);
 
-        var done:Int = 0;
         function hideWhenDone(spr:FlxSprite, anim:String):Void
         {
             spr.animation.play(anim, true, false, 0);
             spr.animation.finishCallback = function(name:String)
             {
+                // 这里绝不能 destroy：回调返回后 flixel 还会继续 onFinish.dispatch，
+                // 销毁过的动画控制器会在信号分发上炸空引用（flixel #2782 同类坑）
                 spr.visible = false;
-                done++;
-                if (done >= 2) clearRankSparks();
             };
         }
         hideWhenDone(rankSparks, 'sparks');
@@ -1452,6 +1451,7 @@ class FreeplayState extends MusicBeatState
         var card:FreeplayCard = rankAnimCard;
         rankAnimCard = null;
         rankAnimActive = false;
+        clearRankSparks(); // 火花只藏不销毁（见 finishCallback 注释），统一在这里清理
 
         if (card != null)
         {
@@ -1889,8 +1889,16 @@ class FreeplayState extends MusicBeatState
 
         if (rankAnimActive)
         {
-            // 评级应用动画期间：锁输入 / 锁卡片摆位 / 锁音乐回升，只跑彩P色相循环
-            if (rankAnimCard != null) rankAnimCard.updateRankHue(elapsed);
+            // 评级应用动画期间：锁输入 / 锁卡片摆位 / 锁音乐回升。
+            // 跳过 super.update 会把所有成员的 update 一起跳掉，帧动画（徽章闪烁 / 火花）
+            // 会冻在第一帧 —— 这里手动推进这几个动画成员。
+            if (rankAnimCard != null)
+            {
+                rankAnimCard.updateRankHue(elapsed);
+                rankAnimCard.ratingSprite.update(elapsed);
+            }
+            if (rankSparks != null) rankSparks.update(elapsed);
+            if (rankSparksAdd != null) rankSparksAdd.update(elapsed);
             return;
         }
 
@@ -2359,6 +2367,7 @@ class FreeplayState extends MusicBeatState
     function selectSong()
     {
         if (curSelected < 0 || curSelected >= songs.length) return;
+        backend.Bread.crumb('FP.selectSong ' + songs[curSelected].songName);
 
         persistentUpdate = false;
         releasePreviewAudio();
