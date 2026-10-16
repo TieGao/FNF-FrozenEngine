@@ -6,6 +6,7 @@ import flixel.util.FlxTimer;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import objects.Character;
+import states.stages.objects.ABotSpeaker;
 
 /**
  * Week 2（spooky）的 erect 变体舞台，参照 Erect Mode 的 `spookyErect.lua`。
@@ -32,6 +33,22 @@ class SpookyErect extends BaseStage
 {
 	/** 没有暗色变体时，闪电熄灭后角色回到的暗色（原版脚本里的 0x070711） */
 	static inline var DARK_TINT:Int = 0x070711;
+
+	/**
+	 * 亮色孪生与暗色本体（VS 分尸图）的**视觉中心注册差**。
+	 * 分尸图内容画在原点左上、sparrow 在右下，直接同步 x/y 会错开几百像素：
+	 * 补偿 = dark视觉中心 − light视觉中心（对齐到首帧 bbox，见 fnf-vslice-atlas-porting skill §3）。
+	 * 只列差得远的成对角色；官方成对导出的（spooky-dark/pico-dark 对 base 图）差异可忽略。
+	 */
+	static var TWIN_CENTER_OFFSET:Map<String, Array<Float>> = [
+		// dark: nene-dark(atlas) 中心(-77,-121.5)；light: base nene(sparrow Idle) 中心(326,167.5)
+		'nene-dark' => [-403, -289],
+		// dark: bf-dark(atlas Erect 包) 中心(0.7,6.1)；light: base bf(sparrow) 中心(204,216)
+		'bf-dark' => [-203, -210],
+		// dark: gf-dark(atlas Erect 包) 中心(202.3,5.7)；light: base gf(sparrow) 中心(351.5,330.5)
+		'gf-dark' => [-149, -325],
+	];
+
 	/** 闪电第二次亮起后淡回全暗用的时长 */
 	static inline var LIGHT_FADE:Float = 1.5;
 
@@ -46,6 +63,9 @@ class SpookyErect extends BaseStage
 	var lightLevel:Float = 0;
 	/** lightLevel 每秒的变化量；0 表示停在当前值 */
 	var lightRamp:Float = 0;
+
+	/** 首帧把亮色孪生的层级挪到 ABot 音箱之上（ABot 由角色 hscript 在 onCreatePost 晚插） */
+	var layerFixed:Bool = false;
 
 	var lightingFlash:FlxSprite;
 
@@ -111,7 +131,9 @@ class SpookyErect extends BaseStage
 			return;
 		}
 
-		var light:Character = new Character(0, 0, baseName, dark.isPlayer);
+		// 亮色孪生 = 本角色名去掉 `-dark` 后缀（pico-dark → pico、nene-dark → nene），
+		// 写死 baseName 会在 pico mix 下把 pico/nene 错换成 bf/gf
+		var light:Character = new Character(0, 0, dark.curCharacter.substring(0, dark.curCharacter.length - 5), dark.isPlayer);
 		light.x = dark.x;
 		light.y = dark.y;
 		light.scrollFactor.copyFrom(dark.scrollFactor);
@@ -137,6 +159,34 @@ class SpookyErect extends BaseStage
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
+
+		// nene 系角色脚本在 onCreatePost 才挂 ABot（此时孪生已建好、被压在音箱之下），
+		// 首帧把亮色孪生统一挪到 ABot 之上，闪电时才不会被 stereoBG 盖住
+		if (!layerFixed && lightChars.length > 0)
+		{
+			layerFixed = true;
+			var abotIdx:Int = -1;
+			for (i in 0...members.length)
+			{
+				var spr = members[i];
+				if (spr != null && Std.isOfType(spr, ABotSpeaker))
+				{
+					abotIdx = i;
+					break;
+				}
+			}
+			if (abotIdx >= 0)
+			{
+				var k:Int = abotIdx + 1;
+				for (twin in lightChars)
+				{
+					if (twin == null) continue;
+					members.remove(twin);
+					members.insert(k, twin);
+					k++;
+				}
+			}
+		}
 
 		if (lightRamp != 0)
 		{
@@ -168,23 +218,37 @@ class SpookyErect extends BaseStage
 	/** 把孪生的位置 / 可见性 / 动画对齐到本体；alpha 取本体 alpha 的反相（本体被压暗时孪生才显形） */
 	function syncTwin(dark:Character, light:Character):Void
 	{
-		light.x = dark.x;
-		light.y = dark.y;
+		// 视觉注册差补偿：分尸图本体与 sparrow 孪生的内容不在原点同一侧，
+		// 直接复制 x/y 会让闪电时的亮色角色与暗色角色（或彼此）错开/重叠
+		var off:Array<Float> = TWIN_CENTER_OFFSET.get(dark.curCharacter);
+		if (off != null)
+		{
+			light.x = dark.x + off[0];
+			light.y = dark.y + off[1];
+		}
+		else
+		{
+			light.x = dark.x;
+			light.y = dark.y;
+		}
 		light.angle = dark.angle;
 		light.flipX = dark.flipX;
 		light.visible = dark.visible;
 		light.alpha = (lightLevel > 0) ? 1 : 0;
 
-		var darkAnim = dark.animation.curAnim;
-		if (darkAnim == null) return;
+		// 本体可能是 AnimateAtlas 角色（pico mix 的 pico-dark / nene-dark），
+		// `animation.curAnim` 对它是 null，要经 Character 的封装拿名字与帧号
+		var darkName:String = dark.getAnimationName();
+		if (darkName == null || darkName.length < 1) return;
 
-		var lightAnim = light.animation.curAnim;
-		// 亮色 / 暗色两套图集的前缀名不同，但 `Character` 里的动画名一致，按名字同步
-		if ((lightAnim == null || lightAnim.name != darkAnim.name) && light.hasAnimation(darkAnim.name))
-			light.playAnim(darkAnim.name, true);
+		if (light.getAnimationName() != darkName && light.hasAnimation(darkName))
+			light.playAnim(darkName, true);
 
-		lightAnim = light.animation.curAnim;
-		if (lightAnim != null) lightAnim.curFrame = darkAnim.curFrame;
+		var darkFrame:Int = dark.isAnimateAtlas ? dark.atlas.anim.curFrame : dark.animation.curAnim.curFrame;
+		if (light.isAnimateAtlas)
+			light.atlas.anim.curFrame = darkFrame;
+		else if (light.animation.curAnim != null)
+			light.animation.curAnim.curFrame = darkFrame;
 	}
 
 	function lightningStrikeShit():Void

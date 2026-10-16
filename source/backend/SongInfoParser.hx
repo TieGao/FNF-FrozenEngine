@@ -178,6 +178,11 @@ class SongInfoParser
 
     private static function getDifficultyFileName(difficulty:String, ?weekData:WeekData):String
     {
+        // 变体包（PicoMix…）：档位名是标准 Easy/Normal/Hard，但谱面文件是
+        // <歌>-<变体>-<档位>.json（Normal 也带后缀），变体只写在周定义里。
+        if (weekData != null && weekData.variant != null && weekData.variant.length > 0)
+            return Difficulty.getFilePathForName(difficulty, weekData.variant);
+
         var defaultDifficulty:String = Difficulty.getDefault();
 
         if (difficulty == defaultDifficulty)
@@ -197,7 +202,9 @@ class SongInfoParser
 
             if (diffList.indexOf(difficulty) != -1)
             {
-                return '-' + difficulty.toLowerCase();
+                // 难度名可能带空格（变体难度 'Pico Easy'），磁盘文件名是 '-pico-easy' ——
+                // 必须走 formatToSongPath 才能和 Difficulty.getFilePath 拼出的路径一致。
+                return Paths.formatToSongPath('-' + difficulty);
             }
         }
 
@@ -217,7 +224,7 @@ class SongInfoParser
             }
         }
 
-        return '-' + difficulty.toLowerCase();
+        return Paths.formatToSongPath('-' + difficulty);
     }
 
     private static function loadChartData(songLowercase:String, fileName:String):String

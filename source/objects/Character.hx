@@ -165,6 +165,22 @@ class Character extends FlxSprite
 			try
 			{
 				Paths.loadAnimateAtlas(atlas, json.image);
+
+				// 逐动画的额外图集（原版 `multianimateatlas`：死亡 / 变体动画常放在另一张分尸图里）。
+				// 引擎的角色 json 只有 `image` 一个字段，所以额外图集写在动画条目自己的 `assetPath` 上，
+				// 这里收集去重后逐份并进来。
+				var extraAtlasPaths:Array<String> = [];
+				var rawAnims:Array<Dynamic> = cast json.animations;
+				if (rawAnims != null)
+				{
+					for (anim in rawAnims)
+					{
+						var extra:String = anim.assetPath;
+						if (extra == null || extra.length < 1 || extraAtlasPaths.contains(extra)) continue;
+						extraAtlasPaths.push(extra);
+					}
+				}
+				for (extra in extraAtlasPaths) atlas.addExtraAtlas(extra);
 			}
 			catch(e:haxe.Exception)
 			{

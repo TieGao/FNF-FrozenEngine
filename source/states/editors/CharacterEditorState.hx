@@ -223,8 +223,19 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 		add(helpTexts);
 	}
 
+	var _oldContentRoot:String = null;
+
 	function addCharacter(reload:Bool = false)
 	{
+		// 浏览态没有 currentContentRoot，content 包角色不在 Paths 解析链里——
+		// 探测角色所在包并临时进入（资源链加性回退，包里没有的仍落回 assets）；destroy 时恢复
+		var charRoot:String = Paths.findContentRootForFile('characters/' + _char + '.json');
+		if (charRoot != null && Paths.currentContentRoot != charRoot)
+		{
+			if (_oldContentRoot == null) _oldContentRoot = Paths.currentContentRoot;
+			Paths.setContentRoot(charRoot);
+		}
+
 		var pos:Int = -1;
 		if(character != null)
 		{
@@ -249,6 +260,13 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 		updateCharacterPositions();
 		reloadAnimList();
 		if(healthBar != null && healthIcon != null) updateHealthBar();
+	}
+
+	override function destroy()
+	{
+		if (_oldContentRoot != null || Paths.currentContentRoot != null)
+			Paths.setContentRoot(_oldContentRoot);
+		super.destroy();
 	}
 
 	function makeUIMenu()
@@ -442,7 +460,14 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 		{
 			if(intended == null || intended.length < 1) return;
 
+			// content 包角色：预检查也走 Paths 内容包链，浏览态要先探测进包（destroy 恢复）
 			var characterPath:String = 'characters/$intended.json';
+			var charRoot:String = Paths.findContentRootForFile(characterPath);
+			if (charRoot != null && Paths.currentContentRoot != charRoot)
+			{
+				if (_oldContentRoot == null) _oldContentRoot = Paths.currentContentRoot;
+				Paths.setContentRoot(charRoot);
+			}
 			var path:String = Paths.getPath(characterPath, TEXT, null, true);
 			#if MODS_ALLOWED
 			if (FileSystem.exists(path))
@@ -1223,7 +1248,7 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 	var characterList:Array<String> = [];
 	function reloadCharacterDropDown() {
 		characterList = Mods.mergeAllTextsNamed('data/characterList.txt');
-		var foldersToCheck:Array<String> = Mods.directoriesWithFile(Paths.getSharedPath(), 'characters/');
+		var foldersToCheck:Array<String> = Mods.directoriesWithContentShared('characters/');
 		for (folder in foldersToCheck)
 			for (file in FileSystem.readDirectory(folder))
 				if(file.toLowerCase().endsWith('.json'))

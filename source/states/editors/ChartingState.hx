@@ -5549,7 +5549,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			}
 		}
 
-		for (directory in Mods.directoriesWithFile(Paths.getSharedPath(), mainFolder))
+		for (directory in Mods.directoriesWithContentShared(mainFolder))
 		{
 			for (file in FileSystem.readDirectory(directory))
 			{

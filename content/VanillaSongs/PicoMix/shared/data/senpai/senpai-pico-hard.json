@@ -3146,6 +3146,9 @@
 		"format": "psych_v1_convert",
 		"artist": "Tee Lopes (Feat. Saruky)",
 		"charter": "fabs + Spazkid",
-		"generatedBy": "psych-vanilla-to-104 convert_vslice_chart.py"
+		"generatedBy": "psych-vanilla-to-104 convert_vslice_chart.py",
+		"album": "volume4",
+		"gameOverChar": "pico-pixel",
+		"gameOverSound": "fnf_loss_sfx-pixel-pico"
 	}
 }

@@ -2162,6 +2162,9 @@
 		"format": "psych_v1_convert",
 		"artist": "Metaroom (ft. Saster)",
 		"charter": "fabs",
-		"generatedBy": "psych-vanilla-to-104 convert_vslice_chart.py"
+		"generatedBy": "psych-vanilla-to-104 convert_vslice_chart.py",
+		"album": "volume4",
+		"gameOverChar": "pico-playable",
+		"gameOverSound": "fnf_loss_sfx-pico"
 	}
 }

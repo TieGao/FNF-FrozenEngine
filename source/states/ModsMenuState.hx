@@ -2,10 +2,10 @@ package states;
 
 import backend.WeekData;
 import backend.Mods;
+import backend.MouseMove;
 
 import flixel.FlxBasic;
 import flixel.graphics.FlxGraphic;
-import flash.geom.Rectangle;
 import haxe.Json;
 
 import flixel.util.FlxSpriteUtil;
@@ -19,6 +19,18 @@ import lime.utils.Assets;
 import openfl.filters.BlurFilter;
 import backend.FlxFilteredSprite;
 import openfl.filters.BitmapFilterQuality;
+
+private typedef ModItemChildTransform = {
+	var sprite:FlxSprite;
+	var x:Float;
+	var y:Float;
+	var scaleX:Float;
+	var scaleY:Float;
+	var originX:Float;
+	var originY:Float;
+	var offsetX:Float;
+	var offsetY:Float;
+}
 
 class ModsMenuState extends MusicBeatState
 {
@@ -84,7 +96,7 @@ class ModsMenuState extends MusicBeatState
 		add(bg);
 		bg.screenCenter();
 
-		bgList = FlxSpriteUtil.drawRoundRect(new FlxSprite(40, 40).makeGraphic(340, 440, FlxColor.TRANSPARENT), 0, 0, 340, 440, 15, 15, FlxColor.BLACK);
+		bgList = FlxSpriteUtil.drawRoundRect(new FlxSprite(40, 40).makeGraphic(340, 650, FlxColor.TRANSPARENT), 0, 0, 340, 650, 15, 15, FlxColor.BLACK);
 		bgList.alpha = 0.6;
 
 		modsGroup = new FlxTypedGroup<ModItem>();
@@ -95,76 +107,13 @@ class ModsMenuState extends MusicBeatState
 
 			var modItem:ModItem = new ModItem(mod);
 			if(modsList.disabled.contains(mod))
-			{
-				modItem.icon.color = 0xFFFF6666;
-				modItem.text.color = FlxColor.GRAY;
-			}
+				modItem.setDisabled(true);
 			modsGroup.add(modItem);
 		}
 
 		var mod:ModItem = modsGroup.members[curSelectedMod];
 		if(mod != null) bg.color = mod.bgColor;
 
-		//
-		var buttonX = bgList.x;
-		var buttonWidth = Std.int(bgList.width);
-		var buttonHeight = 80;
-
-		buttonReload = new MenuButton(buttonX, bgList.y + bgList.height + 20, buttonWidth, buttonHeight, Language.getPhrase('reload_button', 'RELOAD'), reload);
-		add(buttonReload);
-		
-		var myY = buttonReload.y + buttonReload.bg.height + 20;
-		/*buttonModFolder = new MenuButton(buttonX, myY, buttonWidth, buttonHeight, "MODS FOLDER", function() {
-			var modFolder = Paths.mods();
-			if(!FileSystem.exists(modFolder))
-			{
-				trace('created missing folder');
-				FileSystem.createDirectory(modFolder);
-			}
-			CoolUtil.openFolder(modFolder);
-		});
-		add(buttonModFolder);*/
-
-		buttonEnableAll = new MenuButton(buttonX, myY, buttonWidth, buttonHeight, Language.getPhrase('enable_all_button', 'ENABLE ALL'), function() {
-			buttonEnableAll.ignoreCheck = false;
-			for (mod in modsGroup.members)
-			{
-				if(modsList.disabled.contains(mod.folder))
-				{
-					modsList.disabled.remove(mod.folder);
-					modsList.enabled.push(mod.folder);
-					mod.icon.color = FlxColor.WHITE;
-					mod.text.color = FlxColor.WHITE;
-				}
-			}
-			updateModDisplayData();
-			checkToggleButtons();
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
-		});
-		buttonEnableAll.bg.color = FlxColor.GREEN;
-		buttonEnableAll.focusChangeCallback = function(focus:Bool) if(!focus) buttonEnableAll.bg.color = FlxColor.GREEN;
-		add(buttonEnableAll);
-
-		buttonDisableAll = new MenuButton(buttonX, myY, buttonWidth, buttonHeight, Language.getPhrase('disable_all_button', 'DISABLE ALL'), function() {
-			buttonDisableAll.ignoreCheck = false;
-			for (mod in modsGroup.members)
-			{
-				if(modsList.enabled.contains(mod.folder))
-				{
-					modsList.enabled.remove(mod.folder);
-					modsList.disabled.push(mod.folder);
-					mod.icon.color = 0xFFFF6666;
-					mod.text.color = FlxColor.GRAY;
-				}
-			}
-			updateModDisplayData();
-			checkToggleButtons();
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
-		});
-		buttonDisableAll.bg.color = 0xFFFF6666;
-		buttonDisableAll.focusChangeCallback = function(focus:Bool) if(!focus) buttonDisableAll.bg.color = 0xFFFF6666;
-		add(buttonDisableAll);
-		checkToggleButtons();
 
 		if(modsList.all.length < 1)
 		{
@@ -209,7 +158,7 @@ class ModsMenuState extends MusicBeatState
 		modDesc.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT);
 		add(modDesc);
 
-		var myHeight = 100;
+		var myHeight = 200;
 		modRestartText = new FlxText(bgDescription.x + 15, bgDescription.y + bgDescription.height - myHeight - 25, bgDescription.width - 30, Language.getPhrase('mod_restart', '* Moving or Toggling On/Off this Mod will restart the game.'), 16);
 		modRestartText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT);
 		add(modRestartText);
@@ -219,37 +168,82 @@ class ModsMenuState extends MusicBeatState
 		bgButtons.alpha = 0.2;
 		add(bgButtons);
 
-		var buttonsX = bgButtons.x + 320;
+		var buttonsX = bgButtons.x + 230;
 		var buttonsY = bgButtons.y + 10;
 
-		var button = new MenuButton(buttonsX, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(0), 54, 54); //Move to the top
-		button.icon.animation.add('icon', [0]);
-		button.icon.animation.play('icon', true);
+		// ---- 置顶 / 置底 放一起（画风统一：置底 = 置顶图标垂直翻转） ----
+
+		// Move to the top
+		var button = new MenuButton(buttonsX, buttonsY, 80, 80, null, makeModTopIcon(), function() moveModToPosition(0));
 		add(button);
 		buttons.push(button);
 
-		var button = new MenuButton(buttonsX + 100, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod - 1), 54, 54); //Move up
+		// Move to the bottom
+		var button = new MenuButton(buttonsX + 100, buttonsY, 80, 80, null, makeModBottomIcon(), function() moveModToPosition(modsList.all.length - 1));
+		add(button);
+		buttons.push(button);
+
+		// Move up
+		var button = new MenuButton(buttonsX + 200, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod - 1), 54, 54);
 		button.icon.animation.add('icon', [1]);
 		button.icon.animation.play('icon', true);
 		add(button);
 		buttons.push(button);
 
-		var button = new MenuButton(buttonsX + 200, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod + 1), 54, 54); //Move down
+		// Move down
+		var button = new MenuButton(buttonsX + 300, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod + 1), 54, 54);
 		button.icon.animation.add('icon', [2]);
 		button.icon.animation.play('icon', true);
 		add(button);
 		buttons.push(button);
 
+		// Reload / Enable-Disable All 移到右侧按钮栏第二行，左侧只留列表
+		buttonReload = new MenuButton(440, 590, 340, 80, Language.getPhrase('reload_button', 'RELOAD'), reload);
+		add(buttonReload);
+
+		buttonEnableAll = new MenuButton(860, 590, 340, 80, Language.getPhrase('enable_all_button', 'ENABLE ALL'), function() {
+			for (mod in modsGroup.members)
+			{
+				if(modsList.disabled.contains(mod.folder))
+				{
+					modsList.disabled.remove(mod.folder);
+					modsList.enabled.push(mod.folder);
+					mod.setDisabled(false);
+				}
+			}
+			updateModDisplayData();
+			checkToggleButtons();
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+		});
+		buttonEnableAll.bg.color = FlxColor.GREEN;
+		buttonEnableAll.focusChangeCallback = function(focus:Bool) if(!focus) buttonEnableAll.bg.color = FlxColor.GREEN;
+		add(buttonEnableAll);
+
+		buttonDisableAll = new MenuButton(860, 590, 340, 80, Language.getPhrase('disable_all_button', 'DISABLE ALL'), function() {
+			for (mod in modsGroup.members)
+			{
+				if(modsList.enabled.contains(mod.folder))
+				{
+					modsList.enabled.remove(mod.folder);
+					modsList.disabled.push(mod.folder);
+					mod.setDisabled(true);
+				}
+			}
+			updateModDisplayData();
+			checkToggleButtons();
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+		});
+		buttonDisableAll.bg.color = 0xFFFF6666;
+		buttonDisableAll.focusChangeCallback = function(focus:Bool) if(!focus) buttonDisableAll.bg.color = 0xFFFF6666;
+		add(buttonDisableAll);
+		checkToggleButtons();
+
 		// 两个"上/下选择"按钮，等价于焦点在卡片列表上时按一次键盘上/下键。
-		// 摆在整排最左边（buttonsX 左侧那 320px 空档里），已有的 5 个按钮位置不动。
+		// 摆在整排最左边（buttonsX 左侧那 200px 空档里）。
 		//
 		// ⚠️ 这两个**故意不 push 进 buttons 数组**：
-		//   1) buttons 的下标就是 changeSelectedButton() 的左右切换顺序；不进数组 = 现有键盘
-		//      导航路径一个字都不用动（键盘用户本来就有上下键，没必要再绕一圈）。
-		//   2) MenuButton 有个老毛病：鼠标按下那一帧 ModsMenuState.update() 会把 getButton()
-		//      （= curSelectedButton 指着的那个）的 ignoreCheck / onFocus 清成 false。被清掉的
-		//      正好是你点的那一个、而那一帧 FlxG.mouse.justMoved 又是假时，MenuButton.update()
-		//      里 `if(onFocus && ... justPressed)` 不成立 → 这次点击被吞。不进数组就永远不会被指到。
+		//   buttons 的下标就是 changeSelectedButton() 的左右切换顺序；不进数组 = 现有键盘
+		//   导航路径一个字都不用动（键盘用户本来就有上下键，没必要再绕一圈）。
 		buttonSelectPrev = new MenuButton(buttonsX - 200, buttonsY, 80, 80, null, makeModNavIcon(true), function() selectModByArrow(-1));
 		add(buttonSelectPrev);
 
@@ -266,7 +260,7 @@ class ModsMenuState extends MusicBeatState
 			buttonSelectNext.enabled = false;
 		}
 
-		settingsButton = new MenuButton(buttonsX + 300, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //Settings
+		settingsButton = new MenuButton(buttonsX + 400, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //Settings
 		{
 			var curMod:ModItem = modsGroup.members[curSelectedMod];
 			if(curMod != null && curMod.settings != null && curMod.settings.length > 0)
@@ -283,7 +277,7 @@ class ModsMenuState extends MusicBeatState
 		if(modsGroup.members[curSelectedMod].settings == null || modsGroup.members[curSelectedMod].settings.length < 1)
 			settingsButton.enabled = false;
 
-		var button = new MenuButton(buttonsX + 400, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //On/Off
+		var button = new MenuButton(buttonsX + 500, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //On/Off
 		{
 			var curMod:ModItem = modsGroup.members[curSelectedMod];
 			var mod:String = curMod.folder;
@@ -297,8 +291,7 @@ class ModsMenuState extends MusicBeatState
 				modsList.disabled.remove(mod);
 				modsList.enabled.push(mod);
 			}
-			curMod.icon.color = modsList.disabled.contains(mod) ? 0xFFFF6666 : FlxColor.WHITE;
-			curMod.text.color = modsList.disabled.contains(mod) ? FlxColor.GRAY : FlxColor.WHITE;
+			curMod.setDisabled(modsList.disabled.contains(mod));
 
 			if(curMod.mustRestart) waitingToRestart = true;
 			updateModDisplayData();
@@ -320,9 +313,30 @@ class ModsMenuState extends MusicBeatState
 			button.focusChangeCallback = null;
 		}
 		
+		maxScrollPos = Math.max(0, modsList.all.length * ROW_H - (bgList.height - 10));
+		cardScroller = new MouseMove(this, 'scrollPos', [0, maxScrollPos],
+			[[bgList.x, bgList.x + bgList.width], [bgList.y, bgList.y + bgList.height]],
+			function() { updateItemPositions(); updateScrollBar(); });
+		cardScroller.useLerp = true;
+		cardScroller.lerpSmooth = 12;
+		cardScroller.dragSensitivity = 1.6;
+		cardScroller.deceleration = 0.94;
+		cardScroller.mouseWheelSensitivity = -200.0;
+		cardScroller.enableMouseWheel = true;
+		add(cardScroller);
+
 		add(bgList);
 		add(modsGroup);
 		_lastControllerMode = controls.controllerMode;
+
+		scrollBarTrack = new FlxSprite(bgList.x + bgList.width - 20, bgList.y + 20).makeGraphic(8, Std.int(bgList.height - 40), FlxColor.WHITE);
+		scrollBarTrack.alpha = 0.3;
+		add(scrollBarTrack);
+		var scrollBarThumb:Float = Math.max(30, (bgList.height - 40) * ((bgList.height - 10) / Math.max(1, modsList.all.length * ROW_H)));
+		scrollBar = new FlxSprite(scrollBarTrack.x, scrollBarTrack.y).makeGraphic(8, Std.int(scrollBarThumb), FlxColor.WHITE);
+		scrollBar.alpha = 0.6;
+		add(scrollBar);
+
 
 		changeSelectedMod();
 		super.create();
@@ -332,7 +346,21 @@ class ModsMenuState extends MusicBeatState
 	var holdingMod:Bool = false;
 	var mouseOffsets:FlxPoint = new FlxPoint();
 	var holdingElapsed:Float = 0;
-	var gottaClickAgain:Bool = false;
+
+	var pressIndex:Int = -1;
+	var pressedMod:ModItem = null;
+	var pressStartX:Float = 0;
+	var pressStartY:Float = 0;
+	var pressHoldElapsed:Float = 0;
+	var pressHoldCancelled:Bool = false;
+
+	var scrollPos:Float = 0;
+	var maxScrollPos:Float = 0;
+	var cardScroller:MouseMove = null;
+	var scrollBar:FlxSprite = null;
+	var scrollBarTrack:FlxSprite = null;
+
+	static inline var ROW_H:Int = 86;
 
 	var holdTime:Float = 0;
 
@@ -384,6 +412,16 @@ class ModsMenuState extends MusicBeatState
 			{
 				holdingMod = false;
 				holdingElapsed = 0;
+				pressIndex = -1;
+				if(pressedMod != null) pressedMod.resetScale();
+				pressedMod = null;
+				pressHoldElapsed = 0;
+				pressHoldCancelled = false;
+				if(cardScroller != null)
+				{
+					cardScroller.resetInputState();
+					cardScroller.inputAllow = true;
+				}
 				updateItemPositions();
 			}
 
@@ -392,25 +430,43 @@ class ModsMenuState extends MusicBeatState
 			{
 				if(FlxG.mouse.justPressed)
 				{
-					for (i in centerMod-2...centerMod+3)
+					var pressedOnMod:Bool = false;
+					for (i in 0...modsGroup.members.length)
 					{
 						var mod = modsGroup.members[i];
 						if(mod != null && mod.visible && FlxG.mouse.overlaps(mod))
 						{
 							hoveringOnMods = true;
 							var button = getButton();
-							button.ignoreCheck = button.onFocus = false;
+							if(!FlxG.mouse.overlaps(button)) button.ignoreCheck = button.onFocus = false;
 							mouseOffsets.x = FlxG.mouse.x - mod.x;
 							mouseOffsets.y = FlxG.mouse.y - mod.y;
-							curSelectedMod = i;
-							changeSelectedMod();
+							pressIndex = i;
+							pressedMod = mod;
+							pressStartX = FlxG.mouse.x;
+							pressStartY = FlxG.mouse.y;
+							pressHoldElapsed = 0;
+							pressHoldCancelled = false;
+							if(cardScroller != null)
+							{
+								cardScroller.resetInputState();
+								cardScroller.inputAllow = true;
+							}
+							pressedOnMod = true;
 							break;
 						}
 					}
-					hoveringOnMods = true;
-					var button = getButton();
-					button.ignoreCheck = button.onFocus = false;
-					gottaClickAgain = false;
+					if(!pressedOnMod)
+					{
+						// 按在列表空白处：交给 MouseMove 拖拽滚视口
+						if(FlxG.mouse.x > bgList.x && FlxG.mouse.x < bgList.x + bgList.width
+							&& FlxG.mouse.y > bgList.y && FlxG.mouse.y < bgList.y + bgList.height)
+						{
+							hoveringOnMods = true;
+						}
+						var button = getButton();
+						if(!FlxG.mouse.overlaps(button)) button.ignoreCheck = button.onFocus = false;
+					}
 				}
 
 				if(hoveringOnMods)
@@ -420,8 +476,6 @@ class ModsMenuState extends MusicBeatState
 						changeSelectedMod(shiftMult);
 					else if(controls.UI_UP_P)
 						changeSelectedMod(-shiftMult);
-					else if(FlxG.mouse.wheel != 0)
-						changeSelectedMod(-FlxG.mouse.wheel * shiftMult, true);
 					else if(FlxG.keys.justPressed.HOME || FlxG.keys.justPressed.END ||
 						FlxG.gamepads.anyJustPressed(LEFT_TRIGGER) || FlxG.gamepads.anyJustPressed(RIGHT_TRIGGER))
 					{
@@ -435,17 +489,36 @@ class ModsMenuState extends MusicBeatState
 						holdTime += elapsed;
 						if(holdTime > 0.5 && Math.floor(lastHoldTime * 8) != Math.floor(holdTime * 8)) changeSelectedMod(shiftMult * (controls.UI_UP ? -1 : 1));
 					}
-					else if(FlxG.mouse.pressed && !gottaClickAgain)
+					else if(FlxG.mouse.pressed && pressIndex >= 0)
 					{
-						var curMod:ModItem = modsGroup.members[curSelectedMod];
+						var curMod:ModItem = (holdingMod && pressedMod != null) ? pressedMod : modsGroup.members[pressIndex];
 						if(curMod != null)
 						{
-							if(!holdingMod && FlxG.mouse.justMoved && FlxG.mouse.overlaps(curMod)) holdingMod = true;
+							if(!holdingMod)
+							{
+								// Y 位移超出阈值就交给列表滚动；Y 稳定按住满 0.25 秒才锁定卡片拖拽。
+								if(Math.abs(FlxG.mouse.y - pressStartY) > 10) pressHoldCancelled = true;
+								if(!pressHoldCancelled)
+								{
+									pressHoldElapsed += elapsed;
+									if(pressHoldElapsed >= 0.25)
+									{
+										curSelectedMod = pressIndex;
+										changeSelectedMod();
+										holdingMod = true; //changeSelectedMod 会复位 holdingMod，必须放在它之后
+										if(cardScroller != null)
+										{
+											cardScroller.resetInputState();
+											cardScroller.inputAllow = false;
+										}
+									}
+								}
+							}
 
 							if(holdingMod)
 							{
 								var moved:Bool = false;
-								for (i in centerMod-2...centerMod+3)
+								for (i in 0...modsGroup.members.length)
 								{
 									var mod = modsGroup.members[i];
 									if(mod != null && mod.visible && FlxG.mouse.overlaps(mod) && curSelectedMod != i)
@@ -481,14 +554,34 @@ class ModsMenuState extends MusicBeatState
 								curMod.y = FlxG.mouse.y - mouseOffsets.y;
 							}
 						}
-						
 					}
-					else if(FlxG.mouse.justReleased && holdingMod)
-					{
-						holdingMod = false;
-						holdingElapsed = 0;
-						updateItemPositions();
-					}
+				}
+			}
+
+			// 短按卡片在松手时选中；长按触发排序拖拽
+			if(FlxG.mouse.justReleased && pressIndex >= 0)
+			{
+				var wasHoldingMod:Bool = holdingMod;
+				if(pressedMod != null) pressedMod.resetScale(); // 无论拖拽还是短按，松手都要复位缩放
+				if(wasHoldingMod)
+				{
+					holdingMod = false;
+					holdingElapsed = 0;
+					updateItemPositions();
+				}
+				else if(!pressHoldCancelled && Math.max(Math.abs(FlxG.mouse.x - pressStartX), Math.abs(FlxG.mouse.y - pressStartY)) <= 10)
+				{
+					curSelectedMod = pressIndex;
+					changeSelectedMod();
+				}
+				pressIndex = -1;
+				pressedMod = null;
+				pressHoldElapsed = 0;
+				pressHoldCancelled = false;
+				if(cardScroller != null)
+				{
+					if(wasHoldingMod) cardScroller.resetInputState();
+					cardScroller.inputAllow = true;
 				}
 			}
 
@@ -679,7 +772,6 @@ class ModsMenuState extends MusicBeatState
 		
 		holdingMod = false;
 		holdingElapsed = 0;
-		gottaClickAgain = true;
 		updateModDisplayData();
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
 		
@@ -738,6 +830,65 @@ class ModsMenuState extends MusicBeatState
 		return FlxGraphic.fromBitmapData(bmd, false, up ? 'modsMenuNavUp' : 'modsMenuNavDown');
 	}
 
+	/**
+	 * 置顶图标：上方一条横线（表示"顶"）+ 下方一个向上实心三角。
+	 * 置底图标 = 同一个图垂直翻转，画风 100% 一致（见 makeModBottomIcon）。
+	 */
+	static function makeModTopIcon():FlxGraphic
+	{
+		var size:Int = 54;
+		var shape:Shape = new Shape();
+		var g = shape.graphics;
+
+		// 顶部横线
+		g.lineStyle(size * 0.15, FlxColor.WHITE, 1);
+		g.moveTo(size * 0.16, size * 0.16);
+		g.lineTo(size * 0.84, size * 0.16);
+
+		// 向上实心三角
+		g.beginFill(FlxColor.WHITE, 1);
+		g.moveTo(size * 0.20, size * 0.72);
+		g.lineTo(size * 0.80, size * 0.72);
+		g.lineTo(size * 0.50, size * 0.36);
+		g.endFill();
+
+		var bmd:BitmapData = new BitmapData(size, size, true, 0x00000000);
+		bmd.draw(shape);
+		return FlxGraphic.fromBitmapData(bmd, false, 'modsMenuNavTop');
+	}
+
+	/**
+	 * 置底图标：直接拿置顶图标做垂直翻转，保证两者画风完全一致。
+	 * 用 BitmapData 手动翻转（FlxGraphic 不直接支持 flip），复刻一圈像素即可。
+	 */
+	static function makeModBottomIcon():FlxGraphic
+	{
+		var size:Int = 54;
+		var top:BitmapData = new BitmapData(size, size, true, 0x00000000);
+
+		// 重新画一遍置顶形状（避免依赖 makeModTopIcon 的缓存实例被别处改色）
+		var shape:Shape = new Shape();
+		var g = shape.graphics;
+		g.lineStyle(size * 0.15, FlxColor.WHITE, 1);
+		g.moveTo(size * 0.16, size * 0.16);
+		g.lineTo(size * 0.84, size * 0.16);
+		g.beginFill(FlxColor.WHITE, 1);
+		g.moveTo(size * 0.20, size * 0.72);
+		g.lineTo(size * 0.80, size * 0.72);
+		g.lineTo(size * 0.50, size * 0.36);
+		g.endFill();
+		top.draw(shape);
+
+		// 垂直翻转
+		var flipped:BitmapData = new BitmapData(size, size, true, 0x00000000);
+		var m = new openfl.geom.Matrix();
+		m.scale(1, -1);
+		m.translate(0, size);
+		flipped.draw(top, m);
+
+		return FlxGraphic.fromBitmapData(flipped, false, 'modsMenuNavBottom');
+	}
+
 	function updateModDisplayData()
 	{
 		var curMod:ModItem = modsGroup.members[curSelectedMod];
@@ -746,12 +897,7 @@ class ModsMenuState extends MusicBeatState
 		FlxTween.cancelTweensOf(bg);
 		FlxTween.color(bg, 1, bg.color, curMod.bgColor);
 
-		if(Math.abs(centerMod - curSelectedMod) > 2)
-		{
-			if(centerMod < curSelectedMod)
-				centerMod = curSelectedMod - 2;
-			else centerMod = curSelectedMod + 2;
-		}
+		scrollSelectedIntoView();
 		updateItemPositions();
 
 		icon.loadGraphic(curMod.icon.graphic, true, 150, 150);
@@ -776,11 +922,38 @@ class ModsMenuState extends MusicBeatState
 		settingsButton.enabled = (curMod.settings != null && curMod.settings.length > 0);
 	}
 
-	var centerMod:Int = 2;
+	/**
+	 * 把选中项滚进视口（仅在越界时动；tweenData 同值会被 MouseMove 跳过）。
+	 */
+	function scrollSelectedIntoView()
+	{
+		if(cardScroller == null) return;
+		var viewTop:Float = bgList.y + 5;
+		var viewBottom:Float = bgList.y + bgList.height - 5;
+		var itemTop:Float = viewTop + curSelectedMod * ROW_H;
+		var visibleTop:Float = itemTop - scrollPos;
+		var visibleBottom:Float = visibleTop + ROW_H;
+		var target:Float = scrollPos;
+		if(visibleTop < viewTop) target = itemTop - viewTop;
+		else if(visibleBottom > viewBottom) target = itemTop + ROW_H - viewBottom;
+		target = Math.max(0, Math.min(maxScrollPos, target));
+		if(target != scrollPos) cardScroller.tweenData = target;
+	}
+
+	function updateScrollBar()
+	{
+		if(scrollBar == null || scrollBarTrack == null) return;
+		if(maxScrollPos <= 0)
+		{
+			scrollBar.alpha = 0;
+			return;
+		}
+		scrollBar.alpha = 0.6;
+		scrollBar.y = scrollBarTrack.y + (scrollPos / maxScrollPos) * (scrollBarTrack.height - scrollBar.height);
+	}
+
 	function updateItemPositions()
 	{
-		var maxVisible = Math.max(4, centerMod + 2);
-		var minVisible = Math.max(0, centerMod - 2);
 		for (i => mod in modsGroup.members)
 		{
 			if(mod == null)
@@ -789,10 +962,11 @@ class ModsMenuState extends MusicBeatState
 				continue;
 			}
 
-			mod.visible = (i >= minVisible && i <= maxVisible);
 			mod.x = bgList.x + 5;
-			mod.y = bgList.y + (86 * (i - centerMod + 2)) + 5;
-			
+			mod.y = bgList.y + 5 + ROW_H * i - scrollPos;
+
+			mod.updateClip(bgList.x, bgList.y + 5, bgList.width, bgList.height - 10, ROW_H);
+
 			mod.alpha = 0.6;
 			if(i == curSelectedMod) mod.alpha = 1;
 			mod.selectBg.visible = (i == curSelectedMod && hoveringOnMods);
@@ -822,6 +996,7 @@ class ModsMenuState extends MusicBeatState
 		modsList.all.insert(position, mod);
 
 		curSelectedMod = position;
+		if(curMod != null) curMod.resetScale(); // 拖拽排序会改 group 结构，强制复位缩放
 		updateModDisplayData();
 		updateItemPositions();
 		
@@ -838,6 +1013,35 @@ class ModsMenuState extends MusicBeatState
 		buttonEnableAll.visible = buttonEnableAll.enabled = modsList.disabled.length > 0;
 		buttonDisableAll.visible = buttonDisableAll.enabled = !buttonEnableAll.visible;
 	}
+
+	override function closeSubState()
+	{
+		pressIndex = -1;
+		if(pressedMod != null) pressedMod.resetScale();
+		pressedMod = null;
+		pressHoldElapsed = 0;
+		pressHoldCancelled = false;
+		holdingMod = false;
+		holdingElapsed = 0;
+		if(cardScroller != null)
+		{
+			cardScroller.resetInputState();
+			cardScroller.inputAllow = true;
+		}
+		super.closeSubState();
+	}
+
+	override function destroy()
+	{
+		if(cardScroller != null)
+		{
+			remove(cardScroller);
+			cardScroller.destroy();
+			cardScroller = null;
+		}
+		super.destroy();
+	}
+
 
 	function reload()
 	{
@@ -887,6 +1091,22 @@ class ModItem extends FlxSpriteGroup
 	public var mustRestart:Bool = false;
 	public var settings:Array<Dynamic> = null;
 
+	public var disabled:Bool = false;
+	public var hovered:Bool = false;
+	private var pressing:Bool = false;
+	private var _pressScale:Float = 1;
+	private var _pressScaleTween:FlxTween = null;
+	private var _childTransforms:Array<ModItemChildTransform> = [];
+	private var _pressCenterX:Float = 0;
+	private var _pressCenterY:Float = 0;
+	private var _cardWidth:Float = 0;
+	private var _cardHeight:Float = 0;
+	private var _clipLeft:Float = 0;
+	private var _clipTop:Float = 0;
+	private var _clipRight:Float = 0;
+	private var _clipBottom:Float = 0;
+	private var _clipRowHeight:Float = 0;
+
 	public function new(folder:String)
 	{
 		super();
@@ -918,11 +1138,13 @@ class ModItem extends FlxSpriteGroup
 		selectBg.visible = false;
 		add(selectBg);
 
-		icon = new FlxSprite(5, 5);
+		// 图标左移 30px（原来是 5）
+		icon = new FlxSprite(15, 5);
 		icon.antialiasing = ClientPrefs.data.antialiasing;
 		add(icon);
 
-		text = new FlxText(95, 38, 230, "", 16);
+		// 文字跟着左移 30px，保持与图标的相对间距
+		text = new FlxText(95 - 30, 38, 230, "", 16);
 		text.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		text.borderSize = 2;
 		text.y -= Std.int(text.height / 2);
@@ -973,6 +1195,133 @@ class ModItem extends FlxSpriteGroup
 		}
 		selectBg.scale.set(width + 5, height + 5);
 		selectBg.updateHitbox();
+
+		_cardWidth = width;
+		_cardHeight = height;
+		_pressCenterX = _cardWidth * 0.5;
+		_pressCenterY = _cardHeight * 0.5;
+		for (child in members)
+		{
+			if (child == null) continue;
+			_childTransforms.push({
+				sprite: child,
+				x: child.x - x,
+				y: child.y - y,
+				scaleX: child.scale.x,
+				scaleY: child.scale.y,
+				originX: child.origin.x,
+				originY: child.origin.y,
+				offsetX: child.offset.x,
+				offsetY: child.offset.y
+			});
+		}
+	}
+
+	public function setDisabled(on:Bool)
+	{
+		disabled = on;
+		if(icon != null) icon.color = on ? 0xFFFF6666 : FlxColor.WHITE;
+		updateTextColor();
+	}
+
+	function updateTextColor()
+	{
+		if(text == null) return;
+		text.color = disabled ? FlxColor.GRAY : (hovered ? FlxColor.WHITE : 0xFFCCCCCC);
+	}
+
+	public function resetScale()
+	{
+		pressing = false;
+		if (_pressScaleTween != null)
+		{
+			_pressScaleTween.cancel();
+			_pressScaleTween = null;
+		}
+		_pressScale = 1;
+		applyPressScale();
+	}
+
+	public function updateClip(listX:Float, listY:Float, listW:Float, listH:Float, rowHeight:Float)
+	{
+		_clipLeft = listX - 30; // 卡片图标向左超出卡片锚点 25px，裁剪边界需保留这段空间。
+		_clipTop = listY;
+		_clipRight = listX + listW;
+		_clipBottom = listY + listH;
+		_clipRowHeight = rowHeight;
+		applyClipToChildren();
+	}
+
+	function applyPressScale():Void
+	{
+		// 组级 scale 会覆盖成员原缩放，因此按各成员保存的基础变换应用按压因子。
+		for (state in _childTransforms)
+		{
+			var child = state.sprite;
+			var baseX:Float = x + state.x;
+			var baseY:Float = y + state.y;
+			child.x = x + _pressCenterX + (baseX - state.offsetX + state.originX - x - _pressCenterX) * _pressScale + state.offsetX - state.originX;
+			child.y = y + _pressCenterY + (baseY - state.offsetY + state.originY - y - _pressCenterY) * _pressScale + state.offsetY - state.originY;
+			child.scale.set(state.scaleX * _pressScale, state.scaleY * _pressScale);
+		}
+		applyClipToChildren();
+	}
+
+	function applyClipToChildren():Void
+	{
+		var isInView:Bool = x + _cardWidth > _clipLeft && x < _clipRight
+			&& y + _clipRowHeight > _clipTop && y < _clipBottom;
+		visible = isInView;
+		for (state in _childTransforms)
+		{
+			if (isInView) state.sprite.clipToWorldBounds(_clipLeft, _clipTop, _clipRight, _clipBottom);
+			else state.sprite.clipRect = null;
+		}
+	}
+
+	override function update(elapsed:Float)
+	{
+		super.update(elapsed);
+		applyPressScale();
+
+		if(!visible)
+		{
+			if(pressing) cancelPress();
+			return;
+		}
+
+		hovered = FlxG.mouse.visible && !Controls.instance.controllerMode && FlxG.mouse.overlaps(this);
+		updateTextColor();
+
+		if(hovered && FlxG.mouse.justPressed)
+		{
+			pressing = true;
+			pressScale();
+		}
+		else if(pressing && (!hovered || FlxG.mouse.justReleased))
+		{
+			pressing = false;
+			releaseScale();
+		}
+	}
+
+	function pressScale()
+	{
+		if (_pressScaleTween != null) _pressScaleTween.cancel();
+		_pressScaleTween = FlxTween.tween(this, {_pressScale: 0.97}, 0.06, {ease: FlxEase.quadOut});
+	}
+
+	function releaseScale()
+	{
+		if (_pressScaleTween != null) _pressScaleTween.cancel();
+		_pressScaleTween = FlxTween.tween(this, {_pressScale: 1}, 0.12, {ease: FlxEase.backOut});
+	}
+
+	function cancelPress()
+	{
+		if(!pressing) return;
+		pressing = false;
+		releaseScale();
 	}
 }
 
@@ -1021,12 +1370,17 @@ class MenuButton extends FlxSpriteGroup
 
 		this.onClick = onClick;
 		setButtonVisibility(false);
+
+		origin.set(Std.int(bg.width / 2), Std.int(bg.height / 2));
 	}
 
 	public var focusChangeCallback:Bool->Void = null;
 	public var onFocus(default, set):Bool = false;
 	public var ignoreCheck:Bool = false;
 	private var _needACheck:Bool = false;
+	private var _hovering:Bool = false;
+	private var pressing:Bool = false;
+	private var _pendingClick:Bool = false;
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
@@ -1034,14 +1388,31 @@ class MenuButton extends FlxSpriteGroup
 		if(!enabled)
 		{
 			onFocus = false;
+			if(pressing) cancelPress();
 			return;
 		}
 
 		if(!ignoreCheck && !Controls.instance.controllerMode && FlxG.mouse.justMoved && FlxG.mouse.visible)
 			onFocus = FlxG.mouse.overlaps(this);
 
-		if(onFocus && onClick != null && FlxG.mouse.justPressed)
-			onClick();
+		var hovering:Bool = FlxG.mouse.visible && !Controls.instance.controllerMode && FlxG.mouse.overlaps(this);
+		if(hovering != _hovering)
+		{
+			_hovering = hovering;
+			setButtonVisibility(onFocus || hovering);
+		}
+
+		if(hovering && onClick != null && FlxG.mouse.justPressed)
+		{
+			pressing = true;
+			pressScale();
+		}
+		else if(pressing && (!hovering || FlxG.mouse.justReleased))
+		{
+			pressing = false;
+			releaseScale();
+			if(hovering && onClick != null) _pendingClick = true; //仅内部松开触发
+		}
 
 		if(_needACheck)
 		{
@@ -1049,13 +1420,20 @@ class MenuButton extends FlxSpriteGroup
 			if(!Controls.instance.controllerMode)
 				setButtonVisibility(FlxG.mouse.overlaps(this));
 		}
+
+		//onClick 延到本帧末尾再执行：reload 等回调会切 state，回调后不许再碰控件成员
+		if(_pendingClick)
+		{
+			_pendingClick = false;
+			if(enabled && onClick != null) onClick();
+		}
 	}
 
 	function set_onFocus(newValue:Bool)
 	{
 		var lastFocus:Bool = onFocus;
 		onFocus = newValue;
-		if(onFocus != lastFocus && enabled) setButtonVisibility(onFocus);
+		if(onFocus != lastFocus && enabled) setButtonVisibility(onFocus || _hovering);
 		return newValue;
 	}
 
@@ -1091,6 +1469,26 @@ class MenuButton extends FlxSpriteGroup
 		if(!enabled) alpha = 0.4;
 		if(focusChangeCallback != null) focusChangeCallback(focusVal);
 	}
+
+	function pressScale()
+	{
+		FlxTween.cancelTweensOf(scale);
+		FlxTween.tween(scale, {x: 0.97, y: 0.97}, 0.06, {ease: FlxEase.quadOut});
+	}
+
+	function releaseScale()
+	{
+		FlxTween.cancelTweensOf(scale);
+		FlxTween.tween(scale, {x: 1, y: 1}, 0.12, {ease: FlxEase.backOut});
+	}
+
+	function cancelPress()
+	{
+		if(!pressing) return;
+		pressing = false;
+		releaseScale();
+	}
+
 
 	public function centerOnBg(spr:FlxSprite)
 	{

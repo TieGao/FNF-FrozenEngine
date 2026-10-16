@@ -1,26 +1,15 @@
 {
 	"animations": [
 		{
-			"loop": false,
-			"offsets": [
-				3,
-				0
-			],
+			"anim": "danceLeft",
 			"fps": 24,
-			"anim": "cheer",
-			"indices": [],
-			"name": "GF Cheer"
-		},
-		{
 			"loop": false,
 			"offsets": [
 				0,
-				-9
+				0
 			],
-			"fps": 24,
-			"anim": "danceLeft",
+			"name": "GF ALL ANIMS",
 			"indices": [
-				30,
 				0,
 				1,
 				2,
@@ -36,17 +25,17 @@
 				12,
 				13,
 				14
-			],
-			"name": "GF Dancing Beat"
+			]
 		},
 		{
+			"anim": "danceRight",
+			"fps": 24,
 			"loop": false,
 			"offsets": [
 				0,
-				-9
+				0
 			],
-			"fps": 24,
-			"anim": "danceRight",
+			"name": "GF ALL ANIMS",
 			"indices": [
 				15,
 				16,
@@ -63,38 +52,109 @@
 				27,
 				28,
 				29
-			],
-			"name": "GF Dancing Beat"
+			]
 		},
 		{
-			"loop": true,
-			"offsets": [
-				-2,
-				-17
-			],
+			"anim": "combo50",
 			"fps": 24,
+			"loop": false,
+			"offsets": [
+				0,
+				0
+			],
+			"name": "GF ALL ANIMS",
+			"indices": [
+				30,
+				31,
+				32,
+				33,
+				34,
+				35,
+				36,
+				37,
+				38,
+				39,
+				40,
+				41,
+				42,
+				43,
+				44,
+				45,
+				46,
+				47,
+				48,
+				49,
+				50
+			]
+		},
+		{
+			"anim": "drop70",
+			"fps": 24,
+			"loop": false,
+			"offsets": [
+				0,
+				0
+			],
+			"name": "GF ALL ANIMS",
+			"indices": [
+				51,
+				52,
+				53,
+				54,
+				55,
+				56,
+				57,
+				58,
+				59,
+				60,
+				61,
+				62
+			]
+		},
+		{
 			"anim": "scared",
-			"indices": [],
-			"name": "GF FEAR"
+			"fps": 24,
+			"loop": false,
+			"offsets": [
+				0,
+				0
+			],
+			"name": "GF ALL ANIMS",
+			"indices": [
+				63,
+				64,
+				65,
+				66,
+				63,
+				64,
+				65,
+				66,
+				63,
+				64,
+				65,
+				66
+			]
 		}
 	],
+	"vocals_file": "",
 	"no_antialiasing": false,
-	"image": "characters/gf_dark",
+	"image": "characters/gf-dark",
 	"position": [
-		0,
-		0
+		149,
+		307
 	],
-	"healthicon": "gf",
+	"healthicon": "gf-dark",
 	"flip_x": false,
 	"healthbar_colors": [
-		165,
-		0,
-		77
+		161,
+		161,
+		161
 	],
 	"camera_position": [
-		0,
-		0
+		12,
+		8
 	],
 	"sing_duration": 4,
-	"scale": 1
+	"scale": 1,
+	"_editor_isPlayer": false
 }

@@ -22,6 +22,15 @@ typedef WeekFile =
 	var ?section:Null<Int>;
 	/** 内容包周定义的资源根（content/VanillaSongs/<包>）；普通周为 null，由扫描位置推导。 */
 	var ?contentRoot:String;
+	/**
+	 * 变体标识（Pico / Erect…）。非空表示本包是某个「变体包」：
+	 * 难度表仍是标准档位（Easy,Normal,Hard），变体只体现在谱面文件名
+	 * （<歌>-<变体>-<档位>.json）与音轨目录（songs/<歌>-<变体>/）上。
+	 * 留空 = 沿用旧规则，变体由难度名本身表达（Erect / Nightmare）。
+	 */
+	var ?variant:String;
+	/** 变体在 Freeplay / 列表里的展示标签（如 'Pico Mix'）；留空则不加后缀。 */
+	var ?variantLabel:String;
 }
 
 class WeekData {
@@ -45,6 +54,10 @@ class WeekData {
 	public var section:Int = 0;
 	/** 内容包资源根（content/VanillaSongs/<包>）；普通周为 null。 */
 	public var contentRoot:String = null;
+	/** 变体标识（Pico / Erect…）；空 = 无变体，变体由难度名表达。 */
+	public var variant:String = null;
+	/** 变体展示标签（'Pico Mix'）；空 = 列表里不加后缀。 */
+	public var variantLabel:String = null;
 
 	public var fileName:String;
 
@@ -91,6 +104,7 @@ class WeekData {
 	{
 		weeksList = [];
 		weeksLoaded.clear();
+		variantByRoot = null;
 		#if MODS_ALLOWED
 		var directories:Array<String> = [Paths.mods(), Paths.getSharedPath()];
 		var originalLength:Int = directories.length;
@@ -206,14 +220,41 @@ class WeekData {
 	/**
 	 * 按周设置内容包资源根；普通周（contentRoot 为空）即清空回退。
 	 * 加载歌曲前调用 —— 内容包的谱面 / 音轨 / 舞台 / 角色 / events 都靠
-	 * Paths.currentContentRoot 的加性回退命中。
+	 * Paths.currentContentRoot 的加性回退命中；变体标识也在这里一并同步，
+	 * 否则 PicoMix 的谱面文件名 / 变体音轨目录都拼不出来。
 	 */
 	public static function applyContentRoot(?data:WeekData = null)
 	{
 		if (data == null) data = getCurrentWeek();
 		var root:String = (data != null) ? data.contentRoot : null;
-		Paths.setChartContext(null, null, false, null, root);
+		Paths.setChartContext(null, null, false, null, root, null, null, (data != null) ? data.variant : null);
 	}
+
+	/**
+	 * 按内容包资源根反查变体标识。同一个包的多个周（week1p…week7p）共用一个变体，
+	 * 只要拿到 contentRoot 的调用方（回放加载 / 音频路径推导）就能推出变体。
+	 * 结果按根缓存，reloadWeekFiles 时清空。
+	 */
+	public static function getVariantForContentRoot(root:String):String
+	{
+		if (root == null || root.length == 0) return null;
+		if (variantByRoot == null) variantByRoot = new Map<String, String>();
+		if (variantByRoot.exists(root)) return variantByRoot.get(root);
+
+		var found:String = null;
+		for (week in weeksLoaded)
+		{
+			if (week != null && week.contentRoot == root && week.variant != null && week.variant.length > 0)
+			{
+				found = week.variant;
+				break;
+			}
+		}
+		variantByRoot.set(root, found);
+		return found;
+	}
+
+	static var variantByRoot:Map<String, String> = null;
 
 	private static function addWeek(weekToCheck:String, path:String, directory:String, i:Int, originalLength:Int)
 	{

@@ -2324,6 +2324,9 @@
 		"format": "psych_v1_convert",
 		"artist": "six impala (feat. Saster)",
 		"charter": "fabs + Spazkid",
-		"generatedBy": "psych-vanilla-to-104 convert_vslice_chart.py"
+		"generatedBy": "psych-vanilla-to-104 convert_vslice_chart.py",
+		"album": "volume4",
+		"gameOverChar": "pico-dark",
+		"gameOverSound": "fnf_loss_sfx-pico"
 	}
 }

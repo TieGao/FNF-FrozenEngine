@@ -57,6 +57,8 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 	var unsavedProgress:Bool = false;
 	
 	var selectionSprites:FlxSpriteGroup = new FlxSpriteGroup();
+	var _oldContentRoot:String = null;
+
 	override function create()
 	{
 		Paths.clearStoredMemory();
@@ -75,6 +77,23 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 		FlxG.camera.follow(null, LOCKON, 0);
 
 		loadJsonAssetDirectory();
+
+		// content 包角色预览：浏览态无 currentContentRoot，按 _editorMeta 角色探测所在包临时进入（destroy 恢复）
+		_oldContentRoot = Paths.currentContentRoot;
+		if (_oldContentRoot == null && stageJson._editorMeta != null)
+		{
+			for (meta in ['gf', 'dad', 'boyfriend'])
+			{
+				var metaChar:String = Reflect.field(stageJson._editorMeta, meta);
+				var charRoot:String = Paths.findContentRootForFile('characters/' + metaChar + '.json');
+				if (charRoot != null)
+				{
+					Paths.setContentRoot(charRoot);
+					break;
+				}
+			}
+		}
+
 		gf = new Character(0, 0, stageJson._editorMeta != null ? stageJson._editorMeta.gf : 'gf');
 		gf.visible = !(stageJson.hide_girlfriend);
 		gf.scrollFactor.set(0.95, 0.95);
@@ -988,7 +1007,7 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 		var tab_group = UI_box.getTab('Meta').menu;
 
 		var characterList = Mods.mergeAllTextsNamed('data/characterList.txt');
-		var foldersToCheck:Array<String> = Mods.directoriesWithFile(Paths.getSharedPath(), 'characters/');
+		var foldersToCheck:Array<String> = Mods.directoriesWithContentShared('characters/');
 		for (folder in foldersToCheck)
 			for (file in FileSystem.readDirectory(folder))
 				if(file.toLowerCase().endsWith('.json'))
@@ -1279,7 +1298,7 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 	function reloadStageDropDown()
 	{
 		var stageList:Array<String> = [];
-		var foldersToCheck:Array<String> = Mods.directoriesWithFile(Paths.getSharedPath(), 'stages/');
+		var foldersToCheck:Array<String> = Mods.directoriesWithContentShared('stages/');
 		for (folder in foldersToCheck)
 			for (file in FileSystem.readDirectory(folder))
 				if(file.toLowerCase().endsWith('.json'))
@@ -1822,6 +1841,7 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 
 	override function destroy()
 	{
+		Paths.setContentRoot(_oldContentRoot);
 		destroySubStates = true;
 		animationEditor.destroy();
 		super.destroy();

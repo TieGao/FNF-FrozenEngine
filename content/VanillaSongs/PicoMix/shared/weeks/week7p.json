@@ -45,5 +45,7 @@
 	"hideStoryMode": false,
 	"weekBefore": "tutorial",
 	"startUnlocked": true,
-	"difficulties": "Pico Easy,Pico Normal,Pico Hard"
+	"difficulties": "Easy,Normal,Hard",
+	"variant": "Pico",
+	"variantLabel": "Pico Mix"
 }

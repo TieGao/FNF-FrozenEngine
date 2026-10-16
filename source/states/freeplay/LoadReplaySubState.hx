@@ -8,6 +8,7 @@ import backend.Song;
 import backend.Paths;
 import backend.CustomChartData;
 import backend.StageData;
+import backend.WeekData;
 
 
 import flixel.group.FlxGroup.FlxTypedGroup;
@@ -859,11 +860,23 @@ class LoadReplaySubState extends MusicBeatSubstate
         var difficultyID:Int = 1;
         if (rep.replay.difficultyName != null)
         {
-            var diffLower = rep.replay.difficultyName.toLowerCase();
-            if (diffLower.indexOf('easy') >= 0) difficultyID = 0;
-            else if (diffLower.indexOf('normal') >= 0) difficultyID = 1;
-            else if (diffLower.indexOf('hard') >= 0) difficultyID = 2;
-            else difficultyID = rep.replay.songDiff;
+            // 先按名字在当前难度表里精确匹配：变体难度名（'Pico Normal'）只有这样才能拿到
+            // 正确下标，PlayState 侧 getAudioVariant() 才认得出音轨变体目录。
+            // 关键词分支会丢掉变体前缀（'Pico Normal' 里含 'normal' → 落到 1 = 普通 Normal），
+            // 变体回放就会静默放原曲音轨，所以只作为匹配不到时的兜底。
+            var listedIndex:Int = Difficulty.list.indexOf(rep.replay.difficultyName);
+            if (listedIndex >= 0)
+            {
+                difficultyID = listedIndex;
+            }
+            else
+            {
+                var diffLower = rep.replay.difficultyName.toLowerCase();
+                if (diffLower.indexOf('easy') >= 0) difficultyID = 0;
+                else if (diffLower.indexOf('normal') >= 0) difficultyID = 1;
+                else if (diffLower.indexOf('hard') >= 0) difficultyID = 2;
+                else difficultyID = rep.replay.songDiff;
+            }
         }
         else difficultyID = rep.replay.songDiff;
         
@@ -872,16 +885,18 @@ class LoadReplaySubState extends MusicBeatSubstate
         
         var songName:String = rep.replay.songName;
         var difficultyName:String = rep.replay.difficultyName;
+
+        // 内容包回放：变体只记录在回放存的资源根里（档位名已经是标准 Easy/Normal/Hard），
+        // 先按根反查出来，档位后缀才拼得成 -pico-normal 而不是 -normal。
+        var replayContentRoot:String = (rep.replay.chartContentRoot != null && rep.replay.chartContentRoot.length > 0)
+            ? rep.replay.chartContentRoot : null;
+        var replayVariant:String = (replayContentRoot != null) ? WeekData.getVariantForContentRoot(replayContentRoot) : null;
         
         try
         {
-            var diffSuffix = '';
-            if (difficultyName != null)
-            {
-                var lowerDiff = difficultyName.toLowerCase();
-                if (lowerDiff != 'normal')
-                    diffSuffix = '-' + lowerDiff;
-            }
+            // 后缀一律交给 Difficulty 拼：它会按变体决定要不要带前缀，
+            // 也保证与存档键、SongInfoParser 拼出来的文件名一致。
+            var diffSuffix:String = Difficulty.getFilePathForName(difficultyName, replayVariant);
             var jsonToLoad = songName + diffSuffix;
             trace('Loading JSON: $jsonToLoad');
             if (rep.replay.chartCategory != null && rep.replay.chartCategory.length > 0)
@@ -923,7 +938,8 @@ class LoadReplaySubState extends MusicBeatSubstate
             {
                 // 普通歌回放：清掉上一次 content 浏览留下的谱面上下文，
                 // 否则 PlayState.create() 会把普通歌误判成 content 模式。
-                Paths.setChartContext(null, null);
+                // 内容包回放要把资源根（连同变体）带回去 —— 谱面与变体音轨都在包里。
+                Paths.setChartContext(null, null, false, null, replayContentRoot, null, null, replayVariant);
                 PlayState.SONG = Song.loadFromJson(jsonToLoad, songName);
             }
             

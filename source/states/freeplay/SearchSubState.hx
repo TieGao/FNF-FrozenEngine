@@ -203,6 +203,7 @@ class SearchSubState extends MusicBeatSubstate
 
         filteredSongs = allSongs.filter(function(s) {
             return s.songName.toLowerCase().indexOf(lower) != -1
+                || (s.displayName != null && s.displayName.toLowerCase().indexOf(lower) != -1)
                 || s.folder.toLowerCase().indexOf(lower) != -1;
         });
 
@@ -557,7 +558,7 @@ class SearchCard extends FreeplayListItem
         icon.y = (_cardHeight - icon.height) / 2;
         content.add(icon);
 
-        songNameText = new FlxText(0, 0, 0, song.songName, 20);
+        songNameText = new FlxText(0, 0, 0, song.displayName, 20);
         songNameText.antialiasing = ClientPrefs.data.antialiasing;
         songNameText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT);
         songNameText.x = 90;
@@ -590,7 +591,7 @@ class SearchCard extends FreeplayListItem
         setPressed(false);
 
         if (songNameText != null) {
-            songNameText.text = song.songName;
+            songNameText.text = song.displayName;
             songNameText.color = FlxColor.WHITE;
         }
         if (modFolderText != null) modFolderText.text = "Mod: " + song.folder;

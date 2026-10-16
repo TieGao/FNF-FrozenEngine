@@ -3406,7 +3406,34 @@ public function reloadCounterColors()
 			if (!loadRep && !inReplay)
 			{
 				var mode:String = opponentMode == 'player' ? null : opponentMode;
-					Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent, Mods.currentModDirectory, mode);
+
+				// saveScore 前抓旧档最佳 accuracy（跨难度，与 FreeplayCard 口径一致），供升档判定
+				var oldBest:Float = 0;
+				if (!isStoryMode && !practiceMode && !cpuControlled)
+				{
+					var songKey:String = Song.loadedSongName.toLowerCase().replace(" ", "-");
+					for (d in 0...Difficulty.list.length)
+					{
+						var r:Float = Highscore.getRating(songKey, d, Mods.currentModDirectory, mode);
+						if (r > oldBest) oldBest = r;
+					}
+				}
+
+				Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent, Mods.currentModDirectory, mode, ratingFC);
+
+				// accuracy 更高但 score 没破纪录时 saveScore 不会写 rating，这里补齐，
+				// 否则应用动画播完徽章会被存档旧值顶回去
+				if (percent > Highscore.getRating(Song.loadedSongName, storyDifficulty, Mods.currentModDirectory, mode))
+				{
+					Highscore.setRating(Highscore.formatSong(Song.loadedSongName, storyDifficulty, Mods.currentModDirectory, mode), percent);
+					// FC 跟着这次刷新 accuracy 纪录的游玩一起落盘（空串由 setRatingFC 自行拦截）
+					Highscore.setRatingFC(Highscore.formatSong(Song.loadedSongName, storyDifficulty, Mods.currentModDirectory, mode), ratingFC);
+				}
+
+				// 升档才回 Freeplay 播评级应用动画（checkPendingRankAnim 内部判断 newRank > oldRank）
+				// oldFreeplay 回的是旧界面，挂起会残留到下次进新 Freeplay 时误触发，直接跳过
+				if (!isStoryMode && !practiceMode && !cpuControlled && !ClientPrefs.data.oldFreeplay)
+					FreeplayState.checkPendingRankAnim(Song.loadedSongName, oldBest * 100, percent * 100, Mods.currentModDirectory, mode);
 			}
 			#end
 			

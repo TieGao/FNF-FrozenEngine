@@ -32,6 +32,7 @@ import haxe.Json;
 import flixel.addons.display.FlxBackdrop;
 
 import openfl.filters.BlurFilter;
+import openfl.display.BlendMode;
 import backend.FlxFilteredSprite;
 import openfl.filters.BitmapFilterQuality;
 
@@ -57,6 +58,21 @@ class FreeplayState extends MusicBeatState
     public static var sourceFilter:String = 'all';
     /** 二级细分：vanilla → 内容包资源根（SOURCE_VANILLA_BASE = 仅基础周）；mods → 模组目录名；null = 该来源全部。 */
     public static var sourceSubFilter:String = null;
+
+    // ===================== 评级应用动画（官方 rankAnim 移植） =====================
+    /** PlayState.endSong 升档时写入，FreeplayState.create 消费后清空 */
+    public static var pendingRankAnim:{ song:String, folder:String, mode:String, newRank:FreeplayRank, oldRank:FreeplayRank } = null;
+
+    /** 仅当徽章升档（newRank > oldRank 且非 NONE）时挂起动画；其余情况清掉残留 */
+    public static function checkPendingRankAnim(song:String, oldBestPct:Float, newPct:Float, folder:String, mode:String):Void
+    {
+        var oldRank:FreeplayRank = FreeplayRank.fromAccuracy(oldBestPct);
+        var newRank:FreeplayRank = FreeplayRank.fromAccuracy(newPct);
+        if (newRank > oldRank && newRank != FreeplayRank.NONE)
+            pendingRankAnim = { song: song, folder: folder == null ? '' : folder, mode: mode, newRank: newRank, oldRank: oldRank };
+        else
+            pendingRankAnim = null;
+    }
 
     var selector:FlxText;
 	public static var curSelected:Int = 0;
@@ -101,6 +117,8 @@ class FreeplayState extends MusicBeatState
     var lerpRating:Float = 0;
     var intendedScore:Int = 0;
     var intendedRating:Float = 0;
+    // Personal Best 行的 FC 档位（SFC/GFC/FC/SDCB/Clear），随 changeDiff 与子状态关闭刷新
+    var intendedFC:String = "";
 
     var missingTextBG:FlxSprite;
 	var missingText:FlxText;
@@ -117,8 +135,24 @@ class FreeplayState extends MusicBeatState
     public static var opponentVocals:FlxSound = null;
     var holdTime:Float = 0;
     var stopMusicPlay:Bool = false;
+
+    // ---- 评级应用动画运行时状态 ----
+    var rankAnimActive:Bool = false;
+    var rankAnimCard:FreeplayCard = null;
+    var rankOverlay:FlxSprite;
+    var rankSparks:FlxSprite;
+    var rankSparksAdd:FlxSprite;
+    var rankVignette:FlxSprite;
+    /** 动画锁卡前记录的成员原位置，slam 回原位用 */
+    var rankAnimOrigPos:Array<{ spr:FlxSprite, x:Float, y:Float }> = [];
     
     var mouseOverCard:Int = -1;
+    // 卡片点击：按下只记录候选卡与按下位置，松手时位移小于阈值才算点击（拖拽不误触）。
+    // 松手处理放在 update 主体而不是 updateMouseInteraction —— 按下后不动鼠标直接松开时
+    // 不会再进那个函数（它有鼠标位移/按下/滚轮的触发门槛），点击会被吞掉。
+    var cardPressedIndex:Int = -1;
+    var cardPressY:Float = 0;
+    inline static var CARD_CLICK_SLOP:Float = 12;
     var visibleCardMin:Int = 0;
     var visibleCardMax:Int = -1;
     // 卡片绘制的锚点：懒加载的卡片插入到它之前，保证始终画在背景/信息栏的底层。
@@ -620,6 +654,9 @@ class FreeplayState extends MusicBeatState
         {
             Mods.currentModDirectory = songs[curSelected].folder;
             PlayState.storyWeek = songs[curSelected].week;
+            // 内容根 + 变体要在第一批 Highscore / Difficulty 查询之前写好，
+            // 否则 PicoMix 的档位键会拼成 base 的（-easy 而不是 -pico-easy）。
+            Paths.setContentRoot(songs[curSelected].contentRoot, songs[curSelected].variant);
             Difficulty.loadFromWeek();
         }
         
@@ -633,9 +670,11 @@ class FreeplayState extends MusicBeatState
         updateCardsPosition();
         updateCardsRating();
         updateSongInfoTexts();
-        
+
         FlxG.mouse.visible = true;
-        
+
+        startRankAnimIfPending();
+
         super.create();
     }
 
@@ -647,6 +686,7 @@ class FreeplayState extends MusicBeatState
         // 恢复更新前先丢掉过期的输入状态，否则第一帧会被误判成拖拽而取消跳转
         if (cardScroller != null)
             cardScroller.resetInputState();
+        cardPressedIndex = -1; // 卡片点击候选同理，防止子状态残留的按下被当成松手点击
         super.closeSubState();
 
         refreshCurrentSelectionAfterSubState();
@@ -662,6 +702,7 @@ class FreeplayState extends MusicBeatState
 
         updateSongInfoTexts();
         updateCardDifficultyInfo();
+        refreshIntendedFC(); // 重置成绩后 FC 也可能被清掉，重读一次（要在 updateTexts 之前）
         updateTexts();
         rebuildDifficultyCarousel();
 
@@ -684,7 +725,6 @@ class FreeplayState extends MusicBeatState
     public function addSong(songName:String, weekNum:Int, songCharacter:String, color:Int)
     {
         var song = new NewSongMetaData(songName, weekNum, songCharacter, color);
-        var cacheKey:String = getFreeplaySongCacheKey(songName, song.folder);
         
         var weekData = WeekData.weeksLoaded.get(WeekData.weeksList[weekNum]);
         var difficulties:Array<String> = [];
@@ -716,6 +756,8 @@ class FreeplayState extends MusicBeatState
                 song.songMusican = WeekData.getSongMusican(songEntry);
                 song.songCharters = WeekData.getSongCharters(songEntry);
                 song.contentRoot = weekData.contentRoot;
+                song.variant = weekData.variant;
+                song.variantLabel = weekData.variantLabel;
                 #if sys
                 applyMetadataCredits(song, weekData);
                 #end
@@ -726,6 +768,11 @@ class FreeplayState extends MusicBeatState
             trace('WARNING: Week data not found for week index $weekNum');
             difficulties = Difficulty.defaultList.copy();
         }
+
+        applyVariantLabel(song);
+        // 变体必须在算缓存键之前定下来：同名歌（Bopeebo）分布在 base / Erect / PicoMix，
+        // 变体包改成标准档位后光靠 "folder|歌名" 会互相覆盖。
+        var cacheKey:String = getFreeplaySongCacheKey(songName, song.folder, song.variant);
 
         var cachedEntry:Dynamic = freeplaySongCache.get(cacheKey);
         if (cachedEntry != null)
@@ -841,9 +888,27 @@ class FreeplayState extends MusicBeatState
     }
     #end
 
-    private function getFreeplaySongCacheKey(songName:String, folder:String):String
+    /**
+     * 变体标签（week.json 的 variantLabel，如 'Pico Mix'）只改展示名。
+     * songName 保持原样 —— 谱面 / 音轨 / 存档 / 回放全是按它拼的。
+     */
+    private function applyVariantLabel(song:NewSongMetaData):Void
     {
-        return (folder == null ? '' : folder) + '|' + songName;
+        if (song == null) return;
+        var label:String = song.variantLabel;
+        song.displayName = (label != null && label.length > 0)
+            ? '${song.songName} ($label)'
+            : song.songName;
+    }
+
+    private function getFreeplaySongCacheKey(songName:String, folder:String, ?variant:String):String
+    {
+        // 变体包的歌名与原曲重名（Bopeebo 同时存在于 base / Erect / PicoMix），
+        // 档位名又已经统一成 Easy/Normal/Hard —— 不带变体前缀的话，两条缓存条目
+        // 会共用同一个键、同名字段互相覆盖，显示出来的 BPM / 评级会串。
+        // 无变体时不加前缀，base / mod 的旧键保持不变，不触发全量重算。
+        var prefix:String = (variant != null && variant.length > 0) ? variant + '|' : '';
+        return prefix + (folder == null ? '' : folder) + '|' + songName;
     }
 
     private function isSongCacheEntryValid(entry:Dynamic, difficulties:Array<String>):Bool
@@ -906,6 +971,15 @@ class FreeplayState extends MusicBeatState
         // 这同时是缓存格式的门：加 album 之前写的缓存条目没有这个键，会被判无效、
         // 整条重新解析一次。少了它，旧缓存永远命中，专辑封面一直拿不到 id。
         if (!Reflect.hasField(info, 'album'))
+            return false;
+
+        // 谱面解析失败时 SongInfoParser 会兜一份 getDefaultInfo()（bpm 0 / 时长 0），
+        // 它的字段是齐的、能通过上面所有检查 —— 一旦被当成"有效"写进缓存就再也重算不了，
+        // 之后就算修好解析逻辑，Freeplay 上也永远显示 BPM/LENGTH/KEYS: --、评级 0。
+        // 变体难度（'Pico Easy' 那轮拼不出 -pico-easy 时的表现）就是这么把空值焊死进缓存的，
+        // 所以这里把 bpm <= 0 也判为"没解析成功"：每轮重新入队重算，缓存能自愈。
+        var cachedBpm:Float = Reflect.field(info, 'bpm');
+        if (cachedBpm <= 0)
             return false;
 
         return true;
@@ -1119,7 +1193,7 @@ class FreeplayState extends MusicBeatState
 
         var oldModDir:String = Mods.currentModDirectory;
         Mods.currentModDirectory = songs[index].folder;
-        card = new FreeplayCard(0, 0, songs[index].songName, songs[index].songCharacter, songs[index].color, songs[index].week);
+        card = new FreeplayCard(0, 0, songs[index].songName, songs[index].songCharacter, songs[index].color, songs[index].week, songs[index].displayName);
         Mods.currentModDirectory = oldModDir;
         card.targetY = index;
         cards[index] = card;
@@ -1161,6 +1235,240 @@ class FreeplayState extends MusicBeatState
         }
     }
 
+    // ===================== 评级应用动画编排 =====================
+    // 对照官方 rankAnimStart → rankDisplayNew → rankAnimSlam：
+    // 黑幕渐入 + 相机推近 → 徽章从巨幅缩入爆点 + 火花 + rank-in 音效 → 相机脉冲/卡片歪头
+    // → 黑幕退出 + per-rank 音效 + 卡片甩回原位 + 震屏 + zoom 弹回 + vignette 闪色。
+
+    function startRankAnimIfPending():Void
+    {
+        var pending = pendingRankAnim;
+        pendingRankAnim = null; // 消费即清，防止残留到下次进 Freeplay
+        if (pending == null || songs.length == 0) return;
+
+        // 按歌名 + 模组目录找目标歌（搜索过滤 / 列表变化时可能找不到，直接放弃）
+        // pending.song 是 Song.loadedSongName = formatToSongPath 后的形态，两端必须归一化再比
+        var targetIndex:Int = -1;
+        for (i in 0...songs.length)
+        {
+            var f:String = songs[i].folder == null ? '' : songs[i].folder;
+            if (Paths.formatToSongPath(songs[i].songName) == pending.song && f == pending.folder)
+            {
+                targetIndex = i;
+                break;
+            }
+        }
+        if (targetIndex < 0) return;
+
+        var card:FreeplayCard = ensureCard(targetIndex);
+        if (card == null || !card.hasBadgeAtlas) return;
+
+        rankAnimActive = true;
+        rankAnimCard = card;
+
+        // 静默选中目标歌（contentRoot / 难度 / 背景 / 立绘同步照常走 changeSelection）
+        changeSelection(targetIndex - curSelected, false);
+        cardScrollPos = targetIndex * CARD_SPACING;
+        lerpSelected = targetIndex;
+        updateCardsPosition();
+
+        // ---- 锁卡 + 记录原布局 ----
+        card.animLock = true;
+        rankAnimOrigPos = [];
+        for (spr in cardAnimSprites(card))
+        {
+            FlxTween.cancelTweensOf(spr);
+            rankAnimOrigPos.push({spr: spr, x: spr.x, y: spr.y});
+        }
+
+        // ---- 黑幕（最顶层），目标卡提到黑幕之上 ----
+        // 2 倍屏：slam 阶段相机 zoom 会降到 0.8（视野超出屏幕），单屏尺寸会露边
+        rankOverlay = new FlxSprite().makeGraphic(FlxG.width * 2, FlxG.height * 2, FlxColor.BLACK);
+        rankOverlay.setPosition(-FlxG.width * 0.5, -FlxG.height * 0.5);
+        rankOverlay.scrollFactor.set();
+        rankOverlay.alpha = 0;
+        add(rankOverlay);
+        remove(card);
+        add(card); // 目标卡移到成员表末尾 = 画在黑幕之上
+
+        if (FlxG.sound.music != null)
+            FlxTween.tween(FlxG.sound.music, {volume: 0}, 0.4);
+
+        FlxG.camera.zoom = 1;
+        FlxTween.tween(FlxG.camera, {zoom: 1.85}, 0.5, {ease: FlxEase.sineIn});
+        FlxTween.tween(rankOverlay, {alpha: 0.9}, 0.5);
+
+        // 目标卡居中（官方是直接 setPosition，靠黑幕渐入 + zoom 推近掩盖瞬移）
+        var dx:Float = (FlxG.width * 0.5 - 225) - card.bgSprite.x;
+        var dy:Float = (FlxG.height * 0.5 - 37) - card.bgSprite.y;
+        card.shiftCard(dx, dy);
+
+        // 徽章先定格旧 rank（官方用 fakeRanking 承担，这里复用同一张）
+        if (pending.oldRank != FreeplayRank.NONE)
+        {
+            card.ratingSprite.visible = true;
+            card.ratingSprite.color = 0xFFFFFFFF;
+            card.ratingSprite.alpha = 1;
+            card.ratingSprite.animation.play(pending.oldRank.animName, true, false, 0);
+            card.ratingSprite.animation.finishCallback = null; // 旧徽章定格在最后一帧
+            card.ratingSprite.animation.curAnim.finish();
+        }
+        else
+        {
+            card.ratingSprite.visible = false;
+        }
+
+        // ---- 0.5s：徽章爆点 ----
+        new FlxTimer().start(0.5, function(_)
+        {
+            card.ratingSprite.visible = true;
+            card.ratingSprite.color = 0xFFFFFFFF;
+            card.ratingSprite.alpha = 1;
+            card.ratingSprite.animation.play(pending.newRank.animName, true, false, 0);
+            card.ratingSprite.animation.finishCallback = function(name:String)
+            {
+                // 官方徽章是非循环闪烁，播完停帧即可
+            };
+            card.ratingSprite.scale.set(20, 20);
+            FlxTween.tween(card.ratingSprite.scale, {x: FreeplayCard.BADGE_SCALE, y: FreeplayCard.BADGE_SCALE}, 0.1, {ease: FlxEase.quadOut,
+                onComplete: function(_) card.ratingSprite.updateHitbox()});
+
+            // 火花（tint 旧 rank 色；旧档为空时用新 rank 色）
+            var sparkColor:FlxColor = (pending.oldRank != FreeplayRank.NONE) ? pending.oldRank.freeplayColor : pending.newRank.freeplayColor;
+            spawnRankSparks(card.ratingSprite.getMidpoint(), sparkColor);
+
+            FlxG.sound.play(Paths.sound(pending.newRank.rankInSound), 0.7);
+
+            FlxG.camera.zoom = 1.3;
+            FlxTween.tween(FlxG.camera, {zoom: 1.5}, 0.3, {ease: FlxEase.backInOut});
+
+            card.setCardAngle(-3);
+            for (spr in cardAnimSprites(card))
+                FlxTween.tween(spr, {angle: 0}, 0.5, {ease: FlxEase.backOut});
+            FlxG.camera.shake(0.005, 0.15);
+        });
+
+        // ---- 1.1s：slam 归位 ----
+        new FlxTimer().start(1.1, function(_)
+        {
+            FlxG.sound.play(Paths.sound(pending.newRank.slamSound), 0.7);
+
+            if (rankOverlay != null)
+            {
+                FlxTween.tween(rankOverlay, {alpha: 0}, 0.3, {ease: FlxEase.expoIn,
+                    onComplete: function(_)
+                    {
+                        remove(rankOverlay);
+                        rankOverlay.destroy();
+                        rankOverlay = null;
+                    }});
+            }
+
+            // 卡片甩回原位
+            for (rec in rankAnimOrigPos)
+            {
+                FlxTween.cancelTweensOf(rec.spr);
+                FlxTween.tween(rec.spr, {x: rec.x, y: rec.y, angle: 0}, 0.5, {ease: FlxEase.expoOut});
+            }
+
+            FlxG.camera.shake(0.004, 0.2);
+            FlxG.camera.zoom = 0.8;
+            FlxTween.tween(FlxG.camera, {zoom: 1}, 0.8, {ease: FlxEase.elasticOut,
+                onComplete: function(_) FlxG.camera.zoom = 1});
+
+            // vignette 闪色（新 rank 色）
+            rankVignette = new FlxSprite();
+            rankVignette.loadGraphic(Paths.image('freeplay/rankVignette'));
+            rankVignette.scrollFactor.set();
+            rankVignette.color = pending.newRank.freeplayColor;
+            rankVignette.alpha = 1;
+            add(rankVignette);
+            FlxTween.tween(rankVignette, {alpha: 0}, 0.6, {ease: FlxEase.expoOut,
+                onComplete: function(_)
+                {
+                    remove(rankVignette);
+                    rankVignette.destroy();
+                    rankVignette = null;
+                }});
+        });
+
+        // ---- 1.9s：收尾（等 zoom elastic 结束再还权给 update） ----
+        new FlxTimer().start(1.9, function(_)
+        {
+            finishRankAnim();
+        });
+    }
+
+    function cardAnimSprites(card:FreeplayCard):Array<FlxSprite>
+    {
+        return [card.bgSprite, card.textSprite, card.bpmText, card.lengthText, card.keysText, card.icon, card.rhombusBg, card.ratingSprite];
+    }
+
+    function spawnRankSparks(mid:FlxPoint, color:FlxColor):Void
+    {
+        rankSparks = new FlxSprite();
+        rankSparks.frames = Paths.getSparrowAtlas('freeplay/sparks');
+        rankSparks.animation.addByPrefix('sparks', 'sparks', 24, false);
+        rankSparks.blend = BlendMode.ADD;
+        rankSparks.scale.set(0.7, 0.7);
+        rankSparks.updateHitbox();
+        rankSparks.setPosition(mid.x - rankSparks.width / 2, mid.y - rankSparks.height / 2);
+        rankSparks.color = color;
+        add(rankSparks);
+
+        rankSparksAdd = new FlxSprite();
+        rankSparksAdd.frames = Paths.getSparrowAtlas('freeplay/sparksadd');
+        rankSparksAdd.animation.addByPrefix('sparks add', 'sparks add', 24, false);
+        rankSparksAdd.blend = BlendMode.ADD;
+        rankSparksAdd.scale.set(0.7, 0.7);
+        rankSparksAdd.updateHitbox();
+        rankSparksAdd.setPosition(mid.x - rankSparksAdd.width / 2, mid.y - rankSparksAdd.height / 2);
+        rankSparksAdd.color = color;
+        add(rankSparksAdd);
+
+        var done:Int = 0;
+        function hideWhenDone(spr:FlxSprite, anim:String):Void
+        {
+            spr.animation.play(anim, true, false, 0);
+            spr.animation.finishCallback = function(name:String)
+            {
+                spr.visible = false;
+                done++;
+                if (done >= 2) clearRankSparks();
+            };
+        }
+        hideWhenDone(rankSparks, 'sparks');
+        hideWhenDone(rankSparksAdd, 'sparks add');
+    }
+
+    function clearRankSparks():Void
+    {
+        if (rankSparks != null) { remove(rankSparks); rankSparks.destroy(); rankSparks = null; }
+        if (rankSparksAdd != null) { remove(rankSparksAdd); rankSparksAdd.destroy(); rankSparksAdd = null; }
+    }
+
+    function finishRankAnim():Void
+    {
+        var card:FreeplayCard = rankAnimCard;
+        rankAnimCard = null;
+        rankAnimActive = false;
+
+        if (card != null)
+        {
+            card.animLock = false;
+            card.setCardAngle(0);
+            card.ratingSprite.scale.set(FreeplayCard.BADGE_SCALE, FreeplayCard.BADGE_SCALE);
+            card.ratingSprite.updateHitbox();
+            // 恢复卡片层级（放回背景组之前）
+            remove(card);
+            if (cardLayer != null) insert(members.indexOf(cardLayer), card);
+            else add(card);
+        }
+        rankAnimOrigPos = [];
+        updateCardsPosition();
+        updateCardsRating();
+    }
+
     function updateTexts()
     {
         var ratingSplit:Array<String> = Std.string(CoolUtil.floorDecimal(lerpRating * 100, 2)).split('.');
@@ -1168,7 +1476,11 @@ class FreeplayState extends MusicBeatState
         
         while(ratingSplit[1].length < 2) ratingSplit[1] += '0';
             
-        scoreText.text = Language.getPhrase('personal_best', 'PERSONAL BEST: {1} ({2}%)', [lerpScore, ratingSplit.join('.')]);
+        var pbText:String = Language.getPhrase('personal_best', 'PERSONAL BEST: {1} ({2}%)', [lerpScore, ratingSplit.join('.')]);
+        // 功能上线后刷新过纪录的曲目才带 FC（SFC/GFC/FC/SDCB/Clear）；老存档读到空串、显示不变
+        if (intendedFC != null && intendedFC.length > 0)
+            pbText += ' [${intendedFC}]';
+        scoreText.text = pbText;
         positionHighscore();
     }
 
@@ -1179,6 +1491,15 @@ class FreeplayState extends MusicBeatState
         scoreBG.x = FlxG.width - (scoreBG.scale.x / 2);
         diffText.x = Std.int(scoreBG.x + (scoreBG.width / 2));
         diffText.x -= diffText.width / 2;
+    }
+
+    /** 重读 Personal Best 的 FC 档位（changeDiff / 子状态关闭后调用）。老存档曲目没有 FC，读到空串、显示保持原样。 */
+    function refreshIntendedFC():Void
+    {
+        if (curSelected >= 0 && curSelected < songs.length)
+            intendedFC = Highscore.getRatingFC(songs[curSelected].songName, curDifficulty, songs[curSelected].folder, ClientPrefs.getGameplaySetting('opponentplay'));
+        else
+            intendedFC = "";
     }
     
     function updateCornerGlow()
@@ -1391,9 +1712,9 @@ class FreeplayState extends MusicBeatState
             else
             {
                 // 试听普通歌同样要清空上下文，否则下一次进入 PlayState 会继承上一首自定义谱面；
-                // 内容包歌把资源根带上（谱面 / 音轨 / 舞台都走它的加性回退）
+                // 内容包歌把资源根 + 变体带上（谱面 / 音轨 / 舞台都走它的加性回退）
                 Paths.setChartContext(null, null, false, null, songs[curSelected].contentRoot,
-                    songs[curSelected].metaArtist, songs[curSelected].metaCharter);
+                    songs[curSelected].metaArtist, songs[curSelected].metaCharter, songs[curSelected].variant);
                 PlayState.clearChartContext();
                 PlayState.SONG = Song.loadFromJson(poop, songLowercase);
             }
@@ -1566,6 +1887,13 @@ class FreeplayState extends MusicBeatState
             if (starsFG.x < -starsFG.width) starsFG.x = 0;
         }
 
+        if (rankAnimActive)
+        {
+            // 评级应用动画期间：锁输入 / 锁卡片摆位 / 锁音乐回升，只跑彩P色相循环
+            if (rankAnimCard != null) rankAnimCard.updateRankHue(elapsed);
+            return;
+        }
+
         if (FlxG.sound.music.volume < 0.7 && !musicPlayer.playingMusic)
             FlxG.sound.music.volume += 0.5 * elapsed;
 
@@ -1586,6 +1914,10 @@ class FreeplayState extends MusicBeatState
         
         updateTimer += elapsed;
         updateCardsPosition();
+        // 彩P 色相循环由 State 每帧驱动（卡片自身无 update）
+        for (i in visibleCardMin...visibleCardMax + 1)
+            if (i >= 0 && i < cards.length && cards[i] != null)
+                cards[i].updateRankHue(elapsed);
         // 使用 updateInterval 控制刷新频率，避免每帧都更新文本和卡片位置
         if (updateTimer >= updateInterval)
         {
@@ -1664,6 +1996,32 @@ class FreeplayState extends MusicBeatState
         {
             if (FlxG.mouse.deltaViewX != 0 || FlxG.mouse.deltaViewY != 0 || FlxG.mouse.justPressed || FlxG.mouse.wheel != 0)
                 updateMouseInteraction();
+        }
+
+        // 卡片点击松手生效：按下时的卡片还在（位移小于阈值）才算点击，选中或直接开歌；
+        // 拖拽列表（位移超出阈值）松手后不触发，避免误触。
+        if (FlxG.mouse.justReleased)
+        {
+            if (!musicPlayer.playingMusic && cardPressedIndex != -1
+                && Math.abs(FlxG.mouse.y - cardPressY) < CARD_CLICK_SLOP)
+            {
+                if (cardPressedIndex != curSelected)
+                {
+                    curSelected = cardPressedIndex;
+                    changeSelection();
+                    for (i in visibleCardMin...visibleCardMax + 1)
+                        if (cards[i] != null) cards[i].setAlpha(0.9);
+                    FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+                }
+                else
+                {
+                    selectSong();
+                }
+
+                if (cardScroller != null)
+                    cardScroller.tweenData = curSelected * CARD_SPACING;
+            }
+            cardPressedIndex = -1;
         }
 
         // replay 按钮交互：悬停放大、按住缩回原大小 + 提亮。
@@ -1891,28 +2249,15 @@ class FreeplayState extends MusicBeatState
         
         if (FlxG.mouse.justPressed)
         {
+            // 按下只记录候选卡，不立刻选中 / 不立刻开歌 —— 统一在松手时判定
+            // （见 update 主体的松手处理），拖拽列表时不会误触选中已按下的卡片。
             if (newMouseOverCard != -1)
             {
-                if (newMouseOverCard != curSelected)
-                {
-                    curSelected = newMouseOverCard;
-                    changeSelection();
-                    for (i in visibleCardMin...visibleCardMax + 1)
-                        if (cards[i] != null) cards[i].setAlpha(0.9);
-                    FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
-                }
-                else
-                {
-                    selectSong();
-                }
-
-                if (cardScroller != null)
-                {
-                    cardScroller.tweenData = curSelected * CARD_SPACING;
-                }
+                cardPressedIndex = newMouseOverCard;
+                cardPressY = FlxG.mouse.y;
             }
         }
-        
+
         mouseOverCard = newMouseOverCard;
     }
     
@@ -1938,9 +2283,9 @@ class FreeplayState extends MusicBeatState
             }
             else
             {
-                // 普通歌 / 内容包歌：清空自定义谱面上下文；内容包把资源根带上
+                // 普通歌 / 内容包歌：清空自定义谱面上下文；内容包把资源根 + 变体带上
                 Paths.setChartContext(null, null, false, null, songs[curSelected].contentRoot,
-                    songs[curSelected].metaArtist, songs[curSelected].metaCharter);
+                    songs[curSelected].metaArtist, songs[curSelected].metaCharter, songs[curSelected].variant);
                 PlayState.clearChartContext();
                 Song.loadFromJson(poop, songLowercase);
             }
@@ -2101,6 +2446,7 @@ class FreeplayState extends MusicBeatState
         var highscoreMode:String = ClientPrefs.getGameplaySetting('opponentplay');
         intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty, songs[curSelected].folder, highscoreMode);
         intendedRating = Highscore.getRating(songs[curSelected].songName, curDifficulty, songs[curSelected].folder, highscoreMode);
+        refreshIntendedFC();
         #end
 
         lastDifficultyName = Difficulty.getString(curDifficulty, false);
@@ -2195,8 +2541,9 @@ class FreeplayState extends MusicBeatState
         
         if (!isContentMode())
         {
-            // 浏览普通歌 / 内容包歌时同步资源根，卡片与角色图才能取到包内资源
-            Paths.currentContentRoot = songs[curSelected].contentRoot;
+            // 浏览普通歌 / 内容包歌时同步资源根与变体，卡片与角色图才能取到包内资源，
+            // 档位键（Highscore / 谱面文件名）也才带得上变体后缀
+            Paths.setContentRoot(songs[curSelected].contentRoot, songs[curSelected].variant);
             PlayState.storyWeek = songs[curSelected].week;
             var weekData = WeekData.weeksLoaded.get(WeekData.weeksList[PlayState.storyWeek]);
             if (weekData != null)

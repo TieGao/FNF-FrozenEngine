@@ -1,9 +1,13 @@
 package flxanimate;
 
+import flixel.graphics.frames.FlxAtlasFrames;
+import flixel.graphics.FlxGraphic;
 import flixel.util.FlxDestroyUtil;
 import flixel.system.FlxAssets.FlxGraphicAsset;
 import flxanimate.frames.FlxAnimateFrames;
 import flxanimate.data.AnimationData;
+import flxanimate.animate.FlxSymbol;
+import flxanimate.animate.FlxTimeline;
 import flxanimate.FlxAnimate as OriginalFlxAnimate;
 
 class PsychFlxAnimate extends OriginalFlxAnimate
@@ -65,6 +69,85 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 		if(!isXml) frames = FlxAnimateFrames.fromSpriteMap(cast myData, img);
 		else frames = FlxAnimateFrames.fromSparrow(cast myData, img);
 		origin = anim.curInstance.symbol.transformationPoint;
+	}
+
+	/**
+	 * 把另一份分尸图并进当前 sprite：帧集合追加、符号字典按名字补进去。
+	 *
+	 * 原版的多图集角色（`MultiAnimateAtlasCharacter`）走 `FlxAnimateFrames.combineAtlas(textureList)`，
+	 * 效果一样，只是那边一次并好几份。角色 json 用逐动画的 `assetPath` 指定子图集。
+	 *
+	 * ⚠️ `FlxAtlasFrames.addAtlas` 内部是 `pushFrame(frame, overwriteHash=false)` ——
+	 * 帧名冲突时**保留旧帧**。原版所有分尸图的 sprite 名都是 "0"/"1"/"2"…，必然全撞，
+	 * 所以子图集在移植期就要把 sprite 名加前缀改掉（连同 `Animation.json` 里的 `ASI.N`）。
+	 */
+	public function addExtraAtlas(folderOrImg:String):Void
+	{
+		var spriteJson:String = null;
+		var imgKey:String = folderOrImg;
+		for (i in 0...10)
+		{
+			var st:String = '$i';
+			if(i == 0) st = '';
+			var sj:String = Paths.getTextFromFile('images/$folderOrImg/spritemap$st.json');
+			if (sj != null)
+			{
+				spriteJson = sj;
+				imgKey = '$folderOrImg/spritemap$st';
+				break;
+			}
+		}
+
+		var animText:String = Paths.getTextFromFile('images/$folderOrImg/Animation.json');
+		if (animText == null)
+		{
+			// Sparrow 额外图集（VS 的 multisparrow 混合角色，如 pico-playable 的 censor 动画）：
+			// images/<x>.xml + .png —— 帧并进 frames，并造一个"每帧 DU=1"的主符号注册进
+			// symbolDictionary，json 动画用 name=<路径末段> + 绝对 indices 即可照常 addBySymbolIndices
+			var xmlText:String = Paths.getTextFromFile('images/$folderOrImg.xml');
+			if (xmlText != null && frames != null)
+			{
+				var graphic:FlxGraphic = Paths.image(folderOrImg);
+				var spar:FlxAtlasFrames = (graphic == null) ? null : FlxAtlasFrames.fromSparrow(graphic, xmlText);
+				if (spar != null)
+				{
+					var mainFrames:FlxAtlasFrames = cast frames;
+					mainFrames.addAtlas(spar);
+					frames = mainFrames;
+
+					var sn:String = folderOrImg.split('/').pop();
+					var contentFrames:Array<Dynamic> = [];
+					for (i in 0...spar.frames.length)
+					{
+						var frameName:String = spar.frames[i].name;
+						contentFrames.push({I: i, DU: 1, E: [{ASI: {MX: [1, 0, 0, 1, 0, 0], N: frameName}}]});
+					}
+					var tl:FlxTimeline = FlxTimeline.fromJSONEx({L: [{LN: 'content', FR: contentFrames}]});
+					if (tl != null)
+						anim.symbolDictionary.set(sn, new FlxSymbol(sn, tl));
+				}
+				return;
+			}
+			FlxG.log.error('addExtraAtlas: 找不到 $folderOrImg/Animation.json');
+			return;
+		}
+
+		if (spriteJson != null && frames != null)
+		{
+			var mainFrames:FlxAtlasFrames = cast frames;
+			mainFrames.addAtlas(FlxAnimateFrames.fromSpriteMap(cast haxe.Json.parse(_removeBOM(spriteJson)), Paths.image(imgKey)));
+			frames = mainFrames;
+		}
+
+		var extra:AnimAtlas = cast haxe.Json.parse(_removeBOM(animText));
+
+		// 子图集的主时间轴也要注册 —— 逐动画的 `name` 写的就是它的主符号名
+		anim.symbolDictionary.set(extra.AN.SN, new FlxSymbol(haxe.io.Path.withoutDirectory(extra.AN.SN), FlxTimeline.fromJSONEx(extra.AN.TL)));
+		if (extra.SD != null)
+		{
+			for (symbol in extra.SD.S)
+				anim.symbolDictionary.set(symbol.SN, new FlxSymbol(haxe.io.Path.withoutDirectory(symbol.SN), FlxTimeline.fromJSONEx(symbol.TL)));
+		}
 	}
 
 	override function draw()

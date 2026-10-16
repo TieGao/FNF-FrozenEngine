@@ -804,6 +804,13 @@ class Paths
 	 * 找不到再落回 assets/ —— 加性回退、不排他，所以舞台类里混用的 base 资源仍能命中。
 	 */
 	public static var currentContentRoot:String = null;
+	/**
+	 * 当前内容包的变体标识（Pico / Erect…）；无变体为 null。
+	 * 变体包（如 PicoMix）的难度表是标准档位 Easy/Normal/Hard，变体只在这里表达：
+	 * 谱面文件名走 <歌>-<变体>-<档位>.json，音轨目录走 songs/<歌>-<变体>/。
+	 * 跟着 currentContentRoot 一起写 —— 只看资源根的调用方（回放）也能推出变体。
+	 */
+	public static var currentContentVariant:String = null;
 	public static var currentContentDependencyRoots:Array<String> = [];
 	/** 当前谱面 metadata 里的曲师 / 谱师（content 谱面加载时写入，暂停界面取数用）。 */
 	public static var currentChartMetaArtist:String = null;
@@ -838,20 +845,58 @@ class Paths
 	 * 这些字段必须一起改：分散赋值很容易漏项，把上一首的残留（尤其 hasVSlice / audioSuffix）带到下一首。
 	 */
 	public static function setChartContext(category:String, directory:String, hasVSlice:Bool = false, audioSuffix:String = null,
-		contentRoot:String = null, metaArtist:String = null, metaCharter:String = null):Void
+		contentRoot:String = null, metaArtist:String = null, metaCharter:String = null,
+		variant:String = null):Void
 	{
 		currentChartCategory = (category != null && category.length > 0) ? category : null;
 		currentChartDirectory = (directory != null && directory.length > 0) ? directory : null;
 		currentChartHasVSliceMetadata = hasVSlice;
 		currentChartAudioSuffix = audioSuffix;
-		currentContentRoot = (contentRoot != null && contentRoot.length > 0) ? contentRoot : null;
+		setContentRoot(contentRoot, variant);
+		currentChartMetaArtist = metaArtist;
+		currentChartMetaCharter = metaCharter;
+	}
+
+	/**
+	 * 写入内容包资源根，并同步它的变体标识。
+	 * variant 传空时按资源根反查周定义（同一包内变体唯一）—— 只拿到 contentRoot
+	 * 的调用方（回放加载、加载器）因此也能推出变体，不用到处传参。
+	 */
+	/**
+	 * Editor "browsing" mode has no currentContentRoot; find which content pack
+	 * (content/VanillaSongs/<pack>/shared) actually contains relPath, so editors can
+	 * temporarily switch into that pack context before loading a content-pack asset.
+	 */
+	public static function findContentRootForFile(relPath:String):String
+	{
+		#if sys
+		var vanillaRoot:String = 'content/VanillaSongs';
+		if (FileSystem.exists(vanillaRoot))
+		{
+			for (pack in FileSystem.readDirectory(vanillaRoot))
+			{
+				var candidate:String = vanillaRoot + '/' + pack + '/shared/' + relPath;
+				if (FileSystem.exists(candidate))
+					return vanillaRoot + '/' + pack;
+			}
+		}
+		#end
+		return null;
+	}
+
+	public static function setContentRoot(root:String, variant:String = null):Void
+	{
+		currentContentRoot = (root != null && root.length > 0) ? root : null;
 		#if sys
 		currentContentDependencyRoots = loadContentDependencies(currentContentRoot);
 		#else
 		currentContentDependencyRoots = [];
 		#end
-		currentChartMetaArtist = metaArtist;
-		currentChartMetaCharter = metaCharter;
+
+		var resolved:String = (variant != null && variant.length > 0) ? variant : null;
+		if (resolved == null && currentContentRoot != null)
+			resolved = WeekData.getVariantForContentRoot(currentContentRoot);
+		currentContentVariant = resolved;
 	}
 
 	/**
