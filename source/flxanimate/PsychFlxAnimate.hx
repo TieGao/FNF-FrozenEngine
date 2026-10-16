@@ -8,6 +8,11 @@ import flxanimate.frames.FlxAnimateFrames;
 import flxanimate.data.AnimationData;
 import flxanimate.animate.FlxSymbol;
 import flxanimate.animate.FlxTimeline;
+import flxanimate.animate.FlxKeyFrame;
+import flxanimate.animate.FlxElement;
+import flxanimate.animate.SymbolParameters;
+import flixel.math.FlxMatrix;
+import flixel.FlxG;
 import flxanimate.FlxAnimate as OriginalFlxAnimate;
 
 class PsychFlxAnimate extends OriginalFlxAnimate
@@ -147,6 +152,49 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 		{
 			for (symbol in extra.SD.S)
 				anim.symbolDictionary.set(symbol.SN, new FlxSymbol(haxe.io.Path.withoutDirectory(symbol.SN), FlxTimeline.fromJSONEx(symbol.TL)));
+		}
+	}
+
+	/**
+	 * `FlxAnim.addBySymbolIndices` 的防环版本。
+	 *
+	 * 原版实现会把自定义时间轴以「动画名」写进 `symbolDictionary`。如果图集里恰好有
+	 * 与动画名同名的子符号、且被主时间轴引用（实例：sserafim-kazuha 的 SD 里有 `idle`），
+	 * 注册时就会顶掉原子符号 —— 渲染主时间轴 → `idle`(已被替换成引用主符号的自定义时间轴)
+	 * → 主时间轴 → … 无限递归，hxcpp 直接栈溢出闪退（c00000fd，不走崩溃处理器所以无日志）。
+	 *
+	 * 这里把自定义时间轴注册到 `<符号名>#<动画名>` 的独立键（永不与图集符号撞名）；
+	 * 播放路径 `animsMap[动画名]` 不变，原图集符号保持完整，环断掉。
+	 */
+	public function safeAddBySymbolIndices(name:String, symbolName:String, indices:Array<Int>, frameRate:Float, looped:Bool):Void
+	{
+		if (anim.symbolDictionary == null) return;
+		if (!anim.symbolDictionary.exists(symbolName))
+		{
+			FlxG.log.error('$symbolName does not exist as a symbol! maybe you misspelled it?');
+			return;
+		}
+
+		var regKey:String = symbolName + '#' + name;
+		var outerParams = new FlxElement(new SymbolParameters((looped) ? Loop : PlayOnce), new FlxMatrix(1, 0, 0, 1, 0, 0));
+		var timeline = new FlxTimeline();
+		timeline.add("Layer 1");
+
+		for (index in indices)
+		{
+			var keyframe = new FlxKeyFrame(index);
+			var frameParams = new SymbolParameters(symbolName, outerParams.symbol.loop);
+			frameParams.firstFrame = index;
+			keyframe.add(new FlxElement(frameParams));
+			timeline.get(0).add(keyframe);
+		}
+		var symbol = new FlxSymbol(regKey, timeline);
+		outerParams.symbol.name = regKey;
+
+		@:privateAccess
+		{
+			anim.symbolDictionary.set(regKey, symbol);
+			anim.animsMap.set(name, {instance: outerParams, frameRate: frameRate});
 		}
 	}
 

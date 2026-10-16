@@ -242,8 +242,10 @@ class Character extends FlxSprite
 				#if flxanimate
 				else
 				{
+					// 防环版：图集里可能有与动画名同名的子符号（kazuha 的 idle），
+					// 原版 addBySymbolIndices 会覆盖它造成渲染期无限递归 → 栈溢出闪退
 					if(animIndices != null && animIndices.length > 0)
-						atlas.anim.addBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
+						atlas.safeAddBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
 					else
 						atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
 				}
