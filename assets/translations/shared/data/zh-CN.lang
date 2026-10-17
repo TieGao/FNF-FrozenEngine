@@ -1309,3 +1309,9 @@ stepmania_import_keep_prompt: "检测到 {1}K（{2} 键 mania）。\n你也可�
 stepmania_import_title: "从 StepMania 导入"
 stepmania_load_editor: "加载到编辑器"
 stepmania_target_keys: "目标键数:"
+
+# === mobile-only keys (preserved) ===
+setting_devide_draw_and_update: "拆分渲染和游戏速率"
+description_devide_draw_and_update: "将渲染和游戏速率放在不同的线程中"
+description_dpiscale: "根据屏幕DPI缩放游戏"
+setting_dpiscale: "DPI缩放"

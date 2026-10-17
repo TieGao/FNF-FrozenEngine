@@ -2,12 +2,12 @@
 	"song": {
 		"events": [
 			[
-				269.058295964126,
+				269.0583,
 				[
 					[
-						"Set Camera Bop",
-						"4",
-						"0"
+						"SetCameraBop",
+						"{\"intensity\":0,\"offset\":0,\"rate\":4}",
+						""
 					]
 				]
 			],
@@ -15,859 +15,1699 @@
 				700,
 				[
 					[
-						"Set Camera Zoom",
-						"1.8,stage",
-						"12,expoOut"
-					]
-				]
-			],
-			[
-				2488.99551569507,
-				[
-					[
-						"Set Camera Zoom",
-						"1,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				3901.34529147982,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1.2"
-					]
-				]
-			],
-			[
-				4304.93273542601,
-				[
-					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				6860.93273542601,
-				[
-					[
-						"Set Camera Zoom",
-						"1.15,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				9013.93273542601,
-				[
-					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				11232.5874439462,
-				[
-					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				11838.5560538117,
-				[
-					[
-						"Set Camera Zoom",
-						"1.6,stage",
+						"ZoomCamera",
+						"{\"duration\":12,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.8}",
 						""
 					]
 				]
 			],
 			[
-				12376.6726457399,
+				700,
 				[
 					[
-						"Set Camera Zoom",
-						"2.2,stage",
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":12,\"ease\":\"expo\",\"easeDir\":\"Out\",\"x\":-440,\"y\":150}",
 						""
 					]
 				]
 			],
 			[
-				12914.7892376682,
+				1076.3453,
 				[
 					[
-						"Set Camera Zoom",
-						"2.7,stage",
+						"sserafimKick",
+						"{\"final\":false}",
 						""
 					]
 				]
 			],
 			[
-				13789.1165919283,
+				2488,
 				[
 					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				15470.8340358744,
-				[
-					[
-						"Set Camera Zoom",
-						"1.15,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				17825.1165919283,
-				[
-					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				20044.8250672646,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"0"
-					]
-				]
-			],
-			[
-				20448.4125112108,
-				[
-					[
-						"Set Camera Zoom",
-						"1.9,stage",
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"x\":-71,\"y\":247}",
 						""
 					]
 				]
 			],
 			[
-				20986.529103139,
+				2488.3453,
 				[
 					[
-						"Set Camera Zoom",
-						"2.2,stage",
+						"sserafimKick",
+						"{\"final\":true}",
 						""
 					]
 				]
 			],
 			[
-				21390.1165470852,
+				2488.9955,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"0.9"
-					]
-				]
-			],
-			[
-				21524.6456950673,
-				[
-					[
-						"Set Camera Zoom",
-						"2.6,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1}",
 						""
 					]
 				]
 			],
 			[
-				22668.1165919283,
+				3901.3453,
 				[
 					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				25829.932735426,
-				[
-					[
-						"Set Camera Zoom",
-						"1.15,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				26905.8116143498,
-				[
-					[
-						"Set Camera Zoom",
-						"1.2,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				27982.932735426,
-				[
-					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				29058.2779820628,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"0"
-					]
-				]
-			],
-			[
-				29327.3362780269,
-				[
-					[
-						"Set Camera Zoom",
-						"1.6,stage",
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":0,\"rate\":2}",
 						""
 					]
 				]
 			],
 			[
-				29596.394573991,
+				4304.6996,
 				[
 					[
-						"Set Camera Zoom",
-						"1.8,stage",
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"yunjin\"}",
 						""
 					]
 				]
 			],
 			[
-				29865.4528699552,
+				4304.9327,
 				[
 					[
-						"Set Camera Zoom",
-						"2,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
 						""
 					]
 				]
 			],
 			[
-				29999.9820179372,
+				5112,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1"
-					]
-				]
-			],
-			[
-				30740.1165919283,
-				[
-					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				34439.932735426,
-				[
-					[
-						"Set Camera Zoom",
-						"1.15,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				35515.8116143498,
-				[
-					[
-						"Set Camera Zoom",
-						"1.2,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				36457.3811210762,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"0"
-					]
-				]
-			],
-			[
-				36591.8116143498,
-				[
-					[
-						"Set Camera Zoom",
-						"1.3,stage",
-						"2,expoOut"
-					]
-				]
-			],
-			[
-				37130.8116143498,
-				[
-					[
-						"Set Camera Zoom",
-						"1.4,stage",
-						"2,expoOut"
-					]
-				]
-			],
-			[
-				37668.8116143498,
-				[
-					[
-						"Set Camera Zoom",
-						"1.5,stage",
-						"2,expoOut"
-					]
-				]
-			],
-			[
-				38206.260044843,
-				[
-					[
-						"Set Camera Zoom",
-						"2.2,stage",
-						"4,circIn"
-					]
-				]
-			],
-			[
-				38609.8474887892,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
-					]
-				]
-			],
-			[
-				38744.3766367713,
-				[
-					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"1,expoOut"
-					]
-				]
-			],
-			[
-				41434.9595964126,
-				[
-					[
-						"Set Camera Zoom",
-						"0.85,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				42511.1927802691,
-				[
-					[
-						"Set Camera Zoom",
-						"1.35,stage",
+						"sserafimSing",
+						"{\"singing\":[true,false,false,false,false,false]}",
 						""
 					]
 				]
 			],
 			[
-				42780.2510762332,
+				6860.9327,
 				[
 					[
-						"Set Camera Zoom",
-						"1.45,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.15}",
 						""
 					]
 				]
 			],
 			[
-				43049.3093721973,
+				9013.9327,
 				[
 					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
 						""
 					]
 				]
 			],
 			[
-				43587.4259641256,
+				11165.3229,
 				[
 					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				45470.5515246636,
-				[
-					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":-71,\"y\":247}",
 						""
 					]
 				]
 			],
 			[
-				46278.4349327354,
+				11232.5874,
 				[
 					[
-						"Set Camera Zoom",
-						"1.45,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
 						""
 					]
 				]
 			],
 			[
-				46547.5515246636,
+				11838.5561,
 				[
 					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-359,\"y\":154}",
 						""
 					]
 				]
 			],
 			[
-				46817.1210313902,
+				11838.5561,
 				[
 					[
-						"Set Camera Zoom",
-						"1.35,stage",
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.6}",
 						""
 					]
 				]
 			],
 			[
-				47354.3766367713,
+				12376.6726,
 				[
 					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				47892.3586995516,
-				[
-					[
-						"Set Camera Zoom",
-						"1,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				50112.1165919283,
-				[
-					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				50448.4125112108,
-				[
-					[
-						"Set Camera Zoom",
-						"1.2,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				51121.0582511211,
-				[
-					[
-						"Set Camera Zoom",
-						"1.4,stage",
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-493,\"y\":90}",
 						""
 					]
 				]
 			],
 			[
-				51390.1165470852,
+				12376.6726,
 				[
 					[
-						"Set Camera Zoom",
-						"1.6,stage",
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.2}",
 						""
 					]
 				]
 			],
 			[
-				51659.1748430493,
+				12914.7892,
 				[
 					[
-						"Set Camera Zoom",
-						"1.8,stage",
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-627,\"y\":27}",
 						""
 					]
 				]
 			],
 			[
-				52197.4259641256,
+				12914.7892,
 				[
 					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				54080.5515246636,
-				[
-					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"ZoomCamera",
+						"{\"duration\":3,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.7}",
 						""
 					]
 				]
 			],
 			[
-				54887.8699103139,
+				13183,
 				[
 					[
-						"Set Camera Zoom",
-						"1.35,stage",
+						"sserafimShow",
+						"{\"visible\":[true,true,false,false,true]}",
 						""
 					]
 				]
 			],
 			[
-				55156.5515246636,
+				13452,
 				[
 					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"sserafimSing",
+						"{\"singing\":[false,true,false,false,false,false]}",
 						""
 					]
 				]
 			],
 			[
-				55425.9909865471,
+				13721.6996,
 				[
 					[
-						"Set Camera Zoom",
-						"1.45,stage",
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"kazuha\"}",
 						""
 					]
 				]
 			],
 			[
-				55493.260044843,
+				13721.9641,
 				[
 					[
-						"Set Camera Zoom",
-						"2.2,stage",
-						"3.5,circIn"
-					]
-				]
-			],
-			[
-				55829.5784304933,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.3"
-					]
-				]
-			],
-			[
-				55964.3766367713,
-				[
-					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"1,expoOut"
-					]
-				]
-			],
-			[
-				57040.3766367713,
-				[
-					[
-						"Set Camera Zoom",
-						"0.85,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				58116.5739461883,
-				[
-					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				59192.2331390134,
-				[
-					[
-						"Set Camera Zoom",
-						"1.45,stage",
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":209,\"y\":417}",
 						""
 					]
 				]
 			],
 			[
-				59461.3497309416,
+				13789.1166,
 				[
 					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
 						""
 					]
 				]
 			],
 			[
-				59730.9192376682,
+				15470.834,
 				[
 					[
-						"Set Camera Zoom",
-						"1.35,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.15}",
 						""
 					]
 				]
 			],
 			[
-				60269.3766367713,
+				17219,
 				[
 					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"1,expoOut"
-					]
-				]
-			],
-			[
-				61345.3766367713,
-				[
-					[
-						"Set Camera Zoom",
-						"0.85,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				62556.0358295964,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"0"
-					]
-				]
-			],
-			[
-				63497.3766367713,
-				[
-					[
-						"Set Camera Zoom",
-						"0.9,stage",
+						"sserafimShow",
+						"{\"visible\":[true,true,false,false,true]}",
 						""
 					]
 				]
 			],
 			[
-				63766.3766367713,
+				17488,
 				[
 					[
-						"Set Camera Zoom",
-						"1,stage",
+						"sserafimSing",
+						"{\"singing\":[false,false,false,false,true,false]}",
 						""
 					]
 				]
 			],
 			[
-				64035.8564573991,
+				17757.6996,
 				[
 					[
-						"Set Camera Zoom",
-						"1.45,stage",
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"sakura\"}",
 						""
 					]
 				]
 			],
 			[
-				64439.4439013453,
+				17757.8251,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"0.8"
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":1555,\"y\":660}",
+						""
 					]
 				]
 			],
 			[
-				64573.9730493273,
+				17825.1166,
 				[
 					[
-						"Set Camera Zoom",
-						"1.3,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
+						""
 					]
 				]
 			],
 			[
-				66995.4977130045,
+				20044.8251,
 				[
 					[
-						"Set Camera Zoom",
-						"1.4,stage",
-						"8,expoOut"
+						"SetCameraBop",
+						"{\"intensity\":0,\"offset\":0,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				68071.730896861,
+				20448.4125,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.5"
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.9}",
+						""
 					]
 				]
 			],
 			[
-				68340.7891928251,
+				20448.8251,
 				[
 					[
-						"Set Camera Zoom",
-						"1.5,stage",
-						"8,expoOut"
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1585,\"y\":460}",
+						""
 					]
 				]
 			],
 			[
-				69147.9057847534,
+				20986.5291,
 				[
 					[
-						"Set Camera Zoom",
-						"1.4,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.2}",
+						""
 					]
 				]
 			],
 			[
-				71031.3721524664,
+				21390.1165,
 				[
 					[
-						"Set Camera Zoom",
-						"1.5,stage",
-						"8,expoOut"
+						"SetCameraBop",
+						"{\"intensity\":0.9,\"offset\":0,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				71569.4887443946,
+				21524.6457,
 				[
 					[
-						"Set Camera Zoom",
-						"1.6,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.6}",
+						""
 					]
 				]
 			],
 			[
-				72645.7219282511,
+				21793,
 				[
 					[
-						"Set Camera Zoom",
-						"1.7,stage",
-						"8,expoOut"
+						"sserafimShow",
+						"{\"visible\":[true,true,true,false,true]}",
+						""
 					]
 				]
 			],
 			[
-				73049.3093721973,
+				22062,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"sserafimSing",
+						"{\"singing\":[false,false,true,false,false,false]}",
+						""
 					]
 				]
 			],
 			[
-				73183.8385201794,
+				22600.6996,
 				[
 					[
-						"Set Camera Zoom",
-						"1.5,stage",
-						"8,expoOut"
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"chaewon\"}",
+						""
 					]
 				]
 			],
 			[
-				73452.8968161435,
+				22600.8251,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":940,\"y\":101}",
+						""
 					]
 				]
 			],
 			[
-				73721.9551121076,
+				22668.1166,
 				[
 					[
-						"Set Camera Zoom",
-						"1.6,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
+						""
 					]
 				]
 			],
 			[
-				73856.3093721973,
+				25829.9327,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.15}",
+						""
+					]
+				]
+			],
+			[
+				26905.8116,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.2}",
+						""
+					]
+				]
+			],
+			[
+				27982.9327,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
+						""
+					]
+				]
+			],
+			[
+				29058.278,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":0,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				29058.3363,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[false,false,false,false,false,false]}",
+						""
+					]
+				]
+			],
+			[
+				29327.3363,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":900,\"y\":-30}",
+						""
+					]
+				]
+			],
+			[
+				29327.3363,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"mode\":\"stage\",\"zoom\":1.6}",
+						""
+					]
+				]
+			],
+			[
+				29596.3946,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"mode\":\"stage\",\"zoom\":1.8}",
+						""
+					]
+				]
+			],
+			[
+				29865.4529,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"mode\":\"stage\",\"zoom\":2}",
+						""
+					]
+				]
+			],
+			[
+				29999.982,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				30134,
+				[
+					[
+						"sserafimShow",
+						"{\"visible\":[true,true,true,true,true]}",
+						""
+					]
+				]
+			],
+			[
+				30134,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[false,false,false,true,false,false]}",
+						""
+					]
+				]
+			],
+			[
+				30672.6996,
+				[
+					[
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"eunchae\"}",
+						""
+					]
+				]
+			],
+			[
+				30672.8251,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":960,\"y\":541}",
+						""
+					]
+				]
+			],
+			[
+				30740.1166,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
+						""
+					]
+				]
+			],
+			[
+				34439.9327,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.15}",
+						""
+					]
+				]
+			],
+			[
+				35515.8116,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.2}",
+						""
+					]
+				]
+			],
+			[
+				36457.3811,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":0,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				36591.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.2,\"duration\":0.1}",
+						""
+					]
+				]
+			],
+			[
+				36591.8116,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.3}",
+						""
+					]
+				]
+			],
+			[
+				37130.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.3,\"duration\":0.1}",
+						""
+					]
+				]
+			],
+			[
+				37130.8116,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.4}",
+						""
+					]
+				]
+			],
+			[
+				37668.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.4,\"duration\":0.1}",
+						""
+					]
+				]
+			],
+			[
+				37668.8116,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.5}",
+						""
+					]
+				]
+			],
+			[
+				37937,
+				[
+					[
+						"sserafimShow",
+						"{\"visible\":[true,true,true,true,true]}",
+						""
+					]
+				]
+			],
+			[
+				38206,
+				[
+					[
+						"sserafimGuitarVibration",
+						"{\"duration\":0.55}",
+						""
+					]
+				]
+			],
+			[
+				38206.26,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"circ\",\"easeDir\":\"In\",\"mode\":\"stage\",\"zoom\":2.2}",
+						""
+					]
+				]
+			],
+			[
+				38475.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF6D43FF\",\"0xFFFF43A1\"],\"durations\":[0.5,0.5],\"enabled\":true,\"intensities\":[0.7,0.9]}",
+						""
+					]
+				]
+			],
+			[
+				38609.8475,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				38744.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.47,\"duration\":0.1}",
+						""
+					]
+				]
+			],
+			[
+				38744.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				38744.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				39013,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[true,true,true,true,true,true]}",
+						""
+					]
+				]
+			],
+			[
+				39282.6996,
+				[
+					[
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"kazuha\"}",
+						""
+					]
+				]
+			],
+			[
+				41434.9596,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.85}",
+						""
+					]
+				]
+			],
+			[
+				42511.1928,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.35}",
+						""
+					]
+				]
+			],
+			[
+				42511.1973,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-371,\"y\":147}",
+						""
+					]
+				]
+			],
+			[
+				42780.2511,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.45}",
+						""
+					]
+				]
+			],
+			[
+				42780.8251,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1555,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				43049.3094,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				43049.8251,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":870,\"y\":81}",
+						""
+					]
+				]
+			],
+			[
+				43587.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				43587.426,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				45470.5515,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				45471.0672,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1000,\"y\":620}",
+						""
+					]
+				]
+			],
+			[
+				46278.4349,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.45}",
+						""
+					]
+				]
+			],
+			[
+				46279.0089,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":329,\"y\":417}",
+						""
+					]
+				]
+			],
+			[
+				46547.5515,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				46548.0672,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1455,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				46816,
+				[
+					[
+						"sserafimGuitarVibration",
+						"{\"duration\":0.55}",
+						""
+					]
+				]
+			],
+			[
+				46817.121,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.35}",
+						""
+					]
+				]
+			],
+			[
+				46817.1255,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-371,\"y\":147}",
+						""
+					]
+				]
+			],
+			[
+				47085.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"enabled\":false}",
+						""
+					]
+				]
+			],
+			[
+				47354.3453,
+				[
+					[
+						"sserafimLights",
+						"{\"amount\":0.7,\"duration\":0.5}",
+						""
+					]
+				]
+			],
+			[
+				47354.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
+						""
+					]
+				]
+			],
+			[
+				47623.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF6D43FF\",\"0xFFFF43A1\"],\"durations\":[0.5,0.5],\"enabled\":true,\"intensities\":[0.7,0.9]}",
+						""
+					]
+				]
+			],
+			[
+				47892.3587,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"x\":49,\"y\":367}",
+						""
+					]
+				]
+			],
+			[
+				47892.3587,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1}",
+						""
+					]
+				]
+			],
+			[
+				50044.8251,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":1555,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				50112.1166,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
+						""
+					]
+				]
+			],
+			[
+				50448.4125,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.2}",
+						""
+					]
+				]
+			],
+			[
+				51121.0583,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.4}",
+						""
+					]
+				]
+			],
+			[
+				51390.1165,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.6}",
+						""
+					]
+				]
+			],
+			[
+				51659.1748,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.8}",
+						""
+					]
+				]
+			],
+			[
+				52197.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				52197.426,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				54080.5515,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				54081.0672,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":870,\"y\":81}",
+						""
+					]
+				]
+			],
+			[
+				54618.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"enabled\":false}",
+						""
+					]
+				]
+			],
+			[
+				54887.8699,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.35}",
+						""
+					]
+				]
+			],
+			[
+				54887.8744,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1000,\"y\":620}",
+						""
+					]
+				]
+			],
+			[
+				55156.5515,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				55157.0672,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-371,\"y\":147}",
+						""
+					]
+				]
+			],
+			[
+				55425,
+				[
+					[
+						"sserafimGuitarVibration",
+						"{\"duration\":0.55}",
+						""
+					]
+				]
+			],
+			[
+				55425.991,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":229,\"y\":317}",
+						""
+					]
+				]
+			],
+			[
+				55425.991,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.45}",
+						""
+					]
+				]
+			],
+			[
+				55493.26,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":3.5,\"ease\":\"circ\",\"easeDir\":\"In\",\"mode\":\"stage\",\"zoom\":2.2}",
+						""
+					]
+				]
+			],
+			[
+				55695.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFFFF0000\",\"0xFFFF33CC\",\"0xFF00CC33\",\"0xFF3366FF\"],\"durations\":[0.5,0.5,0.5,0.5],\"enabled\":true,\"intensities\":[0.7,0.9,0.7,0.9]}",
+						""
+					]
+				]
+			],
+			[
+				55829.5784,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.3,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				55964.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.6,\"duration\":0.1}",
+						""
+					]
+				]
+			],
+			[
+				55964.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				55964.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				57040.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.85}",
+						""
+					]
+				]
+			],
+			[
+				58116.5739,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				59192.2331,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.45}",
+						""
+					]
+				]
+			],
+			[
+				59192.8071,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1555,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				59461.3497,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				59461.8654,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":870,\"y\":81}",
+						""
+					]
+				]
+			],
+			[
+				59730.9192,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.35}",
+						""
+					]
+				]
+			],
+			[
+				59730.9237,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-371,\"y\":147}",
+						""
+					]
+				]
+			],
+			[
+				60269.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				60269.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				61345.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.85}",
+						""
+					]
+				]
+			],
+			[
+				62152.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"enabled\":false}",
+						""
+					]
+				]
+			],
+			[
+				62421.3453,
+				[
+					[
+						"sserafimCover",
+						"{\"visible\":true}",
+						""
+					]
+				]
+			],
+			[
+				62556.0358,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":0,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				62690.3453,
+				[
+					[
+						"sserafimCover",
+						"{\"visible\":false}",
+						""
+					]
+				]
+			],
+			[
+				63497.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.9}",
+						""
+					]
+				]
+			],
+			[
+				63497.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":920,\"y\":400}",
+						""
+					]
+				]
+			],
+			[
+				63766.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1}",
+						""
+					]
+				]
+			],
+			[
+				63766.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":1220,\"y\":500}",
+						""
+					]
+				]
+			],
+			[
+				64035.3453,
+				[
+					[
+						"sserafimCover",
+						"{\"visible\":true}",
+						""
+					]
+				]
+			],
+			[
+				64035.3453,
+				[
+					[
+						"sserafimCover",
+						"{\"visible\":true}",
+						""
+					]
+				]
+			],
+			[
+				64035.8565,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1555,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				64035.8565,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.45}",
+						""
+					]
+				]
+			],
+			[
+				64304.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF3386A7\",\"0xFF3386A7\"],\"durations\":[0.8],\"enabled\":true,\"intensities\":[0.3]}",
+						""
+					]
+				]
+			],
+			[
+				64439.4439,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":0.8,\"offset\":0,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				64573.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.83,\"duration\":0.1}",
+						""
+					]
+				]
+			],
+			[
+				64573.3453,
+				[
+					[
+						"sserafimCover",
+						"{\"visible\":false}",
+						""
+					]
+				]
+			],
+			[
+				64573.3453,
+				[
+					[
+						"sserafimFlash",
+						"{\"duration\":1.6}",
+						""
+					]
+				]
+			],
+			[
+				64573.973,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.3}",
+						""
+					]
+				]
+			],
+			[
+				64775,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[false,false,false,false,true,false]}",
+						""
+					]
+				]
+			],
+			[
+				64843.6996,
+				[
+					[
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"sakura\"}",
+						""
+					]
+				]
+			],
+			[
+				66995.4977,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.4}",
+						""
+					]
+				]
+			],
+			[
+				67937.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF3386A7\",\"0xFF7FBAC6\"],\"durations\":[0.5,0.5],\"enabled\":true,\"intensities\":[0.5,0.7]}",
+						""
+					]
+				]
+			],
+			[
+				68071.7309,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.5,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				68340.7892,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.5}",
+						""
+					]
+				]
+			],
+			[
+				69147.9058,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.4}",
+						""
+					]
+				]
+			],
+			[
+				71031.3722,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.5}",
+						""
+					]
+				]
+			],
+			[
+				71569.4887,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.6}",
+						""
+					]
+				]
+			],
+			[
+				72376.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF8BAEB5\"],\"durations\":[0.5],\"enabled\":true,\"intensities\":[0.9]}",
+						""
+					]
+				]
+			],
+			[
+				72645.7219,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.7}",
+						""
+					]
+				]
+			],
+			[
+				72914.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF017690\",\"0xFFB65EC1\"],\"durations\":[0.5,0.5],\"enabled\":true,\"intensities\":[0.5,0.7]}",
+						""
+					]
+				]
+			],
+			[
+				73049.3094,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				73183.8385,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.5}",
+						""
+					]
+				]
+			],
+			[
+				73452.8968,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				73721.9551,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.6}",
+						""
+					]
+				]
+			],
+			[
+				73856.3094,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
@@ -875,39 +1715,39 @@
 				74529.13,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				74798.1882959641,
+				74798.1883,
 				[
 					[
-						"Set Camera Zoom",
-						"1.65,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.65}",
+						""
 					]
 				]
 			],
 			[
-				74932.5425560538,
+				74932.5426,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				75336.3048878924,
+				75336.3049,
 				[
 					[
-						"Set Camera Zoom",
-						"1.5,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.5}",
+						""
 					]
 				]
 			],
@@ -915,29 +1755,29 @@
 				75605.13,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				76008.5425560538,
+				76008.5426,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				76278.0089237668,
+				76278.0089,
 				[
 					[
-						"Set Camera Zoom",
-						"1.6,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.6}",
+						""
 					]
 				]
 			],
@@ -945,39 +1785,39 @@
 				76681.13,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				76950.6546636771,
+				76950.6547,
 				[
 					[
-						"Set Camera Zoom",
-						"1.7,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.7}",
+						""
 					]
 				]
 			],
 			[
-				77084.5425560538,
+				77084.5426,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				77488.7712556054,
+				77488.7713,
 				[
 					[
-						"Set Camera Zoom",
-						"1.6,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.6}",
+						""
 					]
 				]
 			],
@@ -985,29 +1825,29 @@
 				77757.13,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				78160.5425560538,
+				78160.5426,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				78565.0044394619,
+				78565.0044,
 				[
 					[
-						"Set Camera Zoom",
-						"1.7,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.7}",
+						""
 					]
 				]
 			],
@@ -1015,349 +1855,449 @@
 				78834.13,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				79237.5425560538,
+				79237.5426,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				79506.7084753363,
+				79506.7085,
 				[
 					[
-						"Set Camera Zoom",
-						"1.8,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.8}",
+						""
 					]
 				]
 			],
 			[
-				79910.2959192825,
+				79910.2959,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				80179.3542152466,
+				80179.3542,
 				[
 					[
-						"Set Camera Zoom",
-						"1.9,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.9}",
+						""
 					]
 				]
 			],
 			[
-				80313.7084753363,
+				80313.7085,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				80582.9416591928,
+				80448.3453,
 				[
 					[
-						"Set Camera Zoom",
-						"1.95,stage",
-						"8,expoOut"
+						"sserafimPulseLights",
+						"{\"enabled\":false}",
+						""
 					]
 				]
 			],
 			[
-				81255.5873991031,
+				80582.9417,
 				[
 					[
-						"Set Camera Zoom",
-						"2,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.95}",
+						""
 					]
 				]
 			],
 			[
-				81322.260044843,
+				80986.3453,
 				[
 					[
-						"Set Camera Zoom",
-						"2.4,stage",
-						"3.5,circIn"
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF8BAEB5\"],\"durations\":[0.5],\"enabled\":true,\"intensities\":[0.9]}",
+						""
 					]
 				]
 			],
 			[
-				81793.3766367713,
+				81255,
 				[
 					[
-						"Set Camera Zoom",
-						"2.1,stage",
-						"1,expoOut"
+						"sserafimGuitarVibration",
+						"{\"duration\":0.55}",
+						""
 					]
 				]
 			],
 			[
-				82062.7622869955,
+				81255.5874,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2}",
+						""
 					]
 				]
 			],
 			[
-				82466.3497309417,
+				81322.26,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
+						"ZoomCamera",
+						"{\"duration\":3.5,\"ease\":\"circ\",\"easeDir\":\"In\",\"mode\":\"stage\",\"zoom\":2.4}",
+						""
 					]
 				]
 			],
 			[
-				83138.995470852,
+				81659.3453,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF017690\",\"0xFF10CE6C\",\"0xFFF0B67F\",\"0xFFB65EC1\"],\"durations\":[0.5,0.5,0.5,0.5],\"enabled\":true,\"intensities\":[0.5,0.7,0.4,0.7]}",
+						""
 					]
 				]
 			],
 			[
-				83542.5829147982,
+				81793.3766,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.1}",
+						""
 					]
 				]
 			],
 			[
-				83946.3721524664,
+				81793.3766,
 				[
 					[
-						"Set Camera Zoom",
-						"2.3,stage",
-						"8,expoOut"
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":1255,\"y\":660}",
+						""
 					]
 				]
 			],
 			[
-				84215.995470852,
+				81860.9372,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":36,\"ease\":\"linear\",\"easeDir\":\"In\",\"x\":1500,\"y\":660}",
+						""
 					]
 				]
 			],
 			[
-				84619.5829147982,
+				82062.7623,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				85291.995470852,
+				82466.3497,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				85560.5201345291,
+				83138.9955,
 				[
 					[
-						"Set Camera Zoom",
-						"2.5,stage",
-						"8,expoOut"
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				85695.5829147982,
+				83542.5829,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				86367.995470852,
+				83946.3722,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.3}",
+						""
 					]
 				]
 			],
 			[
-				86502.3766367713,
+				84215.9955,
 				[
 					[
-						"Set Camera Zoom",
-						"2.1,stage",
-						"1,expoOut"
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				86771.5829147982,
+				84619.5829,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				87443.995470852,
+				85291.9955,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				87847.5829147982,
+				85560.5201,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.5}",
+						""
 					]
 				]
 			],
 			[
-				88251.0896860987,
+				85695.5829,
 				[
 					[
-						"Set Camera Zoom",
-						"2.3,stage",
-						"8,expoOut"
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				88520.995470852,
+				86367.9955,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				88924.5829147982,
+				86502.3766,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.1}",
+						""
 					]
 				]
 			],
 			[
-				89596.995470852,
+				86502.3766,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":1555,\"y\":820}",
+						""
 					]
 				]
 			],
 			[
-				89865.4394618834,
+				86569.9372,
 				[
 					[
-						"Set Camera Zoom",
-						"2.1,stage",
-						"8,expoOut"
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":31,\"ease\":\"linear\",\"easeDir\":\"In\",\"x\":1555,\"y\":620}",
+						""
 					]
 				]
 			],
 			[
-				90000.5829147982,
+				86771.5829,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				90538.0852017937,
+				87443.9955,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				90672.3766367713,
+				87847.5829,
 				[
 					[
-						"Set Camera Zoom",
-						"1.8,stage",
-						"1,expoOut"
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				91075.5425560538,
+				88251.0897,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.3}",
+						""
 					]
 				]
 			],
 			[
-				91614.3183856502,
+				88520.9955,
 				[
 					[
-						"Set Camera Zoom",
-						"1.9,stage",
-						"8,expoOut"
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				88924.5829,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				89596.9955,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				89865.4395,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.1}",
+						""
+					]
+				]
+			],
+			[
+				90000.5829,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				90538.0852,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				90672.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.8}",
+						""
+					]
+				]
+			],
+			[
+				90672.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":1655,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				90739.9372,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":32,\"ease\":\"linear\",\"easeDir\":\"In\",\"x\":1555,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				91075.5426,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				91614.3184,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.9}",
+						""
 					]
 				]
 			],
@@ -1365,29 +2305,29 @@
 				91748.13,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				92151.5425560538,
+				92151.5426,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				92690.5515695067,
+				92690.5516,
 				[
 					[
-						"Set Camera Zoom",
-						"2,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2}",
+						""
 					]
 				]
 			],
@@ -1395,29 +2335,29 @@
 				92825.13,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				93228.5425560538,
+				93228.5426,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				93766.7847533632,
+				93766.7848,
 				[
 					[
-						"Set Camera Zoom",
-						"2.1,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.1}",
+						""
 					]
 				]
 			],
@@ -1425,69 +2365,89 @@
 				93901.13,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				94170.7847533632,
+				94170.7848,
 				[
 					[
-						"Set Camera Zoom",
-						"2.2,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.2}",
+						""
 					]
 				]
 			],
 			[
-				94304.5425560538,
+				94304.5426,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				94843.0179372197,
+				94843.0179,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				94977.3766367713,
+				94977.3766,
 				[
 					[
-						"Set Camera Zoom",
-						"2.1,stage",
-						"1,expoOut"
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.1}",
+						""
 					]
 				]
 			],
 			[
-				95380.5425560538,
+				94977.3766,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":1355,\"y\":660}",
+						""
 					]
 				]
 			],
 			[
-				95650.197273991,
+				95044.9372,
 				[
 					[
-						"Set Camera Zoom",
-						"2.3,stage",
-						"8,expoOut"
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":27.5,\"ease\":\"linear\",\"easeDir\":\"In\",\"x\":1450,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				95380.5426,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				95650.1973,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.3}",
+						""
 					]
 				]
 			],
@@ -1495,29 +2455,29 @@
 				96053.13,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
+						""
 					]
 				]
 			],
 			[
-				96456.5425560538,
+				96456.5426,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
+						""
 					]
 				]
 			],
 			[
-				96726.4304578475,
+				96726.4305,
 				[
 					[
-						"Set Camera Zoom",
-						"2.5,stage",
-						"8,expoOut"
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.5}",
+						""
 					]
 				]
 			],
@@ -1525,1293 +2485,2202 @@
 				97130.13,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.6"
-					]
-				]
-			],
-			[
-				97533.5425560538,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
-					]
-				]
-			],
-			[
-				97668.134493722,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"0"
-					]
-				]
-			],
-			[
-				97802.4304578475,
-				[
-					[
-						"Set Camera Zoom",
-						"2.1,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				98475.3093816144,
-				[
-					[
-						"Set Camera Zoom",
-						"2.3,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				98878.9057847534,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"0.4"
-					]
-				]
-			],
-			[
-				99013.4259735426,
-				[
-					[
-						"Set Camera Zoom",
-						"1.6,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				99686.0717134529,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"0.5"
-					]
-				]
-			],
-			[
-				99888.1165919283,
-				[
-					[
-						"Set Camera Zoom",
-						"1.5,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				101031.372152466,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"0.6"
-					]
-				]
-			],
-			[
-				101434.95063722,
-				[
-					[
-						"Set Camera Zoom",
-						"1.6,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				101973.067229148,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"0.7"
-					]
-				]
-			],
-			[
-				102107.59637713,
-				[
-					[
-						"Set Camera Zoom",
-						"1.7,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				103049.300413004,
-				[
-					[
-						"Set Camera Zoom",
-						"1.5,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				103183.838520179,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"0.8"
-					]
-				]
-			],
-			[
-				104125.533596861,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"0.9"
-					]
-				]
-			],
-			[
-				104260.95063722,
-				[
-					[
-						"Set Camera Zoom",
-						"1.6,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				105201.24211704,
-				[
-					[
-						"Set Camera Zoom",
-						"1.5,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				105336.304887892,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1"
-					]
-				]
-			],
-			[
-				106143.058260538,
-				[
-					[
-						"Set Camera Zoom",
-						"1.6,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				106547.058260538,
-				[
-					[
-						"Set Camera Zoom",
-						"1.7,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				107085.174852466,
-				[
-					[
-						"Set Camera Zoom",
-						"1.75,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				107488.771255605,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.1"
-					]
-				]
-			],
-			[
-				107623.291444395,
-				[
-					[
-						"Set Camera Zoom",
-						"1.8,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				108498.116591928,
-				[
-					[
-						"Set Camera Zoom",
-						"1.4,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				110313.874404036,
-				[
-					[
-						"Set Camera Zoom",
-						"1.5,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				111390.107587892,
-				[
-					[
-						"Set Camera Zoom",
-						"1.4,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				112399.116591928,
-				[
-					[
-						"Set Camera Zoom",
-						"1.5,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				114753.058260538,
-				[
-					[
-						"Set Camera Zoom",
-						"1.4,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				115156.92373139,
-				[
-					[
-						"Set Camera Zoom",
-						"1.3,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				115695.040323318,
-				[
-					[
-						"Set Camera Zoom",
-						"1.2,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				116098.636726457,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.1"
-					]
-				]
-			],
-			[
-				116233.156915247,
-				[
-					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				117377.116591928,
-				[
-					[
-						"Set Camera Zoom",
-						"1,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				120538.932735426,
-				[
-					[
-						"Set Camera Zoom",
-						"1.05,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				121614.81161435,
-				[
-					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				122691.932735426,
-				[
-					[
-						"Set Camera Zoom",
-						"1,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				123767.277982063,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"0"
-					]
-				]
-			],
-			[
-				124035.336278027,
-				[
-					[
-						"Set Camera Zoom",
-						"0.9,stage",
+						"SetCameraBop",
+						"{\"intensity\":1.6,\"offset\":1,\"rate\":2}",
 						""
 					]
 				]
 			],
 			[
-				124304.394573991,
+				97399.3453,
 				[
 					[
-						"Set Camera Zoom",
-						"0.85,stage",
+						"sserafimPulseLights",
+						"{\"enabled\":false}",
 						""
 					]
 				]
 			],
 			[
-				124573.452869955,
+				97533.5426,
 				[
 					[
-						"Set Camera Zoom",
-						"0.8,stage",
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":1,\"rate\":1}",
 						""
 					]
 				]
 			],
 			[
-				124708.982017937,
+				97668.1345,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1"
-					]
-				]
-			],
-			[
-				125449.116591928,
-				[
-					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				129148.932735426,
-				[
-					[
-						"Set Camera Zoom",
-						"1.15,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				130224.81161435,
-				[
-					[
-						"Set Camera Zoom",
-						"1.2,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				131166.381121076,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"0"
-					]
-				]
-			],
-			[
-				131300.81161435,
-				[
-					[
-						"Set Camera Zoom",
-						"1.3,stage",
-						"2,expoOut"
-					]
-				]
-			],
-			[
-				131839.81161435,
-				[
-					[
-						"Set Camera Zoom",
-						"1.4,stage",
-						"2,expoOut"
-					]
-				]
-			],
-			[
-				132377.81161435,
-				[
-					[
-						"Set Camera Zoom",
-						"1.5,stage",
-						"2,expoOut"
-					]
-				]
-			],
-			[
-				132915.260044843,
-				[
-					[
-						"Set Camera Zoom",
-						"2.2,stage",
-						"4,circIn"
-					]
-				]
-			],
-			[
-				133318.847488789,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.2"
-					]
-				]
-			],
-			[
-				133452.376636771,
-				[
-					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"1,expoOut"
-					]
-				]
-			],
-			[
-				136142.959596413,
-				[
-					[
-						"Set Camera Zoom",
-						"0.85,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				137219.192780269,
-				[
-					[
-						"Set Camera Zoom",
-						"1.35,stage",
+						"SetCameraBop",
+						"{\"intensity\":0,\"offset\":1,\"rate\":2}",
 						""
 					]
 				]
 			],
 			[
-				137488.251076233,
+				97802.4305,
 				[
 					[
-						"Set Camera Zoom",
-						"1.45,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.1}",
 						""
 					]
 				]
 			],
 			[
-				137757.309372197,
+				98475.3094,
 				[
 					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":2.3}",
 						""
 					]
 				]
 			],
 			[
-				138295.425964126,
+				98878.9058,
 				[
 					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				140179.551524664,
-				[
-					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"SetCameraBop",
+						"{\"intensity\":0.4,\"offset\":0,\"rate\":2}",
 						""
 					]
 				]
 			],
 			[
-				140987.434932735,
+				99013.3453,
 				[
 					[
-						"Set Camera Zoom",
-						"1.45,stage",
+						"sserafimDark",
+						"{\"amount\":0.76,\"duration\":0.1}",
 						""
 					]
 				]
 			],
 			[
-				141256.551524664,
+				99013.426,
 				[
 					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.6}",
 						""
 					]
 				]
 			],
 			[
-				141526.12103139,
+				99147,
 				[
 					[
-						"Set Camera Zoom",
-						"1.35,stage",
+						"sserafimSing",
+						"{\"singing\":[false,true,false,false,false,false]}",
 						""
 					]
 				]
 			],
 			[
-				142062.376636771,
+				99147.3453,
 				[
 					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				142600.358699552,
-				[
-					[
-						"Set Camera Zoom",
-						"1,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				144820.116591928,
-				[
-					[
-						"Set Camera Zoom",
-						"1.1,stage",
-						"16,expoOut"
-					]
-				]
-			],
-			[
-				145156.412511211,
-				[
-					[
-						"Set Camera Zoom",
-						"1.2,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				145829.058251121,
-				[
-					[
-						"Set Camera Zoom",
-						"1.4,stage",
+						"sserafimDark",
+						"{\"amount\":0.5,\"duration\":3.2}",
 						""
 					]
 				]
 			],
 			[
-				146098.116547085,
+				99686.0717,
 				[
 					[
-						"Set Camera Zoom",
-						"1.6,stage",
+						"SetCameraBop",
+						"{\"intensity\":0.5,\"offset\":0,\"rate\":2}",
 						""
 					]
 				]
 			],
 			[
-				146367.174843049,
+				99820.6996,
 				[
 					[
-						"Set Camera Zoom",
-						"1.8,stage",
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"kazuha\"}",
 						""
 					]
 				]
 			],
 			[
-				146905.425964126,
+				99820.9641,
 				[
 					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"8,expoOut"
-					]
-				]
-			],
-			[
-				148789.551524664,
-				[
-					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":329,\"y\":417}",
 						""
 					]
 				]
 			],
 			[
-				149394.600852018,
+				99888.1166,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"0"
-					]
-				]
-			],
-			[
-				149596.869910314,
-				[
-					[
-						"Set Camera Zoom",
-						"1.35,stage",
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.5}",
 						""
 					]
 				]
 			],
 			[
-				149865.551524664,
+				101031.3722,
 				[
 					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"SetCameraBop",
+						"{\"intensity\":0.6,\"offset\":0,\"rate\":2}",
 						""
 					]
 				]
 			],
 			[
-				150134.990986547,
+				101434.9506,
 				[
 					[
-						"Set Camera Zoom",
-						"1.45,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.6}",
 						""
 					]
 				]
 			],
 			[
-				150202.260044843,
+				101973.0672,
 				[
 					[
-						"Set Camera Zoom",
-						"2.2,stage",
-						"3.5,circIn"
-					]
-				]
-			],
-			[
-				150537.578430493,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.3"
-					]
-				]
-			],
-			[
-				150538.098609865,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				150672.376636771,
-				[
-					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"1,expoOut"
-					]
-				]
-			],
-			[
-				150941.762286996,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				151345.349730942,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				151748.376636771,
-				[
-					[
-						"Set Camera Zoom",
-						"0.85,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				152017.995470852,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				152421.582914798,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				152824.573946188,
-				[
-					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				153094.152421525,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				153497.739865471,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				153900.233139013,
-				[
-					[
-						"Set Camera Zoom",
-						"1.45,stage",
+						"SetCameraBop",
+						"{\"intensity\":0.7,\"offset\":0,\"rate\":2}",
 						""
 					]
 				]
 			],
 			[
-				154169.349730942,
+				102107.5964,
 				[
 					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.7}",
 						""
 					]
 				]
 			],
 			[
-				154170.385605381,
+				103049.3004,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				154438.919237668,
-				[
-					[
-						"Set Camera Zoom",
-						"1.35,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.5}",
 						""
 					]
 				]
 			],
 			[
-				154573.973049327,
+				103183.8385,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				154977.376636771,
-				[
-					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"1,expoOut"
-					]
-				]
-			],
-			[
-				155246.762286996,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				155650.349730942,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				156053.376636771,
-				[
-					[
-						"Set Camera Zoom",
-						"0.85,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				156322.995470852,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				156726.582914798,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				157399.551524664,
-				[
-					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"SetCameraBop",
+						"{\"intensity\":0.8,\"offset\":0,\"rate\":2}",
 						""
 					]
 				]
 			],
 			[
-				157399.762286996,
+				104125.5336,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				157803.349730942,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				158207.434932735,
-				[
-					[
-						"Set Camera Zoom",
-						"1.45,stage",
+						"SetCameraBop",
+						"{\"intensity\":0.9,\"offset\":0,\"rate\":2}",
 						""
 					]
 				]
 			],
 			[
-				158476.551524664,
+				104260.9506,
 				[
 					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.6}",
 						""
 					]
 				]
 			],
 			[
-				158746.12103139,
+				105201.2421,
 				[
 					[
-						"Set Camera Zoom",
-						"1.35,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.5}",
 						""
 					]
 				]
 			],
 			[
-				159282.376636771,
+				105336.3049,
 				[
 					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"1,expoOut"
-					]
-				]
-			],
-			[
-				159551.762286996,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				159955.349730942,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				160358.376636771,
-				[
-					[
-						"Set Camera Zoom",
-						"0.85,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				160627.995470852,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				161031.582914798,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				161434.573946188,
-				[
-					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				161704.017892377,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				162107.605336323,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				162511.233139013,
-				[
-					[
-						"Set Camera Zoom",
-						"1.45,stage",
+						"SetCameraBop",
+						"{\"intensity\":1,\"offset\":0,\"rate\":2}",
 						""
 					]
 				]
 			],
 			[
-				162780.349730942,
+				106143.0583,
 				[
 					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.6}",
 						""
 					]
 				]
 			],
 			[
-				162781.251076233,
+				106547.0583,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				163049.919237668,
-				[
-					[
-						"Set Camera Zoom",
-						"1.35,stage",
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.7}",
 						""
 					]
 				]
 			],
 			[
-				163183.838520179,
+				107085.1749,
 				[
 					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				163587.376636771,
-				[
-					[
-						"Set Camera Zoom",
-						"0.8,stage",
-						"1,expoOut"
-					]
-				]
-			],
-			[
-				163856.762286996,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				164260.349730942,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				164663.376636771,
-				[
-					[
-						"Set Camera Zoom",
-						"0.85,stage",
-						"4,expoOut"
-					]
-				]
-			],
-			[
-				164932.995470852,
-				[
-					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				165336.582914798,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				166008.416995516,
-				[
-					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.75}",
 						""
 					]
 				]
 			],
 			[
-				166008.762286996,
+				107488.7713,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"1.8"
-					]
-				]
-			],
-			[
-				166412.349730942,
-				[
-					[
-						"Set Camera Bop",
-						"1",
-						"1.4"
-					]
-				]
-			],
-			[
-				166815.735381166,
-				[
-					[
-						"Set Camera Zoom",
-						"1.35,stage",
+						"SetCameraBop",
+						"{\"intensity\":1.1,\"offset\":0,\"rate\":1}",
 						""
 					]
 				]
 			],
 			[
-				166950.654663677,
+				107623.2914,
 				[
 					[
-						"Set Camera Bop",
-						"2",
-						"0"
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.8}",
+						""
 					]
 				]
 			],
 			[
-				167084.416995516,
+				108026,
 				[
 					[
-						"Set Camera Zoom",
-						"1.55,stage",
+						"sserafimSing",
+						"{\"singing\":[false,false,false,false,false,false]}",
+						""
+					]
+				]
+			],
+			[
+				108094,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[false,false,true,false,false,false]}",
+						""
+					]
+				]
+			],
+			[
+				108430.6996,
+				[
+					[
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"chaewon\"}",
+						""
+					]
+				]
+			],
+			[
+				108430.8251,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":940,\"y\":101}",
+						""
+					]
+				]
+			],
+			[
+				108498.1166,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.4}",
+						""
+					]
+				]
+			],
+			[
+				110313.8744,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.5}",
+						""
+					]
+				]
+			],
+			[
+				111390.1076,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.4}",
+						""
+					]
+				]
+			],
+			[
+				112062,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[false,false,false,false,false,false]}",
+						""
+					]
+				]
+			],
+			[
+				112130,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[false,false,false,true,false,false]}",
+						""
+					]
+				]
+			],
+			[
+				112331.6996,
+				[
+					[
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"eunchae\"}",
+						""
+					]
+				]
+			],
+			[
+				112331.8251,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":960,\"y\":541}",
+						""
+					]
+				]
+			],
+			[
+				112399.1166,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.5}",
+						""
+					]
+				]
+			],
+			[
+				114349,
+				[
+					[
+						"sserafimBeautiful",
+						"{\"beautiful\":true}",
+						""
+					]
+				]
+			],
+			[
+				114753,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[false,false,false,true,false,true]}",
+						""
+					]
+				]
+			],
+			[
+				114753.0583,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.4}",
+						""
+					]
+				]
+			],
+			[
+				114753.6996,
+				[
+					[
+						"SetHealthIcon",
+						"{\"char\":0,\"flipX\":true,\"id\":\"gf\"}",
+						""
+					]
+				]
+			],
+			[
+				114753.8251,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":8,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":1060,\"y\":400}",
+						""
+					]
+				]
+			],
+			[
+				115156.9237,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.3}",
+						""
+					]
+				]
+			],
+			[
+				115695.0403,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.2}",
+						""
+					]
+				]
+			],
+			[
+				115896.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF6D43FF\",\"0xFF3636f7\"],\"durations\":[0.6,0.5],\"enabled\":true,\"intensities\":[0.2,0.3]}",
+						""
+					]
+				]
+			],
+			[
+				116098.6367,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.1,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				116233.1569,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
+						""
+					]
+				]
+			],
+			[
+				116233.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.78,\"duration\":0.5}",
+						""
+					]
+				]
+			],
+			[
+				116704,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[false,false,false,false,false,true]}",
+						""
+					]
+				]
+			],
+			[
+				117040,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[true,false,false,false,false,true]}",
+						""
+					]
+				]
+			],
+			[
+				117309.3901,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":8,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":100,\"y\":247}",
+						""
+					]
+				]
+			],
+			[
+				117309.6996,
+				[
+					[
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"yunjin\"}",
+						""
+					]
+				]
+			],
+			[
+				117377.1166,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1}",
+						""
+					]
+				]
+			],
+			[
+				119596.3453,
+				[
+					[
+						"sserafimLights",
+						"{\"amount\":1,\"duration\":0.5}",
+						""
+					]
+				]
+			],
+			[
+				119865.3453,
+				[
+					[
+						"sserafimLights",
+						"{\"amount\":1,\"duration\":0.5}",
+						""
+					]
+				]
+			],
+			[
+				120538.9327,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.05}",
+						""
+					]
+				]
+			],
+			[
+				121614.8116,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
+						""
+					]
+				]
+			],
+			[
+				122691.9327,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1}",
+						""
+					]
+				]
+			],
+			[
+				123766,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[false,false,false,false,false,false]}",
+						""
+					]
+				]
+			],
+			[
+				123767.278,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":0,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				123834.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"enabled\":false}",
+						""
+					]
+				]
+			],
+			[
+				124035.3363,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":300,\"y\":200}",
+						""
+					]
+				]
+			],
+			[
+				124035.3363,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"mode\":\"stage\",\"zoom\":0.9}",
+						""
+					]
+				]
+			],
+			[
+				124304,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[false,false,false,false,false,false]}",
+						""
+					]
+				]
+			],
+			[
+				124304.3946,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"mode\":\"stage\",\"zoom\":0.85}",
+						""
+					]
+				]
+			],
+			[
+				124305.3363,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":400,\"y\":160}",
+						""
+					]
+				]
+			],
+			[
+				124439.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF6D43FF\",\"0xFF3636f7\"],\"durations\":[0.6,0.5],\"enabled\":true,\"intensities\":[0.2,0.3]}",
+						""
+					]
+				]
+			],
+			[
+				124573.4529,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				124574.4529,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":500,\"y\":120}",
+						""
+					]
+				]
+			],
+			[
+				124708,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[false,false,true,false,false,true]}",
+						""
+					]
+				]
+			],
+			[
+				124708.982,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				125381.6996,
+				[
+					[
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"chaewon\"}",
+						""
+					]
+				]
+			],
+			[
+				125381.8251,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"x\":940,\"y\":101}",
+						""
+					]
+				]
+			],
+			[
+				125449.1166,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
+						""
+					]
+				]
+			],
+			[
+				129148.9327,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.15}",
+						""
+					]
+				]
+			],
+			[
+				130224.8116,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.2}",
+						""
+					]
+				]
+			],
+			[
+				131166.3811,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":0,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				131300.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.84,\"duration\":0.1}",
+						""
+					]
+				]
+			],
+			[
+				131300.8116,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.3}",
+						""
+					]
+				]
+			],
+			[
+				131502.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"enabled\":false}",
+						""
+					]
+				]
+			],
+			[
+				131838.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.88,\"duration\":0.1}",
+						""
+					]
+				]
+			],
+			[
+				131839.8116,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.4}",
+						""
+					]
+				]
+			],
+			[
+				132376.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.92,\"duration\":0.1}",
+						""
+					]
+				]
+			],
+			[
+				132377.8116,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.5}",
+						""
+					]
+				]
+			],
+			[
+				132646,
+				[
+					[
+						"sserafimShow",
+						"{\"visible\":[true,true,true,true,true]}",
+						""
+					]
+				]
+			],
+			[
+				132780,
+				[
+					[
+						"sserafimBeautiful",
+						"{\"beautiful\":false}",
+						""
+					]
+				]
+			],
+			[
+				132915,
+				[
+					[
+						"sserafimGuitarVibration",
+						"{\"duration\":0.55}",
+						""
+					]
+				]
+			],
+			[
+				132915.26,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"circ\",\"easeDir\":\"In\",\"mode\":\"stage\",\"zoom\":2.2}",
+						""
+					]
+				]
+			],
+			[
+				133183.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF6D43FF\",\"0xFFFF43A1\"],\"durations\":[0.5,0.5],\"enabled\":true,\"intensities\":[0.7,0.9]}",
+						""
+					]
+				]
+			],
+			[
+				133318.8475,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.2,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				133452.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.47,\"duration\":0.1}",
+						""
+					]
+				]
+			],
+			[
+				133452.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				133452.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				133721,
+				[
+					[
+						"sserafimSing",
+						"{\"singing\":[true,true,true,true,true,true]}",
+						""
+					]
+				]
+			],
+			[
+				133990.6996,
+				[
+					[
+						"SetHealthIcon",
+						"{\"char\":1,\"id\":\"kazuha\"}",
+						""
+					]
+				]
+			],
+			[
+				133990.6996,
+				[
+					[
+						"SetHealthIcon",
+						"{\"char\":0,\"flipX\":true,\"id\":\"bf\"}",
+						""
+					]
+				]
+			],
+			[
+				136142.9596,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.85}",
+						""
+					]
+				]
+			],
+			[
+				137219.1928,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.35}",
+						""
+					]
+				]
+			],
+			[
+				137219.1973,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-371,\"y\":147}",
+						""
+					]
+				]
+			],
+			[
+				137488.2511,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.45}",
+						""
+					]
+				]
+			],
+			[
+				137488.8251,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1555,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				137757.3094,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				137757.8251,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":870,\"y\":81}",
+						""
+					]
+				]
+			],
+			[
+				138295.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				138295.426,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				140179.5515,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				140180.0672,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1000,\"y\":620}",
+						""
+					]
+				]
+			],
+			[
+				140987.4349,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.45}",
+						""
+					]
+				]
+			],
+			[
+				140988.0089,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":329,\"y\":417}",
+						""
+					]
+				]
+			],
+			[
+				141256.5515,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				141257.0672,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1455,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				141524,
+				[
+					[
+						"sserafimGuitarVibration",
+						"{\"duration\":0.55}",
+						""
+					]
+				]
+			],
+			[
+				141526.121,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.35}",
+						""
+					]
+				]
+			],
+			[
+				141526.1255,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-371,\"y\":147}",
+						""
+					]
+				]
+			],
+			[
+				141793.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"enabled\":false}",
+						""
+					]
+				]
+			],
+			[
+				142062.3453,
+				[
+					[
+						"sserafimLights",
+						"{\"amount\":0.7,\"duration\":0.5}",
+						""
+					]
+				]
+			],
+			[
+				142062.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
+						""
+					]
+				]
+			],
+			[
+				142331.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFF6D43FF\",\"0xFFFF43A1\"],\"durations\":[0.5,0.5],\"enabled\":true,\"intensities\":[0.7,0.9]}",
+						""
+					]
+				]
+			],
+			[
+				142600.3587,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"x\":49,\"y\":367}",
+						""
+					]
+				]
+			],
+			[
+				142600.3587,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1}",
+						""
+					]
+				]
+			],
+			[
+				144752.8251,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"Out\",\"x\":1555,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				144820.1166,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":16,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.1}",
+						""
+					]
+				]
+			],
+			[
+				145156.4125,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.2}",
+						""
+					]
+				]
+			],
+			[
+				145829.0583,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.4}",
+						""
+					]
+				]
+			],
+			[
+				146098.1165,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.6}",
+						""
+					]
+				]
+			],
+			[
+				146367.1748,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":2,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.8}",
+						""
+					]
+				]
+			],
+			[
+				146905.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"CLASSIC\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				146905.426,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				148789.5515,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				148790.0672,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":870,\"y\":81}",
+						""
+					]
+				]
+			],
+			[
+				149192.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"enabled\":false}",
+						""
+					]
+				]
+			],
+			[
+				149394.6009,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":0,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				149596.8699,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.35}",
+						""
+					]
+				]
+			],
+			[
+				149596.8744,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1000,\"y\":620}",
+						""
+					]
+				]
+			],
+			[
+				149865.5515,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				149866.0672,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-371,\"y\":147}",
+						""
+					]
+				]
+			],
+			[
+				150134,
+				[
+					[
+						"sserafimGuitarVibration",
+						"{\"duration\":0.55}",
+						""
+					]
+				]
+			],
+			[
+				150134.991,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":229,\"y\":317}",
+						""
+					]
+				]
+			],
+			[
+				150134.991,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.45}",
+						""
+					]
+				]
+			],
+			[
+				150202.26,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":3.5,\"ease\":\"circ\",\"easeDir\":\"In\",\"mode\":\"stage\",\"zoom\":2.2}",
+						""
+					]
+				]
+			],
+			[
+				150403.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"colors\":[\"0xFFFF0000\",\"0xFFFF33CC\",\"0xFF00CC33\",\"0xFF3366FF\"],\"durations\":[0.5,0.5,0.5,0.5],\"enabled\":true,\"intensities\":[0.7,0.9,0.7,0.9]}",
+						""
+					]
+				]
+			],
+			[
+				150537.5784,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.3,\"offset\":0,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				150538.0986,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				150672.3453,
+				[
+					[
+						"sserafimDark",
+						"{\"amount\":0.6,\"duration\":0.1}",
+						""
+					]
+				]
+			],
+			[
+				150672.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				150672.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				150941.7623,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				151345.3497,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				151748.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.85}",
+						""
+					]
+				]
+			],
+			[
+				152017.9955,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				152421.5829,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				152824.5739,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				153094.1524,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				153497.7399,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				153900.2331,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.45}",
+						""
+					]
+				]
+			],
+			[
+				153900.8071,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1555,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				154169.3497,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				154169.8654,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":870,\"y\":81}",
+						""
+					]
+				]
+			],
+			[
+				154170.3856,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				154438.9192,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.35}",
+						""
+					]
+				]
+			],
+			[
+				154438.9237,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-371,\"y\":147}",
+						""
+					]
+				]
+			],
+			[
+				154573.973,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				154977.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				154977.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				155246.7623,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				155650.3497,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				156053.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.85}",
+						""
+					]
+				]
+			],
+			[
+				156322.9955,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				156726.5829,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				157399.5515,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				157399.7623,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				157400.0672,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1000,\"y\":620}",
+						""
+					]
+				]
+			],
+			[
+				157803.3497,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				158207.4349,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.45}",
+						""
+					]
+				]
+			],
+			[
+				158208.0089,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":329,\"y\":417}",
+						""
+					]
+				]
+			],
+			[
+				158476.5515,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				158477.0672,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1455,\"y\":660}",
+						""
+					]
+				]
+			],
+			[
+				158746.121,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.35}",
+						""
+					]
+				]
+			],
+			[
+				158746.1255,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-371,\"y\":147}",
+						""
+					]
+				]
+			],
+			[
+				159282.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				159282.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				159551.7623,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				159955.3497,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				160358.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.85}",
+						""
+					]
+				]
+			],
+			[
+				160627.9955,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				161031.5829,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				161434.5739,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				161704.0179,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				162107.6053,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				162511.2331,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.45}",
+						""
+					]
+				]
+			],
+			[
+				162511.8071,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":1000,\"y\":620}",
+						""
+					]
+				]
+			],
+			[
+				162780.3497,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				162780.8654,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-371,\"y\":147}",
+						""
+					]
+				]
+			],
+			[
+				162781.2511,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				163049.9192,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.35}",
+						""
+					]
+				]
+			],
+			[
+				163049.9237,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":229,\"y\":317}",
+						""
+					]
+				]
+			],
+			[
+				163183.8385,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				163587.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":1,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.8}",
+						""
+					]
+				]
+			],
+			[
+				163587.3766,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"In\",\"x\":620,\"y\":300}",
+						""
+					]
+				]
+			],
+			[
+				163856.7623,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				164260.3497,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				164663.3766,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":4,\"ease\":\"expo\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":0.85}",
+						""
+					]
+				]
+			],
+			[
+				164932.9955,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				165336.5829,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				166008.417,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				166008.7623,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.8,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				166008.9327,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":870,\"y\":81}",
+						""
+					]
+				]
+			],
+			[
+				166412.3497,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":1.4,\"offset\":1,\"rate\":1}",
+						""
+					]
+				]
+			],
+			[
+				166547.3453,
+				[
+					[
+						"sserafimPulseLights",
+						"{\"enabled\":false}",
+						""
+					]
+				]
+			],
+			[
+				166815.7354,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.35}",
+						""
+					]
+				]
+			],
+			[
+				166815.7399,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":-371,\"y\":147}",
+						""
+					]
+				]
+			],
+			[
+				166950.6547,
+				[
+					[
+						"SetCameraBop",
+						"{\"intensity\":0,\"offset\":1,\"rate\":2}",
+						""
+					]
+				]
+			],
+			[
+				167084.417,
+				[
+					[
+						"ZoomCamera",
+						"{\"duration\":8,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"mode\":\"stage\",\"zoom\":1.55}",
+						""
+					]
+				]
+			],
+			[
+				167084.9327,
+				[
+					[
+						"FocusCamera",
+						"{\"char\":-1,\"duration\":4,\"ease\":\"INSTANT\",\"easeDir\":\"Out\",\"x\":870,\"y\":81}",
+						""
+					]
+				]
+			],
+			[
+				167286,
+				[
+					[
+						"sserafimEnd",
+						"{}",
 						""
 					]
 				]
 			]
-		],
-		"format": "psych_v1_convert"
+		]
 	}
 }

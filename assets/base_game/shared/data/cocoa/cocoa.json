@@ -358,20 +358,17 @@
 					[
 						19500,
 						7,
-						150,
-						"Alt Animation"
+						150
 					],
 					[
 						19800,
 						5,
-						450,
-						"Alt Animation"
+						450
 					],
 					[
 						20400,
 						6,
-						1050,
-						"Alt Animation"
+						1050
 					]
 				],
 				"altAnim": true,
@@ -383,32 +380,27 @@
 					[
 						22500,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						22800,
 						4,
-						150,
-						"Alt Animation"
+						150
 					],
 					[
 						23100,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						23400,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						23700,
 						5,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -420,50 +412,42 @@
 					[
 						24000,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						24300,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						24600,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						24900,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						25200,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						25500,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						25800,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						26100,
 						4,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -475,50 +459,42 @@
 					[
 						26400,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						26700,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						27000,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						27300,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						27600,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						27900,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						28200,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						28500,
 						5,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -530,8 +506,7 @@
 					[
 						28800,
 						6,
-						600,
-						"Alt Animation"
+						600
 					],
 					[
 						29100,
@@ -968,32 +943,27 @@
 					[
 						57750,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						58200,
 						6,
-						450,
-						"Alt Animation"
+						450
 					],
 					[
 						58800,
 						7,
-						450,
-						"Alt Animation"
+						450
 					],
 					[
 						59400,
 						6,
-						150,
-						"Alt Animation"
+						150
 					],
 					[
 						59700,
 						4,
-						750,
-						"Alt Animation"
+						750
 					]
 				],
 				"altAnim": true,
@@ -1005,20 +975,17 @@
 					[
 						60600,
 						6,
-						300,
-						"Alt Animation"
+						300
 					],
 					[
 						61200,
 						7,
-						450,
-						"Alt Animation"
+						450
 					],
 					[
 						61800,
 						6,
-						450,
-						"Alt Animation"
+						450
 					]
 				],
 				"altAnim": true,
@@ -1030,50 +997,42 @@
 					[
 						62400,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						62700,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						63000,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						63300,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						63600,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						63900,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						64200,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						64500,
 						4,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -1085,50 +1044,42 @@
 					[
 						64800,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						65100,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						65400,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						65700,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						66000,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						66300,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						66600,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						66900,
 						5,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -1428,20 +1379,17 @@
 					[
 						86400,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						86700,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						87000,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						87300,
@@ -1456,20 +1404,17 @@
 					[
 						87600,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						87900,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						88200,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						88500,
@@ -1491,20 +1436,17 @@
 					[
 						88800,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						89100,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						89400,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						89700,
@@ -1519,26 +1461,22 @@
 					[
 						90000,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						90300,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						90600,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						90900,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						91050,
@@ -1667,20 +1605,17 @@
 					[
 						96000,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						96300,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						96600,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						96900,
@@ -1695,20 +1630,17 @@
 					[
 						97200,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						97500,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						97800,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						98100,
@@ -1730,20 +1662,17 @@
 					[
 						98400,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						98700,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						99000,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						99300,
@@ -1758,26 +1687,22 @@
 					[
 						99600,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						99900,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						100200,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						100500,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						100650,
@@ -1794,8 +1719,7 @@
 					[
 						100800,
 						7,
-						600,
-						"Alt Animation"
+						600
 					],
 					[
 						100800,

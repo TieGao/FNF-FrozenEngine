@@ -2,31 +2,13 @@
 	"directory": "sserafim",
 	"defaultZoom": 0.45,
 	"stageUI": "normal",
-	"boyfriend": [
-		0,
-		0
-	],
-	"girlfriend": [
-		0,
-		0
-	],
-	"opponent": [
-		0,
-		0
-	],
+	"boyfriend": [1530, 970],
+	"girlfriend": [938.5, 392],
+	"opponent": [70, 470],
 	"hide_girlfriend": false,
-	"camera_boyfriend": [
-		-100,
-		-100
-	],
-	"camera_opponent": [
-		150,
-		-100
-	],
-	"camera_girlfriend": [
-		0,
-		0
-	],
+	"camera_boyfriend": [0, 0],
+	"camera_opponent": [0, 0],
+	"camera_girlfriend": [0, 0],
 	"camera_speed": 1,
 	"_editorMeta": {
 		"gf": "sserafim-gf",
@@ -38,112 +20,118 @@
 			"type": "sprite",
 			"name": "bg",
 			"image": "bg",
-			"x": -2043,
-			"y": -1210,
-			"scale": [
-				1,
-				1
-			],
-			"scroll": [
-				0.75,
-				0.75
-			],
+			"x": -1853,
+			"y": -815,
+			"scale": [1, 1],
+			"scroll": [0.75, 0.75],
 			"color": "#FFFFFF",
-			"filters": 15
+			"filters": 3
 		},
 		{
 			"type": "sprite",
 			"name": "backTables",
 			"image": "back-tables",
-			"x": -2047,
-			"y": -128,
-			"scale": [
-				1,
-				1
-			],
-			"scroll": [
-				0.93,
-				0.93
-			],
+			"x": -1857,
+			"y": 267,
+			"scale": [1, 1],
+			"scroll": [0.93, 0.93],
 			"color": "#FFFFFF",
-			"filters": 15
+			"filters": 3
 		},
 		{
 			"type": "sprite",
 			"name": "backStools",
 			"image": "back-stools",
-			"x": -1547,
-			"y": 31,
-			"scale": [
-				1,
-				1
-			],
-			"scroll": [
-				0.94,
-				0.94
-			],
+			"x": -1357,
+			"y": 426,
+			"scale": [1, 1],
+			"scroll": [0.94, 0.94],
 			"color": "#FFFFFF",
-			"filters": 15
+			"filters": 3
+		},
+		{
+			"type": "sprite",
+			"name": "backLightColor",
+			"image": "lights/back-light-color",
+			"x": -1241,
+			"y": -949,
+			"alpha": 0,
+			"scale": [1, 1],
+			"scroll": [0.93, 0.93],
+			"color": "#FFFFFF",
+			"filters": 3
+		},
+		{
+			"type": "sprite",
+			"name": "backLightWhite",
+			"image": "lights/back-light-white",
+			"x": -771,
+			"y": -599,
+			"alpha": 0,
+			"scale": [1, 1],
+			"scroll": [0.93, 0.93],
+			"color": "#FFFFFF",
+			"filters": 3
 		},
 		{
 			"type": "sprite",
 			"name": "truck",
 			"image": "truck-stuff",
-			"x": -1173,
-			"y": -1102,
-			"scale": [
-				1,
-				1
-			],
-			"scroll": [
-				0.95,
-				0.95
-			],
+			"x": -983,
+			"y": -707,
+			"scale": [1, 1],
+			"scroll": [0.95, 0.95],
 			"color": "#FFFFFF",
-			"filters": 15
+			"filters": 3
 		},
 		{
 			"type": "sprite",
 			"name": "truckDoor",
 			"image": "truck-door",
-			"x": -1170,
-			"y": -568,
-			"scale": [
-				1,
-				1
-			],
-			"scroll": [
-				0.95,
-				0.95
-			],
+			"x": -980,
+			"y": -173,
+			"scale": [1, 1],
+			"scroll": [0.95, 0.95],
 			"color": "#FFFFFF",
-			"filters": 15
+			"filters": 3
 		},
 		{
-			"type": "dad"
+			"type": "sprite",
+			"name": "truckLight2",
+			"image": "lights/truck-light2",
+			"x": -781,
+			"y": -464,
+			"alpha": 0,
+			"scale": [1, 1],
+			"scroll": [0.95, 0.95],
+			"color": "#FFFFFF",
+			"filters": 3
 		},
 		{
-			"type": "gf"
+			"type": "sprite",
+			"name": "truckLight1",
+			"image": "lights/truck-light1",
+			"x": -962,
+			"y": -607,
+			"alpha": 0,
+			"scale": [1, 1],
+			"scroll": [0.95, 0.95],
+			"color": "#FFFFFF",
+			"filters": 3
 		},
-		{
-			"type": "boyfriend"
-		},
+		{"type": "dad"},
+		{"type": "gf"},
+		{"type": "boyfriend"},
 		{
 			"type": "sprite",
 			"name": "frontStool",
 			"image": "front-stool",
-			"x": -470,
-			"y": 423,
-			"scale": [
-				1,
-				1
-			],
-			"scroll": [
-				1.0,
-				1.0
-			],
+			"x": -280,
+			"y": 818,
+			"scale": [1, 1],
+			"scroll": [1.0, 1.0],
 			"color": "#FFFFFF",
-			"filters": 15
+			"filters": 3
 		}
 	]
 }

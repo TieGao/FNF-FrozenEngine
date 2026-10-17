@@ -854,6 +854,34 @@ class PlayState extends MusicBeatState
 					initHScript(folder + file);
 				#end
 			}
+
+		// 内容包自带脚本（content/<包>/scripts/**，含一级子目录）
+		if (Paths.currentContentRoot != null && Paths.currentContentRoot.length > 0)
+		{
+			var contentScriptsDir:String = Paths.currentContentRoot + '/scripts';
+			if (FileSystem.exists(contentScriptsDir) && FileSystem.isDirectory(contentScriptsDir))
+			{
+				var scriptDirs:Array<String> = [contentScriptsDir];
+				for (sub in FileSystem.readDirectory(contentScriptsDir))
+				{
+					var subPath:String = contentScriptsDir + '/' + sub;
+					if (FileSystem.isDirectory(subPath)) scriptDirs.push(subPath);
+				}
+				for (scriptDir in scriptDirs)
+					for (file in FileSystem.readDirectory(scriptDir))
+					{
+						#if LUA_ALLOWED
+						if(file.toLowerCase().endsWith('.lua'))
+							new FunkinLua(scriptDir + '/' + file);
+						#end
+
+						#if HSCRIPT_ALLOWED
+						if(file.toLowerCase().endsWith('.hx'))
+							initHScript(scriptDir + '/' + file);
+						#end
+					}
+			}
+		}
 		#end
 			
 		var camPos:FlxPoint = FlxPoint.get(girlfriendCameraOffset[0], girlfriendCameraOffset[1]);

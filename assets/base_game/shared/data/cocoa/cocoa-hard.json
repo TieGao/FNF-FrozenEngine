@@ -458,20 +458,17 @@
 					[
 						19500,
 						7,
-						150,
-						"Alt Animation"
+						150
 					],
 					[
 						19800,
 						5,
-						450,
-						"Alt Animation"
+						450
 					],
 					[
 						20400,
 						6,
-						1050,
-						"Alt Animation"
+						1050
 					]
 				],
 				"altAnim": true,
@@ -483,38 +480,32 @@
 					[
 						22500,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						22650,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						22800,
 						4,
-						150,
-						"Alt Animation"
+						150
 					],
 					[
 						23100,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						23400,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						23700,
 						5,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -526,86 +517,72 @@
 					[
 						24000,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						24150,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						24300,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						24450,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						24600,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						24900,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						25050,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						25200,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						25350,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						25500,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						25800,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						25950,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						26100,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						26250,
 						7,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -617,74 +594,62 @@
 					[
 						26400,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						26700,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						26850,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						27000,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						27150,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						27300,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						27600,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						27750,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						27900,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						28050,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						28200,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						28500,
 						5,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -696,8 +661,7 @@
 					[
 						28800,
 						6,
-						600,
-						"Alt Animation"
+						600
 					],
 					[
 						29100,
@@ -1279,44 +1243,37 @@
 					[
 						57750,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						57900,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						58050,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						58200,
 						6,
-						450,
-						"Alt Animation"
+						450
 					],
 					[
 						58800,
 						7,
-						450,
-						"Alt Animation"
+						450
 					],
 					[
 						59400,
 						6,
-						150,
-						"Alt Animation"
+						150
 					],
 					[
 						59700,
 						4,
-						750,
-						"Alt Animation"
+						750
 					]
 				],
 				"altAnim": true,
@@ -1328,20 +1285,17 @@
 					[
 						60600,
 						6,
-						300,
-						"Alt Animation"
+						300
 					],
 					[
 						61200,
 						7,
-						450,
-						"Alt Animation"
+						450
 					],
 					[
 						61800,
 						6,
-						450,
-						"Alt Animation"
+						450
 					]
 				],
 				"altAnim": true,
@@ -1353,86 +1307,72 @@
 					[
 						62400,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						62550,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						62700,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						62850,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						63000,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						63300,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						63450,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						63600,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						63750,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						63900,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						64200,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						64350,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						64500,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						64650,
 						7,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -1444,74 +1384,62 @@
 					[
 						64800,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						65100,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						65250,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						65400,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						65550,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						65700,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						66000,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						66150,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						66300,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						66450,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						66600,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						66900,
 						5,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -1891,98 +1819,82 @@
 					[
 						86400,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						86550,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						86700,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						86850,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						87000,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						87150,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						87300,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						87450,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						87600,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						87750,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						87900,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						88050,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						88200,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						88350,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						88500,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						88650,
 						6,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -1994,98 +1906,82 @@
 					[
 						88800,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						88950,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						89100,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						89250,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						89400,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						89550,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						89700,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						89850,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						90000,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						90150,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						90300,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						90450,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						90600,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						90750,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						90900,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						91050,
 						4,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -2269,98 +2165,82 @@
 					[
 						96000,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						96150,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						96300,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						96450,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						96600,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						96750,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						96900,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						97050,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						97200,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						97350,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						97500,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						97650,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						97800,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						97950,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						98100,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						98250,
 						6,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -2372,98 +2252,82 @@
 					[
 						98400,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						98550,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						98700,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						98850,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						99000,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						99150,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						99300,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						99450,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						99600,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						99750,
 						4,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						99900,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						100050,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						100200,
 						7,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						100350,
 						5,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						100500,
 						6,
-						0,
-						"Alt Animation"
+						0
 					],
 					[
 						100650,
 						4,
-						0,
-						"Alt Animation"
+						0
 					]
 				],
 				"altAnim": true,
@@ -2475,8 +2339,7 @@
 					[
 						100800,
 						7,
-						600,
-						"Alt Animation"
+						600
 					],
 					[
 						100800,

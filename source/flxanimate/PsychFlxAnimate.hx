@@ -180,13 +180,18 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 		var timeline = new FlxTimeline();
 		timeline.add("Layer 1");
 
-		for (index in indices)
+		// keyframe 摆在 0..n-1（播放帧号），firstFrame 才是 indices 的值（符号内帧号）。
+		// 之前把值同时当 keyframe 位置用：传 [108..120] 会造出 121 帧的 timeline，
+		// 前 108 帧全是空白；非 0 起始的段（danceRight 的 15..29）也必然错位。
+		var slot:Int = 0;
+		for (frameIndex in indices)
 		{
-			var keyframe = new FlxKeyFrame(index);
+			var keyframe = new FlxKeyFrame(slot);
 			var frameParams = new SymbolParameters(symbolName, outerParams.symbol.loop);
-			frameParams.firstFrame = index;
+			frameParams.firstFrame = frameIndex;
 			keyframe.add(new FlxElement(frameParams));
 			timeline.get(0).add(keyframe);
+			slot++;
 		}
 		var symbol = new FlxSymbol(regKey, timeline);
 		outerParams.symbol.name = regKey;
