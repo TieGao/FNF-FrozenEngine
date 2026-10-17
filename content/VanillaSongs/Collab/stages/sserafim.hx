@@ -9,10 +9,10 @@
 
 import flixel.addons.display.FlxBackdrop;
 import flixel.addons.effects.FlxSkewedSprite;
-import flixel.text.FlxTextAlign;
-import flixel.text.FlxTextBorderStyle;
 import flixel.util.FlxColor;
 import haxe.Json;
+import sys.io.File;
+import sys.FileSystem;
 import Date;
 
 // ---- shaders (runtime-loaded GLSL) ----
@@ -61,15 +61,64 @@ var lightsColors = [];
 var lightsDurations = [];
 var lightsIntensities = [];
 
+// ---- lipsync（原版 SserafimLipSyncSprite + 角色脚本注入的近似移植）----
+// VS 把嘴部精灵注入图集 "mouth default" 帧；FE 侧用独立 FlxAnimate 叠加。
+// 嘴部图集与身体图集同一 FLA 坐标系导出 → 与角色同位置/同缩放摆放即可对齐（小偏差实机微调）。
+// VS: shouldSing = characterType == BF（轮唱到谁谁张嘴）；不唱停在 frame 0（闭嘴）。
+// 顺序同 girlsVisible：0 yunjin / 1 kazuha(dad) / 2 chaewon / 3 eunchae / 4 sakura(bf)。gf 原版没有嘴型。
+var lipsyncs = [null, null, null, null, null];
+var lipsyncAtlas = ['sserafim-lipsync-yunjin', 'sserafim-lipsync', 'sserafim-lipsync', 'sserafim-lipsync', 'sserafim-lipsync'];
+var lipsyncFlip = [false, true, false, false, true];
+
+function addLipsync(i, char) {
+	var ls = new FlxAnimate(0, 0);
+	Paths.loadAnimateAtlas(ls, lipsyncAtlas[i]);
+	ls.scrollFactor.set(char.scrollFactor.x, char.scrollFactor.y);
+	ls.flipX = lipsyncFlip[i];
+	ls.shader = characterShader;
+	ls.visible = char.visible;
+	try { ls.anim.play(); } catch (e:Dynamic) {}
+	var p = ps();
+	p.insert(indexBehindFrontStool(), ls);
+	return ls;
+}
+
+function updateLipsync() {
+	var girls = [yunjin, ps().dad, chaewon, eunchae, ps().boyfriend];
+	var frame = 0;
+	if (Conductor != null && Conductor.songPosition > 0) frame = Math.floor((Conductor.songPosition / 1000) * 24);
+	for (i in 0...5) {
+		var ls = lipsyncs[i];
+		var c = girls[i];
+		if (ls == null) continue;
+		if (c == null) { ls.visible = false; continue; }
+		ls.visible = c.visible;
+		ls.setPosition(c.x, c.y);
+		ls.scale.set(c.scale.x, c.scale.y);
+		ls.scrollFactor.set(c.scrollFactor.x, c.scrollFactor.y);
+		// VS: 唱的时候帧号跟歌曲位置走（24fps），不唱回第 0 帧（闭嘴）
+		var target = 0;
+		if (girlsSinging[i] && frame > 0) {
+			var len = 0;
+			try { len = ls.anim.length; } catch (e:Dynamic) { len = 0; }
+			if (len > 0) target = frame % len;
+		}
+		try { ls.anim.curFrame = target; } catch (e:Dynamic) {}
+	}
+}
+
 // ---- props from stage json ----
 var props = null;
+
+// 对手侧 strumline 只隐藏一次（Iris：函数里引用不到定义在函数之后的顶层变量，必须放前面）
+var strumsHidden = false;
 
 function ps() return PlayState.instance;
 
 // FlxAnimate symbol playback; symbol names differ per atlas, so fail soft
 function tryAnim(spr, name) {
 	if (spr == null || spr.anim == null) return;
-	try { spr.anim.play(name, true); } catch (e) { try { spr.anim.play(); } catch (e2) {} }
+	try { spr.anim.play(name, true); } catch (e:Dynamic) { try { spr.anim.play(); } catch (e2:Dynamic) {} }
 }
 
 function getProp(name) {
@@ -80,10 +129,19 @@ function getProp(name) {
 // ============================ shader helpers ============================
 
 function newShader(isChar) {
-	// 与角色图集同一条 getTextFromFile 通道（内容包磁盘路径已实测可达）
 	var src = Paths.getTextFromFile('shaders/sserafim.frag');
+	if (src == null || src.length < 1) {
+		// getTextFromFile 的内容包回退未必命中 shaders/ —— 直接读内容包磁盘
+		try {
+			var p = Paths.currentContentRoot + '/sserafim/shaders/sserafim.frag';
+			if (FileSystem.exists(p)) src = File.getContent(p);
+		} catch (e:Dynamic) { src = null; }
+	}
 	if (src == null || src.length < 1) return null;
-	var sh = new FlxRuntimeShader(src);
+	var sh = null;
+	try {
+		sh = new FlxRuntimeShader(src);
+	} catch (e:Dynamic) { return null; }
 	sh.setBool('isChar', isChar);
 	sh.setFloat('darkAmt', 0);
 	sh.setFloat('pulseStrength', 0);
@@ -174,9 +232,10 @@ function camPosTo(x, y, dur, ?ease) {
 
 // VS resetClear() - the "night after the crash" gameplay look
 function resetLook() {
-	FlxTween.cancelTweensOf(stageShader);
-	FlxTween.cancelTweensOf(characterShader);
-	FlxTween.cancelTweensOf(floorSpr);
+	// shader 可能加载失败（frag 路径/运行时问题）为 null —— FlxTween.cancelTweensOf(null) 会抛错
+	if (stageShader != null) FlxTween.cancelTweensOf(stageShader);
+	if (characterShader != null) FlxTween.cancelTweensOf(characterShader);
+	if (floorSpr != null) FlxTween.cancelTweensOf(floorSpr);
 	setBothAdjust(-24, 6, -26, -74);
 	setBothDark(0);
 	setBothTruck(0);
@@ -274,15 +333,17 @@ function onCreatePost() {
 
 	// --- perspective floor (port of PerspectiveSprite) ---
 	if (floorSpr == null) {
-		floorSpr = new FlxSkewedSprite();
-		floorSpr.matrixExposed = true;
-		floorSpr.antialiasing = true;
-		var img = Paths.image('floor');
-		if (img != null) floorSpr.loadGraphic(img);
-		floorSpr.scrollFactor.set(0.93, 0.93);
-		floorSpr.shader = stageShader;
+		try {
+			floorSpr = new FlxSkewedSprite();
+			floorSpr.matrixExposed = true;
+			floorSpr.antialiasing = true;
+			var img = Paths.image('floor');
+			if (img != null) floorSpr.loadGraphic(img);
+			floorSpr.scrollFactor.set(0.93, 0.93);
+			floorSpr.shader = stageShader;
+		} catch (e:Dynamic) { floorSpr = null; }
 	}
-	insertBehindCharacters(floorSpr);
+	if (floorSpr != null) insertBehindCharacters(floorSpr);
 
 	// --- extra girls ---
 	if (yunjin == null) {
@@ -298,6 +359,14 @@ function onCreatePost() {
 	if (p.dad != null) p.dad.shader = characterShader;
 	if (p.boyfriend != null) p.boyfriend.shader = characterShader;
 	if (p.gf != null) p.gf.shader = characterShader;
+
+	// --- lipsync mouths（dad 槽 = kazuha、bf 槽 = sakura、外加三名背景女孩；gf 原版没有嘴型）---
+	if (lipsyncs[0] == null) {
+		var girlsArr = [yunjin, p.dad, chaewon, eunchae, p.boyfriend];
+		for (i in 0...5) {
+			if (girlsArr[i] != null) lipsyncs[i] = addLipsync(i, girlsArr[i]);
+		}
+	}
 	for (key in ['bg', 'backTables', 'backStools', 'truck', 'truckDoor', 'truckLight1', 'truckLight2', 'backLightColor', 'backLightWhite', 'frontStool']) {
 		var spr = getProp(key);
 		if (spr != null) spr.shader = stageShader;
@@ -441,7 +510,8 @@ function onStartCountdown() {
 	cutsceneSkipped = false;
 	canSkipCutscene = false;
 	setVar('sserafim_cutscene_at', Date.now().getTime());
-	introCutscene();
+	// 过场任何一环抛错都不能把歌卡死 —— 兜底直接开唱
+	try { introCutscene(); } catch (e:Dynamic) { finishCutscene(); }
 	return '##PSYCHLUA_FUNCTIONSTOP';
 }
 
@@ -454,9 +524,13 @@ function introCutscene() {
 	resetLook();
 	setBothAdjust(0, 0, 0, 0);
 
-	// skip hint
+	// skip hint（不用 FlxTextAlign/FlxTextBorderStyle 名字 —— enum 解析不进 hscript 作用域，用字符串属性）
 	skipText = new FlxText(936, 618, 0, 'Skip [ ENTER ]', 20);
-	skipText.setFormat(Paths.font('vcr.ttf'), 40, 0xFFFFFFFF, FlxTextAlign.RIGHT, FlxTextBorderStyle.OUTLINE, 0xFF000000);
+	skipText.setFormat(Paths.font('vcr.ttf'), 40, 0xFFFFFFFF);
+	skipText.alignment = 'right';
+	skipText.borderStyle = 'outline';
+	skipText.borderSize = 2;
+	skipText.borderColor = 0xFF000000;
 	skipText.scrollFactor.set(0, 0);
 	skipText.borderSize = 2;
 	skipText.alpha = 0;
@@ -602,13 +676,13 @@ function onUpdate(elapsed) {
 
 	if (floorSpr != null) updateFloorSkew(p.camGame);
 
+	updateLipsync();
+
 	if (cutsceneActive && !cutsceneSkipped && p.controls != null && p.controls.ACCEPT) {
 		if (canSkipCutscene) skipCutscene();
 		else canSkipCutscene = true;
 	}
 }
-
-var strumsHidden = false;
 
 function skipCutscene() {
 	var p = ps();
@@ -653,7 +727,7 @@ function onEvent(name, v1, v2, strumTime) {
 	var p = ps();
 	if (p == null) return;
 	var params = null;
-	try { params = Json.parse(v1); } catch (e) { params = null; }
+	try { params = Json.parse(v1); } catch (e:Dynamic) { params = null; }
 
 	switch (name) {
 		case 'sserafimShow':

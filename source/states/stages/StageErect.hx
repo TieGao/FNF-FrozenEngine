@@ -2,6 +2,8 @@ package states.stages;
 
 #if BASE_GAME_ERECT
 import flixel.FlxSprite;
+import flixel.math.FlxPoint;
+import flixel.math.FlxRect;
 import flixel.util.FlxTimer;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
@@ -125,11 +127,32 @@ class StageErect extends BaseStage
 				if (smoke2 != null) smoke2.visible = true;
 			}
 
-			var target:Character = (value > 2) ? boyfriend : dad;
-			if (target != null && spotlight != null)
+			var who:Character = dad;
+			if(value > 2) who = boyfriend;
+			if (who != null && spotlight != null)
 			{
-				spotlight.x = target.getMidpoint().x - spotlight.width / 2;
-				spotlight.y = target.y + target.height - spotlight.height + 50;
+				// 分尸图（animate atlas）角色没有 hitbox：Character 从不设 frames，width/height 恒为 0，
+				// getMidpoint() 会塌成 (x, y) = 精灵左上角、who.y + who.height 也等于顶边
+				// → 聚光灯跑到角色左上角。改用 FlxAnimate 自己按帧算出的绘制包围盒当锚点。
+				var anchorX:Float;
+				var anchorY:Float;
+				if (who.isAnimateAtlas && who.atlas != null && who.atlas.frameWidth > 0)
+				{
+					var bounds:FlxRect = who.atlas.getGraphicBounds();
+					anchorX = bounds.left + bounds.width * 0.5;
+					anchorY = bounds.bottom;
+					bounds.put();
+				}
+				else
+				{
+					var mid:FlxPoint = who.getMidpoint();
+					anchorX = mid.x;
+					anchorY = who.y + who.height;
+					mid.put();
+				}
+
+				spotlight.x = anchorX - spotlight.width / 2;
+				spotlight.y = anchorY - spotlight.height + 50;
 			}
 			new FlxTimer().start(0.12, function(_) { if (spotlight != null) spotlight.alpha = 0.375; });
 

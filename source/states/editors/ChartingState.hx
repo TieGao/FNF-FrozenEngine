@@ -1884,6 +1884,47 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		Conductor.bpm = PlayState.SONG.bpm;
 	}
 
+	/**
+	 * 变体谱面（bopeebo-pico-normal.json 等）的内嵌 events 一律为空，事件放在外置
+	 * events-<变体>.json 里，PlayState 在 generateSong 时会按变体后缀去找。
+	 * 编辑器之前只读谱面本体，导致从暂停菜单进编辑器或直接打开变体谱面时事件栏是空的。
+	 * 这里复刻 PlayState 的查找顺序：events-<变体>.json 优先，读不到再回退 events.json。
+	 * 只在谱面内嵌事件为空时合并，避免与已嵌入的事件叠加。
+	 */
+	function mergeExternalEvents(song:SwagSong)
+	{
+		if(song == null || song.events == null || song.events.length > 0) return;
+
+		var eventsChart:SwagSong = null;
+		var eventVariant:String = Difficulty.getAudioVariant();
+		var eventSuffix:String = (eventVariant != null && eventVariant.length > 0) ? '-' + eventVariant.toLowerCase() : null;
+		if (eventSuffix != null)
+		{
+			// getChart 对缺失文件是抛异常，两段 try 分开写才能正常回退
+			try { eventsChart = Song.getChart('events' + eventSuffix, song.song); }
+			catch (e:Dynamic) {}
+		}
+		if (eventsChart == null)
+		{
+			try { eventsChart = Song.getChart('events', song.song); }
+			catch (e:Dynamic) {}
+		}
+
+		if(eventsChart != null && eventsChart.events != null && eventsChart.events.length > 0)
+		{
+			var count:Int = 0;
+			for (event in eventsChart.events)
+			{
+				if(event == null) continue;
+				song.events.push(event);
+				count++;
+			}
+			var msg:String = 'Merged $count event(s) from external events file${eventSuffix != null ? ' (variant$eventSuffix)' : ''}.';
+			if(outputTxt != null) showOutput(msg);
+			else trace(msg);
+		}
+	}
+
 	function loadMusic(?killAudio:Bool = false)
 	{
 		setSongPlaying(false);
@@ -2022,6 +2063,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 	function reloadNotes()
 	{
+		mergeExternalEvents(PlayState.SONG);
 		selectedNotes = [];
 		for (note in notes) if(note != null) note.destroy();
 		for (event in events) if(event != null) event.destroy();

@@ -16,7 +16,8 @@ class Mall extends BaseStage
 		add(bg);
 
 		if(!ClientPrefs.data.lowQuality) {
-			upperBoppers = new BGSprite('christmas/upperBop', -240, -90, 0.33, 0.33, ['Upper Crowd Bob']);
+			// 官方重绘 upperBop（4096x2048）；x 取官方 mallXmas.json，y 上移到脚线对齐 PE 旧版位置
+			upperBoppers = new BGSprite('christmas/upperBop', -396, -147, 0.28, 0.28, ['Upper Crowd Bob']);
 			upperBoppers.setGraphicSize(Std.int(upperBoppers.width * 0.85));
 			upperBoppers.updateHitbox();
 			add(upperBoppers);

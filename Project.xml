@@ -149,6 +149,8 @@
 
 	<haxelib name="flixel"/>
 	<haxelib name="flixel-addons"/>
+	<!-- 强制编进 FlxSkewedSprite（引擎源码没引用它，不 include 的话 hscript 里 resolveClass 拿不到） -->
+	<haxeflag name="--macro" value="include('flixel.addons.effects.FlxSkewedSprite')"/>
 	<haxelib name="tjson" version="1.4.0"/>
 
 	<!--Psych stuff needed-->

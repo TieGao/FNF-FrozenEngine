@@ -8,7 +8,7 @@ import shaders.AdjustColorShader;
 /**
  * Week 3（philly）的 erect 变体舞台，参照 Erect Mode 的 `phillyErect.lua`。
  *
- * 天空 / 城市 / 窗光 / 列车 / 街道走 `philly/erect/*`，窗光复用 `philly/window`；
+ * 天空 / 城市 / 列车 / 街道走 `philly/erect/*`，窗光用官方重绘的 `philly/win`；
  * 列车每拍推进、每 4 拍换一次窗光颜色，与正常 Philly 同逻辑。
  * 角色 / 列车染色用 `AdjustColorShader`（hue -26 / sat -16 / bright -5 / contrast 0）。
  *
@@ -41,27 +41,28 @@ class PhillyErect extends BaseStage
 
 	override function create()
 	{
+		// 官方 VSlice phillyTrainErect.json 的属性坐标；窗光用官方重绘的 philly/win（旧 philly/window 铺不满 erect 城市）
 		var sky:BGSprite = new BGSprite('philly/erect/sky', -100, 0, 0.1, 0.1);
 		add(sky);
 
-		var city:BGSprite = new BGSprite('philly/erect/city', -10, 0, 0.3, 0.3);
-		city.setGraphicSize(Std.int(city.width * 0.85));
+		var city:BGSprite = new BGSprite('philly/erect/city', -255, 45, 0.3, 0.3);
+		city.setGraphicSize(Std.int(city.width * 0.9));
 		city.updateHitbox();
 		add(city);
 
-		lights = new BGSprite('philly/window', -10, 0, 0.3, 0.3);
-		lights.setGraphicSize(Std.int(lights.width * 0.85));
+		lights = new BGSprite('philly/win', -184, 155, 0.3, 0.3);
+		lights.setGraphicSize(Std.int(lights.width * 0.9));
 		lights.updateHitbox();
 		lights.alpha = 0;
 		add(lights);
 
-		var behindTrain:BGSprite = new BGSprite('philly/erect/behindTrain', -40, 50, 1, 1);
+		var behindTrain:BGSprite = new BGSprite('philly/erect/behindTrain', -299, 144, 1, 1);
 		add(behindTrain);
 
 		phillyTrain = new PhillyTrain(2000, 360);
 		add(phillyTrain);
 
-		street = new BGSprite('philly/erect/street', -40, 50, 1, 1);
+		street = new BGSprite('philly/erect/street', -299, 144, 1, 1);
 		add(street);
 	}
 
@@ -93,8 +94,8 @@ class PhillyErect extends BaseStage
 		blammedLightsBlack.visible = false;
 		insert(members.indexOf(street), blammedLightsBlack);
 
-		phillyWindowEvent = new BGSprite('philly/window', lights.x, lights.y, 0.3, 0.3);
-		phillyWindowEvent.setGraphicSize(Std.int(phillyWindowEvent.width * 0.85));
+		phillyWindowEvent = new BGSprite('philly/win', lights.x, lights.y, 0.3, 0.3);
+		phillyWindowEvent.setGraphicSize(Std.int(phillyWindowEvent.width * 0.9));
 		phillyWindowEvent.updateHitbox();
 		phillyWindowEvent.visible = false;
 		insert(members.indexOf(blammedLightsBlack) + 1, phillyWindowEvent);

@@ -855,19 +855,24 @@ class PlayState extends MusicBeatState
 				#end
 			}
 
-		// 内容包自带脚本（content/<包>/scripts/**，含一级子目录）
+		// 内容包自带脚本（content/<包>/scripts/** 含一级子目录；stages/ 为包根目录的舞台脚本，
+		// 对齐 PE 惯例 —— startHScriptsNamed 只查 mods/ 与 assets/shared/，内容包的 stages/ 走这里补扫）
 		if (Paths.currentContentRoot != null && Paths.currentContentRoot.length > 0)
 		{
 			var contentScriptsDir:String = Paths.currentContentRoot + '/scripts';
+			var scriptDirs:Array<String> = [];
 			if (FileSystem.exists(contentScriptsDir) && FileSystem.isDirectory(contentScriptsDir))
 			{
-				var scriptDirs:Array<String> = [contentScriptsDir];
+				scriptDirs.push(contentScriptsDir);
 				for (sub in FileSystem.readDirectory(contentScriptsDir))
 				{
 					var subPath:String = contentScriptsDir + '/' + sub;
 					if (FileSystem.isDirectory(subPath)) scriptDirs.push(subPath);
 				}
-				for (scriptDir in scriptDirs)
+			}
+			var packStagesDir:String = Paths.currentContentRoot + '/stages';
+			if (FileSystem.exists(packStagesDir) && FileSystem.isDirectory(packStagesDir)) scriptDirs.push(packStagesDir);
+			for (scriptDir in scriptDirs)
 					for (file in FileSystem.readDirectory(scriptDir))
 					{
 						#if LUA_ALLOWED
@@ -880,7 +885,6 @@ class PlayState extends MusicBeatState
 							initHScript(scriptDir + '/' + file);
 						#end
 					}
-			}
 		}
 		#end
 			
@@ -2060,7 +2064,9 @@ public function reloadCounterColors()
 			try { eventsChart = Song.getChart('events', songName); }
 			catch (e:Dynamic) {}
 		}
-		if(eventsChart != null)
+		// 编辑器保存的谱面会把事件内嵌进 chart json；内嵌非空时以谱面为准、跳过外置文件，
+		// 否则同一事件会在这里和下方 songData.events 各触发一次。
+		if(eventsChart != null && (PlayState.SONG.events == null || PlayState.SONG.events.length < 1))
 			for (event in eventsChart.events) //Event Notes
 				for (i in 0...event[1].length)
 					makeEvent(event, i);
@@ -3256,9 +3262,13 @@ public function reloadCounterColors()
 		var easing:Float->Float = cast getErectEase(easeName);
 		var duration:Float = Conductor.stepCrochet * steps / 1000 / Math.max(0.001, playbackRate);
 		FlxG.camera.target = null;
-		camFollow.setPosition(targetX - FlxG.width / 2, targetY - FlxG.height / 2);
-		// 直接 tween scroll，避免再叠一层 camera.follow 的平滑延迟。
-		erectCameraTargetTween = FlxTween.tween(FlxG.camera.scroll, {x: targetX - FlxG.width / 2, y: targetY - FlxG.height / 2}, duration, {ease: easing, onComplete: function(_) { erectCameraTargetTween = null; }});
+		// camFollow 保持"世界坐标"语义（与常规 follow 一致，scroll = camFollow - 半屏），
+		// 过渡期间先停 follow、直接 tween scroll；结束时恢复 follow，锚点已落在终点。
+		camFollow.setPosition(targetX, targetY);
+		erectCameraTargetTween = FlxTween.tween(FlxG.camera.scroll, {x: targetX - FlxG.width / 2, y: targetY - FlxG.height / 2}, duration, {ease: easing, onComplete: function(_) {
+			erectCameraTargetTween = null;
+			FlxG.camera.target = camFollow;
+		}});
 	}
 
 	private function setErectCameraZoom(value1:String, value2:String):Void

@@ -20,32 +20,33 @@ class Philly extends BaseStage
 
 	override function create()
 	{
+		// 官方 VSlice phillyTrain.json 的属性坐标（city 2271x809 / win 2119x414 为官方重绘图）
 		if(!ClientPrefs.data.lowQuality) {
 			var bg:BGSprite = new BGSprite('philly/sky', -100, 0, 0.1, 0.1);
 			add(bg);
 		}
 
-		var city:BGSprite = new BGSprite('philly/city', -10, 0, 0.3, 0.3);
-		city.setGraphicSize(Std.int(city.width * 0.85));
+		var city:BGSprite = new BGSprite('philly/city', -255, 45, 0.3, 0.3);
+		city.setGraphicSize(Std.int(city.width * 0.9));
 		city.updateHitbox();
 		add(city);
 
 		phillyLightsColors = [0xFF31A2FD, 0xFF31FD8C, 0xFFFB33F5, 0xFFFD4531, 0xFFFBA633];
-		phillyWindow = new BGSprite('philly/window', city.x, city.y, 0.3, 0.3);
-		phillyWindow.setGraphicSize(Std.int(phillyWindow.width * 0.85));
+		phillyWindow = new BGSprite('philly/win', -184, 155, 0.3, 0.3);
+		phillyWindow.setGraphicSize(Std.int(phillyWindow.width * 0.9));
 		phillyWindow.updateHitbox();
 		add(phillyWindow);
 		phillyWindow.alpha = 0;
 
 		if(!ClientPrefs.data.lowQuality) {
-			var streetBehind:BGSprite = new BGSprite('philly/behindTrain', -40, 50);
+			var streetBehind:BGSprite = new BGSprite('philly/behindTrain', -299, 144);
 			add(streetBehind);
 		}
 
 		phillyTrain = new PhillyTrain(2000, 360);
 		add(phillyTrain);
 
-		phillyStreet = new BGSprite('philly/street', -40, 50);
+		phillyStreet = new BGSprite('philly/street', -299, 144);
 		add(phillyStreet);
 	}
 	override function eventPushed(event:objects.Note.EventNote)
@@ -57,8 +58,8 @@ class Philly extends BaseStage
 				blammedLightsBlack.visible = false;
 				insert(members.indexOf(phillyStreet), blammedLightsBlack);
 
-				phillyWindowEvent = new BGSprite('philly/window', phillyWindow.x, phillyWindow.y, 0.3, 0.3);
-				phillyWindowEvent.setGraphicSize(Std.int(phillyWindowEvent.width * 0.85));
+				phillyWindowEvent = new BGSprite('philly/win', phillyWindow.x, phillyWindow.y, 0.3, 0.3);
+				phillyWindowEvent.setGraphicSize(Std.int(phillyWindowEvent.width * 0.9));
 				phillyWindowEvent.updateHitbox();
 				phillyWindowEvent.visible = false;
 				insert(members.indexOf(blammedLightsBlack) + 1, phillyWindowEvent);
