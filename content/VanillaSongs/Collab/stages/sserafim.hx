@@ -89,6 +89,7 @@ var girlHold = [0, 0, 0, 0, 0];
 var singLogAt = -99999.0;
 var gfBeautiful = false;
 var gfDanceFlip = false;
+var gfHold = 0;        // gf 唱姿保持的剩余拍数（0 = 可以回去跳舞）
 
 // ---- 舞台物件 ----
 var props = null;
@@ -115,6 +116,25 @@ var gfStopFrame = -1;
 var bfStopFrame = -1;
 var yunjinDance = false;
 var doorFrameHooked = false;
+var doorShownFinal = false;
+
+// 过场定时器"代"号：finish / skip 之后 cutsceneGen + 1，之前排下的回调全部作废。
+// 少了这层，跳过过场时 @563 crash / @650 getup 这些 timer 会在歌里继续跑 ——
+// 表现就是"玩到一半突然播开局事件（白闪 / 重新摆人物 / 再倒计时一次）"。
+//
+// ⚠ 绝对不能写 `cutsceneGen++`：hscript-iris 的 `++` / `--` **对脚本级变量不写回**
+//   （实测 `var G=0; function f(){G++;} f(); G` 还是 0，函数内局部 var 也一样）。
+//   一旦用了 ++，代号永远不变 = 所有过场 timer 全部照旧触发。
+var cutsceneGen = 0;
+
+// 所有过场定时器的实体，跳过/结束时逐个 cancel（FlxTimer 是全局的，不等脚本销毁）
+var cutTimers = [];
+// 结尾演出的定时器（endStuff）
+var endTimers = [];
+
+// 开头 gf/bf 起身精灵的 y 微调（负数 = 往上）。用户实机校准。
+// gf 基准 -104、bf 基准 531（官方坐标）。
+var CUT_BFGF_Y_SHIFT = -80.0;
 
 // ---- 脉冲灯 ----
 var lightsEnabled = false;
@@ -126,6 +146,9 @@ var lightsIntensities = [];
 var stageBaseZoom = STAGE_BASE_ZOOM;
 var camZoomTween = null;
 var camPosTween = null;
+// 正在跑的调色 / 变暗 tween（跳过过场时要掐掉，不然会在歌里继续改画面）
+var adjustTween = null;
+var darkTween = null;
 
 // ---- 一次性标志 ----
 var strumsHidden = false;
@@ -152,6 +175,86 @@ function slog(msg) {
 	} catch (e:Dynamic) {
 		try { trace('[sserafim] ' + msg); } catch (e2:Dynamic) {}
 	}
+}
+
+// 精灵在屏幕上的落点体检（判断"看不见"是画面外还是没画）。
+// 换算：screen = (world - cam.scroll * scrollFactor) * zoom + 屏幕中心 * (1 - zoom)
+function probeSprite(tag, spr) {
+	var p = ps();
+	if (spr == null) { slog('probe ' + tag + ': null'); return; }
+	var s = 'probe ' + tag;
+	try { s += ' pos=' + Math.round(spr.x) + ',' + Math.round(spr.y); } catch (e:Dynamic) {}
+	try { s += ' wh=' + Math.round(spr.width) + 'x' + Math.round(spr.height); } catch (e:Dynamic) {}
+	try { s += ' rel=' + Math.round(spr.relativeX) + ',' + Math.round(spr.relativeY); } catch (e:Dynamic) {}
+	try { s += ' sf=' + spr.scrollFactor.x + ',' + spr.scrollFactor.y; } catch (e:Dynamic) {}
+	try { s += ' vis=' + spr.visible + ' alpha=' + spr.alpha; } catch (e:Dynamic) {}
+	try { s += ' cf=' + spr.anim.curFrame + ' sym=' + spr.anim.curSymbol.name; } catch (e:Dynamic) {}
+	if (p != null && p.camGame != null) {
+		try {
+			s += ' cam=' + Math.round(p.camGame.scroll.x) + ',' + Math.round(p.camGame.scroll.y) + ' z=' + p.camGame.zoom;
+		} catch (e:Dynamic) {}
+		// 真正画到屏幕上的矩形（用 flxanimate 回填的 rel/wh 换算，见 fitAnimateCenter）
+		try {
+			var z = p.camGame.zoom;
+			var px = spr.x + spr.relativeX;
+			var py = spr.y + spr.relativeY;
+			var sx = px * z + 640 * (1 - z);
+			var sy = py * z + 360 * (1 - z);
+			s += ' screen=' + Math.round(sx) + ',' + Math.round(sy)
+				+ ' to=' + Math.round((px + spr.width) * z + 640 * (1 - z))
+				+ ',' + Math.round((py + spr.height) * z + 360 * (1 - z));
+		} catch (e:Dynamic) {}
+	}
+	slog(s);
+}
+
+// FlxAnimate 的取景校正 -------------------------------------------------------------------
+// flxanimate 的 draw() 把图集画在"(世界坐标 - scroll*scrollFactor)"这个"预缩放屏空间"里，
+// 然后把**实际画到的矩形**回填进 width/height，把 (矩形 - x/y) 回填进 relativeX/Y。
+// ⇒ 想让这块美术在屏幕上居中，直接：
+//      x = 屏幕中心X - relativeX - width/2     （y 同理）
+// 两个理由让这一行就够：
+//   1. relativeX = 图集内部偏移 - scroll*sf，公式里的 scroll 项正好抵消 → 与镜头无关；
+//   2. relativeX 对 x 的平移是不变量（x 改了，回填的矩形跟着改），所以反复调用不会漂。
+// 官方用 FunkinSprite 自己的 frame 原点处理这层偏移，我们是裸 FlxAnimate，必须自己补，
+// 否则 cutsceneMain 会整块掉到画面下方约 1000px（只剩舞台道具的静态吧台，看不见 gf/bf）。
+function fitAnimateCenter(spr, cx, cy) {
+	if (spr == null) return false;
+	if (spr.width <= 0 || spr.height <= 0) return false;
+	spr.setPosition(cx - spr.relativeX - spr.width * 0.5,
+					cy - spr.relativeY - spr.height * 0.5);
+	return true;
+}
+
+// 图集精灵体检。FlxAnimate.draw() 会把 _flashRect（本帧真正画到的范围）写进 width/height，
+// 所以 wh>0 = 真的画出了东西；wh=0 = 一帧都没画（图集/符号/元素某一环断了）。
+// 过场"空场景"到底属于哪一种，靠这行日志区分。
+function dumpAnimate(tag, spr) {
+	if (spr == null) { slog(tag + ': null'); return; }
+	var s = tag;
+	try { s += ' wh=' + spr.width + 'x' + spr.height; } catch (e:Dynamic) {}
+	try { s += ' f=' + spr.frameWidth + 'x' + spr.frameHeight; } catch (e:Dynamic) {}
+	try { s += ' pos=' + spr.x + ',' + spr.y; } catch (e:Dynamic) {}
+	try { s += ' rel=' + spr.relativeX + ',' + spr.relativeY; } catch (e:Dynamic) {}
+	try { s += ' org=' + spr.origin.x + ',' + spr.origin.y; } catch (e:Dynamic) {}
+	try { s += ' cf=' + spr.anim.curFrame + '/' + spr.anim.length; } catch (e:Dynamic) {}
+	try { s += ' play=' + (spr.anim.isPlaying ? 1 : 0); } catch (e:Dynamic) {}
+	try { s += ' sym=' + spr.anim.curSymbol.name; } catch (e:Dynamic) {}
+	try { s += ' layers=' + spr.anim.curSymbol.timeline.getList().length; } catch (e:Dynamic) {}
+	try { s += ' inst=' + spr.anim.curInstance.name + ',vis=' + spr.anim.curInstance.visible; } catch (e:Dynamic) {}
+	try { s += ' frames=' + spr.frames.numFrames; } catch (e:Dynamic) {}
+	slog(s);
+
+	// 根时间轴每一层的名字 + 帧数。层数对但 wh=0 → 是元素/帧的问题；
+	// 层数不对 → 是 TL 解析的问题（0 帧的"文件夹层"、重名层都在这看）。
+	try {
+		var ls = spr.anim.curSymbol.timeline.getList();
+		var s2 = '';
+		var n = ls.length;
+		if (n > 32) n = 32;
+		for (k in 0...n) s2 += ls[k].name + '(' + ls[k].length + ')';
+		slog(tag + ' layers: ' + s2);
+	} catch (e:Dynamic) { slog(tag + ' layers FAILED ' + e); }
 }
 
 // FlxAnimate 的符号名各图集不同 —— 失败就退回默认符号，别让过场崩掉
@@ -323,9 +426,30 @@ function currentDark() {
 }
 
 function darkenTween(amt, dur) {
+	if (darkTween != null) { darkTween.cancel(); darkTween = null; }
 	var proxy = { amt: currentDark() };
-	FlxTween.tween(proxy, { amt: amt }, dur, { ease: FlxEase.sineInOut,
+	darkTween = FlxTween.tween(proxy, { amt: amt }, dur, { ease: FlxEase.sineInOut,
 		onUpdate: function(tw) { setBothDark(proxy.amt); } });
+}
+
+// 调色 tween：过场跳过时要能中途掐掉，否则它会在歌里继续改画面颜色
+function tweenAdjust(b, h, c, s, dur, ?ease, ?fromB, ?fromH, ?fromC, ?fromS) {
+	if (adjustTween != null) { adjustTween.cancel(); adjustTween = null; }
+	var cur = getAdjust(stageShader);
+	var proxy = {
+		b: (fromB != null) ? fromB : cur[0],
+		h: (fromH != null) ? fromH : cur[1],
+		c: (fromC != null) ? fromC : cur[2],
+		s: (fromS != null) ? fromS : cur[3]
+	};
+	adjustTween = FlxTween.tween(proxy, { b: b, h: h, c: c, s: s }, dur, {
+		ease: (ease != null) ? ease : FlxEase.sineInOut,
+		onUpdate: function(tw) { setBothAdjust(proxy.b, proxy.h, proxy.c, proxy.s); } });
+}
+
+function killLookTweens() {
+	if (adjustTween != null) { try { adjustTween.cancel(); } catch (e:Dynamic) {} adjustTween = null; }
+	if (darkTween != null) { try { darkTween.cancel(); } catch (e:Dynamic) {} darkTween = null; }
 }
 
 // ============================================================================
@@ -368,6 +492,7 @@ function camPosTo(x, y, dur, ?ease) {
 
 // 官方 resetClear()
 function resetLook() {
+	killLookTweens();
 	if (stageShader != null) FlxTween.cancelTweensOf(stageShader);
 	if (characterShader != null) FlxTween.cancelTweensOf(characterShader);
 	if (floorSpr != null) FlxTween.cancelTweensOf(floorSpr);
@@ -410,9 +535,16 @@ function startClear() {
 //  §6  女团角色
 // ============================================================================
 
+// 全员站位整体微调（用户实机校准）：整个角色组相对背景偏右下，统一往左上挪。
+// 200 = 第一轮校准，再 +30 = 第二轮微调（合计 -230）。
+// 只作用于"演出里的角色"（女团五人：yunjin / kazuha=dad / chaewon / eunchae / sakura=bf）；
+// 过场图集与起身精灵仍用官方坐标（y 单独由 CUT_BFGF_Y_SHIFT 调）。
+var CHAR_SHIFT_X = -230.0;
+var CHAR_SHIFT_Y = -230.0;
+
 function addGirl(id, x, y, scrollF) {
 	var c = new Character(0, 0, id, false);
-	c.setPosition(x, y);
+	c.setPosition(x + CHAR_SHIFT_X, y + CHAR_SHIFT_Y);
 	c.scrollFactor.set(scrollF, scrollF);
 	c.shader = characterShader;
 	return c;
@@ -448,17 +580,62 @@ function flags(a) {
 	return s;
 }
 
-function girlSing(dirName, isPlayerSide) {
+// gf 是数组第 6 位（官方 baseSinging / 我们的 sserafimSing 都是 6 位），
+// 但她不在 girlList 里（引擎的 gf 不是"女团成员"），引擎也永远不会让 gf 唱 →
+// 必须由这里自己驱动，否则 singing[5] 永远是白给的。
+function gfSings() {
+	if (girlsSinging == null || girlsSinging.length < 6) return false;
+	return girlsSinging[5] == true;
+}
+
+function gfSing(dirName) {
+	var p = ps();
+	if (p == null || p.gf == null || !p.gf.visible) return;
+	// 官方 SserafimGfSprite.playAnimation 在 isBeautiful 时会自动加 -beautiful 后缀
+	var nm = 'sing' + dirName + (gfBeautiful ? '-beautiful' : '');
+	if (!p.gf.hasAnimation(nm)) nm = 'sing' + dirName;
+	if (!p.gf.hasAnimation(nm)) {
+		slog('gf: NO anim ' + nm);
+		return;
+	}
+	p.gf.playAnim(nm, true);
+	gfHold = 2;
+}
+
+// skipBf = 这一拍已经播过 sakura 专属 kind（joint / bf1 / bf2）。
+// 那种情况下绝不能再播普通 singX —— 会把刚播的专属姿势顶掉，
+// 表现就是"bf 的那几套动作根本没出现"。
+function girlSing(dirName, isPlayerSide, skipBf) {
 	if (!isPlayerSide) return;
 	var girls = girlList();
 	var sang = '';
 	for (i in 0...girls.length) {
-		if (girls[i] == null || !girlsSinging[i]) continue;
+		if (girls[i] == null) continue;
+		if (!girlsSinging[i]) {
+			// 不唱的成员：bf 槽每按一个音符，引擎都会自动给她播 singX，
+			// 这里按回 idle（否则不唱歌的人也在做唱歌动作）
+			if (i == 4 && skipBf != true) {
+				// 只在"已经是唱姿"时才按回 idle —— 每颗音符都强播 idle 会抖
+				var cur4 = girls[4].getAnimationName();
+				// ⚠ 不能用 startsWith：hscript-iris 里 String 的 startsWith/endsWith 解析不到
+				// （报 "tried to call null function startsWith"）。用 indexOf == 0。
+				if (cur4 != null && cur4.indexOf('sing') == 0) {
+					girls[4].playAnim('idle', true);
+					girlHold[4] = 0;
+				}
+			}
+			continue;
+		}
+		if (i == 4 && skipBf == true) {
+			sang += GIRL_NAMES[i] + '(kind) ';
+			continue;
+		}
 		if (girlHold[i] > 8) continue;
 		girls[i].playAnim('sing' + dirName, true);
 		girlHold[i] = 4;
 		sang += GIRL_NAMES[i] + ' ';
 	}
+	if (gfSings()) { gfSing(dirName); sang += 'gf '; }
 	// 每秒最多落一行，用来确认"谁在唱"
 	var now = Conductor.songPosition;
 	if (now - singLogAt > 1000) {
@@ -640,15 +817,26 @@ function updateLipsync() {
 		ls.visible = c.visible;
 		ls.scrollFactor.set(c.scrollFactor.x, c.scrollFactor.y);
 
-		// 口型帧跟歌曲时间走（24fps），不唱时停在第 0 帧
-		var f = mouthFrame;
-		try {
-			var len = ls.anim.length;
-			if (len > 0) {
-				if (f > len - 1) f = len - 1;
-				ls.anim.curFrame = f;
-			}
-		} catch (e:Dynamic) {}
+		// 官方 SserafimLipSyncSprite.shouldSing：**只有正在唱的成员嘴才动**，
+		// 其他人 fixed 在第 0 帧（闭口）。以前这里无条件按 songPosition 推进帧，
+		// 结果五张嘴连同 gf 一起动 —— 就是"按下就一起唱"的观感来源（事件其实是对的）。
+		var singing = (girlsSinging[i] == true);
+		if (!singing) {
+			try {
+				if (ls.anim.isPlaying) ls.anim.pause();
+				ls.anim.curFrame = 0;
+			} catch (e:Dynamic) {}
+		} else {
+			try { if (!ls.anim.isPlaying) ls.anim.resume(); } catch (e:Dynamic) {}
+			var f = mouthFrame;
+			try {
+				var len = ls.anim.length;
+				if (len > 0) {
+					if (f > len - 1) f = len - 1;
+					ls.anim.curFrame = f;
+				}
+			} catch (e:Dynamic) {}
+		}
 
 		if (MOUTH_DEBUG && mouthLabels != null) {
 			var lb = mouthLabels[i];
@@ -826,6 +1014,58 @@ function setCutsceneVisibility(inCutscene) {
 	if (cutsceneSprite != null) cutsceneSprite.visible = inCutscene;
 }
 
+// ---- 过场定时器：带"代"号 + 实体表，过场作废后自动失效 ----
+
+// 三重保险：
+//   owner != ps()       → 已经换关卡（死亡重试 / 换歌），旧回调一律不执行
+//   g != cutsceneGen    → 过场被跳过 / 正常结束
+//   !cutsceneActive     → 双保险
+// 只要其中一条成立就直接 return，绝不会在歌里突然播开局事件。
+function cutTime(sec, fn) {
+	var owner = ps();
+	var g = cutsceneGen;
+	var tmr = new FlxTimer();
+	cutTimers.push(tmr);
+	tmr.start(sec, function(t) {
+		if (owner != ps()) return;
+		if (g != cutsceneGen) return;
+		if (!cutsceneActive) return;
+		fn(t);
+	});
+}
+
+function cutsceneKillTimers() {
+	cutsceneGen = cutsceneGen + 1;   // 别写 ++（见 §1 说明）
+	var old = cutTimers;
+	cutTimers = [];
+	for (t in old) {
+		if (t == null) continue;
+		try { t.cancel(); } catch (e:Dynamic) {}
+	}
+}
+
+// 结尾演出用的定时器（不吃过场代号，只认关卡归属）
+function endTime(sec, fn) {
+	var owner = ps();
+	var tmr = new FlxTimer();
+	endTimers.push(tmr);
+	tmr.start(sec, function(t) {
+		if (owner != ps()) return;
+		fn(t);
+	});
+}
+
+// 把某个帧标签区间定格在"区间首帧 + offset"（官方 restart 时 curFrame = 23 的等价物）
+function holdLabelAt(spr, name, offset) {
+	if (spr == null) return;
+	tryAnim(spr, '');
+	var idx = labelIndex(spr, name);
+	try {
+		spr.anim.curFrame = (idx >= 0) ? idx + offset : 0;
+		spr.anim.pause();
+	} catch (e:Dynamic) {}
+}
+
 function introCutscene() {
 	var p = ps();
 	p.inCutscene = true;
@@ -883,7 +1123,7 @@ function introCutscene() {
 	} catch (e:Dynamic) { slog('intro: camera FAILED ' + e); }
 
 	// 1 秒后回访：curFrame 一直不动 = 时间轴根本没在走（不是"看不见"，是"没播"）
-	new FlxTimer().start(1.0, function(tmr) {
+	cutTime(1.0, function(tmr) {
 		var cf = -1;
 		var ip = 0;
 		if (cutsceneSprite != null) {
@@ -893,40 +1133,66 @@ function introCutscene() {
 		slog('intro +1s curFrame=' + cf + ' playing=' + ip);
 	});
 
-	new FlxTimer().start(20 / 24, function(tmr) {
+	// 画了没有？（wh=0 就是"图集在走但一个像素都没画出来"）
+	cutTime(1.2, function(tmr) { 
+		try { dumpAnimate('probe cutscene', cutsceneSprite); } catch (e:Dynamic) { slog('probe cutscene FAILED ' + e); }
+		// 取景自校正：把整块过场美术摆到屏幕中央（镜头 1 秒后还在往后推，3.4s 再校一次）
+		try {
+			if (fitAnimateCenter(cutsceneSprite, 640, 780)) {
+				slog('fit cutscene @1.2 pos=' + Math.round(cutsceneSprite.x) + ',' + Math.round(cutsceneSprite.y));
+			} else {
+				slog('fit cutscene @1.2 SKIPED (wh=' + cutsceneSprite.width + 'x' + cutsceneSprite.height + ')');
+			}
+		} catch (e:Dynamic) { slog('fit cutscene FAILED ' + e); }
+		try { probeSprite('cutscene', cutsceneSprite); } catch (e:Dynamic) {}
+		try {
+			var idx = -1;
+			for (i in 0...ps().members.length) if (ps().members[i] == cutsceneSprite) idx = i;
+			slog('probe cutscene members[' + idx + '/' + ps().members.length + '] exists=' + cutsceneSprite.exists);
+		} catch (e:Dynamic) {}
+	});
+
+	// 镜头推完（3s）再校一次：第一次校正时镜头还在动，落点会差几十像素
+	cutTime(3.4, function(tmr) {
+		try {
+			if (fitAnimateCenter(cutsceneSprite, 640, 780)) {
+				slog('fit cutscene @3.4 pos=' + Math.round(cutsceneSprite.x) + ',' + Math.round(cutsceneSprite.y)
+					+ ' wh=' + Math.round(cutsceneSprite.width) + 'x' + Math.round(cutsceneSprite.height));
+			}
+			probeSprite('cutscene @3.4', cutsceneSprite);
+		} catch (e:Dynamic) { slog('fit cutscene @3.4 FAILED ' + e); }
+	});
+
+	cutTime(20 / 24, function(tmr) {
 		cutsceneSound = FlxG.sound.play(Paths.sound('cutscene/startCutscene'), 1.0);
 		slog('intro @20 sound=' + (cutsceneSound != null));
 	});
 
 	// gf 戳自己
-	new FlxTimer().start(245 / 24, function(tmr) { slog('intro @245'); darkenTween(0.2, 0.01); });
-	new FlxTimer().start(251 / 24, function(tmr) { darkenTween(0, 0.8); });
+	cutTime(245 / 24, function(tmr) { slog('intro @245'); darkenTween(0.2, 0.01); });
+	cutTime(251 / 24, function(tmr) { darkenTween(0, 0.8); });
 
 	// gf 戳 bf
-	new FlxTimer().start(406 / 24, function(tmr) { darkenTween(0.2, 0.01); });
-	new FlxTimer().start(411 / 24, function(tmr) { darkenTween(0, 0.8); });
+	cutTime(406 / 24, function(tmr) { darkenTween(0.2, 0.01); });
+	cutTime(411 / 24, function(tmr) { darkenTween(0, 0.8); });
 
 	// 卡车开始逼近 —— 画面变冷变亮
-	new FlxTimer().start(499 / 24, function(tmr) {
+	cutTime(499 / 24, function(tmr) {
 		slog('intro @499');
 		endSkip();
-		var cur = getAdjust(stageShader);
-		var proxy = { b: cur[0], h: cur[1], c: cur[2], s: cur[3] };
-		FlxTween.tween(proxy, { b: 55, h: 0, c: -30, s: 0 }, 49 / 24, { ease: FlxEase.sineOut,
-			onUpdate: function(tw) { setBothAdjust(proxy.b, proxy.h, proxy.c, proxy.s); } });
+		tweenAdjust(55, 0, -30, 0, 49 / 24, FlxEase.sineOut);
 	});
 
 	// 卡车贴脸
-	new FlxTimer().start(548 / 24, function(tmr) {
+	cutTime(548 / 24, function(tmr) {
 		FlxTween.cancelTweensOf(stageShader);
 		FlxTween.cancelTweensOf(characterShader);
-		var proxy = { b: 55, h: 0, c: -30, s: 0 };
-		FlxTween.tween(proxy, { b: 66, h: 10, c: -17, s: 0 }, 15 / 24, { ease: FlxEase.expoIn,
-			onUpdate: function(tw) { setBothAdjust(proxy.b, proxy.h, proxy.c, proxy.s); } });
+		// 从上一段的目标值接着推，别从"当前值"读（会抖）
+		tweenAdjust(66, 10, -17, 0, 15 / 24, FlxEase.expoIn, 55, 0, -30, 0);
 	});
 
 	// 撞车 + 闪白
-	new FlxTimer().start(563 / 24, function(tmr) {
+	cutTime(563 / 24, function(tmr) {
 		slog('intro @563 crash');
 		FlxTween.cancelTweensOf(stageShader);
 		FlxTween.cancelTweensOf(characterShader);
@@ -937,7 +1203,7 @@ function introCutscene() {
 	});
 
 	// 从黑里淡出，bf/gf 趴在地上
-	new FlxTimer().start(650 / 24, function(tmr) {
+	cutTime(650 / 24, function(tmr) {
 		camZoomTo(CUTSCENE_ZOOM_IN, 0);
 		camZoomTo(CUTSCENE_ZOOM_REST, 3, FlxEase.circOut);
 		camPosTo(1070, 470, 0);
@@ -948,15 +1214,23 @@ function introCutscene() {
 		if (sserafimGf != null) { sserafimGf.visible = true; holdLabel(sserafimGf, 'static'); }
 		if (sserafimBf != null) { sserafimBf.visible = true; holdLabel(sserafimBf, 'static'); }
 		slog('intro @650 gf/bf static');
+
+		// 对照组：起身精灵是能画出来的，把它和过场的体检数据放一起看就能定位是谁的问题
+		cutTime(0.8, function(t2) {
+			try { dumpAnimate('probe gfGetUp', sserafimGf); } catch (e:Dynamic) {}
+			try { dumpAnimate('probe bfGetUp', sserafimBf); } catch (e:Dynamic) {}
+			try { probeSprite('gfGetUp', sserafimGf); } catch (e:Dynamic) {}
+			try { probeSprite('bfGetUp', sserafimBf); } catch (e:Dynamic) {}
+		});
 	});
 
-	new FlxTimer().start(710 / 24, function(tmr) {
+	cutTime(710 / 24, function(tmr) {
 		if (sserafimGf != null) gfStopFrame = playLabel(sserafimGf, 'getup');
 		if (sserafimBf != null) bfStopFrame = playLabel(sserafimBf, 'getup');
 		slog('intro @710 getup gfStop=' + gfStopFrame + ' bfStop=' + bfStopFrame);
 	});
 
-	new FlxTimer().start(730 / 24, function(tmr) {
+	cutTime(730 / 24, function(tmr) {
 		slog('intro @730 finish');
 		finishCutscene();
 	});
@@ -964,8 +1238,12 @@ function introCutscene() {
 
 function finishCutscene() {
 	var p = ps();
+	// 过场结束（正常播完 / 被跳过都走这里）：先把还没到点的过场回调全部作废，
+	// 否则 @563 crash 这类 timer 会在歌里触发，把角色/黑幕重新摆一遍。
+	cutsceneKillTimers();
 	cutsceneActive = false;
 	cutsceneSkipped = true;
+	if (cutsceneSprite != null) cutsceneSprite.visible = false;
 	p.inCutscene = false;
 	p.camHUD.visible = true;
 	if (skipText != null) skipText.visible = false;
@@ -989,23 +1267,45 @@ function playCutsceneFromRestart() {
 	setCutsceneVisibility(false);
 	resetLook();
 
+	// 跳过点可能落在白闪 / 黑幕中间：把黑幕和镜头补回正常，否则会顶着一块黑屏唱歌
+	if (solidCover != null) {
+		FlxTween.cancelTweensOf(solidCover);
+		solidCover.alpha = 0;
+	}
+	p.camGame.fade(0xFF000000, 0.01, true, null, true);
+	try { p.camGame.stopFlash(); } catch (e:Dynamic) {}
+
 	camZoomTo(CUTSCENE_ZOOM_REST, 1, FlxEase.circOut);
 	camPosTo(1070, 470, 1, FlxEase.circOut);
 
-	if (sserafimGf != null) { sserafimGf.visible = true; gfStopFrame = playLabel(sserafimGf, 'getup'); }
-	if (sserafimBf != null) { sserafimBf.visible = true; bfStopFrame = playLabel(sserafimBf, 'getup'); }
+	// 官方 playCutsceneFromRestart 是把 curFrame 直接设成 23（= 已经站起来了），
+	// 不是从躺倒重播一遍 —— 否则跳过过场后会在歌里看到他们慢慢爬起来。
+	if (sserafimGf != null) { sserafimGf.visible = true; holdLabelAt(sserafimGf, 'getup', 22); }
+	if (sserafimBf != null) { sserafimBf.visible = true; holdLabelAt(sserafimBf, 'getup', 22); }
+
+	// 跳过路径也要留一份落点数据（多半是在这里看不到 gf/bf）
+	endTime(0.4, function(t) {
+		try { probeSprite('skip gfGetUp', sserafimGf); } catch (e:Dynamic) {}
+		try { probeSprite('skip bfGetUp', sserafimBf); } catch (e:Dynamic) {}
+		try {
+			if (p.gf != null) slog('skip real gf pos=' + Math.round(p.gf.x) + ',' + Math.round(p.gf.y)
+				+ ' gfGroup=' + (p.gfGroup != null ? Math.round(p.gfGroup.x) + ',' + Math.round(p.gfGroup.y) : 'null'));
+		} catch (e:Dynamic) {}
+	});
 }
 
 function skipCutscene() {
 	var p = ps();
+	slog('skip: ENTER pressed at ' + Math.round(Conductor.songPosition));
+	cutsceneKillTimers();   // 跳过 = 立刻作废后续过场回调（并把定时器实体 cancel 掉）
 	cutsceneActive = false;
 	cutsceneSkipped = true;
 	if (cutsceneSound != null) cutsceneSound.stop();
 	p.camGame.fade(0xFF000000, 0.25, false, null, true);
-	new FlxTimer().start(0.3, function(tmr) {
+	endTime(0.3, function(tmr) {
 		p.camGame.fade(0xFF000000, 0.4, true, null, true);
 		playCutsceneFromRestart();
-		new FlxTimer().start(0.5, function(tmr2) { finishCutscene(); });
+		endTime(0.5, function(tmr2) { finishCutscene(); });
 	});
 }
 
@@ -1056,7 +1356,16 @@ function onEvent(name, v1, v2, strumTime) {
 				if (sserafimGf != null) {
 					sserafimGf.visible = false;
 					sserafimBf.visible = false;
-					if (p.gf != null) p.gf.visible = true;
+					// 官方在这里把"过场里趴地上的 gf"换成真正的 gf 角色（会动、会跟着跳）
+					if (p.gf != null) {
+						p.gf.visible = true;
+						slog('kick: real gf shown at ' + Math.round(p.gf.x) + ',' + Math.round(p.gf.y)
+							+ ' anim=' + p.gf.getAnimationName()
+							+ ' singAnim=' + p.gf.hasAnimation('singLEFT')
+							+ ' danceAnim=' + p.gf.hasAnimation('danceLeft'));
+					} else {
+						slog('kick: p.gf == null! 真 gf 角色不存在（stage json hide_girlfriend?）');
+					}
 				}
 				hookDoorFrame();
 				startClear();
@@ -1078,9 +1387,14 @@ function onEvent(name, v1, v2, strumTime) {
 			if (icon == null) return;
 			try {
 				icon.changeIcon(params.id);
-				if (params.flipX != null) icon.flipX = params.flipX;
+				// FE 的 HealthIcon 建 iconP1 时就用 animation.add(..., isPlayer) 把动画设成 FlipX 了
+				// （玩家侧图标天生镜像一次）。V-Slice 那边的 flipX 语义跟这里叠起来正好反相，
+				// 所以玩家侧一律不额外翻 —— gf / bf 图标"反了"就是这么来的。
+				var wantFlip = (params.flipX == true);
+				if (params.char == 0) wantFlip = false;
+				icon.flipX = wantFlip;
 				icon.visible = true;
-				slog('event: icon char=' + params.char + ' -> ' + params.id);
+				slog('event: icon char=' + params.char + ' -> ' + params.id + ' flip=' + wantFlip);
 			} catch (e:Dynamic) { slog('event: icon ' + params.id + ' FAILED ' + e); }
 		case 'ZoomCamera':
 			if (params == null) return;
@@ -1171,10 +1485,24 @@ function flashBackLight(amount, duration, col) {
 function hookDoorFrame() {
 	if (doorFrameHooked || yunjin == null) return;
 	doorFrameHooked = true;
-	// kick2 第 23 帧门已经不在她的图集里了 —— 换成静态那张
-	yunjin.animation.onFrameChange.add(function(animName, frameNumber, index) {
-		if (frameNumber == 23 && getProp('truckDoor') != null) getProp('truckDoor').visible = true;
-	});
+	doorShownFinal = false;
+}
+
+// kick2 第 23 帧起门已经不在她的图集里了 → 换成静态那张。
+// 注意：yunjin 是 flxanimate 角色，帧由 atlas.anim 驱动，
+// `animation.onFrameChange` 根本不会触发（原来挂在那儿等于没挂），只能在 onUpdate 里轮询。
+function updateDoorFrame() {
+	if (!doorFrameHooked || doorShownFinal) return;
+	if (yunjin == null) return;
+	if (yunjin.getAnimationName() != 'kick2') return;
+	var cf = 0;
+	try { cf = Std.int(yunjin.atlas.anim.curFrame); } catch (e:Dynamic) { return; }
+	if (cf >= 23) {
+		doorShownFinal = true;
+		var d = getProp('truckDoor');
+		if (d != null) d.visible = true;
+		slog('kick: static truckDoor shown at frame ' + cf);
+	}
 }
 
 // ============================================================================
@@ -1199,19 +1527,30 @@ function onBeatHit() {
 	if (eunchae != null && eunchae.visible && !girlsSinging[3] && girlHold[3] <= 0) eunchae.playAnim('idle');
 	if (yunjin != null && yunjin.visible && yunjinDance && !girlsSinging[0] && girlHold[0] <= 0) yunjin.playAnim('idle');
 
-	// gf 的 beautiful 舞蹈覆盖
-	if (gfBeautiful && p.gf != null) {
-		gfDanceFlip = !gfDanceFlip;
-		p.gf.playAnim(gfDanceFlip ? 'danceLeft-beautiful' : 'danceRight-beautiful', true);
+	// gf：唱的时候保持 sing 姿势，不唱了才回去跳舞。
+	// 引擎 characterBopper 只在"当前动画名不以 sing 开头"时才会让她跳，
+	// 所以唱完必须由我们把 sing 姿态解除，否则她会一直定在唱歌姿势。
+	// 唱姿保持的剩余拍数。别写 gfHold--（见 §1 关于 ++/-- 的说明）
+	if (gfHold > 0) gfHold = gfHold - 1;
+	if (p.gf != null) {
+		var gsing = gfSings();
+		if (!gsing && gfHold <= 0) {
+			var cur = p.gf.getAnimationName();
+			if (gfBeautiful) {
+				gfDanceFlip = !gfDanceFlip;
+				p.gf.playAnim(gfDanceFlip ? 'danceRight-beautiful' : 'danceLeft-beautiful', true);
+			} else if (cur != null && cur.indexOf('sing') == 0) {
+				p.gf.playAnim('danceLeft', true);
+			}
+		}
 	}
 }
 
 function goodNoteHit(note) {
 	if (note == null || note.isSustainNote) return;
-	playSakuraKind(note, false);
+	var kind = playSakuraKind(note, false);   // 先播 bf 专属姿势，并且不让下面覆盖它
 	var dir = ['LEFT', 'DOWN', 'UP', 'RIGHT'][note.noteData % 4];
-	girlSing(dir, true);
-	if (!girlsSinging[4] && ps().boyfriend != null) ps().boyfriend.playAnim('idle', true);
+	girlSing(dir, true, kind);
 }
 
 function noteMiss(note) {
@@ -1272,25 +1611,25 @@ function endStuff() {
 	var p = ps();
 	FlxG.sound.play(Paths.sound('cutscene/end1'), 1.0);
 
-	new FlxTimer().start(0.05, function(tmr) {
+	endTime(0.05, function(tmr) {
 		if (SEEYOU1 != null) SEEYOU1.visible = true;
 		if (solidCover != null) solidCover.alpha = 1;
 		p.camHUD.visible = false;
 		p.inCutscene = true;
 	});
 
-	new FlxTimer().start(4, function(tmr) {
+	endTime(4, function(tmr) {
 		if (SEEYOU1 != null) SEEYOU1.visible = false;
 		if (SEEYOU2 != null) SEEYOU2.visible = true;
 		FlxG.sound.play(Paths.sound('cutscene/end2'), 1.0);
 	});
 
-	new FlxTimer().start(8, function(tmr) {
+	endTime(8, function(tmr) {
 		if (SEEYOU1 != null) SEEYOU1.visible = false;
 		if (SEEYOU2 != null) SEEYOU2.visible = false;
 	});
 
-	new FlxTimer().start(9, function(tmr) {
+	endTime(9, function(tmr) {
 		p.inCutscene = false;
 		removeVar('sserafim_cutscene_at');
 		p.endSong();
@@ -1358,6 +1697,19 @@ function buildPost() {
 		p.insert(idx + 2, eunchae);
 	}
 	slog('post: extra girls ok');
+
+	// dad(kazuha) / bf(sakura) 是引擎自己建的角色，addGirl 管不到 —— 同样的偏移量补一遍。
+	// ⚠ gf 不要补：她的落点由 shared/characters/sserafim-gf.json 的 position 单独调
+	//   （[-1100,-1000] = 站到卡车上，用户实机校准过，别当残留删掉）。
+	if (p.dad != null) { p.dad.x += CHAR_SHIFT_X; p.dad.y += CHAR_SHIFT_Y; }
+	if (p.boyfriend != null) { p.boyfriend.x += CHAR_SHIFT_X; p.boyfriend.y += CHAR_SHIFT_Y; }
+	slog('post: char shift ' + CHAR_SHIFT_X + ',' + CHAR_SHIFT_Y);
+	try {
+		if (p.gf != null) slog('post: gf pos=' + Math.round(p.gf.x) + ',' + Math.round(p.gf.y)
+			+ ' group=' + (p.gfGroup != null ? Math.round(p.gfGroup.x) + ',' + Math.round(p.gfGroup.y) : 'null'));
+		if (p.boyfriend != null) slog('post: bf pos=' + Math.round(p.boyfriend.x) + ',' + Math.round(p.boyfriend.y));
+		if (p.dad != null) slog('post: dad pos=' + Math.round(p.dad.x) + ',' + Math.round(p.dad.y));
+	} catch (e:Dynamic) {}
 	if (p.dad != null) p.dad.shader = characterShader;
 	if (p.boyfriend != null) p.boyfriend.shader = characterShader;
 	if (p.gf != null) p.gf.shader = characterShader;
@@ -1431,7 +1783,8 @@ function buildPost() {
 			cutsceneSprite.shader = characterShader;
 			cutsceneSprite.visible = false;
 			slog('post: cutsceneMain ok len=' + cutsceneSprite.anim.length
-				+ ' fw=' + cutsceneSprite.frameWidth + ' fh=' + cutsceneSprite.frameHeight);
+				+ ' fw=' + cutsceneSprite.frameWidth + ' fh=' + cutsceneSprite.frameHeight
+				+ ' frames=' + cutsceneSprite.frames.numFrames);
 		} catch (e:Dynamic) {
 			slog('post: cutsceneMain FAILED ' + e);
 		}
@@ -1439,12 +1792,12 @@ function buildPost() {
 		try {
 			sserafimGf = new FlxAnimate(0, 0);
 			Paths.loadAnimateAtlas(sserafimGf, 'cutscene/gfGetUp');
-			sserafimGf.setPosition(655, -104);
+			sserafimGf.setPosition(655, -104 + CUT_BFGF_Y_SHIFT);
 			sserafimGf.scrollFactor.set(0.95, 0.95);
 			sserafimGf.shader = characterShader;
 			sserafimGf.alpha = 0.5;
 			sserafimGf.visible = false;
-			slog('post: gfGetUp ok len=' + sserafimGf.anim.length);
+			slog('post: gfGetUp ok len=' + sserafimGf.anim.length + ' fw=' + sserafimGf.frameWidth + ' fh=' + sserafimGf.frameHeight + ' frames=' + sserafimGf.frames.numFrames);
 		} catch (e:Dynamic) {
 			slog('post: gfGetUp FAILED ' + e);
 			sserafimGf = null;
@@ -1453,11 +1806,11 @@ function buildPost() {
 		try {
 			sserafimBf = new FlxAnimate(0, 0);
 			Paths.loadAnimateAtlas(sserafimBf, 'cutscene/bfGetUp');
-			sserafimBf.setPosition(1220, 531);
+			sserafimBf.setPosition(1220, 531 + CUT_BFGF_Y_SHIFT);
 			sserafimBf.scrollFactor.set(0.99, 0.99);
 			sserafimBf.shader = characterShader;
 			sserafimBf.visible = false;
-			slog('post: bfGetUp ok len=' + sserafimBf.anim.length);
+			slog('post: bfGetUp ok len=' + sserafimBf.anim.length + ' fw=' + sserafimBf.frameWidth + ' fh=' + sserafimBf.frameHeight + ' frames=' + sserafimBf.frames.numFrames);
 		} catch (e:Dynamic) {
 			slog('post: bfGetUp FAILED ' + e);
 			sserafimBf = null;
@@ -1465,8 +1818,8 @@ function buildPost() {
 
 		// 官方 zIndex：gf/过场 25（角色之下）、bf 305（真 bf 的 300 之上）
 		var idx2 = indexBehindFrontStool();
-		if (sserafimGf != null) { p.insert(idx2, sserafimGf); idx2++; }
-		if (cutsceneSprite != null) { p.insert(idx2, cutsceneSprite); idx2++; }
+		if (sserafimGf != null) { p.insert(idx2, sserafimGf); idx2 = idx2 + 1; }
+		if (cutsceneSprite != null) { p.insert(idx2, cutsceneSprite); idx2 = idx2 + 1; }
 
 		if (sserafimBf != null) {
 			var bfIdx = p.members.length;
@@ -1570,7 +1923,7 @@ function onUpdate(elapsed) {
 	// 这舞台不要评级弹窗（FE 每次判定临时造精灵，没有官方那个常驻组）
 	// 每 4 帧扫一次，够用且省开销
 	if (HIDE_RATING_POPUPS) {
-		popupTick++;
+		popupTick = popupTick + 1;
 		if (popupTick >= 4) {
 			popupTick = 0;
 			try {
@@ -1583,27 +1936,11 @@ function onUpdate(elapsed) {
 	}
 
 	if (floorSpr != null) updateFloorSkew(p.camGame);
+	updateDoorFrame();
 	updateLipsync();
 
-	// getup 是根时间轴的一段，播到区间末尾要手动停格（图集默认 Loop，会绕回 static）
-	if (sserafimGf != null && gfStopFrame >= 0) {
-		try {
-			if (sserafimGf.anim.curFrame >= gfStopFrame) {
-				sserafimGf.anim.curFrame = gfStopFrame;
-				sserafimGf.anim.pause();
-				gfStopFrame = -1;
-			}
-		} catch (e:Dynamic) {}
-	}
-	if (sserafimBf != null && bfStopFrame >= 0) {
-		try {
-			if (sserafimBf.anim.curFrame >= bfStopFrame) {
-				sserafimBf.anim.curFrame = bfStopFrame;
-				sserafimBf.anim.pause();
-				bfStopFrame = -1;
-			}
-		} catch (e:Dynamic) {}
-	}
+	// getup 不再手动停格：官方就是让根时间轴一直播（踢门事件 2.5s 后就把两个起身精灵藏掉，
+	// 时间轴根本播不完），以前硬停在末帧 = "起来后定在原地"。
 
 	// 过场跳过
 	if (cutsceneActive && !cutsceneSkipped && p.controls != null && p.controls.ACCEPT) {

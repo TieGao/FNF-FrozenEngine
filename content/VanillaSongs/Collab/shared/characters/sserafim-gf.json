@@ -487,8 +487,8 @@
 	"no_antialiasing": false,
 	"image": "characters/sserafim-gf",
 	"position": [
-		0,
-		0
+		-1100,
+		-1000
 	],
 	"healthicon": "gf",
 	"flip_x": false,
@@ -498,8 +498,8 @@
 		161
 	],
 	"camera_position": [
-		0,
-		0
+		1000,
+		500
 	],
 	"sing_duration": 4,
 	"scale": 1,
