@@ -85,11 +85,11 @@ var CUT_BFGF_Y_SHIFT = -80.0;
 
 // 过场取景的目标屏幕中心（fitAnimateCenter 用）。
 var CUT_FIT_X = 640.0;
-var CUT_FIT_Y = 180.0;
+var CUT_FIT_Y = 560.0;
 var cutFitted = false;
 
 // 酒吧交谈场景整体下移（实机校准，屏幕像素，正 = 往下；过场图集/过场道具/过场地板三层同量）
-var CUT_SCENE_SHIFT_Y = 200.0;
+var CUT_SCENE_SHIFT_Y = -400.0;
 var cutFloorShift = 0.0;   // 过场地板当前生效的下移量（setCutsceneVisibility 里切换，切回 0）
 
 // gf 戳人时的镜头顿挫
@@ -933,12 +933,12 @@ function introCutscene() {
 	// 取景自校正：1.2s 首次，3.4s 镜头推完再校一次（第一次校时镜头还在动，落点会差几十像素）
 	cutTime(1.2, function(tmr) {
 		try {
-			fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y + CUT_SCENE_SHIFT_Y / CUTSCENE_ZOOM_IN);
+			fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y) ;
 		} catch (e:Dynamic) {}
 	});
 	cutTime(3.4, function(tmr) {
 		try {
-			fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y + CUT_SCENE_SHIFT_Y / CUTSCENE_ZOOM_IN);
+			fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y);
 		} catch (e:Dynamic) {}
 	});
 
@@ -1669,7 +1669,7 @@ function onUpdate(elapsed) {
 	if (!cutFitted && cutsceneSprite != null && cutsceneSprite.visible && cutsceneSprite.width > 0) {
 		cutFitted = true;
 		try {
-			fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y + CUT_SCENE_SHIFT_Y / CUTSCENE_ZOOM_IN);
+			fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y);
 		} catch (e:Dynamic) {}
 	}
 

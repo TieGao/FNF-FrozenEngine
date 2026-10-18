@@ -78,13 +78,6 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 
 	/**
 	 * 把另一份分尸图并进当前 sprite：帧集合追加、符号字典按名字补进去。
-	 *
-	 * 原版的多图集角色（`MultiAnimateAtlasCharacter`）走 `FlxAnimateFrames.combineAtlas(textureList)`，
-	 * 效果一样，只是那边一次并好几份。角色 json 用逐动画的 `assetPath` 指定子图集。
-	 *
-	 * ⚠️ `FlxAtlasFrames.addAtlas` 内部是 `pushFrame(frame, overwriteHash=false)` ——
-	 * 帧名冲突时**保留旧帧**。原版所有分尸图的 sprite 名都是 "0"/"1"/"2"…，必然全撞，
-	 * 所以子图集在移植期就要把 sprite 名加前缀改掉（连同 `Animation.json` 里的 `ASI.N`）。
 	 */
 	public function addExtraAtlas(folderOrImg:String):Void
 	{
@@ -157,14 +150,7 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 
 	/**
 	 * `FlxAnim.addBySymbolIndices` 的防环版本。
-	 *
-	 * 原版实现会把自定义时间轴以「动画名」写进 `symbolDictionary`。如果图集里恰好有
-	 * 与动画名同名的子符号、且被主时间轴引用（实例：sserafim-kazuha 的 SD 里有 `idle`），
-	 * 注册时就会顶掉原子符号 —— 渲染主时间轴 → `idle`(已被替换成引用主符号的自定义时间轴)
-	 * → 主时间轴 → … 无限递归，hxcpp 直接栈溢出闪退（c00000fd，不走崩溃处理器所以无日志）。
-	 *
-	 * 这里把自定义时间轴注册到 `<符号名>#<动画名>` 的独立键（永不与图集符号撞名）；
-	 * 播放路径 `animsMap[动画名]` 不变，原图集符号保持完整，环断掉。
+
 	 */
 	public function safeAddBySymbolIndices(name:String, symbolName:String, indices:Array<Int>, frameRate:Float, looped:Bool):Void
 	{
@@ -180,9 +166,6 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 		var timeline = new FlxTimeline();
 		timeline.add("Layer 1");
 
-		// keyframe 摆在 0..n-1（播放帧号），firstFrame 才是 indices 的值（符号内帧号）。
-		// 之前把值同时当 keyframe 位置用：传 [108..120] 会造出 121 帧的 timeline，
-		// 前 108 帧全是空白；非 0 起始的段（danceRight 的 15..29）也必然错位。
 		var slot:Int = 0;
 		for (frameIndex in indices)
 		{
