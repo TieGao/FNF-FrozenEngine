@@ -48,6 +48,10 @@ class LoadReplaySubState extends MusicBeatSubstate
     var currentSongName:String;
     var currentModFolder:String;
     var currentDifficultyName:String;
+    /** 当前浏览的歌曲所属内容包资源根（content/VanillaSongs/PicoMix）；普通歌为 null。 */
+    var currentContentRoot:String;
+    /** 当前浏览的歌曲所属变体（Pico…）；无变体为 null。 */
+    var currentVariant:String;
 
     var bgList:FlxFilteredSprite;
     var bgDim:FlxSprite;
@@ -66,7 +70,6 @@ class LoadReplaySubState extends MusicBeatSubstate
     var maxScrollPos:Float = 0;
     var itemHeight:Int = 80;
     var visibleItemCount:Int = 0;
-    var totalItems:Int = 0;
     var cardScroller:MouseMove;
 
     static inline var PADDING_TOP:Int = 20;
@@ -81,13 +84,16 @@ class LoadReplaySubState extends MusicBeatSubstate
     var sortText:FlxText;
     var sortMode:Int = 0;   // 0=日期降序, 1=准确率降序
 
-    public function new(parent:FreeplayState, songName:String, modFolder:String, difficultyName:String)
+    public function new(parent:FreeplayState, songName:String, modFolder:String, difficultyName:String,
+                        ?contentRoot:String = null, ?variant:String = null)
     {
         super();
         this.parent = parent;
         this.currentSongName = songName;
         this.currentModFolder = modFolder;
         this.currentDifficultyName = difficultyName;
+        this.currentContentRoot = (contentRoot != null && contentRoot.length > 0) ? contentRoot : null;
+        this.currentVariant = (variant != null && variant.length > 0) ? variant : null;
     }
 
     override function create()
@@ -127,11 +133,10 @@ class LoadReplaySubState extends MusicBeatSubstate
         headerText.antialiasing = ClientPrefs.data.antialiasing;
         add(headerText);
 
-        // 子标题 - 显示模组和当前难度
+        // 子标题 - 显示来源和当前难度
         // content 模式下按大类区分：自定义谱面印 Custom Charts，内容包印它的分类路径。
-        var sourceLabel:String = (currentModFolder != null && currentModFolder.length > 0) ? currentModFolder : 'Base Game';
-        if (parent != null && parent.isContentMode())
-            sourceLabel = parent.isCustomChartMode() ? 'Custom Charts' : Paths.currentChartCategory;
+        // 内容包（content/VanillaSongs/PicoMix 这类）不是 content 模式，靠 contentRoot 认出来。
+        var sourceLabel:String = getSourceLabel();
         var subText:String = 'Mod: ' + sourceLabel;
         subText += '  |  Current: $currentDifficultyName';
         var subHeader = new FlxText(bgList.x + 10, bgList.y + 32, panelWidth - 20, subText, 14);
@@ -264,21 +269,76 @@ class LoadReplaySubState extends MusicBeatSubstate
         maxScrollPos = Math.max(0, (total * (itemHeight + ITEM_SPACING)) - (FlxG.height - PADDING_TOP - PADDING_BOTTOM - 60));
     }
 
+    /** 子标题里的来源文案：Content 分类 / 内容包 / mod / base。 */
+    function getSourceLabel():String
+    {
+        if (parent != null && parent.isContentMode())
+            return parent.isCustomChartMode() ? 'Custom Charts' : Paths.currentChartCategory;
+
+        if (currentContentRoot != null)
+        {
+            var parts:Array<String> = currentContentRoot.split('/');
+            var packName:String = (parts.length > 0) ? parts[parts.length - 1] : currentContentRoot;
+            return 'Vanilla: $packName';
+        }
+
+        if (currentModFolder != null && currentModFolder.length > 0) return currentModFolder;
+        return 'Base Game';
+    }
+
+    /**
+     * 这首歌曲要扫的回放目录（相对 assets/replays/）。
+     * 内容包按包分目录（content/VanillaSongs/PicoMix），另外补扫 base/ ——
+     * 老版本把内容包回放存在 base/ 里，不补一次老存档就看不见了。
+     */
+    function getReplayBuckets():Array<String>
+    {
+        var buckets:Array<String> = [];
+
+        if (parent != null && parent.isCustomChartMode())
+        {
+            buckets.push(FrameReplay.CUSTOM_REPLAY_BUCKET);
+            return buckets;
+        }
+
+        var modBucket:String = (currentModFolder != null && currentModFolder.length > 0) ? currentModFolder : "base";
+        var contentBucket:String = FrameReplay.getContentReplayBucket(currentContentRoot);
+
+        if (contentBucket != null) buckets.push(contentBucket);
+        buckets.push(modBucket);
+        if (contentBucket != null && !buckets.contains("base")) buckets.push("base");
+        return buckets;
+    }
+
+    /** 把内容包资源根规整成可比较的形态（去掉尾斜杠与反斜杠）。 */
+    static function normalizeRoot(root:String):String
+    {
+        if (root == null) return "";
+        var out:String = root.split('\\').join('/');
+        while (out.length > 0 && out.charAt(out.length - 1) == '/')
+            out = out.substring(0, out.length - 1);
+        return out;
+    }
+
+    /** 难度名里是否自带变体前缀（旧 PicoMix 存档写的是 'Pico Normal'）。 */
+    static function difficultyVariantHint(diffName:String):String
+    {
+        if (diffName == null) return null;
+        var lower:String = diffName.toLowerCase();
+        if (lower.indexOf('pico') >= 0) return 'pico';
+        if (lower.indexOf('erect') >= 0) return 'erect';
+        if (lower == 'nightmare' || lower == 'hmnf') return 'erect';
+        return null;
+    }
+
     function loadReplays()
     {
         #if sys
         replayFiles = [];
 
-        // 自定义谱面 replay 独立归档在 custom/；其余按 mod 目录，空则 base。
-        var modFolder:String = (parent != null && parent.isCustomChartMode()) ? FrameReplay.CUSTOM_REPLAY_BUCKET
-            : (currentModFolder != null && currentModFolder.length > 0 ? currentModFolder : "base");
-        var replayDir = "assets/replays/" + modFolder + "/";
-        
-        if (!FileSystem.exists(replayDir))
-        {
-            trace('Replay directory does not exist: $replayDir');
-            return;
-        }
+        var buckets:Array<String> = getReplayBuckets();
+        var currentRootNorm:String = normalizeRoot(currentContentRoot);
+        var currentVariantLower:String = (currentVariant != null) ? currentVariant.toLowerCase() : null;
 
         // 规范化歌曲名，用于模糊匹配。
         // replay 里存的是谱面内部 song 字段，Freeplay 传进来的是周 JSON 的显示名，
@@ -297,63 +357,97 @@ class LoadReplaySubState extends MusicBeatSubstate
         }
 
         var normalizedCurrent:String = normalizeSongName(currentSongName);
+        var seen:Map<String, Bool> = [];
 
-        var files = FileSystem.readDirectory(replayDir);
-        for (file in files)
+        for (modFolder in buckets)
         {
-            if (!file.endsWith(".replay") && !file.endsWith(".kadeReplay")) continue;
-            
-            try
+            var replayDir:String = FrameReplay.getReplayRootDir() + modFolder + "/";
+            if (!FileSystem.exists(replayDir) || !FileSystem.isDirectory(replayDir))
             {
-                var filePath = replayDir + file;
-                var fileContent = File.getContent(filePath);
-                var json:Dynamic = Json.parse(fileContent);
-                
-                if (json == null) continue;
-                
-                // 检查歌曲名是否匹配（规范化后比较）
-                var replaySongName = json.songName != null ? json.songName : "";
-                var normalizedReplay:String = normalizeSongName(replaySongName);
-                
-                // 模糊匹配：规范化后相同即可
-                if (normalizedReplay != normalizedCurrent) continue;
-                
-                var entry:ReplayEntry = {
-                    filename: file,
-                    modFolder: modFolder,
-                    songName: replaySongName,
-                    difficultyName: json.difficultyName != null ? json.difficultyName : 
-                        (json.songDiff != null ? Difficulty.getString(Std.int(json.songDiff)) : "Normal"),
-                    accuracy: json.finalAccuracy != null ? Std.parseFloat(Std.string(json.finalAccuracy)) :
-                        (json.accuracy != null ? Std.parseFloat(Std.string(json.accuracy)) : 0),
-                    score: json.finalScore != null ? Std.parseInt(Std.string(json.finalScore)) :
-                        (json.score != null ? Std.parseInt(Std.string(json.score)) : 0),
-                    misses: json.finalMisses != null ? Std.parseInt(Std.string(json.finalMisses)) :
-                        (json.misses != null ? Std.parseInt(Std.string(json.misses)) : 0),
-                    rating: json.finalRating != null ? json.finalRating :
-                        (json.rating != null ? json.rating : "N/A"),
-                    ratingFC: json.finalRatingFC != null ? json.finalRatingFC :
-                        (json.ratingFC != null ? json.ratingFC : "N/A"),
-                    modDirectory: json.modDirectory != null ? json.modDirectory : modFolder,
-                    isDownscroll: json.isDownscroll == true,
-                    noteSpeed: json.noteSpeed != null ? Std.parseFloat(Std.string(json.noteSpeed)) : 1.5,
-                    rawJson: json,
-                    dateStr: extractDateFromReplay(json),
-                    fullPath: filePath,
-                    isCustomChart: json.isCustomChart != null ? (json.isCustomChart == true) : (modFolder == FrameReplay.CUSTOM_REPLAY_BUCKET),
-                    sustainOffset: json.sustainOffset != null ? Std.parseFloat(Std.string(json.sustainOffset)) : 0,
-                    keyCount: json.keyCount != null ? Std.parseInt(Std.string(json.keyCount)) : 4,
-                    keyLayout: buildKeyLayout(json.laneKeys),
-                    mirrorNotes: json.mirrorNotes == true,
-                    timestampMs: extractTimestampMs(json),
-                    dateTimeStr: extractDateTimeFromReplay(json)
-                };
-                
-                replayFiles.push(entry);
+                trace('Replay directory does not exist: $replayDir');
+                continue;
             }
-            catch(e:Dynamic)
+
+            var files:Array<String> = FileSystem.readDirectory(replayDir);
+            for (file in files)
             {
-                trace('Error parsing replay $file: $e');
+                if (!file.endsWith(".replay") && !file.endsWith(".kadeReplay")) continue;
+                if (seen.exists(modFolder + "/" + file)) continue;
+
+                try
+                {
+                    var filePath = replayDir + file;
+                    var fileContent = File.getContent(filePath);
+                    var json:Dynamic = Json.parse(fileContent);
+
+                    if (json == null) continue;
+
+                    // 检查歌曲名是否匹配（规范化后比较）
+                    var replaySongName = json.songName != null ? json.songName : "";
+                    var normalizedReplay:String = normalizeSongName(replaySongName);
+
+                    // 模糊匹配：规范化后相同即可
+                    if (normalizedReplay != normalizedCurrent) continue;
+
+                    // 同一条回放可能被多个 bucket 扫到（base/ 回退），按歌曲归属过一遍：
+                    //   回放自带资源根 → 必须与当前浏览的包一致（普通歌则为空根）；
+                    //   老存档没有资源根 → 用难度名里的变体前缀猜，猜不出就当 base 的。
+                    var replayRoot:String = normalizeRoot(json.chartContentRoot != null ? Std.string(json.chartContentRoot) : "");
+                    var entryDiffName:String = json.difficultyName != null ? json.difficultyName :
+                        (json.songDiff != null ? Difficulty.getString(Std.int(json.songDiff)) : "Normal");
+                    var isCustomEntry:Bool = (json.isCustomChart == true) || modFolder == FrameReplay.CUSTOM_REPLAY_BUCKET;
+
+                    if (!isCustomEntry)
+                    {
+                        if (replayRoot.length > 0)
+                        {
+                            if (replayRoot != currentRootNorm) continue;
+                        }
+                        else
+                        {
+                            var hint:String = difficultyVariantHint(entryDiffName);
+                            if (hint != null && (currentVariantLower == null || hint != currentVariantLower)) continue;
+                        }
+                    }
+
+                    seen.set(modFolder + "/" + file, true);
+
+                    var entry:ReplayEntry = {
+                        filename: file,
+                        modFolder: modFolder,
+                        songName: replaySongName,
+                        difficultyName: entryDiffName,
+                        accuracy: json.finalAccuracy != null ? Std.parseFloat(Std.string(json.finalAccuracy)) :
+                            (json.accuracy != null ? Std.parseFloat(Std.string(json.accuracy)) : 0),
+                        score: json.finalScore != null ? Std.parseInt(Std.string(json.finalScore)) :
+                            (json.score != null ? Std.parseInt(Std.string(json.score)) : 0),
+                        misses: json.finalMisses != null ? Std.parseInt(Std.string(json.finalMisses)) :
+                            (json.misses != null ? Std.parseInt(Std.string(json.misses)) : 0),
+                        rating: json.finalRating != null ? json.finalRating :
+                            (json.rating != null ? json.rating : "N/A"),
+                        ratingFC: json.finalRatingFC != null ? json.finalRatingFC :
+                            (json.ratingFC != null ? json.ratingFC : "N/A"),
+                        modDirectory: json.modDirectory != null ? json.modDirectory : modFolder,
+                        isDownscroll: json.isDownscroll == true,
+                        noteSpeed: json.noteSpeed != null ? Std.parseFloat(Std.string(json.noteSpeed)) : 1.5,
+                        rawJson: json,
+                        dateStr: extractDateFromReplay(json),
+                        fullPath: filePath,
+                        isCustomChart: isCustomEntry,
+                        sustainOffset: json.sustainOffset != null ? Std.parseFloat(Std.string(json.sustainOffset)) : 0,
+                        keyCount: json.keyCount != null ? Std.parseInt(Std.string(json.keyCount)) : 4,
+                        keyLayout: buildKeyLayout(json.laneKeys),
+                        mirrorNotes: json.mirrorNotes == true,
+                        timestampMs: extractTimestampMs(json),
+                        dateTimeStr: extractDateTimeFromReplay(json)
+                    };
+
+                    replayFiles.push(entry);
+                }
+                catch(e:Dynamic)
+                {
+                    trace('Error parsing replay $file: $e');
+                }
             }
         }
         
@@ -605,6 +699,7 @@ class LoadReplaySubState extends MusicBeatSubstate
         }
 
         noReplaysText.visible = replayFiles.length == 0;
+        updateItemsPosition();
     }
 
     function clearPressedItem():Void
@@ -619,19 +714,23 @@ class LoadReplaySubState extends MusicBeatSubstate
 
     function updateItemsPosition()
     {
-        var panelY:Float = bgList.y + PADDING_TOP + 55;
-        
+        var viewTop:Float = bgList.y + PADDING_TOP + 55;
+        var viewBottom:Float = bgList.y + bgList.height;
+        var viewLeft:Float = bgList.x;
+        var viewRight:Float = bgList.x + bgList.width;
+
         for (i in 0...replaysGroup.members.length)
         {
             var item = replaysGroup.members[i];
-            var baseY:Float = panelY + i * (itemHeight + ITEM_SPACING);
-            var offsetY:Float = -scrollPos;
-            
-            item.y = baseY + offsetY;
-            
-            var isVisible = item.y + itemHeight > bgList.y + 55 && item.y < bgList.y + bgList.height;
+            var baseY:Float = viewTop + i * (itemHeight + ITEM_SPACING);
+
+            item.y = baseY - scrollPos;
+
+            // 整行在视口外直接不画；露出来一截的交给 clipToViewport 裁到视口边上
+            var isVisible:Bool = item.y + item.itemHeight > viewTop && item.y < viewBottom;
             item.visible = isVisible;
             item.active = isVisible;
+            item.clipToViewport(viewLeft, viewTop, viewRight, viewBottom);
         }
     }
 
@@ -848,8 +947,10 @@ class LoadReplaySubState extends MusicBeatSubstate
         }
         
         #if MODS_ALLOWED
-        if (rep.replay.modDirectory != null && rep.replay.modDirectory.length > 0)
-            Mods.currentModDirectory = rep.replay.modDirectory;
+        // 回放没记 mod 目录（base 歌 / 内容包歌）时要显式清空：
+        // 否则会把界面上一次浏览留下的 mod 目录带进去，资源先往 mods/<m>/ 里找。
+        Mods.currentModDirectory = (rep.replay.modDirectory != null && rep.replay.modDirectory.length > 0)
+            ? rep.replay.modDirectory : "";
         #end
         
         PlayState.frameRep = rep;
@@ -886,20 +987,48 @@ class LoadReplaySubState extends MusicBeatSubstate
         var songName:String = rep.replay.songName;
         var difficultyName:String = rep.replay.difficultyName;
 
-        // 内容包回放：变体只记录在回放存的资源根里（档位名已经是标准 Easy/Normal/Hard），
-        // 先按根反查出来，档位后缀才拼得成 -pico-normal 而不是 -normal。
-        var replayContentRoot:String = (rep.replay.chartContentRoot != null && rep.replay.chartContentRoot.length > 0)
-            ? rep.replay.chartContentRoot : null;
+        // ---- 内容包上下文 ----
+        // 回放里的 chartContentRoot 是后加的字段，早期版本录的 PicoMix / Erect 存档没有它。
+        // 这时靠三层兜底把资源根找回来，否则谱面会去 assets/ 找（-pico-normal 不在那儿），
+        // 结果是"回放点了没反应 / 报缺谱面"。
+        //   1. 回放自带 chartContentRoot
+        //   2. Freeplay 传进来的当前浏览歌的资源根（回放列表本来就是按这首过滤的）
+        //   3. 扫 content/VanillaSongs/* 找哪份谱面真的存在
+        var replayContentRoot:String = normalizeRoot(rep.replay.chartContentRoot);
+        if (replayContentRoot.length == 0) replayContentRoot = normalizeRoot(currentContentRoot);
+        if (replayContentRoot.length == 0)
+        {
+            // 只有难度名自带变体前缀（旧 PicoMix 的 'Pico Normal'）才敢去包里翻谱面 ——
+            // 否则 base 的 Bopeebo Normal 会被误认成 PicoMix 里的同名谱面。
+            var diffVariantHint:String = difficultyVariantHint(difficultyName);
+            if (diffVariantHint != null)
+            {
+                var probed:String = findContentRootForChart(songName, difficultyName, diffVariantHint);
+                if (probed != null) replayContentRoot = probed;
+            }
+        }
+        if (replayContentRoot.length == 0) replayContentRoot = null;
+
         var replayVariant:String = (replayContentRoot != null) ? WeekData.getVariantForContentRoot(replayContentRoot) : null;
-        
+        // 周定义没登记（包被隐藏 / weeksLoaded 里查不到）时，只有当前浏览的正是同一个包，
+        // 才敢借用界面上那首歌的变体 —— 借错包会拼出别的包的音轨目录。
+        if (replayVariant == null && replayContentRoot != null && currentContentRoot != null
+            && normalizeRoot(currentContentRoot) == replayContentRoot)
+            replayVariant = currentVariant;
+
         try
         {
             // 后缀一律交给 Difficulty 拼：它会按变体决定要不要带前缀，
             // 也保证与存档键、SongInfoParser 拼出来的文件名一致。
-            var diffSuffix:String = Difficulty.getFilePathForName(difficultyName, replayVariant);
+            // 旧 PicoMix 存档的难度名自带变体前缀（'Pico Normal'），先剥掉再拼，
+            // 否则会得到 -pico-pico-normal。
+            var diffSuffix:String = Difficulty.getFilePathForName(stripVariantPrefix(difficultyName, replayVariant), replayVariant);
             var jsonToLoad = songName + diffSuffix;
-            trace('Loading JSON: $jsonToLoad');
-            if (rep.replay.chartCategory != null && rep.replay.chartCategory.length > 0)
+            trace('Loading JSON: $jsonToLoad (contentRoot=$replayContentRoot variant=$replayVariant)');
+            // 只有 CustomCharts 才走自定义谱面那套；内容包（VanillaSongs/*）不是自定义谱面，
+            // 以前只要 chartCategory 非空就往这边走，内容包回放会被判成"找不到自定义谱面"。
+            if (rep.replay.chartCategory != null && rep.replay.chartCategory.length > 0
+                && Paths.isCustomChartCategory(rep.replay.chartCategory))
             {
                 var customSongs = CustomChartData.load(rep.replay.chartCategory);
                 var customSong:CustomChartSong = null;
@@ -936,10 +1065,11 @@ class LoadReplaySubState extends MusicBeatSubstate
             }
             else
             {
-                // 普通歌回放：清掉上一次 content 浏览留下的谱面上下文，
+                // 普通歌 / 内容包回放：清掉上一次 content 浏览留下的谱面上下文，
                 // 否则 PlayState.create() 会把普通歌误判成 content 模式。
                 // 内容包回放要把资源根（连同变体）带回去 —— 谱面与变体音轨都在包里。
                 Paths.setChartContext(null, null, false, null, replayContentRoot, null, null, replayVariant);
+                PlayState.clearChartContext();
                 PlayState.SONG = Song.loadFromJson(jsonToLoad, songName);
             }
             
@@ -958,6 +1088,71 @@ class LoadReplaySubState extends MusicBeatSubstate
             FlxG.sound.play(Paths.sound('cancelMenu'));
             showError("Failed to load song!\nMissing: ${songName + diffSuffix}.json");
         }
+    }
+
+    /** 旧 PicoMix 存档的难度名自带变体前缀（'Pico Normal'），拼文件名前先剥掉。 */
+    static function stripVariantPrefix(diffName:String, variant:String):String
+    {
+        if (diffName == null) return null;
+        if (variant == null || variant.length == 0) return diffName;
+
+        var lower:String = diffName.toLowerCase();
+        var v:String = variant.toLowerCase();
+        if (lower.indexOf(v) != 0) return diffName;
+
+        var rest:String = diffName.substring(variant.length);
+        while (rest.length > 0 && (rest.charAt(0) == ' ' || rest.charAt(0) == '-'))
+            rest = rest.substring(1);
+        // 整个难度名就是变体名（'Pico'）时保留原样，别剥成空串
+        return rest.length > 0 ? rest : diffName;
+    }
+
+    /**
+     * 兜底：回放没有 chartContentRoot（早期版本录的）时，去 content 各包里找这首歌这一档的谱面，
+     * 找到就返回它所属的资源根（content/VanillaSongs/PicoMix）。
+     */
+    static function findContentRootForChart(songName:String, difficultyName:String, variant:String):String
+    {
+        #if sys
+        if (songName == null) return null;
+
+        var songPath:String = Paths.formatToSongPath(songName);
+        var diffSlug:String = (difficultyName != null)
+            ? Paths.formatToSongPath(stripVariantPrefix(difficultyName, variant)) : null;
+
+        var groupRoot:String = '${Paths.CONTENT_ROOT}/VanillaSongs';
+        if (!FileSystem.exists(groupRoot)) return null;
+
+        for (pack in FileSystem.readDirectory(groupRoot))
+        {
+            if (pack.startsWith('.')) continue;
+            var root:String = '$groupRoot/$pack';
+            if (!FileSystem.isDirectory(root)) continue;
+
+            for (dataDir in ['$root/shared/data/$songPath', '$root/data/$songPath', '$root/songs/$songPath'])
+            {
+                if (!FileSystem.exists(dataDir) || !FileSystem.isDirectory(dataDir)) continue;
+                for (file in FileSystem.readDirectory(dataDir))
+                {
+                    if (!file.endsWith('.json')) continue;
+                    var chartName:String = file.substr(0, file.length - 5).toLowerCase();
+
+                    // 无后缀 = 普通 Normal
+                    if (chartName == songPath)
+                    {
+                        if (diffSlug == null || diffSlug.length == 0 || diffSlug == 'normal') return root;
+                        continue;
+                    }
+
+                    if (chartName.indexOf(songPath) != 0) continue;
+                    if (diffSlug == null || diffSlug.length == 0) continue;
+                    // <歌>-<变体>-<档位> 或 <歌>-<档位>，都靠"以 -<档位> 结尾"命中
+                    if (chartName.endsWith('-' + diffSlug)) return root;
+                }
+            }
+        }
+        #end
+        return null;
     }
 
     function showError(message:String)
@@ -1239,10 +1434,12 @@ class ReplayItem extends FreeplayListItem
         progressText.x = 15 + (WIDTH - 130) / 2 - progressText.width / 2;
         content.add(progressText);
 
-        // MOD标签
+        // MOD标签（内容包的 bucket 是多级路径，只印最后一段：content/VanillaSongs/PicoMix → PicoMix）
         if (modFolder != null && modFolder.length > 0 && modFolder != "" && modFolder != "base")
         {
             var displayMod = modFolder;
+            var slash:Int = displayMod.lastIndexOf('/');
+            if (slash >= 0) displayMod = displayMod.substring(slash + 1);
             if (displayMod.length > 8) displayMod = displayMod.substr(0, 6) + "..";
             modTag = new FlxText(WIDTH - 55, 30, 50, displayMod, 11);
             modTag.setFormat(Paths.font("vcr.ttf"), 11, FlxColor.YELLOW, RIGHT, OUTLINE, FlxColor.BLACK);

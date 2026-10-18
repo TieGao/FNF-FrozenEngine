@@ -41,7 +41,6 @@ class ToolBar extends FlxSpriteGroup
     
     // 按钮相关
     public var buttons:Array<PsychUIButton> = [];
-    public var buttonTexts:Array<String> = [];
     public var buttonWidth:Int = 200;
     public var buttonSpacing:Int = 5;
     
@@ -89,7 +88,6 @@ class ToolBar extends FlxSpriteGroup
     private var needsAudioDisplayRebuild:Bool = false;
     private var hasExtraButton:Bool = false;
 
-    public var blurFilter:BlurFilter;  // 模糊滤镜
     public var blurAmount:Float = 40;   // 模糊强度
 
     public function new(state:FreeplayState, width:Int, height:Int)

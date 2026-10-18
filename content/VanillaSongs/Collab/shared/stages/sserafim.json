@@ -1,14 +1,32 @@
 {
 	"directory": "sserafim",
-	"defaultZoom": 0.45,
+	"defaultZoom": 0.5,
 	"stageUI": "normal",
-	"boyfriend": [1530, 970],
-	"girlfriend": [938.5, 392],
-	"opponent": [70, 470],
+	"boyfriend": [
+		1380,
+		670
+	],
+	"girlfriend": [
+		788.5,
+		92
+	],
+	"opponent": [
+		-80,
+		170
+	],
 	"hide_girlfriend": false,
-	"camera_boyfriend": [0, 0],
-	"camera_opponent": [0, 0],
-	"camera_girlfriend": [0, 0],
+	"camera_boyfriend": [
+		0,
+		0
+	],
+	"camera_opponent": [
+		0,
+		0
+	],
+	"camera_girlfriend": [
+		0,
+		0
+	],
 	"camera_speed": 1,
 	"_editorMeta": {
 		"gf": "sserafim-gf",
@@ -22,8 +40,14 @@
 			"image": "bg",
 			"x": -1853,
 			"y": -815,
-			"scale": [1, 1],
-			"scroll": [0.75, 0.75],
+			"scale": [
+				1,
+				1
+			],
+			"scroll": [
+				0.75,
+				0.75
+			],
 			"color": "#FFFFFF",
 			"filters": 3
 		},
@@ -33,8 +57,48 @@
 			"image": "back-tables",
 			"x": -1857,
 			"y": 267,
-			"scale": [1, 1],
-			"scroll": [0.93, 0.93],
+			"scale": [
+				1,
+				1
+			],
+			"scroll": [
+				0.93,
+				0.93
+			],
+			"color": "#FFFFFF",
+			"filters": 3
+		},
+		{
+			"type": "sprite",
+			"name": "backTablesCutscene",
+			"image": "cutscene/counter-stretch",
+			"x": -1858,
+			"y": 377,
+			"scale": [
+				400,
+				1
+			],
+			"scroll": [
+				0.93,
+				0.93
+			],
+			"color": "#FFFFFF",
+			"filters": 3
+		},
+		{
+			"type": "sprite",
+			"name": "burgerCutscene",
+			"image": "cutscene/burger-cutscene",
+			"x": -97,
+			"y": 237,
+			"scale": [
+				1,
+				1
+			],
+			"scroll": [
+				0.93,
+				0.93
+			],
 			"color": "#FFFFFF",
 			"filters": 3
 		},
@@ -44,8 +108,14 @@
 			"image": "back-stools",
 			"x": -1357,
 			"y": 426,
-			"scale": [1, 1],
-			"scroll": [0.94, 0.94],
+			"scale": [
+				1,
+				1
+			],
+			"scroll": [
+				0.94,
+				0.94
+			],
 			"color": "#FFFFFF",
 			"filters": 3
 		},
@@ -56,8 +126,14 @@
 			"x": -1241,
 			"y": -949,
 			"alpha": 0,
-			"scale": [1, 1],
-			"scroll": [0.93, 0.93],
+			"scale": [
+				1,
+				1
+			],
+			"scroll": [
+				0.93,
+				0.93
+			],
 			"color": "#FFFFFF",
 			"filters": 3
 		},
@@ -68,8 +144,14 @@
 			"x": -771,
 			"y": -599,
 			"alpha": 0,
-			"scale": [1, 1],
-			"scroll": [0.93, 0.93],
+			"scale": [
+				1,
+				1
+			],
+			"scroll": [
+				0.93,
+				0.93
+			],
 			"color": "#FFFFFF",
 			"filters": 3
 		},
@@ -79,8 +161,14 @@
 			"image": "truck-stuff",
 			"x": -983,
 			"y": -707,
-			"scale": [1, 1],
-			"scroll": [0.95, 0.95],
+			"scale": [
+				1,
+				1
+			],
+			"scroll": [
+				0.95,
+				0.95
+			],
 			"color": "#FFFFFF",
 			"filters": 3
 		},
@@ -90,8 +178,14 @@
 			"image": "truck-door",
 			"x": -980,
 			"y": -173,
-			"scale": [1, 1],
-			"scroll": [0.95, 0.95],
+			"scale": [
+				1,
+				1
+			],
+			"scroll": [
+				0.95,
+				0.95
+			],
 			"color": "#FFFFFF",
 			"filters": 3
 		},
@@ -102,8 +196,14 @@
 			"x": -781,
 			"y": -464,
 			"alpha": 0,
-			"scale": [1, 1],
-			"scroll": [0.95, 0.95],
+			"scale": [
+				1,
+				1
+			],
+			"scroll": [
+				0.95,
+				0.95
+			],
 			"color": "#FFFFFF",
 			"filters": 3
 		},
@@ -114,22 +214,40 @@
 			"x": -962,
 			"y": -607,
 			"alpha": 0,
-			"scale": [1, 1],
-			"scroll": [0.95, 0.95],
+			"scale": [
+				1,
+				1
+			],
+			"scroll": [
+				0.95,
+				0.95
+			],
 			"color": "#FFFFFF",
 			"filters": 3
 		},
-		{"type": "dad"},
-		{"type": "gf"},
-		{"type": "boyfriend"},
+		{
+			"type": "dad"
+		},
+		{
+			"type": "gf"
+		},
+		{
+			"type": "boyfriend"
+		},
 		{
 			"type": "sprite",
 			"name": "frontStool",
 			"image": "front-stool",
 			"x": -280,
 			"y": 818,
-			"scale": [1, 1],
-			"scroll": [1.0, 1.0],
+			"scale": [
+				1,
+				1
+			],
+			"scroll": [
+				1.0,
+				1.0
+			],
 			"color": "#FFFFFF",
 			"filters": 3
 		}

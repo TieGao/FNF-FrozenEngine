@@ -1,8 +1,12 @@
 package states.editors;
 
 import backend.StageData;
+import backend.Song;
 import objects.Character;
+import substates.GameOverSubstate;
 
+import openfl.filters.BitmapFilter;
+import flixel.FlxBasic;
 import flixel.FlxObject;
 import flixel.addons.display.FlxBackdrop;
 import flixel.addons.display.FlxGridOverlay;
@@ -59,6 +63,44 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 	var selectionSprites:FlxSpriteGroup = new FlxSpriteGroup();
 	var _oldContentRoot:String = null;
 
+	// 背景预览：舞台类 create() 会把自己加进 state，这里把它加进来的成员摘出来单独保存，
+	// 由 draw()/update() 画在角色和 UI 之下（只读，不进 Sprite List、不参与保存）
+	var previewStage:BaseStage = null;
+	var previewMembers:Array<FlxBasic> = [];
+	var _previewUpdateLogged:Bool = false;
+
+	// 舞台 create() 会改的全局状态，预览结束还原（切舞台 / 退出编辑器都走 destroyStagePreview）
+	var _oldCameraFilters:Array<BitmapFilter> = null;
+	var _oldSkipNextTransOut:Bool = false;
+
+	// PlayState 兼容字段：BaseStage.game 就是 FlxG.state，舞台类 create() 会直接读这些
+	// （variables / stages 基类 MusicBeatState 已有）
+	public var defaultCamZoom:Float = 0.9;
+	public var cameraSpeed:Float = 1;
+	public var camZooming:Bool = false;
+	public var songName:String = '';
+	public var inCutscene:Bool = false;
+	public var canPause:Bool = true;
+	public var paused:Bool = false;
+	public var health:Float = 2;
+	public var practiceMode:Bool = false;
+	public var startedCountdown:Bool = false;
+	public var isCameraOnForcedPos:Bool = false;
+	public var endingSong:Bool = false;
+	public var combo:Int = 0;
+	public var gameOverTimer:Dynamic = null;
+	public var videoCutscene:Dynamic = null;
+	public var notes:FlxTypedGroup<Dynamic> = new FlxTypedGroup<Dynamic>();
+	public var unspawnNotes:Array<Dynamic> = [];
+	public var boyfriendGroup:FlxSpriteGroup;
+	public var dadGroup:FlxSpriteGroup;
+	public var gfGroup:FlxSpriteGroup;
+	public var camOther:FlxCamera;
+
+	public function startVideo(name:String):Void {}
+	public function moveCameraSection():Void {}
+	public function moveCamera(isDad:Bool):Void {}
+
 	override function create()
 	{
 		Paths.clearStoredMemory();
@@ -68,19 +110,23 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 		camHUD = new FlxCamera();
 		camHUD.bgColor.alpha = 0;
 		FlxG.cameras.add(camHUD, false);
+		camOther = camHUD;
 
 		#if DISCORD_ALLOWED
 		DiscordClient.changePresence('Stage Editor', 'Stage: ' + lastLoadedStage);
 		#end
+
+		// 浏览态没有 currentContentRoot：先按舞台 json 所在内容包切入，否则会拿 assets 里的同名舞台
+		_oldContentRoot = Paths.currentContentRoot;
+		if (_oldContentRoot == null) applyStageContentRoot(lastLoadedStage);
 
 		if(stageJson == null) stageJson = StageData.getStageFile(lastLoadedStage);
 		FlxG.camera.follow(null, LOCKON, 0);
 
 		loadJsonAssetDirectory();
 
-		// content 包角色预览：浏览态无 currentContentRoot，按 _editorMeta 角色探测所在包临时进入（destroy 恢复）
-		_oldContentRoot = Paths.currentContentRoot;
-		if (_oldContentRoot == null && stageJson._editorMeta != null)
+		// 舞台 json 在 assets 里、角色在内容包里（PicoMix）时按 _editorMeta 角色反查包
+		if (Paths.currentContentRoot == null && stageJson._editorMeta != null)
 		{
 			for (meta in ['gf', 'dad', 'boyfriend'])
 			{
@@ -119,6 +165,7 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 		editorUI();
 		
 		add(camFollow);
+		buildStagePreview();
 		updateSpriteList();
 
 		addHelpScreen();
@@ -136,6 +183,176 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 
 		Paths.setCurrentLevel(directory);
 		trace('Setting asset folder to ' + directory);
+	}
+
+	/**
+	 * 浏览态切换舞台前定 contentRoot：舞台 json 在内容包里就用那个包，否则清空
+	 * （不清会把上一个包的图片串到内置舞台）。返回该舞台 json 是否存在。
+	 */
+	function applyStageContentRoot(name:String):Bool
+	{
+		if (name == null || name.length < 1) return false;
+
+		var root:String = Paths.findContentRootForFile('stages/$name.json');
+		if (root != null)
+		{
+			Paths.setContentRoot(root);
+			return true;
+		}
+		Paths.setContentRoot(null);
+		return Paths.fileExists('stages/$name.json', TEXT);
+	}
+
+	/**
+	 * 从下拉框加载舞台：内容包舞台的 json 不在 assets 里，必须先把 contentRoot 切到对应包。
+	 */
+	function loadStage(name:String):Bool
+	{
+		if (!applyStageContentRoot(name)) return false;
+
+		stageJson = StageData.getStageFile(name);
+		lastLoadedStage = name;
+		#if DISCORD_ALLOWED
+		DiscordClient.changePresence('Stage Editor', 'Stage: ' + lastLoadedStage);
+		#end
+		loadJsonAssetDirectory();
+		buildStagePreview();
+		updateSpriteList();
+		updateStageDataUI();
+		reloadCharacters();
+		reloadStageDropDown();
+		return true;
+	}
+
+	function dummySong():SwagSong
+	{
+		return cast {
+			song: '',
+			notes: [],
+			events: [],
+			bpm: 100,
+			needsVoices: false,
+			speed: 1,
+			offset: 0,
+			player1: 'bf',
+			player2: 'dad',
+			gfVersion: '',
+			stage: '',
+			format: 'psych_v1'
+		};
+	}
+
+	/**
+	 * 背景预览：实例化该舞台的舞台类，把它加进 state 的成员摘出来单独保存。
+	 * 舞台类只认 PlayState 那套字段（BaseStage.game = FlxG.state），所以这里补了兼容字段
+	 * 和 PlayState.SONG 兜底，并在结束后还原 GameOverSubstate 的几个静态值。
+	 */
+	function buildStagePreview()
+	{
+		destroyStagePreview();
+		_previewUpdateLogged = false;
+		if (lastLoadedStage == null || lastLoadedStage.length < 1) return;
+
+		if (gfGroup == null)
+		{
+			gfGroup = new FlxSpriteGroup();
+			dadGroup = new FlxSpriteGroup();
+			boyfriendGroup = new FlxSpriteGroup();
+			for (group in [gfGroup, dadGroup, boyfriendGroup])
+			{
+				group.visible = false;
+				group.active = false;
+				add(group);
+			}
+		}
+		gfGroup.setPosition(stageJson.girlfriend[0], stageJson.girlfriend[1]);
+		dadGroup.setPosition(stageJson.opponent[0], stageJson.opponent[1]);
+		boyfriendGroup.setPosition(stageJson.boyfriend[0], stageJson.boyfriend[1]);
+		defaultCamZoom = stageJson.defaultZoom;
+
+		var oldSong:SwagSong = PlayState.SONG;
+		var oldDeath:String = GameOverSubstate.deathSoundName;
+		var oldLoop:String = GameOverSubstate.loopSoundName;
+		var oldEnd:String = GameOverSubstate.endSoundName;
+		var oldChar:String = GameOverSubstate.characterName;
+		if (oldSong == null) PlayState.SONG = dummySong();
+
+		var before:Array<FlxBasic> = members.copy();
+		var oldStageCount:Int = stages.length;
+		// 有舞台会在 create 里往全局音效表塞 FlxSound（PhillyTrain / PhillyStreets 的罐头音），切舞台会累积
+		// ⚠️ 回滚必须走 FlxG.sound.list.remove()：FlxGroup.length 是独立计数器，直接 members.pop() 不会让它减少
+		var oldSounds:Array<FlxSound> = FlxG.sound.list.members.copy();
+		// 有舞台在 create 里写全局过渡/滤镜状态
+		_oldCameraFilters = FlxG.camera.filters;
+		_oldSkipNextTransOut = FlxTransitionableState.skipNextTransOut;
+		try
+		{
+			previewStage = StageData.newStage(lastLoadedStage);
+			// createPost() 才是往角色之上补前景层的地方（灯光、前景群组等）
+			if (previewStage != null) previewStage.createPost();
+		}
+		catch (e:Dynamic)
+		{
+			trace('Stage preview failed: ' + e);
+		}
+
+		for (snd in FlxG.sound.list.members.copy())
+		{
+			if (snd == null || oldSounds.indexOf(snd) >= 0) continue;
+			FlxG.sound.list.remove(snd, true);
+			snd.stop();
+			snd.destroy();
+		}
+		FlxTransitionableState.skipNextTransOut = _oldSkipNextTransOut;
+
+		// BaseStage.new() 会把自己 push 进 MusicBeatState.stages，那会被当正常舞台派发 beatHit/stepHit
+		// （那些回调直接读 PlayState 的东西）→ 这里只留实例引用，从派发列表里摘掉
+		if (stages.length > oldStageCount)
+		{
+			for (i in oldStageCount...stages.length)
+				if (previewStage == null) previewStage = stages[i];
+			while (stages.length > oldStageCount)
+				stages.pop();
+		}
+
+		for (member in members)
+		{
+			if (member == null || before.contains(member)) continue;
+			previewMembers.push(member);
+		}
+		for (member in previewMembers)
+			remove(member, true);
+
+		PlayState.SONG = oldSong;
+		GameOverSubstate.deathSoundName = oldDeath;
+		GameOverSubstate.loopSoundName = oldLoop;
+		GameOverSubstate.endSoundName = oldEnd;
+		GameOverSubstate.characterName = oldChar;
+
+		// 部分舞台 create() 会直接改相机（MallEvil 设 1.5、PhillyStreets 设 1.3），预览不该动编辑器视角
+		FlxG.camera.zoom = stageJson.defaultZoom;
+
+		if (previewMembers.length < 1)
+			showOutput('This stage has no background to preview.', false, true);
+	}
+
+	function destroyStagePreview()
+	{
+		for (member in previewMembers)
+			if (member != null) member.destroy();
+
+		previewMembers = [];
+		if (previewStage != null)
+		{
+			stages.remove(previewStage);
+			previewStage.destroy();
+			previewStage = null;
+		}
+
+		// PhillyStreets / PhillyBlazin 会把 RainShader 挂到 FlxG.camera，预览结束必须摘掉
+		if (_oldCameraFilters != null || FlxG.camera.filters != null)
+			FlxG.camera.filters = _oldCameraFilters;
+		_oldCameraFilters = null;
 	}
 
 	var showSelectionQuad:Bool = true;
@@ -459,12 +676,13 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 		tab_group.add(buttonDelete);
 	}
 
-	function showOutput(txt:String, isError:Bool = false)
+	function showOutput(txt:String, isError:Bool = false, ?silent:Bool = false)
 	{
 		outputTxt.color = isError ? FlxColor.RED : FlxColor.WHITE;
 		outputTxt.text = txt;
 		outputTime = 3;
 		
+		if (silent) return;
 		if(isError) FlxG.sound.play(Paths.sound('cancelMenu'), 0.4);
 		else FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 	}
@@ -1119,6 +1337,7 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 			#end
 
 			stageJson = StageData.getStageFile(lastLoadedStage);
+			buildStagePreview();
 			updateSpriteList();
 			updateStageDataUI();
 			reloadCharacters();
@@ -1132,6 +1351,9 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 			#end
 
 			stageJson = StageData.dummy();
+			// 模板是新舞台，别让上一个内容包的资源根继续生效
+			Paths.setContentRoot(null);
+			destroyStagePreview();
 			updateSpriteList();
 			updateStageDataUI();
 			reloadCharacters();
@@ -1141,27 +1363,9 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 
 		stageDropDown = new PsychUIDropDownMenu(10, 30, [''], function(sel:Int, selected:String)
 		{
-			var characterPath:String = 'stages/$selected.json';
-			var path:String = Paths.getPath(characterPath, TEXT, null, true);
-			#if MODS_ALLOWED
-			if (FileSystem.exists(path))
-			#else
-			if (Assets.exists(path))
-			#end
+			if (!loadStage(selected))
 			{
-				stageJson = StageData.getStageFile(selected);
-				lastLoadedStage = selected;
-				#if DISCORD_ALLOWED
-				DiscordClient.changePresence('Stage Editor', 'Stage: ' + lastLoadedStage);
-				#end
-				updateSpriteList();
-				updateStageDataUI();
-				reloadCharacters();
-				reloadStageDropDown();
-			}
-			else
-			{
-				FlxG.sound.play(Paths.sound('cancelMenu'));
+				showOutput('Stage "$selected" not found.', true);
 				reloadStageDropDown();
 			}
 		});
@@ -1351,6 +1555,28 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 		if(createPopup.visible && (FlxG.mouse.justPressedRight || (FlxG.mouse.justPressed && !FlxG.mouse.overlaps(createPopup, camHUD))))
 			createPopup.visible = createPopup.active = false;
 
+		// 预览期间要驱动舞台自身的 update()：RainShader 的 uScreenResolution / uCameraBounds
+		// 只在那边刷新，不跑就是"GPU 拿未初始化 uniform"的整屏花屏
+		if (previewStage != null)
+		{
+			try
+			{
+				previewStage.update(elapsed);
+			}
+			catch (e:Dynamic)
+			{
+				if (!_previewUpdateLogged)
+				{
+					_previewUpdateLogged = true;
+					trace('Stage preview update failed: ' + e);
+				}
+			}
+		}
+
+		// 背景预览要推进动画，但它不在 stageSprites 里（只读、不参与选中）
+		for (member in previewMembers)
+			if (member != null && member.exists) member.update(elapsed);
+
 		for (basic in stageSprites)
 			basic.update(curFilters, elapsed);
 
@@ -1498,6 +1724,9 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 	{
 		if(persistentDraw || subState == null)
 		{
+
+			for (member in previewMembers)
+				if (member != null && member.visible) member.draw();
 
 			for (basic in stageSprites)
 				if(basic.visible)
@@ -1841,6 +2070,7 @@ class StageEditorState extends EditorMusicState implements PsychUIEventHandler.P
 
 	override function destroy()
 	{
+		destroyStagePreview();
 		Paths.setContentRoot(_oldContentRoot);
 		destroySubStates = true;
 		animationEditor.destroy();

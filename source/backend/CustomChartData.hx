@@ -56,6 +56,26 @@ class CustomChartData
     public static var weeksLoaded:Map<String, CustomChartWeek> = new Map<String, CustomChartWeek>();
     public static var weeksList:Array<String> = [];
 
+    /**
+     * 已确认转换 / 解析失败的 (谱面路径 + 难度)。
+     * preloadInfo 失败的难度不会进 song.info，Freeplay 因此每轮都把它重新入队；
+     * 记下来后同一进程内只试一次。不落盘 —— 重启会重试一次，修好谱面即可恢复。
+     */
+    static var failedCharts:Map<String, Bool> = new Map<String, Bool>();
+
+    /** 该歌该难度是否已确认转换失败（Freeplay 用它跳过重复入队）。 */
+    public static function isChartFailed(song:CustomChartSong, difficulty:String):Bool
+    {
+        if (song == null) return true;
+        var chart:CustomChartDifficulty = getDifficulty(song, difficulty);
+        if (chart == null) return true;
+        return failedCharts.exists(chart.path + '|' + difficulty);
+    }
+
+    /** 清空失败记录（重新扫盘 / 修好谱面后想再试一次时调用）。 */
+    public static function clearFailedCharts():Void
+        failedCharts.clear();
+
     public static function load(category:String):Array<CustomChartSong>
     {
         var result:Array<CustomChartSong> = [];
@@ -485,10 +505,16 @@ class CustomChartData
             return;
         for (difficulty in song.difficulties)
         {
+            var chartInfo:CustomChartDifficulty = getDifficulty(song, difficulty.name);
+            if (chartInfo != null && failedCharts.exists(chartInfo.path + '|' + difficulty.name))
+                continue;
+
             var chart:Dynamic = loadChart(song, difficulty.name);
             if (chart != null)
                 song.info.set(difficulty.name, SongInfoParser.getSongInfoFromChart(
                     cast chart, difficulty.name, ClientPrefs.data.customChartTrackSplit));
+            else if (chartInfo != null)
+                failedCharts.set(chartInfo.path + '|' + difficulty.name, true);
         }
         saveInfoCache(song);
     }
@@ -513,6 +539,20 @@ class CustomChartData
 
             for (difficulty in Reflect.fields(cached.data))
                 result.set(difficulty, Reflect.field(cached.data, difficulty));
+
+            // 回填失败记录：sourceStamp 已经把「目录内文件改动」纳入失效条件，
+            // 所以缓存里的 failed 只在谱面没变时可信，谱面一改整个缓存就作废重来。
+            if (cached.failed != null)
+            {
+                var failedList:Array<Dynamic> = cached.failed;
+                for (rawName in failedList)
+                {
+                    var diffName:String = cast rawName;
+                    var diffInfo:CustomChartDifficulty = getDifficulty(song, diffName);
+                    if (diffInfo != null)
+                        failedCharts.set(diffInfo.path + '|' + diffName, true);
+                }
+            }
         }
         catch (e:Dynamic) {}
         return result;
@@ -528,11 +568,22 @@ class CustomChartData
             var data:Dynamic = {};
             for (difficulty in song.info.keys())
                 Reflect.setField(data, difficulty, song.info.get(difficulty));
+
+            // 转换失败的难度落盘，Freeplay 下次不再入队；sourceStamp 变了这份缓存整体作废
+            var failed:Array<String> = [];
+            for (difficulty in song.difficulties)
+            {
+                var diffInfo:CustomChartDifficulty = getDifficulty(song, difficulty.name);
+                if (diffInfo != null && failedCharts.exists(diffInfo.path + '|' + difficulty.name))
+                    failed.push(difficulty.name);
+            }
+
             File.saveContent('${song.directory}/$INFO_CACHE_FILE', Json.stringify({
                 version: INFO_CACHE_VERSION,
                 trackSplit: ClientPrefs.data.customChartTrackSplit,
                 sourceStamp: getDirectoryStamp(song.directory),
-                data: data
+                data: data,
+                failed: failed
             }));
         }
         catch (e:Dynamic) {}

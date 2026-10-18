@@ -764,32 +764,7 @@ class PlayState extends MusicBeatState
 		dadGroup = new FlxSpriteGroup(DAD_X, DAD_Y);
 		gfGroup = new FlxSpriteGroup(GF_X, GF_Y);
 
-		switch (curStage)
-		{
-			case 'stage': new StageWeek1(); 			//Week 1
-			case 'spooky': new Spooky();				//Week 2
-			case 'philly': new Philly();				//Week 3
-			case 'limo': new Limo();					//Week 4
-			case 'mall': new Mall();					//Week 5 - Cocoa, Eggnog
-			case 'mallEvil': new MallEvil();			//Week 5 - Winter Horrorland
-			case 'school': new School();				//Week 6 - Senpai, Roses
-			case 'schoolEvil': new SchoolEvil();		//Week 6 - Thorns
-			case 'tank': new Tank();					//Week 7 - Ugh, Guns, Stress
-			case 'phillyStreets': new PhillyStreets(); 	//Weekend 1 - Darnell, Lit Up, 2Hot
-			case 'phillyBlazin': new PhillyBlazin();	//Weekend 1 - Blazin
-			#if BASE_GAME_ERECT
-			case 'stage-erect': new StageErect();	//Week 1 Erect
-			case 'spooky-erect': new SpookyErect();	//Week 2 Erect
-			case 'philly-erect': new PhillyErect();	//Week 3 Erect
-			case 'limo-erect': new LimoErect();		//Week 4 Erect
-			case 'mall-erect': new MallErect();		//Week 5 Erect
-			case 'school-erect': new SchoolErect();	//Week 6 Erect - Senpai, Roses
-			case 'schoolEvil-erect': new SchoolEvilErect();	//Week 6 Erect - Thorns
-			case 'tank-erect': new TankErect();		//Week 7 Erect - Ugh
-			case 'phillyStreets-erect': new PhillyStreetsErect();	//Weekend 1 Erect - Darnell
-			#end
-			case 'audiostage': new AudioStage();		
-		}
+		StageData.newStage(curStage);
 		if(isPixelStage) introSoundsSuffix = '-pixel';
 
 		#if (LUA_ALLOWED || HSCRIPT_ALLOWED)

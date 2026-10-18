@@ -54,6 +54,9 @@ class SearchSubState extends MusicBeatSubstate
     var scrollStartY:Float = 0;
     var scrollEndY:Float = 0;
 
+    /** 卡片左侧健康图标外伸到卡片矩形之外的宽度（SearchCard 里 icon.x = -50），裁剪视口要让出来。 */
+    static inline var ICON_OVERHANG:Int = 60;
+
     /** 按下时记录的卡片，松手时用来判定"是否同一张卡" */
     var pressedCard:SearchCard = null;
 
@@ -226,6 +229,7 @@ class SearchSubState extends MusicBeatSubstate
         for (card in cardPool)
         {
             card.visible = false;
+            card.resetClip();
         }
     }
 
@@ -240,6 +244,12 @@ class SearchSubState extends MusicBeatSubstate
         var visibleEnd = Std.int(Math.ceil((scrollOffset + (scrollEndY - scrollStartY)) / (cardHeight + 10)));
         visibleEnd = Std.int(Math.min(visibleEnd, filteredSongs.length));
         visibleStart = Std.int(Math.max(0, visibleStart - 1));
+
+        // 卡片视口：只裁上下边界。左侧放宽出健康图标的外伸量（SearchCard 里 icon.x = -50），
+        // 右侧留一点给背景的柔光。
+        var cardX:Float = (FlxG.width - cardWidth) / 2;
+        var viewLeft:Float = cardX - ICON_OVERHANG;
+        var viewRight:Float = cardX + cardWidth + 8;
 
         for (card in cardPool) card.visible = false;
 
@@ -260,8 +270,9 @@ class SearchSubState extends MusicBeatSubstate
             if (card.songData != song)
                 card.setSong(song);
             var posY = scrollStartY + i * (cardHeight + 10) - scrollOffset;
-            card.updatePosition((FlxG.width - cardWidth) / 2, posY);
+            card.updatePosition(cardX, posY);
             card.visible = true;
+            card.clipToViewport(viewLeft, scrollStartY, viewRight, scrollEndY);
             poolIndex++;
         }
         if (pressedCard != null && !pressedCardAssigned)

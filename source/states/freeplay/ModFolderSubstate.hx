@@ -83,6 +83,11 @@ class ModFolderSubstate extends MusicBeatSubstate
 	static inline var PADDING_BOTTOM:Int = 20;
 	static inline var ITEM_SPACING:Int = 10;
 	static inline var PANEL_WIDTH:Int = 500;
+	static inline var BUTTON_WIDTH:Int = 450;
+
+	/** 右侧元素（图标 / 标题 / 描述 / 信息 / 按钮）统一用的 x，弹出动画与初始位置都按它算。 */
+	var panelTargetX:Float = 10;
+	var openFolderX:Float = 0;
 
 	public function new(parent:FreeplayState)
 	{
@@ -171,10 +176,14 @@ class ModFolderSubstate extends MusicBeatSubstate
 		add(selectedModInfo);
 
 		// 打开当前项对应的目录（系统文件管理器）
-		openFolderButton = new PsychUIButton(0, FlxG.height - 70,
-			Language.getPhrase('mod_folder_open', 'OPEN FOLDER'), openSelectedFolder, 450, 44);
+		// 摆在右侧信息区下方空白处：不再压列表底部，也不会被"点面板外退出"误吞。
+		// 右侧不够宽时贴屏幕右缘，免得跑出屏幕。
+		panelTargetX = 10;
+		openFolderX = Math.min(panelTargetX + PANEL_WIDTH + 50, FlxG.width - BUTTON_WIDTH - 20);
+		openFolderButton = new PsychUIButton(openFolderX, FlxG.height - 70,
+			Language.getPhrase('mod_folder_open', 'OPEN FOLDER'), openSelectedFolder, BUTTON_WIDTH, 44);
 		openFolderButton.text.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER);
-		openFolderButton.text.fieldWidth = 450;
+		openFolderButton.text.fieldWidth = BUTTON_WIDTH;
 		openFolderButton.normalStyle = {bgColor: 0xFF333333, textColor: FlxColor.WHITE, bgAlpha: 0.9};
 		openFolderButton.hoverStyle = {bgColor: 0xFF555577, textColor: FlxColor.WHITE, bgAlpha: 1};
 		openFolderButton.clickStyle = {bgColor: 0xFF8888AA, textColor: FlxColor.WHITE, bgAlpha: 1};
@@ -184,30 +193,30 @@ class ModFolderSubstate extends MusicBeatSubstate
 		// 建列表（定位依赖 bgList，必须排在面板创建之后）
 		buildList();
 
-		// ===== 弹出动画：从屏幕左侧外滑入 =====
-		startX = -PANEL_WIDTH - 250;
-		targetX = 10;
+	// ===== 弹出动画：从屏幕左侧外滑入 =====
+	startX = -PANEL_WIDTH - 250;
+	targetX = panelTargetX;
 
-		bgList.x = startX;
-		scrollBarTrack.x = startX + PANEL_WIDTH - 20;
-		scrollBar.x = startX + PANEL_WIDTH - 20;
-		selectedModIcon.x = startX;
-		selectedModName.x = startX;
-		selectedModDesc.x = startX;
-		selectedModInfo.x = startX;
-		openFolderButton.x = startX + 10;
+	bgList.x = startX;
+	scrollBarTrack.x = startX + PANEL_WIDTH - 20;
+	scrollBar.x = startX + PANEL_WIDTH - 20;
+	selectedModIcon.x = startX;
+	selectedModName.x = startX;
+	selectedModDesc.x = startX;
+	selectedModInfo.x = startX;
+	openFolderButton.x = startX + (openFolderX - targetX);
 
-		for (item in modsGroup)
-			item.x = startX + 10;
+	for (item in modsGroup)
+		item.x = startX + 10;
 
-		FlxTween.tween(bgList, {x: targetX}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(scrollBarTrack, {x: targetX + PANEL_WIDTH - 20}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(scrollBar, {x: targetX + PANEL_WIDTH - 20}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModIcon, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModName, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModDesc, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(selectedModInfo, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(openFolderButton, {x: targetX + 10}, 0.6, {ease: FlxEase.circOut});
+	FlxTween.tween(bgList, {x: targetX}, 0.6, {ease: FlxEase.circOut});
+	FlxTween.tween(scrollBarTrack, {x: targetX + PANEL_WIDTH - 20}, 0.6, {ease: FlxEase.circOut});
+	FlxTween.tween(scrollBar, {x: targetX + PANEL_WIDTH - 20}, 0.6, {ease: FlxEase.circOut});
+	FlxTween.tween(selectedModIcon, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
+	FlxTween.tween(selectedModName, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
+	FlxTween.tween(selectedModDesc, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
+	FlxTween.tween(selectedModInfo, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
+	FlxTween.tween(openFolderButton, {x: openFolderX}, 0.6, {ease: FlxEase.circOut});
 
 		for (item in modsGroup)
 			FlxTween.tween(item, {x: targetX + 10}, 0.6, {ease: FlxEase.circOut});
@@ -435,20 +444,23 @@ class ModFolderSubstate extends MusicBeatSubstate
 	 */
 	function updateItemsPosition()
 	{
-		var panelY:Float = bgList.y + PADDING_TOP;
+		var viewTop:Float = bgList.y + PADDING_TOP;
+		var viewBottom:Float = bgList.y + bgList.height - PADDING_BOTTOM;
+		var viewLeft:Float = bgList.x;
+		var viewRight:Float = bgList.x + bgList.width;
 
 		for (i in 0...modsGroup.members.length)
 		{
 			var item = modsGroup.members[i];
-			var baseY:Float = panelY + i * (itemHeight + ITEM_SPACING);
-			var offsetY:Float = -scrollPos;
+			var baseY:Float = viewTop + i * (itemHeight + ITEM_SPACING);
 
-			item.y = baseY + offsetY;
+			item.y = baseY - scrollPos;
 
-			// 检查项目是否在可见区域内
-			var isVisible = item.y + itemHeight > bgList.y && item.y < bgList.y + bgList.height;
+			// 整行在视口外直接不画；露出来一截的交给 clipToViewport 裁到视口边上
+			var isVisible:Bool = item.y + item.itemHeight > viewTop && item.y < viewBottom;
 			item.visible = isVisible;
 			item.active = isVisible;
+			item.clipToViewport(viewLeft, viewTop, viewRight, viewBottom);
 		}
 	}
 
@@ -532,14 +544,14 @@ class ModFolderSubstate extends MusicBeatSubstate
 			return;
 		}
 
-		// 点击面板外空白处退出
-		if (FlxG.mouse.justPressed && !isMouseOverPanel())
+		// 点击面板外空白处退出。右侧的「打开文件夹」在面板外，也要算作界面内。
+		if (FlxG.mouse.justPressed && !isMouseOverPanel() && !isMouseOverOpenFolder())
 		{
 			close();
 			return;
 		}
 
-		// 「打开文件夹」按钮盖在列表底部，指针在它上面时列表不吃点击 / 不响应悬停
+		// 「打开文件夹」按钮现在在右侧空白区，不再盖列表；留着这个判断只是保险
 		var overOpenFolder:Bool = (openFolderButton != null && FlxG.mouse.overlaps(openFolderButton));
 
 		// 按下项保存在成员中，才能在后续松开帧与命中项比较。
@@ -627,6 +639,12 @@ class ModFolderSubstate extends MusicBeatSubstate
 		var mouseY = FlxG.mouse.viewY;
 		return mouseX >= bgList.x && mouseX <= bgList.x + bgList.width &&
 			   mouseY >= bgList.y && mouseY <= bgList.y + bgList.height;
+	}
+
+	/** 「打开文件夹」按钮现在在右侧空白区（面板矩形外），退出判定要单独算它。 */
+	function isMouseOverOpenFolder():Bool
+	{
+		return openFolderButton != null && FlxG.mouse.overlaps(openFolderButton);
 	}
 
 	/**
@@ -878,7 +896,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 		FlxTween.tween(selectedModName, {x: startX}, 0.6, {ease: FlxEase.circOut});
 		FlxTween.tween(selectedModDesc, {x: startX}, 0.6, {ease: FlxEase.circOut});
 		FlxTween.tween(selectedModInfo, {x: startX}, 0.6, {ease: FlxEase.circOut});
-		FlxTween.tween(openFolderButton, {x: startX + 10}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(openFolderButton, {x: startX + (openFolderX - targetX)}, 0.6, {ease: FlxEase.circOut});
 
 		for (item in modsGroup)
 		{

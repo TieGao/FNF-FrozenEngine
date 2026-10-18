@@ -129,6 +129,37 @@ class Highscore
 		return formattedSong + diffPath + modeSuffix;
 	}
 
+	/**
+	 * 按「难度名 + 显式变体」拼键。
+	 *
+	 * formatSong 走 Difficulty.getFilePath()，那里取的是**全局** Paths.currentContentVariant ——
+	 * 游玩时全局一定是对的，所以存档键本来就带变体（bopeebo-pico-normal / bopeebo-normal），
+	 * 不需要改存档格式。但 Freeplay 列表是懒创建 + 切来源时全局还没写，
+	 * 读的一方如果也吃全局就会读到 base 的同名键。所以读侧一律走这个显式版本。
+	 */
+	public static function formatSongByName(song:String, diffName:String, ?modFolder:String = null,
+		?mode:String = null, ?variant:String = null):String
+	{
+		var formattedSong:String = Paths.formatToSongPath(song);
+		var diffPath:String = Difficulty.getFilePathForName(diffName, variant);
+		var modeSuffix:String = '';
+		if (mode != null && mode.length > 0 && mode != 'player')
+			modeSuffix = '_' + mode;
+
+		if (modFolder != null && modFolder.length > 0 && modFolder != "base")
+			return modFolder + ":" + formattedSong + diffPath + modeSuffix;
+
+		return formattedSong + diffPath + modeSuffix;
+	}
+
+	/** 只读查准确率（显式变体版）；缺失返回 0 且不写回存档。 */
+	public static function peekRatingByName(song:String, diffName:String, ?modFolder:String = null,
+		?mode:String = null, ?variant:String = null):Float
+	{
+		var value:Null<Float> = songRating.get(formatSongByName(song, diffName, modFolder, mode, variant));
+		return (value == null) ? 0 : value;
+	}
+
 	public static function getScore(song:String, diff:Int, ?modFolder:String = null, ?mode:String = null):Int
 	{
 		var daSong:String = formatSong(song, diff, modFolder, mode);
@@ -145,6 +176,24 @@ class Highscore
 			setRating(daSong, 0);
 
 		return songRating.get(daSong);
+	}
+
+	/**
+	 * 只读查成绩：缺失返回 0 且**不写回存档**。
+	 * Freeplay 的卡片徽章会按「每张可见卡 × 每个难度」读一遍，用 getScore 会触发成百次
+	 * setScore + flush（每次写盘），还会给存档灌满 0 值键。
+	 */
+	public static function peekScore(song:String, diff:Int, ?modFolder:String = null, ?mode:String = null):Int
+	{
+		var value:Null<Int> = songScores.get(formatSong(song, diff, modFolder, mode));
+		return (value == null) ? 0 : value;
+	}
+
+	/** 只读查准确率：缺失返回 0 且不写回存档（理由同 peekScore）。 */
+	public static function peekRating(song:String, diff:Int, ?modFolder:String = null, ?mode:String = null):Float
+	{
+		var value:Null<Float> = songRating.get(formatSong(song, diff, modFolder, mode));
+		return (value == null) ? 0 : value;
 	}
 
 	public static function getWeekScore(week:String, diff:Int, ?modFolder:String = null):Int

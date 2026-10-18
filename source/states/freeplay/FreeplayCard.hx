@@ -10,10 +10,13 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
     /** 卡片上的标题文本。默认等于 songName，变体歌会带上标签（'Bopeebo (Pico Mix)'）；
      *  songName 仍保持原始歌名 —— 评级 / 存档查找都按它算。 */
     public var displayName:String;
-    public var songCharacter:String;
     public var coloring:Int;
-    public var week:Int;
     public var folder:String;
+    /** 本卡所属内容包变体（Pico…）；base 歌为 null。徽章查成绩必须用它，不能吃全局 Paths.currentContentVariant。 */
+    public var variant:String = null;
+    /** 这首歌**真实拥有**的难度名（来自谱面信息）；为空时退回全局 Difficulty.list。
+     *  混排列表（base + Erect + PicoMix）里全局列表只可能对应其中一种。 */
+    public var diffNames:Array<String> = null;
     
     public var bgSprite:FlxSprite;
     public var textSprite:FlxText;
@@ -37,17 +40,19 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
     public var keysText:FlxText;
     private var ratingText:FlxText;
 
-    public var isCardSelected:Bool = false;
+    /** 鼠标悬停态。由宿主维护 —— updatePosition 每帧重算 alpha，直接 setAlpha 会被覆盖。 */
+    public var isHovered:Bool = false;
 
-    public function new(x:Float, y:Float, songName:String, songCharacter:String, coloring:Int, week:Int, ?displayName:String)
+    public function new(x:Float, y:Float, songName:String, songCharacter:String, coloring:Int, ?displayName:String,
+                        ?variant:String = null, ?diffNames:Array<String> = null)
     {
         super();
         
         this.songName = songName;
         this.displayName = (displayName != null && displayName.length > 0) ? displayName : songName;
-        this.songCharacter = songCharacter;
         this.coloring = coloring;
-        this.week = week;
+        this.variant = (variant != null && variant.length > 0) ? variant : null;
+        this.diffNames = (diffNames != null && diffNames.length > 0) ? diffNames : null;
         this.folder = Mods.currentModDirectory;
         if(this.folder == null) this.folder = '';
         
@@ -90,7 +95,6 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         keysText.scrollFactor.set();
         add(keysText);
         
-        var oldModDir = Mods.currentModDirectory;
         Mods.currentModDirectory = this.folder;
         
         icon = new HealthIcon(songCharacter, false, true, this.folder);
@@ -135,10 +139,10 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         updateRatingSprite();
     }
     
-    public function updateSelection(isSelected:Bool):Void
+    /** 宿主维护悬停态；alpha 由 updatePosition 统一算，别在外部直接改成员 alpha。 */
+    public function setHovered(value:Bool):Void
     {
-        isCardSelected = isSelected;
-        // 发光已移除，这里只保留状态，不执行额外操作
+        isHovered = value;
     }
     
     public function updateDifficultyInfo(bpm:Float, formattedLength:String, ?noteCount:Int = 0, ?difficultyRating:Float = 0.0, ?keyCount:Int = 0)
@@ -164,9 +168,14 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         songLowercase = songLowercase.replace(" ", "-");
         
         var bestRating:Float = 0;
-        for (diff in 0...Difficulty.list.length)
+        // 难度名优先用这首歌自己的（混排列表里全局 Difficulty.list 未必对得上）；
+        // 变体显式传入 —— 切来源后全局 Paths.currentContentVariant 可能还是上一个包的，
+        // 吃全局会让 PicoMix 的卡读到 base 同名歌的成绩。
+        var ratingDiffs:Array<String> = (diffNames != null && diffNames.length > 0) ? diffNames : Difficulty.list;
+        for (diffName in ratingDiffs)
         {
-            var rating:Float = Highscore.getRating(songLowercase, diff, folder, mode);
+            // 只读版：这里每张卡都会遍历全部难度，getRating 会给缺失键写回存档 + flush
+            var rating:Float = Highscore.peekRatingByName(songLowercase, diffName, folder, mode, variant);
             if (rating > bestRating)
             {
                 bestRating = rating;
@@ -273,33 +282,25 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         hueShader.hue = (hueTime * 0.6) % 1.0;
     }
     
-    /** 动画用：整卡（含徽章）平移，返回各成员原位置由调用方记录 */
+    /** 动画用：整卡（含徽章）平移 */
     public function shiftCard(dx:Float, dy:Float):Void
     {
-        bgSprite.x += dx; bgSprite.y += dy;
-        textSprite.x += dx; textSprite.y += dy;
-        bpmText.x += dx; bpmText.y += dy;
-        lengthText.x += dx; lengthText.y += dy;
-        keysText.x += dx; keysText.y += dy;
-        icon.x += dx; icon.y += dy;
-        rhombusBg.x += dx; rhombusBg.y += dy;
-        ratingSprite.x += dx; ratingSprite.y += dy;
+        for (member in members)
+        {
+            if (member == null) continue;
+            member.x += dx;
+            member.y += dy;
+        }
     }
     
     /** 动画用：整卡设置角度 */
     public function setCardAngle(a:Float):Void
     {
-        bgSprite.angle = a;
-        textSprite.angle = a;
-        bpmText.angle = a;
-        lengthText.angle = a;
-        keysText.angle = a;
-        icon.angle = a;
-        rhombusBg.angle = a;
-        ratingSprite.angle = a;
+        for (member in members)
+            if (member != null) member.angle = a;
     }
     
-    public function updatePosition(curSelected:Float, selectedIndex:Int, isVisible:Bool = true)
+    public function updatePosition(curSelected:Float, selectedIndex:Int)
     {
         if (animLock) return; // 评级应用动画期间由动画代码接管
         var distance = targetY - curSelected;
@@ -364,15 +365,11 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         }
 
         var isSelected:Bool = (targetY == selectedIndex);
-        updateSelection(isSelected);
         
-        var alpha = if (isSelected) 1.0 else 0.6;
-        if (isSelected) {
-            bgSprite.color = 0xFF5A5A5A;
-            alpha = 0.8;
-        } else {
-            bgSprite.color = 0xFF4A4A4A;
-        }
+        var alpha:Float = 0.6;
+        if (isSelected) alpha = 0.8;
+        else if (isHovered) alpha = 0.7;
+        bgSprite.color = (isSelected || isHovered) ? 0xFF5A5A5A : 0xFF4A4A4A;
         
         rhombusBg.color = coloring;
         
@@ -399,17 +396,5 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
     public function checkMouseOver():Bool
     {
         return FlxG.mouse.overlaps(bgSprite) || FlxG.mouse.overlaps(rhombusBg) || FlxG.mouse.overlaps(ratingSprite);
-    }
-
-    public function setAlpha(alphat:Float)
-    {
-        bgSprite.alpha = alphat;
-        textSprite.alpha = alphat;
-        icon.alpha = alphat;
-        rhombusBg.alpha = alphat;
-        ratingSprite.alpha = alphat;
-        bpmText.alpha = alphat;
-        lengthText.alpha = alphat;
-        keysText.alpha = alphat;
     }
 }

@@ -27,6 +27,32 @@ typedef ParsedSongInfo = {
 
 class SongInfoParser
 {
+    /**
+     * 已确认取不到谱面文件的 (模组 + 内容根 + 歌 + 难度)。
+     * Freeplay 每轮都会把解析失败的难度重新入队（bpm<=0 一律判无效），坏谱面因此会被
+     * 无限重试、日志刷屏。记下来后同一进程内只试一次；不落盘，重启会重试一次，
+     * 谱面补上后无需清缓存即可恢复。
+     */
+    static var missingCharts:Map<String, Bool> = new Map<String, Bool>();
+
+    inline static function makeChartKey(folder:String, contentRoot:String, songLowercase:String, diffFileName:String):String
+    {
+        return (folder == null ? '' : folder) + '|' + (contentRoot == null ? '' : contentRoot)
+            + '|' + songLowercase + '|' + diffFileName;
+    }
+
+    /** 该歌该难度是否已确认没有谱面文件 —— Freeplay 用它跳过重复解析。 */
+    public static function isChartMissing(songName:String, folder:String, difficulty:String, ?weekData:WeekData):Bool
+    {
+        var contentRoot:String = (weekData == null) ? null : weekData.contentRoot;
+        var diffFileName:String = getDifficultyFileName(difficulty, weekData);
+        return missingCharts.exists(makeChartKey(folder, contentRoot, Paths.formatToSongPath(songName), diffFileName));
+    }
+
+    /** 清空缺失记录（重新扫盘 / 换模组目录后想让坏谱面再试一次时调用）。 */
+    public static function clearMissingCharts():Void
+        missingCharts.clear();
+
     public static function getSongInfoFromChart(chart:SwagSong, ?difficulty:String = null, ?splitCustomTracks:Bool = false):ParsedSongInfo
     {
         if (chart == null)
@@ -49,6 +75,7 @@ class SongInfoParser
         var diffFileName:String = getDifficultyFileName(difficulty, weekData);
         var jsonFileName:String = songLowercase + diffFileName;
 
+        var chartKey:String = makeChartKey(folder, (weekData == null) ? null : weekData.contentRoot, songLowercase, diffFileName);
         var chartData:String = loadChartData(songLowercase, jsonFileName);
 
         if (chartData == null && diffFileName != '')
@@ -61,6 +88,7 @@ class SongInfoParser
 
         if (chartData == null)
         {
+            missingCharts.set(chartKey, true);
             trace('No chart file found for: $songName - $difficulty');
             return getDefaultInfo();
         }
@@ -88,6 +116,14 @@ class SongInfoParser
         {
             var diffFileName:String = getDifficultyFileName(diffName, weekData);
             var jsonFileName:String = songLowercase + diffFileName;
+            var chartKey:String = makeChartKey(folder, (weekData == null) ? null : weekData.contentRoot, songLowercase, diffFileName);
+
+            // 已确认缺谱面的难度直接给默认值，不再读盘 / 解析 / 刷日志
+            if (missingCharts.exists(chartKey))
+            {
+                result.set(diffName, getDefaultInfo());
+                continue;
+            }
 
             var chartData:String = loadChartData(songLowercase, jsonFileName);
 
@@ -166,6 +202,7 @@ class SongInfoParser
             }
             else
             {
+                missingCharts.set(chartKey, true);
                 trace('No chart data found for: $songName - $diffName');
                 result.set(diffName, getDefaultInfo());
             }
@@ -227,65 +264,88 @@ class SongInfoParser
         return Paths.formatToSongPath('-' + difficulty);
     }
 
-    private static function loadChartData(songLowercase:String, fileName:String):String
+    /** 按 模组 → mods → 内容包/资源 → assets/data → assets/shared/data 的顺序找谱面文件。 */
+    private static function resolveChartPath(songLowercase:String, fileName:String):String
     {
-        var chartData:String = null;
         var currentModDir:String = Mods.currentModDirectory;
 
         #if MODS_ALLOWED
         if (currentModDir != null && currentModDir.length > 0)
         {
             var modPath:String = 'mods/' + currentModDir + '/data/' + songLowercase + '/' + fileName + '.json';
-            if (FileSystem.exists(modPath))
-            {
-                chartData = File.getContent(modPath);
-                return chartData;
-            }
+            if (FileSystem.exists(modPath)) return modPath;
         }
 
         var modPath:String = Paths.modsJson(songLowercase + '/' + fileName);
-        if (FileSystem.exists(modPath))
-        {
-            chartData = File.getContent(modPath);
-            return chartData;
-        }
+        if (FileSystem.exists(modPath)) return modPath;
         #end
 
         var assetsPath:String = Paths.json(songLowercase + '/' + fileName);
         #if sys
         // 内容包是运行时磁盘资源、不在编译期 assets 清单里，Assets.exists 查不到；
         // getPath 命中内容包时返回的本来就是磁盘路径，先按磁盘判存在。
-        if (FileSystem.exists(assetsPath))
-        {
-            chartData = File.getContent(assetsPath);
-            return chartData;
-        }
+        if (FileSystem.exists(assetsPath)) return assetsPath;
         #end
-        if (Assets.exists(assetsPath, TEXT))
-        {
-            chartData = Assets.getText(assetsPath);
-            return chartData;
-        }
+        if (Assets.exists(assetsPath, TEXT)) return assetsPath;
 
         var directPath:String = 'assets/data/' + songLowercase + '/' + fileName + '.json';
         #if sys
-        if (FileSystem.exists(directPath))
-        {
-            chartData = File.getContent(directPath);
-            return chartData;
-        }
+        if (FileSystem.exists(directPath)) return directPath;
         #end
 
         var sharedPath:String = 'assets/shared/data/' + songLowercase + '/' + fileName + '.json';
         #if sys
-        if (FileSystem.exists(sharedPath))
-        {
-            chartData = File.getContent(sharedPath);
-            return chartData;
-        }
+        if (FileSystem.exists(sharedPath)) return sharedPath;
         #end
 
         return null;
+    }
+
+    private static function loadChartData(songLowercase:String, fileName:String):String
+    {
+        var path:String = resolveChartPath(songLowercase, fileName);
+        if (path == null) return null;
+
+        #if sys
+        if (FileSystem.exists(path)) return File.getContent(path);
+        #end
+        return Assets.getText(path);
+    }
+
+    /**
+     * 谱面文件的修改时间（毫秒）；不存在或非 sys 平台返回 0。
+     * Freeplay 用它判断「上次确认解析失败之后，谱面有没有被改过」——
+     * 没改就不再重试，改了（或文件后来补上，0 → 非 0）自动重新解析。
+     */
+    public static function getChartStamp(songName:String, folder:String, difficulty:String, ?weekData:WeekData):Float
+    {
+        #if sys
+        var oldModDir:String = Mods.currentModDirectory;
+        Mods.currentModDirectory = folder;
+        var oldContentRoot:String = Paths.currentContentRoot;
+        if (weekData != null) Paths.currentContentRoot = weekData.contentRoot;
+
+        var songLowercase:String = Paths.formatToSongPath(songName);
+        var diffFileName:String = getDifficultyFileName(difficulty, weekData);
+        var path:String = resolveChartPath(songLowercase, songLowercase + diffFileName);
+        if (path == null && diffFileName != '')
+            path = resolveChartPath(songLowercase, songLowercase + 'song');
+
+        Mods.currentModDirectory = oldModDir;
+        Paths.currentContentRoot = oldContentRoot;
+
+        if (path == null) return 0;
+        try
+        {
+            return FileSystem.stat(path).mtime.getTime();
+        }
+        catch (e:Dynamic)
+        {
+            return 0;
+        }
+        #else
+        return 0;
+        #end
     }
 
     private static function countNotes(swagSong:SwagSong):Int
