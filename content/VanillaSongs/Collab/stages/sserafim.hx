@@ -77,6 +77,11 @@ var yunjin = null;
 var chaewon = null;
 var eunchae = null;
 
+// 只给日志用。**不要**在读日志的地方直接访问 MOUTHS：
+// Iris 里顶层 var 声明晚于函数定义时，函数体内解析不到那个名字
+// （实测 goodNoteHit → girlSing 报 "Unknown variable: MOUTHS"）。
+var GIRL_NAMES = ['yunjin', 'kazuha', 'chaewon', 'eunchae', 'sakura'];
+
 var baseVisible = [true, false, false, false, false];
 var girlsVisible = [true, false, false, false, false];
 var girlsSinging = [false, false, false, false, false];
@@ -452,7 +457,7 @@ function girlSing(dirName, isPlayerSide) {
 		if (girlHold[i] > 8) continue;
 		girls[i].playAnim('sing' + dirName, true);
 		girlHold[i] = 4;
-		sang += MOUTHS[i].girl + ' ';
+		sang += GIRL_NAMES[i] + ' ';
 	}
 	// 每秒最多落一行，用来确认"谁在唱"
 	var now = Conductor.songPosition;
@@ -502,8 +507,8 @@ var MOUTHS = [
 		atlas: 'sserafim-lipsync-yunjin',
 		artCenter: MOUTH_ART_CENTER_YUNJIN,
 		alpha: 1.0,
-		angle: 0.0,   // 角度是对的      // 该成员嘴的角度修正（正=顺时针）。mirrored 的用 flip，歪的用这个
-		flip: false      // 
+		angle: 0.0,
+		flip: false
 	},
 	{
 		girl: 'kazuha',
@@ -512,8 +517,8 @@ var MOUTHS = [
 		atlas: 'sserafim-lipsync',
 		artCenter: MOUTH_ART_CENTER_SHARED,
 		alpha: 1.0,
-		angle: 0.0,   // 角度是对的      // 该成员嘴的角度修正（正=顺时针）。mirrored 的用 flip，歪的用这个
-		flip: true      // 官方就是镜像的
+		angle: 0.0,
+		flip: true          // 官方 kazuha 的嘴就是镜像的
 	},
 	{
 		girl: 'chaewon',
@@ -522,8 +527,8 @@ var MOUTHS = [
 		atlas: 'sserafim-lipsync',
 		artCenter: MOUTH_ART_CENTER_SHARED,
 		alpha: 0.5,
-		angle: 180.0,   // 上下颠倒 → 补 180      // 该成员嘴的角度修正（正=顺时针）。mirrored 的用 flip，歪的用这个
-		flip: false      // 
+		angle: 180.0,       // 锚点 rot ≈ +175（上下颠倒）→ 补 180
+		flip: false
 	},
 	{
 		girl: 'eunchae',
@@ -532,8 +537,8 @@ var MOUTHS = [
 		atlas: 'sserafim-lipsync',
 		artCenter: MOUTH_ART_CENTER_SHARED,
 		alpha: 1.0,
-		angle: 180.0,   // 上下颠倒 → 补 180      // 该成员嘴的角度修正（正=顺时针）。mirrored 的用 flip，歪的用这个
-		flip: false      // 
+		angle: 180.0,       // 锚点 rot ≈ ±175（上下颠倒）→ 补 180
+		flip: false
 	},
 	{
 		girl: 'sakura',
@@ -542,8 +547,8 @@ var MOUTHS = [
 		atlas: 'sserafim-lipsync',
 		artCenter: MOUTH_ART_CENTER_SHARED,
 		alpha: 1.0,
-		angle: 0.0,   // 角度是对的      // 该成员嘴的角度修正（正=顺时针）。mirrored 的用 flip，歪的用这个
-		flip: true      // 官方就是镜像的
+		angle: 0.0,
+		flip: true          // 官方 sakura 的嘴也是镜像的
 	}
 ];
 
