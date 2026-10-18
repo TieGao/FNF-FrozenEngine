@@ -1,136 +1,136 @@
 {
 	"animations": [
 		{
-			"offsets": [0, 0],
 			"loop": false,
-			"fps": 24,
+			"offsets": [0, 0],
 			"anim": "idle",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 		},
 		{
-			"offsets": [0, 0],
 			"loop": false,
-			"fps": 24,
+			"offsets": [0, 0],
 			"anim": "singRIGHT",
-			"indices": [47, 48, 49, 50, 51, 52, 53, 54, 55, 56],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [47, 48, 49, 50, 51, 52, 53, 54, 55, 56]
 		},
 		{
-			"offsets": [0, 0],
 			"loop": false,
-			"fps": 24,
+			"offsets": [0, 0],
 			"anim": "singDOWN",
-			"indices": [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36]
 		},
 		{
-			"offsets": [0, 0],
 			"loop": false,
-			"fps": 24,
+			"offsets": [0, 0],
 			"anim": "singUP",
-			"indices": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
 		},
 		{
-			"offsets": [0, 0],
 			"loop": false,
-			"fps": 24,
+			"offsets": [0, 0],
 			"anim": "singLEFT",
-			"indices": [37, 38, 39, 40, 41, 42, 43, 44, 45, 46],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [37, 38, 39, 40, 41, 42, 43, 44, 45, 46]
 		},
 		{
-			"offsets": [0, 0],
 			"loop": false,
-			"fps": 24,
+			"offsets": [0, 0],
 			"anim": "singRIGHTmiss",
-			"indices": [89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]
 		},
 		{
-			"offsets": [0, 0],
 			"loop": false,
-			"fps": 24,
+			"offsets": [0, 0],
 			"anim": "singDOWNmiss",
-			"indices": [67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77]
 		},
 		{
-			"offsets": [0, 0],
 			"loop": false,
-			"fps": 24,
+			"offsets": [0, 0],
 			"anim": "singUPmiss",
-			"indices": [57, 58, 59, 60, 61, 62, 63, 64, 65, 66],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [57, 58, 59, 60, 61, 62, 63, 64, 65, 66]
 		},
 		{
-			"offsets": [0, 0],
 			"loop": false,
-			"fps": 24,
+			"offsets": [0, 0],
 			"anim": "singLEFTmiss",
-			"indices": [78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88]
 		},
 		{
-			"offsets": [0, 0],
 			"loop": false,
-			"fps": 24,
+			"offsets": [0, 0],
 			"anim": "knifeToss",
-			"indices": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127]
 		},
 		{
-			"offsets": [0, 0],
 			"loop": false,
-			"fps": 24,
+			"offsets": [0, 0],
 			"anim": "laughEnd",
-			"indices": [128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145]
 		},
 		{
+			"loop": true,
 			"offsets": [0, 0],
-			"loop": true,
-			"fps": 24,
 			"anim": "laughEnd-loop",
-			"indices": [146, 147, 148, 149, 150, 151, 152, 153],
-			"name": "pico nene all"
+			"fps": 24,
+			"name": "pico nene all",
+			"indices": [146, 147, 148, 149, 150, 151, 152, 153]
 		},
 		{
+			"loop": false,
 			"offsets": [253, 193],
-			"loop": false,
-			"assetPath": "characters/pico-holding-nene_picoAndNene-DEAD",
-			"fps": 24,
 			"anim": "firstDeath",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
-			"name": "Pico Nene death"
+			"fps": 24,
+			"assetPath": "characters/pico-holding-nene_picoAndNene-DEAD",
+			"name": "Pico Nene death",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45]
 		},
 		{
+			"loop": true,
 			"offsets": [251, 193],
-			"loop": true,
-			"assetPath": "characters/pico-holding-nene_picoAndNene-DEAD",
-			"fps": 24,
 			"anim": "deathLoop",
-			"indices": [46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67],
-			"name": "Pico Nene death"
+			"fps": 24,
+			"assetPath": "characters/pico-holding-nene_picoAndNene-DEAD",
+			"name": "Pico Nene death",
+			"indices": [46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67]
 		},
 		{
-			"offsets": [268, 193],
 			"loop": false,
-			"assetPath": "characters/pico-holding-nene_picoAndNene-DEAD",
-			"fps": 24,
+			"offsets": [268, 193],
 			"anim": "deathConfirm",
-			"indices": [68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117],
-			"name": "Pico Nene death"
+			"fps": 24,
+			"assetPath": "characters/pico-holding-nene_picoAndNene-DEAD",
+			"name": "Pico Nene death",
+			"indices": [68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117]
 		},
 		{
-			"offsets": [268, 193],
 			"loop": true,
-			"assetPath": "characters/pico-holding-nene_picoAndNene-DEAD",
-			"fps": 24,
+			"offsets": [268, 193],
 			"anim": "deathConfirm-loop",
-			"indices": [104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117],
-			"name": "Pico Nene death"
+			"fps": 24,
+			"assetPath": "characters/pico-holding-nene_picoAndNene-DEAD",
+			"name": "Pico Nene death",
+			"indices": [104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117]
 		}
 	],
 	"vocals_file": "",
@@ -139,7 +139,7 @@
 	"position": [270, 476],
 	"healthicon": "pico",
 	"flip_x": true,
-	"healthbar_colors": [161, 161, 161],
+	"healthbar_colors": [183, 216, 85],
 	"camera_position": [32, 24],
 	"sing_duration": 4,
 	"scale": 1,

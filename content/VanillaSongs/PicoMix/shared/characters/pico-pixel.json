@@ -1,100 +1,100 @@
 {
 	"animations": [
 		{
-			"loop": false,
 			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "idle",
-			"fps": 24,
-			"name": "idle0",
-			"indices": []
+			"indices": [],
+			"name": "idle0"
 		},
 		{
-			"loop": false,
 			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "singLEFT",
-			"fps": 24,
-			"name": "left0",
-			"indices": []
+			"indices": [],
+			"name": "left0"
 		},
 		{
-			"loop": false,
 			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "singDOWN",
-			"fps": 24,
-			"name": "down0",
-			"indices": []
+			"indices": [],
+			"name": "down0"
 		},
 		{
-			"loop": false,
 			"offsets": [-1, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "singUP",
-			"fps": 24,
-			"name": "up0",
-			"indices": []
+			"indices": [],
+			"name": "up0"
 		},
 		{
-			"loop": false,
 			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "singRIGHT",
-			"fps": 24,
-			"name": "right0",
-			"indices": []
+			"indices": [],
+			"name": "right0"
 		},
 		{
-			"loop": false,
 			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "singLEFTmiss",
-			"fps": 24,
-			"name": "leftmiss0",
-			"indices": []
+			"indices": [],
+			"name": "leftmiss0"
 		},
 		{
-			"loop": false,
 			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "singDOWNmiss",
-			"fps": 24,
-			"name": "downmiss0",
-			"indices": []
+			"indices": [],
+			"name": "downmiss0"
 		},
 		{
-			"loop": false,
 			"offsets": [-1, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "singUPmiss",
-			"fps": 24,
-			"name": "upmiss0",
-			"indices": []
+			"indices": [],
+			"name": "upmiss0"
 		},
 		{
-			"loop": false,
 			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "singRIGHTmiss",
-			"fps": 24,
-			"name": "rightmiss0",
-			"indices": []
+			"indices": [],
+			"name": "rightmiss0"
 		},
 		{
-			"loop": false,
 			"offsets": [-1, -1],
+			"loop": false,
+			"fps": 24,
 			"anim": "firstDeath",
-			"fps": 24,
-			"name": "firstDeath0",
-			"indices": []
+			"indices": [],
+			"name": "firstDeath0"
 		},
 		{
+			"offsets": [-1, -1],
 			"loop": true,
-			"offsets": [-1, -1],
-			"anim": "deathLoop",
 			"fps": 24,
-			"name": "deathLoop0",
-			"indices": []
+			"anim": "deathLoop",
+			"indices": [],
+			"name": "deathLoop0"
 		},
 		{
-			"loop": false,
 			"offsets": [-1, -1],
-			"anim": "deathConfirm",
+			"loop": false,
 			"fps": 24,
-			"name": "deathConfirm0",
-			"indices": []
+			"anim": "deathConfirm",
+			"indices": [],
+			"name": "deathConfirm0"
 		}
 	],
 	"vocals_file": "",
@@ -103,7 +103,7 @@
 	"position": [0, 350],
 	"healthicon": "pico-pixel",
 	"flip_x": true,
-	"healthbar_colors": [161, 161, 161],
+	"healthbar_colors": [136, 255, 88],
 	"camera_position": [105, -140],
 	"sing_duration": 8,
 	"scale": 6,
