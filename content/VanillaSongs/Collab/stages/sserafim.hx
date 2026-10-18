@@ -136,10 +136,23 @@ var endTimers = [];
 // gf 基准 -104、bf 基准 531（官方坐标）。
 var CUT_BFGF_Y_SHIFT = -80.0;
 
-// 过场取景的目标屏幕中心（fitAnimateCenter 用）。y=780 是用户实机校准值（画面偏下一点才对吧台坐姿露出来）。
+// 过场取景的目标屏幕中心（fitAnimateCenter 用）。
 var CUT_FIT_X = 640.0;
-var CUT_FIT_Y = 780.0;
+var CUT_FIT_Y = 180.0;
 var cutFitted = false;
+
+// 酒吧交谈场景整体下移（实机校准旋钮，单位 = 屏幕像素，正 = 往下，负 = 往上）。
+// gf/bf 画在过场图集里，图集是一整块精灵 —— gf/bf 不单独动，动就是三层同量一起动：
+//   1) 过场图集：取景中心 = CUT_FIT_Y + SHIFT/0.7（fit 是"预缩放屏空间"，除以推近 zoom
+//      后屏幕上正好下移 SHIFT 像素；图集里的吧台画 + gf/bf 整块一起走）；
+//   2) 过场专用世界道具（拉长吧台/汉堡）：y += SHIFT/0.7；
+//   3) 过场地板：updateFloorSkew 里对 floorTopY/floorBottomY 加同样的量，只在过场生效。
+// 三层屏幕位移完全相等，相对对位不会脱开。微调只改这一个数。
+// ⚠ 为什么不挪镜头：过场期间 PlayState 每帧把 camGame.followLerp 压成 0（inCutscene 分支），
+//   flixel updateLerp 在 lerp==0 时直接跳过 scroll 更新 —— 镜头整个过场冻在初始 scroll，
+//   camPosTo 的 camFollow tween 视觉上完全无效（实机日志 cam=1149,232 全程不变可证）。
+var CUT_SCENE_SHIFT_Y = 200.0;
+var cutFloorShift = 0.0;   // 过场地板当前生效的下移量（setCutsceneVisibility 里切换，切回 0）
 
 // gf 戳自己 / 戳 bf 那一下：官方脚本只有 HapticUtil.vibrate(PC 上是空实现) + 一帧变暗，
 // 所以这里补一个很轻的镜头顿挫（强度是屏幕比例，0.003 ≈ 4px）。
@@ -974,9 +987,9 @@ function setMouthDebug(on) {
 function updateFloorSkew(cam) {
 	if (floorSpr == null || floorSpr.graphic == null) return;
 	var botX = floorBottomX - cam.scroll.x * 0.12;
-	var botY = floorBottomY - cam.scroll.y * 0.12;
+	var botY = floorBottomY - cam.scroll.y * 0.12 + cutFloorShift;
 	var topX = floorTopX;
-	var topY = floorTopY;
+	var topY = floorTopY + cutFloorShift;
 	var h = floorSpr.frameHeight > 0 ? floorSpr.frameHeight : floorSpr.height;
 	if (h <= 0) return;
 	var distX = topX - botX;
@@ -1037,7 +1050,10 @@ function resetDust() {
 		d.setPosition(pos[i][0], pos[i][1]);
 		d.velocity.x = vels[i];
 		d.alpha = 1;
-		d.visible = true;   // 过场里被 hideDust 关掉过，这里一并恢复
+		// 过场期间别恢复可见：introCutscene 的顺序是 setCutsceneVisibility(true)
+		// （hideDust(false) 藏掉）→ resetLook()（走到这里），无条件 true 会把
+		// 刚藏好的灰尘整个拉回来，开场就变成满天灰。非过场（歌里/重试）照常恢复。
+		d.visible = !cutsceneActive;
 	}
 }
 
@@ -1069,6 +1085,8 @@ function setCutsceneVisibility(inCutscene) {
 		var img = Paths.image(inCutscene ? 'cutscene/floor-cutscene' : 'floor');
 		if (img != null) floorSpr.loadGraphic(img);
 	}
+	// 过场整体下移（CUT_SCENE_SHIFT_Y）：地板只在过场里挪，切回正常地板时归零
+	cutFloorShift = inCutscene ? CUT_SCENE_SHIFT_Y / CUTSCENE_ZOOM_IN : 0.0;
 	if (ps().gf != null) ps().gf.visible = false;
 	if (cutsceneSprite != null) cutsceneSprite.visible = inCutscene;
 }
@@ -1197,7 +1215,7 @@ function introCutscene() {
 		try { dumpAnimate('probe cutscene', cutsceneSprite); } catch (e:Dynamic) { slog('probe cutscene FAILED ' + e); }
 		// 取景自校正：把整块过场美术摆到屏幕中央（镜头 1 秒后还在往后推，3.4s 再校一次）
 		try {
-			if (fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y)) {
+			if (fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y + CUT_SCENE_SHIFT_Y / CUTSCENE_ZOOM_IN)) {
 				slog('fit cutscene @1.2 pos=' + Math.round(cutsceneSprite.x) + ',' + Math.round(cutsceneSprite.y));
 			} else {
 				slog('fit cutscene @1.2 SKIPED (wh=' + cutsceneSprite.width + 'x' + cutsceneSprite.height + ')');
@@ -1214,7 +1232,7 @@ function introCutscene() {
 	// 镜头推完（3s）再校一次：第一次校正时镜头还在动，落点会差几十像素
 	cutTime(3.4, function(tmr) {
 		try {
-			if (fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y)) {
+			if (fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y + CUT_SCENE_SHIFT_Y / CUTSCENE_ZOOM_IN)) {
 				slog('fit cutscene @3.4 pos=' + Math.round(cutsceneSprite.x) + ',' + Math.round(cutsceneSprite.y)
 					+ ' wh=' + Math.round(cutsceneSprite.width) + 'x' + Math.round(cutsceneSprite.height));
 			}
@@ -1787,7 +1805,7 @@ function buildPost() {
 
 	// --- 额外三名成员 ---
 	if (yunjin == null) {
-		yunjin = addGirl('sserafim-yunjin', -771, -146, 0.95);
+		yunjin = addGirl('sserafim-yunjin', -801, -140, 0.95);
 		chaewon = addGirl('sserafim-chaewon', 537, -202, 0.95);
 		eunchae = addGirl('sserafim-eunchae', 620, 375, 0.97);
 		// 官方 zIndex 1000：在 dad/bf 之上、frontStool(1500) 之下
@@ -1801,6 +1819,7 @@ function buildPost() {
 	// dad(kazuha) / bf(sakura) 是引擎自己建的角色，addGirl 管不到 —— 同样的偏移量补一遍。
 	// ⚠ gf 不要补：她的落点由 shared/characters/sserafim-gf.json 的 position 单独调
 	//   （[-1100,-1000] = 站到卡车上，用户实机校准过，别当残留删掉）。
+	if (p.gf != null) { p.gf.x -= 1300; p.gf.y -= 1200; }
 	if (p.dad != null) { p.dad.x += CHAR_SHIFT_X; p.dad.y += CHAR_SHIFT_Y; }
 	if (p.boyfriend != null) { p.boyfriend.x += CHAR_SHIFT_X; p.boyfriend.y += CHAR_SHIFT_Y; }
 	slog('post: char shift ' + CHAR_SHIFT_X + ',' + CHAR_SHIFT_Y);
@@ -1842,6 +1861,13 @@ function buildPost() {
 		if (sp != null) { sp.offset.set(0, 0); sp.origin.set(0, 0); }
 	}
 
+	// 过场整体下移（CUT_SCENE_SHIFT_Y）：拉长吧台/汉堡跟图集、地板三层同量一起动。
+	// 这两个道具只在过场可见，永久平移不影响正式演出画面。
+	for (key in ['backTablesCutscene', 'burgerCutscene']) {
+		var sp = getProp(key);
+		if (sp != null) sp.y += CUT_SCENE_SHIFT_Y / CUTSCENE_ZOOM_IN;
+	}
+
 	// --- 嘴型（一条嘴一个成员，见 §7 表）---
 	// 逐块 try：任何一块炸掉都不能把后面（尤其是过场精灵）一起带走
 	try {
@@ -1863,14 +1889,8 @@ function buildPost() {
 		slog('post: dust ok');
 	} catch (e:Dynamic) { slog('post: dust FAILED ' + e); }
 
-	// --- 全屏黑幕（官方 zIndex 9999）---
 	if (solidCover == null) {
-		// 1×1 的贴图 + setGraphicSize 撑满，别用 makeGraphic(10000,10000)：
-		// 那是 10000² × 4B ≈ 400MB 显存，进场那一瞬间的卡顿就是它。
-		solidCover = new FlxSprite(-5000, -3000).makeGraphic(1, 1, 0xFF000000);
-		solidCover.setGraphicSize(10000, 10000);
-		solidCover.updateHitbox();
-		solidCover.offset.set(0, 0);
+		solidCover = new FlxSprite(-5000, -3000).makeGraphic(10000, 10000, 0xFF000000);
 		solidCover.scrollFactor.set(0, 0);
 		solidCover.alpha = 0;
 		p.add(solidCover);
@@ -2057,7 +2077,7 @@ function onUpdate(elapsed) {
 	if (!cutFitted && cutsceneSprite != null && cutsceneSprite.visible && cutsceneSprite.width > 0) {
 		cutFitted = true;
 		try {
-			fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y);
+			fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y + CUT_SCENE_SHIFT_Y / CUTSCENE_ZOOM_IN);
 			probeSprite('cutscene first', cutsceneSprite);
 		} catch (e:Dynamic) {}
 	}
