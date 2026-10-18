@@ -1,1 +1,837 @@
-{"song":{"events":[[0,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[0,[["Set Camera Target","Dad",""]]],[93.1621621621634,[["Set Camera Bop","1","0.8"]]],[1500,[["Play Animation","singUP-alt","dad"]]],[1500,[["Set Camera Target","BF",""]]],[3000,[["Set Camera Target","Dad",""]]],[4500,[["Set Camera Target","BF",""]]],[5906.16216216216,[["Set Camera Bop","2","1.5"]]],[6000,[["Set Camera Zoom","0.95,stage","32,expoOut"]]],[6000,[["Set Camera Target","Dad,320,-10",""]]],[10312.1621621622,[["Set Camera Bop","2","0"]]],[10453.125,[["Play Animation","singDOWN-alt","dad"]]],[10500,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[10500,[["Set Camera Target","Dad",""]]],[13875,[["Set Camera Zoom","0.95,stage","32,expoOut"]]],[13875,[["Set Camera Target","Dad,320,-10",""]]],[14859.1621621622,[["Set Camera Bop","2","1.5"]]],[15000,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[15000,[["Set Camera Target","Dad",""]]],[16875,[["Set Camera Zoom","0.95,stage","32,expoOut"]]],[16875,[["Set Camera Target","Dad,320,-10",""]]],[18000,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[18000,[["Set Camera Target","BF",""]]],[21000,[["Set Camera Zoom","1.1,stage","32,expoOut"]]],[24000,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[24000,[["Set Camera Target","Dad",""]]],[30375,[["Set Camera Zoom","0.95,stage","32,expoOut"]]],[30375,[["Set Camera Target","Dad,320,-10",""]]],[33000,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[33000,[["Set Camera Target","BF",""]]],[35906.1621621622,[["Set Camera Bop","1","0.8"]]],[36000,[["Set Camera Target","Dad",""]]],[37500,[["Play Animation","singUP-alt","dad"]]],[37687.5,[["Set Camera Target","Dad",""]]],[39000,[["Set Camera Target","Dad",""]]],[42000,[["Set Camera Target","BF",""]]],[43500,[["Set Camera Zoom","1.1,stage","32,expoOut"]]],[44625,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[45000,[["Set Camera Zoom","0.95,stage","32,expoOut"]]],[45000,[["Set Camera Target","Dad,320,-10",""]]],[47906.1621621622,[["Set Camera Bop","2","1.5"]]],[48000,[["Set Camera Zoom","1.04,stage","32,expoOut"]]],[48000,[["Set Camera Target","Dad",""]]],[49101.5625,[["Play Animation","burpSmile","boyfriend"]]],[49125,[["Set Camera Zoom","1.08,stage","32,expoOut"]]],[49125,[["Set Camera Target","BF,50,0","16,expoOut"]]],[49500,[["Play Animation","singUP-alt","dad"]]],[49500,[["Set Camera Zoom","1.04,stage","32,expoOut"]]],[49500,[["Set Camera Target","Dad","16,expoOut"]]],[50234.375,[["Play Animation","singDOWN-alt","dad"]]],[50250,[["Set Camera Zoom","1.1,stage","32,expoOut"]]],[51000,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[53906.1621621622,[["Set Camera Bop","1","0.8"]]],[54000,[["Set Camera Zoom","0.95,stage","32,expoOut"]]],[54000,[["Set Camera Target","Dad,320,-10",""]]],[55406.1621621622,[["Set Camera Bop","2","1.5"]]],[55500,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[55500,[["Set Camera Target","BF",""]]],[57000,[["Set Camera Zoom","1.1,stage","32,expoOut"]]],[58500,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[59906.1621621622,[["Set Camera Bop","1","0.8"]]],[60000,[["Set Camera Zoom","0.95,stage","32,expoOut"]]],[60000,[["Set Camera Target","Dad,320,-10",""]]],[62906.1621621622,[["Set Camera Bop","2","1.5"]]],[66000,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[66000,[["Set Camera Target","BF",""]]],[66750,[["Set Camera Zoom","1,stage","32,expoOut"]]],[67500,[["Set Camera Zoom","1.04,stage","32,expoOut"]]],[68250,[["Set Camera Zoom","1.08,stage","32,expoOut"]]],[69000,[["Set Camera Zoom","1.12,stage","32,expoOut"]]],[69750,[["Set Camera Zoom","1.16,stage","32,expoOut"]]],[70500,[["Set Camera Zoom","1.25,stage","32,expoOut"]]],[71906.1621621622,[["Set Camera Bop","1","0.8"]]],[72000,[["Set Camera Zoom","0.95,stage","32,expoOut"]]],[72000,[["Set Camera Target","Dad,320,-10",""]]],[78000,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[78000,[["Set Camera Target","BF",""]]],[79500,[["Set Camera Zoom","1.1,stage","32,expoOut"]]],[81000,[["Set Camera Zoom","1.05,stage","32,expoOut"]]],[82500,[["Set Camera Zoom","1.1,stage","32,expoOut"]]],[83906.1621621622,[["Set Camera Bop","1","0"]]]],"format":"psych_v1_convert"}}
+{
+ "song": {
+  "events": [
+   [
+    0,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    0,
+    [
+     [
+      "Set Camera Target",
+      "Dad",
+      ""
+     ]
+    ]
+   ],
+   [
+    93.1621621621634,
+    [
+     [
+      "Set Camera Bop",
+      "1",
+      "0.8"
+     ]
+    ]
+   ],
+   [
+    1500,
+    [
+     [
+      "Set Camera Target",
+      "BF",
+      ""
+     ]
+    ]
+   ],
+   [
+    1500,
+    [
+     [
+      "Play Animation",
+      "augh",
+      "dad"
+     ]
+    ]
+   ],
+   [
+    3000,
+    [
+     [
+      "Set Camera Target",
+      "Dad",
+      ""
+     ]
+    ]
+   ],
+   [
+    4500,
+    [
+     [
+      "Set Camera Target",
+      "BF",
+      ""
+     ]
+    ]
+   ],
+   [
+    5625,
+    [
+     [
+      "Play Animation",
+      "ugh",
+      "dad"
+     ]
+    ]
+   ],
+   [
+    5906.16216216216,
+    [
+     [
+      "Set Camera Bop",
+      "2",
+      "1.5"
+     ]
+    ]
+   ],
+   [
+    6000,
+    [
+     [
+      "Set Camera Zoom",
+      "0.95,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    6000,
+    [
+     [
+      "Set Camera Target",
+      "Dad,320,-10",
+      ""
+     ]
+    ]
+   ],
+   [
+    10312.1621621622,
+    [
+     [
+      "Set Camera Bop",
+      "2",
+      "0"
+     ]
+    ]
+   ],
+   [
+    10453.125,
+    [
+     [
+      "Play Animation",
+      "laugh",
+      "dad"
+     ]
+    ]
+   ],
+   [
+    10500,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    10500,
+    [
+     [
+      "Set Camera Target",
+      "Dad",
+      ""
+     ]
+    ]
+   ],
+   [
+    13875,
+    [
+     [
+      "Set Camera Zoom",
+      "0.95,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    13875,
+    [
+     [
+      "Set Camera Target",
+      "Dad,320,-10",
+      ""
+     ]
+    ]
+   ],
+   [
+    14859.1621621622,
+    [
+     [
+      "Set Camera Bop",
+      "2",
+      "1.5"
+     ]
+    ]
+   ],
+   [
+    15000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    15000,
+    [
+     [
+      "Set Camera Target",
+      "Dad",
+      ""
+     ]
+    ]
+   ],
+   [
+    16875,
+    [
+     [
+      "Set Camera Zoom",
+      "0.95,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    16875,
+    [
+     [
+      "Set Camera Target",
+      "Dad,320,-10",
+      ""
+     ]
+    ]
+   ],
+   [
+    18000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    18000,
+    [
+     [
+      "Set Camera Target",
+      "BF",
+      ""
+     ]
+    ]
+   ],
+   [
+    21000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.1,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    24000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    24000,
+    [
+     [
+      "Set Camera Target",
+      "Dad",
+      ""
+     ]
+    ]
+   ],
+   [
+    30375,
+    [
+     [
+      "Set Camera Zoom",
+      "0.95,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    30375,
+    [
+     [
+      "Set Camera Target",
+      "Dad,320,-10",
+      ""
+     ]
+    ]
+   ],
+   [
+    33000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    33000,
+    [
+     [
+      "Set Camera Target",
+      "BF",
+      ""
+     ]
+    ]
+   ],
+   [
+    35906.1621621622,
+    [
+     [
+      "Set Camera Bop",
+      "1",
+      "0.8"
+     ]
+    ]
+   ],
+   [
+    36000,
+    [
+     [
+      "Set Camera Target",
+      "Dad",
+      ""
+     ]
+    ]
+   ],
+   [
+    37500,
+    [
+     [
+      "Play Animation",
+      "ugh",
+      "dad"
+     ]
+    ]
+   ],
+   [
+    37687.5,
+    [
+     [
+      "Set Camera Target",
+      "Dad",
+      ""
+     ]
+    ]
+   ],
+   [
+    39000,
+    [
+     [
+      "Set Camera Target",
+      "Dad",
+      ""
+     ]
+    ]
+   ],
+   [
+    42000,
+    [
+     [
+      "Set Camera Target",
+      "BF",
+      ""
+     ]
+    ]
+   ],
+   [
+    43500,
+    [
+     [
+      "Set Camera Zoom",
+      "1.1,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    44625,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    45000,
+    [
+     [
+      "Set Camera Zoom",
+      "0.95,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    45000,
+    [
+     [
+      "Set Camera Target",
+      "Dad,320,-10",
+      ""
+     ]
+    ]
+   ],
+   [
+    47906.1621621622,
+    [
+     [
+      "Set Camera Bop",
+      "2",
+      "1.5"
+     ]
+    ]
+   ],
+   [
+    48000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.04,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    48000,
+    [
+     [
+      "Set Camera Target",
+      "Dad",
+      ""
+     ]
+    ]
+   ],
+   [
+    49101.5625,
+    [
+     [
+      "Play Animation",
+      "burpSmile",
+      "boyfriend"
+     ]
+    ]
+   ],
+   [
+    49125,
+    [
+     [
+      "Set Camera Zoom",
+      "1.08,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    49125,
+    [
+     [
+      "Set Camera Target",
+      "BF,50,0",
+      "16,expoOut"
+     ]
+    ]
+   ],
+   [
+    49500,
+    [
+     [
+      "Set Camera Zoom",
+      "1.04,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    49500,
+    [
+     [
+      "Set Camera Target",
+      "Dad",
+      "16,expoOut"
+     ]
+    ]
+   ],
+   [
+    49500,
+    [
+     [
+      "Play Animation",
+      "augh",
+      "dad"
+     ]
+    ]
+   ],
+   [
+    50234.375,
+    [
+     [
+      "Play Animation",
+      "beat it",
+      "dad"
+     ]
+    ]
+   ],
+   [
+    50250,
+    [
+     [
+      "Set Camera Zoom",
+      "1.1,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    51000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    53906.1621621622,
+    [
+     [
+      "Set Camera Bop",
+      "1",
+      "0.8"
+     ]
+    ]
+   ],
+   [
+    54000,
+    [
+     [
+      "Set Camera Zoom",
+      "0.95,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    54000,
+    [
+     [
+      "Set Camera Target",
+      "Dad,320,-10",
+      ""
+     ]
+    ]
+   ],
+   [
+    55406.1621621622,
+    [
+     [
+      "Set Camera Bop",
+      "2",
+      "1.5"
+     ]
+    ]
+   ],
+   [
+    55500,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    55500,
+    [
+     [
+      "Set Camera Target",
+      "BF",
+      ""
+     ]
+    ]
+   ],
+   [
+    57000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.1,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    58500,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    59906.1621621622,
+    [
+     [
+      "Set Camera Bop",
+      "1",
+      "0.8"
+     ]
+    ]
+   ],
+   [
+    60000,
+    [
+     [
+      "Set Camera Zoom",
+      "0.95,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    60000,
+    [
+     [
+      "Set Camera Target",
+      "Dad,320,-10",
+      ""
+     ]
+    ]
+   ],
+   [
+    62906.1621621622,
+    [
+     [
+      "Set Camera Bop",
+      "2",
+      "1.5"
+     ]
+    ]
+   ],
+   [
+    66000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    66000,
+    [
+     [
+      "Set Camera Target",
+      "BF",
+      ""
+     ]
+    ]
+   ],
+   [
+    66750,
+    [
+     [
+      "Set Camera Zoom",
+      "1,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    67500,
+    [
+     [
+      "Set Camera Zoom",
+      "1.04,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    68250,
+    [
+     [
+      "Set Camera Zoom",
+      "1.08,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    69000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.12,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    69750,
+    [
+     [
+      "Set Camera Zoom",
+      "1.16,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    70500,
+    [
+     [
+      "Set Camera Zoom",
+      "1.25,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    71906.1621621622,
+    [
+     [
+      "Set Camera Bop",
+      "1",
+      "0.8"
+     ]
+    ]
+   ],
+   [
+    72000,
+    [
+     [
+      "Set Camera Zoom",
+      "0.95,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    72000,
+    [
+     [
+      "Set Camera Target",
+      "Dad,320,-10",
+      ""
+     ]
+    ]
+   ],
+   [
+    77625,
+    [
+     [
+      "Play Animation",
+      "ugh",
+      "dad"
+     ]
+    ]
+   ],
+   [
+    78000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    78000,
+    [
+     [
+      "Set Camera Target",
+      "BF",
+      ""
+     ]
+    ]
+   ],
+   [
+    79500,
+    [
+     [
+      "Set Camera Zoom",
+      "1.1,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    81000,
+    [
+     [
+      "Set Camera Zoom",
+      "1.05,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    82500,
+    [
+     [
+      "Set Camera Zoom",
+      "1.1,stage",
+      "32,expoOut"
+     ]
+    ]
+   ],
+   [
+    83906.1621621622,
+    [
+     [
+      "Set Camera Bop",
+      "1",
+      "0"
+     ]
+    ]
+   ]
+  ],
+  "format": "psych_v1_convert"
+ }
+}
