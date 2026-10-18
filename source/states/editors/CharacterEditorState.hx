@@ -224,15 +224,22 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 	}
 
 	var _oldContentRoot:String = null;
+	var _contentRootChanged:Bool = false;
 
 	function addCharacter(reload:Bool = false)
 	{
 		// 浏览态没有 currentContentRoot，content 包角色不在 Paths 解析链里——
-		// 探测角色所在包并临时进入（资源链加性回退，包里没有的仍落回 assets）；destroy 时恢复
+		// 探测角色所在包并临时进入（资源链加性回退，包里没有的仍落回 assets）；destroy 时恢复。
+		// 注意：从内容包 PlayState 进来时 currentContentRoot 本来就指着这个包（charRoot 相同，不切），
+		// 绝不能在 destroy 时把它清掉，否则回 PlayState 后角色/舞台/音轨全部解析失败（黑屏无角色）。
 		var charRoot:String = Paths.findContentRootForFile('characters/' + _char + '.json');
 		if (charRoot != null && Paths.currentContentRoot != charRoot)
 		{
-			if (_oldContentRoot == null) _oldContentRoot = Paths.currentContentRoot;
+			if (!_contentRootChanged)
+			{
+				_oldContentRoot = Paths.currentContentRoot;
+				_contentRootChanged = true;
+			}
 			Paths.setContentRoot(charRoot);
 		}
 
@@ -264,7 +271,10 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 
 	override function destroy()
 	{
-		if (_oldContentRoot != null || Paths.currentContentRoot != null)
+		// 只有真的临时切进别的包才恢复；没切过就保持现状——
+		// 旧逻辑在“当前包就是角色所在包 / 无包角色”时会把 currentContentRoot 清成 null，
+		// 从内容包歌曲进编辑器再返回 PlayState 就会黑屏、找不到角色。
+		if (_contentRootChanged)
 			Paths.setContentRoot(_oldContentRoot);
 		super.destroy();
 	}
@@ -465,7 +475,11 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 			var charRoot:String = Paths.findContentRootForFile(characterPath);
 			if (charRoot != null && Paths.currentContentRoot != charRoot)
 			{
-				if (_oldContentRoot == null) _oldContentRoot = Paths.currentContentRoot;
+				if (!_contentRootChanged)
+				{
+					_oldContentRoot = Paths.currentContentRoot;
+					_contentRootChanged = true;
+				}
 				Paths.setContentRoot(charRoot);
 			}
 			var path:String = Paths.getPath(characterPath, TEXT, null, true);
