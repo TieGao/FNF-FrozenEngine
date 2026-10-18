@@ -14,22 +14,26 @@ class JudgementPopup
     public static function getUIFolderInfo(stageUI:String, isPixelStage:Bool):{folder:String, antialias:Bool}
     {
         var uiFolder:String = "";
-        var customUIPath:String = "";
         var antialias:Bool = ClientPrefs.data.antialiasing;
 
-        if (ClientPrefs.data.customUI != null && ClientPrefs.data.customUI != "")
-            customUIPath = ClientPrefs.data.customUI + "/";
+        var customUI:String = ClientPrefs.data.customUI;
+        var isDefault:Bool = (customUI == null || customUI == "" || customUI == "Default");
+        var customUIPath:String = isDefault ? "" : customUI + "/";
 
         if (stageUI != "normal")
         {
             uiFolder = customUIPath != ""
-                ? 'ratings/' + customUIPath + PlayState.uiPrefix + "UI/"
-                : PlayState.uiPrefix + "UI/";
+                ? 'ratings/$customUIPath${PlayState.uiPrefix}UI/'
+                : '${PlayState.uiPrefix}UI/';
             antialias = !isPixelStage;
         }
-        else if (customUIPath != "")
+        else if (isDefault)
         {
-            uiFolder = 'ratings/' + customUIPath;
+            uiFolder = "";   // 关键：Default = 走裸图，Paths.image 自带 mod→assets 回退
+        }
+        else
+        {
+            uiFolder = 'ratings/$customUIPath';
         }
 
         return {folder: uiFolder, antialias: antialias};
