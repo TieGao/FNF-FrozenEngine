@@ -136,6 +136,26 @@ var endTimers = [];
 // gf 基准 -104、bf 基准 531（官方坐标）。
 var CUT_BFGF_Y_SHIFT = -80.0;
 
+// 过场取景的目标屏幕中心（fitAnimateCenter 用）。y=780 是用户实机校准值（画面偏下一点才对吧台坐姿露出来）。
+var CUT_FIT_X = 640.0;
+var CUT_FIT_Y = 780.0;
+var cutFitted = false;
+
+// gf 戳自己 / 戳 bf 那一下：官方脚本只有 HapticUtil.vibrate(PC 上是空实现) + 一帧变暗，
+// 所以这里补一个很轻的镜头顿挫（强度是屏幕比例，0.003 ≈ 4px）。
+var POKE_SHAKE = true;
+var POKE_SHAKE_POWER = 0.003;
+var POKE_SHAKE_TIME = 0.12;
+
+// ---- 性能 ----
+var popupsOff = false;
+var LOG_HOT = false;          // 逐音符 / 逐事件的日志（会开文件，默认关）
+var shadersOff = false;       // F3 调试开关
+var PERF_LOG = true;          // F4 开关；日志里 perf fps/worst 就是它写的
+var perfAccum = 0.0;
+var perfFrames = 0;
+var perfWorst = 0.0;
+
 // ---- 脉冲灯 ----
 var lightsEnabled = false;
 var lightsColors = [];
@@ -392,6 +412,9 @@ function getAdjust(sh) {
 	return out;
 }
 
+// 剧情变暗 = 官方 SserafimShader.darkenAmount（= frag 里的 darkAmt uniform）。
+// 曾经改成"camHUD 上一块整屏黑幕"，结果 camHUD 那条路在 FE 里没画出来 → 歌里的
+// sserafimDark 事件全部失效（场景压暗消失）。黑幕已删，回到官方这条路。
 function setBothDark(v) {
 	if (characterShader != null) characterShader.setFloat('darkAmt', v);
 	if (stageShader != null) stageShader.setFloat('darkAmt', v);
@@ -423,6 +446,15 @@ function currentDark() {
 	var v = 0.0;
 	try { v = stageShader.getFloat('darkAmt'); } catch (e:Dynamic) { v = 0; }
 	return v;
+}
+
+// 戳人那一下的镜头顿挫。官方在这一帧只有 HapticUtil.vibrate（PC 空实现）+ 一帧变暗，
+// 所以手感上是"没反应"；补一个极轻的 shake，视觉上就有"戳到了"的反馈。
+function pokePunch() {
+	if (!POKE_SHAKE) return;
+	var p = ps();
+	if (p == null || p.camGame == null) return;
+	try { p.camGame.shake(POKE_SHAKE_POWER, POKE_SHAKE_TIME); } catch (e:Dynamic) {}
 }
 
 function darkenTween(amt, dur) {
@@ -551,9 +583,18 @@ function addGirl(id, x, y, scrollF) {
 }
 
 // 槽位 → 角色对象。0 yunjin / 1 kazuha(dad) / 2 chaewon / 3 eunchae / 4 sakura(bf)
+var girlsCache = null;
+
 function girlList() {
 	var p = ps();
-	return [yunjin, p.dad, chaewon, eunchae, p.boyfriend];
+	if (girlsCache == null) {
+		girlsCache = [yunjin, p.dad, chaewon, eunchae, p.boyfriend];
+	} else {
+		// 缓存建早了的话补上引擎侧角色（dad/bf 是 PlayState 建的，可能晚一拍）
+		if (girlsCache[1] == null && p.dad != null) girlsCache[1] = p.dad;
+		if (girlsCache[4] == null && p.boyfriend != null) girlsCache[4] = p.boyfriend;
+	}
+	return girlsCache;
 }
 
 function setGirlsVisible(arr) {
@@ -640,7 +681,7 @@ function girlSing(dirName, isPlayerSide, skipBf) {
 	var now = Conductor.songPosition;
 	if (now - singLogAt > 1000) {
 		singLogAt = now;
-		slog('hit ' + dirName + ' flags=' + flags(girlsSinging) + ' sang=[' + sang + ']');
+		if (LOG_HOT) slog('hit ' + dirName + ' flags=' + flags(girlsSinging) + ' sang=[' + sang + ']');
 	}
 }
 
@@ -745,9 +786,23 @@ function loadMouthAnchors() {
 }
 
 // (成员序号, 动画名, 帧号) → [x, y, rot]；没有就回落 idle
+var mouthTabs = null;
+
+function mouthTab(i) {
+	if (mouthTabs == null) {
+		mouthTabs = [];
+		var all = loadMouthAnchors();
+		for (k in 0...5) {
+			var t = null;
+			try { t = Reflect.field(all, MOUTHS[k].charId); } catch (e:Dynamic) { t = null; }
+			mouthTabs.push(t);
+		}
+	}
+	return mouthTabs[i];
+}
+
 function mouthAnchor(i, animName, frame) {
-	var tab = null;
-	try { tab = Reflect.field(loadMouthAnchors(), MOUTHS[i].charId); } catch (e:Dynamic) { tab = null; }
+	var tab = mouthTab(i);
 	if (tab == null) return null;
 	var frames = null;
 	try { frames = Reflect.field(tab, animName); } catch (e:Dynamic) { frames = null; }
@@ -824,7 +879,8 @@ function updateLipsync() {
 		if (!singing) {
 			try {
 				if (ls.anim.isPlaying) ls.anim.pause();
-				ls.anim.curFrame = 0;
+				// 只在真的不同的时候写，避免每帧无谓地碰 flxanimate 的帧游标
+				if (ls.anim.curFrame != 0) ls.anim.curFrame = 0;
 			} catch (e:Dynamic) {}
 		} else {
 			try { if (!ls.anim.isPlaying) ls.anim.resume(); } catch (e:Dynamic) {}
@@ -833,7 +889,7 @@ function updateLipsync() {
 				var len = ls.anim.length;
 				if (len > 0) {
 					if (f > len - 1) f = len - 1;
-					ls.anim.curFrame = f;
+					if (ls.anim.curFrame != f) ls.anim.curFrame = f;
 				}
 			} catch (e:Dynamic) {}
 		}
@@ -962,7 +1018,9 @@ function makeDust() {
 		d.velocity.x = vels[i];
 		d.alpha = alphas[i];
 		d.color = cols[i];
-		d.shader = stageShader;
+		// ⚠ 官方灰尘**没有**挂 shader（addProp 那套只管 stage 道具，dust 是直接 add 的）。
+		// 这里一旦挂上 stageShader，夜间调色（-24/6/-26/-74）会把 4 层满屏灰尘一起去色压暗，
+		// 观感就是"灰尘变成一层灰褐色脏罩子"，而且相当于每帧多跑 4 次全屏片元。
 		p.add(d);
 	}
 }
@@ -979,6 +1037,7 @@ function resetDust() {
 		d.setPosition(pos[i][0], pos[i][1]);
 		d.velocity.x = vels[i];
 		d.alpha = 1;
+		d.visible = true;   // 过场里被 hideDust 关掉过，这里一并恢复
 	}
 }
 
@@ -1138,7 +1197,7 @@ function introCutscene() {
 		try { dumpAnimate('probe cutscene', cutsceneSprite); } catch (e:Dynamic) { slog('probe cutscene FAILED ' + e); }
 		// 取景自校正：把整块过场美术摆到屏幕中央（镜头 1 秒后还在往后推，3.4s 再校一次）
 		try {
-			if (fitAnimateCenter(cutsceneSprite, 640, 780)) {
+			if (fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y)) {
 				slog('fit cutscene @1.2 pos=' + Math.round(cutsceneSprite.x) + ',' + Math.round(cutsceneSprite.y));
 			} else {
 				slog('fit cutscene @1.2 SKIPED (wh=' + cutsceneSprite.width + 'x' + cutsceneSprite.height + ')');
@@ -1155,7 +1214,7 @@ function introCutscene() {
 	// 镜头推完（3s）再校一次：第一次校正时镜头还在动，落点会差几十像素
 	cutTime(3.4, function(tmr) {
 		try {
-			if (fitAnimateCenter(cutsceneSprite, 640, 780)) {
+			if (fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y)) {
 				slog('fit cutscene @3.4 pos=' + Math.round(cutsceneSprite.x) + ',' + Math.round(cutsceneSprite.y)
 					+ ' wh=' + Math.round(cutsceneSprite.width) + 'x' + Math.round(cutsceneSprite.height));
 			}
@@ -1169,11 +1228,11 @@ function introCutscene() {
 	});
 
 	// gf 戳自己
-	cutTime(245 / 24, function(tmr) { slog('intro @245'); darkenTween(0.2, 0.01); });
+	cutTime(245 / 24, function(tmr) { if (LOG_HOT) slog('intro @245'); darkenTween(0.2, 0.01); pokePunch(); });
 	cutTime(251 / 24, function(tmr) { darkenTween(0, 0.8); });
 
 	// gf 戳 bf
-	cutTime(406 / 24, function(tmr) { darkenTween(0.2, 0.01); });
+	cutTime(406 / 24, function(tmr) { darkenTween(0.2, 0.01); pokePunch(); });
 	cutTime(411 / 24, function(tmr) { darkenTween(0, 0.8); });
 
 	// 卡车开始逼近 —— 画面变冷变亮
@@ -1323,13 +1382,13 @@ function onEvent(name, v1, v2, strumTime) {
 	switch (name) {
 		case 'sserafimShow':
 			setGirlsVisible(params != null ? params.visible : null);
-			slog('event: show -> ' + flags(girlsVisible));
+			if (LOG_HOT) slog('event: show -> ' + flags(girlsVisible));
 		case 'sserafimSing':
 			if (params == null || params.singing == null) {
 				slog('event: sing -> PARSE FAILED, raw=' + v1);
 			} else {
 				setGirlsSinging(params.singing);
-				slog('event: sing -> ' + flags(girlsSinging));
+				if (LOG_HOT) slog('event: sing -> ' + flags(girlsSinging));
 			}
 		case 'sserafimDark':
 			if (params != null) darkenTween(params.amount, params.duration);
@@ -1394,7 +1453,7 @@ function onEvent(name, v1, v2, strumTime) {
 				if (params.char == 0) wantFlip = false;
 				icon.flipX = wantFlip;
 				icon.visible = true;
-				slog('event: icon char=' + params.char + ' -> ' + params.id + ' flip=' + wantFlip);
+				if (LOG_HOT) slog('event: icon char=' + params.char + ' -> ' + params.id + ' flip=' + wantFlip);
 			} catch (e:Dynamic) { slog('event: icon ' + params.id + ' FAILED ' + e); }
 		case 'ZoomCamera':
 			if (params == null) return;
@@ -1601,6 +1660,44 @@ function checkDebugKeys() {
 	var k = FlxG.keys;
 	if (k == null) return;
 	if (k.justPressed.F2) setMouthDebug(!MOUTH_DEBUG);
+	// F3：把舞台/角色的运行时 shader 全摘掉。用来分辨"卡在 GPU shader"还是"卡在别处"——
+	// 摘掉后帧率明显回升 = 瓶颈是逐精灵的 FlxRuntimeShader（那个片元对每像素都很贵）。
+	if (k.justPressed.F3) {
+		shadersOff = !shadersOff;
+		setShadersEnabled(!shadersOff);
+		slog('perf: shaders ' + (shadersOff ? 'OFF' : 'ON'));
+	}
+	if (k.justPressed.F4) {
+		PERF_LOG = !PERF_LOG;
+		perfAccum = 0;
+		perfFrames = 0;
+		perfWorst = 0;
+		slog('perf: log ' + (PERF_LOG ? 'ON' : 'OFF'));
+	}
+}
+
+// 把所有挂过 shader 的精灵收集起来（角色侧用 characterShader，舞台侧用 stageShader）
+function eachShaderSprite(fn) {
+	var p = ps();
+	var i = 0;
+	for (c in girlList()) { if (c != null) fn(c, true); }
+	if (p.gf != null) fn(p.gf, true);
+	if (cutsceneSprite != null) fn(cutsceneSprite, true);
+	if (sserafimGf != null) fn(sserafimGf, true);
+	if (sserafimBf != null) fn(sserafimBf, true);
+	for (i in 0...5) if (lipsyncs[i] != null) fn(lipsyncs[i], true);
+	for (key in ['bg', 'backTables', 'backTablesCutscene', 'burgerCutscene', 'backStools',
+				 'truck', 'truckDoor', 'frontStool']) {
+		var spr = getProp(key);
+		if (spr != null) fn(spr, false);
+	}
+	if (floorSpr != null) fn(floorSpr, false);
+}
+
+function setShadersEnabled(on) {
+	eachShaderSprite(function(spr, isChar) {
+		try { spr.shader = on ? (isChar ? characterShader : stageShader) : null; } catch (e:Dynamic) {}
+	});
 }
 
 // ============================================================================
@@ -1668,6 +1765,9 @@ function buildPost() {
 
 	characterShader = newShader(true);
 	stageShader = newShader(false);
+	// 编译失败 / 文件读不到时这里会是 null —— 挂不上 shader 只会"没有调色"，
+	// 而 shader 本身编不过时精灵会被画成黑块（整屏全黑，按 F3 摘掉 shader 才恢复）。
+	slog('post: shaders char=' + (characterShader != null) + ' stage=' + (stageShader != null));
 
 	// --- 透视地板：官方 zIndex 11（bg 之后、backTables 之前）---
 	// 之前插在角色组之前 = 盖在所有静态道具上面，卡车下半截/桌椅腿全被吃掉。
@@ -1765,7 +1865,12 @@ function buildPost() {
 
 	// --- 全屏黑幕（官方 zIndex 9999）---
 	if (solidCover == null) {
-		solidCover = new FlxSprite(-5000, -3000).makeGraphic(10000, 10000, 0xFF000000);
+		// 1×1 的贴图 + setGraphicSize 撑满，别用 makeGraphic(10000,10000)：
+		// 那是 10000² × 4B ≈ 400MB 显存，进场那一瞬间的卡顿就是它。
+		solidCover = new FlxSprite(-5000, -3000).makeGraphic(1, 1, 0xFF000000);
+		solidCover.setGraphicSize(10000, 10000);
+		solidCover.updateHitbox();
+		solidCover.offset.set(0, 0);
 		solidCover.scrollFactor.set(0, 0);
 		solidCover.alpha = 0;
 		p.add(solidCover);
@@ -1914,25 +2019,47 @@ function onUpdate(elapsed) {
 
 	checkDebugKeys();
 
+	// 性能探针：每 10 秒记一次 fps + 最差单帧（worst 才是"卡顿"，平均值看不出来）。
+	// 别调成 1-2 秒：slog 要开文件，写得越勤越容易自己制造掉帧。F4 可以整个关掉。
+	if (PERF_LOG) {
+		perfAccum = perfAccum + elapsed;
+		perfFrames = perfFrames + 1;
+		if (elapsed > perfWorst) perfWorst = elapsed;
+		if (perfAccum >= 10.0) {
+			slog('perf fps=' + (Math.round(perfFrames / perfAccum * 10) / 10)
+				+ ' worst=' + (Math.round(perfWorst * 1000) / 10) + 'ms'
+				+ (shadersOff ? ' (no shader)' : '')
+				+ ' zoom=' + Math.round(p.camGame.zoom * 100) / 100);
+			perfAccum = 0;
+			perfFrames = 0;
+			perfWorst = 0;
+		}
+	}
+
 	// 对手侧 strumline 只隐藏一次
 	if (!strumsHidden && p.opponentStrums != null) {
 		strumsHidden = true;
 		for (a in p.opponentStrums.members) a.visible = false;
 	}
 
-	// 这舞台不要评级弹窗（FE 每次判定临时造精灵，没有官方那个常驻组）
-	// 每 4 帧扫一次，够用且省开销
-	if (HIDE_RATING_POPUPS) {
-		popupTick = popupTick + 1;
-		if (popupTick >= 4) {
-			popupTick = 0;
-			try {
-				var groups = Reflect.field(p, 'activePopupGroups');
-				if (groups != null && groups.length > 0) {
-					for (g in groups) for (s in g) if (s != null) s.visible = false;
-				}
-			} catch (e:Dynamic) {}
-		}
+	// 这舞台不要评级弹窗。判定弹窗（评级/early-late/combo/数字/ms）全都挂在 PlayState.comboGroup 里，
+	// 整组 visible=false 就够了：FlxState.draw 看到组不可见就不会进 FlxGroup.draw，
+	// 新建的和从对象池复用的精灵一律不会被画 —— 所以不会再有"先画出来一两帧再关掉"的跳动，
+	// 也不用每帧轮询 activePopupGroups（原来那套既闪又遍历一个只增不减的数组）。
+	if (!popupsOff) {
+		popupsOff = true;
+		try {
+			if (p.comboGroup != null) p.comboGroup.visible = false;
+		} catch (e:Dynamic) {}
+	}
+
+	// 过场开场：第一帧画出来就立刻取景（以前等 1.2s 才 fit，人物会"晚一会儿才出现"）
+	if (!cutFitted && cutsceneSprite != null && cutsceneSprite.visible && cutsceneSprite.width > 0) {
+		cutFitted = true;
+		try {
+			fitAnimateCenter(cutsceneSprite, CUT_FIT_X, CUT_FIT_Y);
+			probeSprite('cutscene first', cutsceneSprite);
+		} catch (e:Dynamic) {}
 	}
 
 	if (floorSpr != null) updateFloorSkew(p.camGame);
