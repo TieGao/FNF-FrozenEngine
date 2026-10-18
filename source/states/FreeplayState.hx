@@ -1482,12 +1482,19 @@ class FreeplayState extends MusicBeatState
                 onComplete: function(_) FlxG.camera.zoom = 1});
 
             // vignette 闪色（新 rank 色）
+            // 素材是 640×360（1280×720 的四分之一），不拉满就只是左上角孤零零一块爆线；
+            // 这一拍镜头正从 0.8 弹回 1，按 1.4 倍铺，缩到 0.8 那一帧也不会露边。
             rankVignette = new FlxSprite();
             rankVignette.loadGraphic(Paths.image('freeplay/rankVignette'));
+            rankVignette.setGraphicSize(FlxG.width * 1.4, FlxG.height * 1.4);
+            rankVignette.updateHitbox();
+            rankVignette.screenCenter();
             rankVignette.scrollFactor.set();
             rankVignette.color = pending.newRank.freeplayColor;
             rankVignette.alpha = 1;
-            add(rankVignette);
+            // 爆线属于背景层：插到卡片前面（下面），别压住徽章爆点
+            if (rankAnimCard != null) insert(members.indexOf(rankAnimCard), rankVignette);
+            else add(rankVignette);
             FlxTween.tween(rankVignette, {alpha: 0}, 0.6, {ease: FlxEase.expoOut,
                 onComplete: function(_)
                 {
@@ -1546,12 +1553,23 @@ class FreeplayState extends MusicBeatState
         if (rankSparksAdd != null) { remove(rankSparksAdd); rankSparksAdd.destroy(); rankSparksAdd = null; }
     }
 
+    /** 爆线平时靠 tween 的 onComplete 收尾；tween 被打断就会留在屏幕上，收尾时补一刀。 */
+    function clearRankVignette():Void
+    {
+        if (rankVignette == null) return;
+        FlxTween.cancelTweensOf(rankVignette);
+        remove(rankVignette);
+        rankVignette.destroy();
+        rankVignette = null;
+    }
+
     function finishRankAnim():Void
     {
         var card:FreeplayCard = rankAnimCard;
         rankAnimCard = null;
         rankAnimActive = false;
         clearRankSparks(); // 火花只藏不销毁（见 finishCallback 注释），统一在这里清理
+        clearRankVignette();
 
         if (card != null)
         {

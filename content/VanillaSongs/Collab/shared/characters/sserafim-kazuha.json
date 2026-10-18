@@ -1,115 +1,78 @@
 {
- "animations": [
-  {
-   "anim": "idle",
-   "fps": 24,
-   "loop": true,
-   "offsets": [
-    -499.95,
-    -500.0
-   ],
-   "name": "idle"
-  },
-  {
-   "anim": "singLEFT",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.15,
-    -500.1
-   ],
-   "name": "kazuha left pose"
-  },
-  {
-   "anim": "singDOWN",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.15,
-    -500.1
-   ],
-   "name": "kazuha down pose"
-  },
-  {
-   "anim": "singUP",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.15,
-    -500.1
-   ],
-   "name": "kazuha up pose"
-  },
-  {
-   "anim": "singRIGHT",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.15,
-    -500.1
-   ],
-   "name": "kazuha right pose"
-  },
-  {
-   "anim": "singLEFTmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.1
-   ],
-   "name": "kazuha left miss"
-  },
-  {
-   "anim": "singDOWNmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.1
-   ],
-   "name": "kazuha down miss"
-  },
-  {
-   "anim": "singUPmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.1
-   ],
-   "name": "kazuha up miss"
-  },
-  {
-   "anim": "singRIGHTmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.1
-   ],
-   "name": "kazuha right miss"
-  }
- ],
- "vocals_file": "",
- "no_antialiasing": false,
- "image": "characters/sserafim-kazuha",
- "position": [
-  0,
-  200
- ],
- "healthicon": "kazuha",
- "flip_x": false,
- "healthbar_colors": [
-  161,
-  161,
-  161
- ],
- "camera_position": [
-  0,
-  200
- ],
- "sing_duration": 4,
- "scale": 1,
- "_editor_isPlayer": false
+	"animations": [
+		{
+			"offsets": [-499, -500],
+			"loop": true,
+			"fps": 24,
+			"anim": "idle",
+			"name": "idle"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFT",
+			"name": "kazuha left pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWN",
+			"name": "kazuha down pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUP",
+			"name": "kazuha up pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHT",
+			"name": "kazuha right pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFTmiss",
+			"name": "kazuha left miss"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWNmiss",
+			"name": "kazuha down miss"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUPmiss",
+			"name": "kazuha up miss"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHTmiss",
+			"name": "kazuha right miss"
+		}
+	],
+	"vocals_file": "",
+	"no_antialiasing": false,
+	"image": "characters/sserafim-kazuha",
+	"position": [0, 200],
+	"healthicon": "kazuha",
+	"flip_x": false,
+	"healthbar_colors": [206, 30, 120],
+	"camera_position": [0, 200],
+	"sing_duration": 4,
+	"scale": 1,
+	"_editor_isPlayer": false
 }

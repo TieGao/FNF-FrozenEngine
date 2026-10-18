@@ -1,222 +1,102 @@
 {
- "animations": [
-  {
-   "anim": "doorclosed",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    0,
-    0
-   ],
-   "name": "yunjin",
-   "indices": [
-    0
-   ]
-  },
-  {
-   "anim": "kick1",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    0,
-    0
-   ],
-   "name": "yunjin",
-   "indices": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10
-   ]
-  },
-  {
-   "anim": "kick2",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    0,
-    0
-   ],
-   "name": "yunjin",
-   "indices": [
-    11,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    21,
-    22,
-    23,
-    24,
-    25,
-    26,
-    27,
-    28,
-    29,
-    30,
-    31,
-    32,
-    33,
-    34,
-    35,
-    36,
-    37,
-    38,
-    39,
-    40,
-    41,
-    42,
-    43,
-    44,
-    45,
-    46,
-    47,
-    48,
-    49,
-    50,
-    51,
-    52,
-    53,
-    54,
-    55,
-    56,
-    57,
-    58,
-    59,
-    60,
-    61,
-    62,
-    63,
-    64,
-    65,
-    66,
-    67,
-    68,
-    69,
-    70
-   ]
-  },
-  {
-   "anim": "idle",
-   "fps": 24,
-   "loop": true,
-   "offsets": [
-    -175.9,
-    -241.85
-   ],
-   "name": "yunjin idle"
-  },
-  {
-   "anim": "singLEFT",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "yunjin left pose"
-  },
-  {
-   "anim": "singDOWN",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "yunjin down pose"
-  },
-  {
-   "anim": "singUP",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "yunjin up pose"
-  },
-  {
-   "anim": "singRIGHT",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "yunjin right pose"
-  },
-  {
-   "anim": "singLEFTmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "yunjin miss left"
-  },
-  {
-   "anim": "singDOWNmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "yunjin miss down"
-  },
-  {
-   "anim": "singUPmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "yunjin miss up"
-  },
-  {
-   "anim": "singRIGHTmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "yunjin miss right"
-  }
- ],
- "vocals_file": "",
- "no_antialiasing": false,
- "image": "characters/sserafim-yunjin",
- "position": [
-  2,
-  347
- ],
- "healthicon": "bf",
- "flip_x": false,
- "healthbar_colors": [
-  161,
-  161,
-  161
- ],
- "camera_position": [
-  2,
-  347
- ],
- "sing_duration": 4,
- "scale": 1,
- "_editor_isPlayer": false
+	"animations": [
+		{
+			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
+			"anim": "doorclosed",
+			"indices": [0],
+			"name": "yunjin"
+		},
+		{
+			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
+			"anim": "kick1",
+			"indices": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+			"name": "yunjin"
+		},
+		{
+			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
+			"anim": "kick2",
+			"indices": [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70],
+			"name": "yunjin"
+		},
+		{
+			"offsets": [-175, -241],
+			"loop": true,
+			"fps": 24,
+			"anim": "idle",
+			"name": "yunjin idle"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFT",
+			"name": "yunjin left pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWN",
+			"name": "yunjin down pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUP",
+			"name": "yunjin up pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHT",
+			"name": "yunjin right pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFTmiss",
+			"name": "yunjin miss left"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWNmiss",
+			"name": "yunjin miss down"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUPmiss",
+			"name": "yunjin miss up"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHTmiss",
+			"name": "yunjin miss right"
+		}
+	],
+	"vocals_file": "",
+	"no_antialiasing": false,
+	"image": "characters/sserafim-yunjin",
+	"position": [2, 347],
+	"healthicon": "yunjin",
+	"flip_x": false,
+	"healthbar_colors": [223, 47, 136],
+	"camera_position": [2, 347],
+	"sing_duration": 4,
+	"scale": 1,
+	"_editor_isPlayer": false
 }

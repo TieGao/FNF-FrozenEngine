@@ -1,115 +1,78 @@
 {
- "animations": [
-  {
-   "anim": "idle",
-   "fps": 24,
-   "loop": true,
-   "offsets": [
-    -500.15,
-    -500.35
-   ],
-   "name": "idle kim"
-  },
-  {
-   "anim": "singLEFT",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "kim left pose"
-  },
-  {
-   "anim": "singDOWN",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "kim down pose"
-  },
-  {
-   "anim": "singUP",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "kim up pose"
-  },
-  {
-   "anim": "singRIGHT",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "kim right pose"
-  },
-  {
-   "anim": "singLEFTmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "kim left miss"
-  },
-  {
-   "anim": "singDOWNmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "kim miss down"
-  },
-  {
-   "anim": "singUPmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "kim miss up"
-  },
-  {
-   "anim": "singRIGHTmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.1,
-    -500.15
-   ],
-   "name": "kim right miss"
-  }
- ],
- "vocals_file": "",
- "no_antialiasing": false,
- "image": "characters/sserafim-chaewon",
- "position": [
-  0,
-  330
- ],
- "healthicon": "bf",
- "flip_x": false,
- "healthbar_colors": [
-  161,
-  161,
-  161
- ],
- "camera_position": [
-  0,
-  330
- ],
- "sing_duration": 4,
- "scale": 1,
- "_editor_isPlayer": false
+	"animations": [
+		{
+			"offsets": [-500, -500],
+			"loop": true,
+			"fps": 24,
+			"anim": "idle",
+			"name": "idle kim"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFT",
+			"name": "kim left pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWN",
+			"name": "kim down pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUP",
+			"name": "kim up pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHT",
+			"name": "kim right pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFTmiss",
+			"name": "kim left miss"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWNmiss",
+			"name": "kim miss down"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUPmiss",
+			"name": "kim miss up"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHTmiss",
+			"name": "kim right miss"
+		}
+	],
+	"vocals_file": "",
+	"no_antialiasing": false,
+	"image": "characters/sserafim-chaewon",
+	"position": [0, 330],
+	"healthicon": "chaewon",
+	"flip_x": false,
+	"healthbar_colors": [178, 2, 92],
+	"camera_position": [0, 330],
+	"sing_duration": 4,
+	"scale": 1,
+	"_editor_isPlayer": false
 }

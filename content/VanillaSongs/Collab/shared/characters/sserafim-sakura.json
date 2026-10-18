@@ -1,480 +1,245 @@
 {
- "animations": [
-  {
-   "anim": "idle",
-   "fps": 24,
-   "loop": true,
-   "offsets": [
-    -189.75,
-    -49.15
-   ],
-   "name": "idle"
-  },
-  {
-   "anim": "singLEFT",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "sakura left pose"
-  },
-  {
-   "anim": "singDOWN",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "sakura down pose"
-  },
-  {
-   "anim": "singUP",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "sakura up pose"
-  },
-  {
-   "anim": "singRIGHT",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "sakura right pose"
-  },
-  {
-   "anim": "singLEFTmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "sakura miss left pose"
-  },
-  {
-   "anim": "singDOWNmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "sakura miss down pose"
-  },
-  {
-   "anim": "singUPmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "sakura miss up pose"
-  },
-  {
-   "anim": "singRIGHTmiss",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "sakura miss right pose"
-  },
-  {
-   "anim": "singLEFT-joint",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.15,
-    -500.15
-   ],
-   "name": "joint pose left"
-  },
-  {
-   "anim": "singDOWN-joint",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.15,
-    -500.15
-   ],
-   "name": "joint pose down"
-  },
-  {
-   "anim": "singUP-joint",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.15,
-    -500.15
-   ],
-   "name": "joint pose up"
-  },
-  {
-   "anim": "singRIGHT-joint",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.15,
-    -500.15
-   ],
-   "name": "joint pose right"
-  },
-  {
-   "anim": "singLEFTmiss-joint",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "joint miss left"
-  },
-  {
-   "anim": "singDOWNmiss-joint",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "joint miss down"
-  },
-  {
-   "anim": "singUPmiss-joint",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "joint miss up"
-  },
-  {
-   "anim": "singRIGHTmiss-joint",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "joint miss right"
-  },
-  {
-   "anim": "singLEFT-bf1",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "bf left pose 1"
-  },
-  {
-   "anim": "singDOWN-bf1",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "bf down pose 1"
-  },
-  {
-   "anim": "singUP-bf1",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "bf up pose 1"
-  },
-  {
-   "anim": "singRIGHT-bf1",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "bf right pose 1"
-  },
-  {
-   "anim": "singLEFT-bf2",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "bf left pose 2"
-  },
-  {
-   "anim": "singDOWN-bf2",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "bf down pose 2"
-  },
-  {
-   "anim": "singUP-bf2",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "bf up pose 2"
-  },
-  {
-   "anim": "singRIGHT-bf2",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -499.95,
-    -499.95
-   ],
-   "name": "bf right pose 2"
-  },
-  {
-   "anim": "singLEFTmiss-bf2",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "style miss left"
-  },
-  {
-   "anim": "singDOWNmiss-bf2",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "style miss down"
-  },
-  {
-   "anim": "singUPmiss-bf2",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "style miss up"
-  },
-  {
-   "anim": "singRIGHTmiss-bf2",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    -500.0,
-    -500.0
-   ],
-   "name": "style miss right"
-  },
-  {
-   "anim": "firstDeath",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    20,
-    -220
-   ],
-   "assetPath": "characters/sserafim-sakura_bf-death",
-   "name": "BF DEATH ALL ANIMS",
-   "indices": [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    21,
-    22,
-    23,
-    24,
-    25,
-    26,
-    27,
-    28,
-    29,
-    30,
-    31,
-    32,
-    33,
-    34,
-    35,
-    36,
-    37,
-    38,
-    39,
-    40,
-    41,
-    42,
-    43,
-    44,
-    45,
-    46,
-    47,
-    48,
-    49,
-    50,
-    51,
-    52,
-    53,
-    54,
-    55,
-    56,
-    57
-   ]
-  },
-  {
-   "anim": "deathLoop",
-   "fps": 24,
-   "loop": true,
-   "offsets": [
-    20,
-    -220
-   ],
-   "assetPath": "characters/sserafim-sakura_bf-death",
-   "name": "BF DEATH ALL ANIMS",
-   "indices": [
-    58,
-    59,
-    60,
-    61,
-    62,
-    63,
-    64,
-    65,
-    66,
-    67,
-    68,
-    69,
-    70,
-    71,
-    72,
-    73,
-    74,
-    75,
-    76,
-    77,
-    78,
-    79,
-    80,
-    81,
-    82,
-    83,
-    84,
-    85,
-    86,
-    87,
-    88,
-    89,
-    90,
-    91
-   ]
-  },
-  {
-   "anim": "deathConfirm",
-   "fps": 24,
-   "loop": false,
-   "offsets": [
-    20,
-    -220
-   ],
-   "assetPath": "characters/sserafim-sakura_bf-death",
-   "name": "BF DEATH ALL ANIMS",
-   "indices": [
-    92,
-    93,
-    94,
-    95,
-    96,
-    97,
-    98,
-    99,
-    100,
-    101,
-    102,
-    103,
-    104,
-    105,
-    106,
-    107,
-    108,
-    109,
-    110,
-    111,
-    112,
-    113,
-    114,
-    115,
-    116,
-    117,
-    118,
-    119,
-    120,
-    121,
-    122,
-    123,
-    124,
-    125
-   ]
-  }
- ],
- "vocals_file": "",
- "no_antialiasing": false,
- "image": "characters/sserafim-sakura",
- "position": [
-  0,
-  0
- ],
- "healthicon": "bf",
- "flip_x": true,
- "healthbar_colors": [
-  161,
-  161,
-  161
- ],
- "camera_position": [
-  0,
-  0
- ],
- "sing_duration": 4,
- "scale": 1,
- "_editor_isPlayer": true
+	"animations": [
+		{
+			"offsets": [-189, -49],
+			"loop": true,
+			"fps": 24,
+			"anim": "idle",
+			"name": "idle"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFT",
+			"name": "sakura left pose"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWN",
+			"name": "sakura down pose"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUP",
+			"name": "sakura up pose"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHT",
+			"name": "sakura right pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFTmiss",
+			"name": "sakura miss left pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWNmiss",
+			"name": "sakura miss down pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUPmiss",
+			"name": "sakura miss up pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHTmiss",
+			"name": "sakura miss right pose"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFT-joint",
+			"name": "joint pose left"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWN-joint",
+			"name": "joint pose down"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUP-joint",
+			"name": "joint pose up"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHT-joint",
+			"name": "joint pose right"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFTmiss-joint",
+			"name": "joint miss left"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWNmiss-joint",
+			"name": "joint miss down"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUPmiss-joint",
+			"name": "joint miss up"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHTmiss-joint",
+			"name": "joint miss right"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFT-bf1",
+			"name": "bf left pose 1"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWN-bf1",
+			"name": "bf down pose 1"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUP-bf1",
+			"name": "bf up pose 1"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHT-bf1",
+			"name": "bf right pose 1"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFT-bf2",
+			"name": "bf left pose 2"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWN-bf2",
+			"name": "bf down pose 2"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUP-bf2",
+			"name": "bf up pose 2"
+		},
+		{
+			"offsets": [-499, -499],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHT-bf2",
+			"name": "bf right pose 2"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singLEFTmiss-bf2",
+			"name": "style miss left"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singDOWNmiss-bf2",
+			"name": "style miss down"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singUPmiss-bf2",
+			"name": "style miss up"
+		},
+		{
+			"offsets": [-500, -500],
+			"loop": false,
+			"fps": 24,
+			"anim": "singRIGHTmiss-bf2",
+			"name": "style miss right"
+		},
+		{
+			"offsets": [20, -220],
+			"loop": false,
+			"assetPath": "characters/sserafim-sakura_bf-death",
+			"fps": 24,
+			"anim": "firstDeath",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57],
+			"name": "BF DEATH ALL ANIMS"
+		},
+		{
+			"offsets": [20, -220],
+			"loop": true,
+			"assetPath": "characters/sserafim-sakura_bf-death",
+			"fps": 24,
+			"anim": "deathLoop",
+			"indices": [58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91],
+			"name": "BF DEATH ALL ANIMS"
+		},
+		{
+			"offsets": [20, -220],
+			"loop": false,
+			"assetPath": "characters/sserafim-sakura_bf-death",
+			"fps": 24,
+			"anim": "deathConfirm",
+			"indices": [92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125],
+			"name": "BF DEATH ALL ANIMS"
+		}
+	],
+	"vocals_file": "",
+	"no_antialiasing": false,
+	"image": "characters/sserafim-sakura",
+	"position": [0, 0],
+	"healthicon": "bf",
+	"flip_x": true,
+	"healthbar_colors": [49, 176, 209],
+	"camera_position": [0, 0],
+	"sing_duration": 4,
+	"scale": 1,
+	"_editor_isPlayer": true
 }
