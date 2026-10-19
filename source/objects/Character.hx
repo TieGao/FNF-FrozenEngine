@@ -35,6 +35,7 @@ typedef AnimArray = {
 	var loop:Bool;
 	var indices:Array<Int>;
 	var offsets:Array<Int>;
+	@:optional var flip_x:Bool; // atlas 专用：逐动画翻转（美术朝向不一致的图集用）
 }
 
 class Character extends FlxSprite
@@ -78,6 +79,10 @@ class Character extends FlxSprite
 	public var jsonScale:Float = 1;
 	public var noAntialiasing:Bool = false;
 	public var originalFlipX:Bool = false;
+	/** atlas 专用：逐动画翻转（json 动画条目可选字段 `flip_x`），解决同一图集内美术朝向不一致 */
+	public var animFlipXMap:Map<String, Bool> = new Map();
+	/** 当前动画的逐动画翻转状态（copyAtlasValues 时与整体 flipX 异或） */
+	public var animFlipX:Bool = false;
 	public var editorIsPlayer:Null<Bool> = null;
 
 	public function new(x:Float, y:Float, ?character:String = 'bf', ?isPlayer:Bool = false)
@@ -136,6 +141,7 @@ class Character extends FlxSprite
 
 		skipDance = false;
 		hasMissAnimations = hasAnimation('singLEFTmiss') || hasAnimation('singDOWNmiss') || hasAnimation('singUPmiss') || hasAnimation('singRIGHTmiss');
+		trace('hasMiss=$hasMissAnimations  keys=' + [for (k in animOffsets.keys()) k]);
 		recalculateDanceIdle();
 		dance();
 	}
@@ -248,6 +254,8 @@ class Character extends FlxSprite
 						atlas.safeAddBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
 					else
 						atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
+					// 逐动画翻转（tankman 的 basic 包 idle/sing 与 extra 包美术朝向不一致）
+					animFlipXMap.set(animAnim, (anim.flip_x == true));
 				}
 				#end
 
@@ -411,6 +419,7 @@ class Character extends FlxSprite
 		{
 			atlas.anim.play(AnimName, Force, Reversed, Frame);
 			atlas.update(0);
+			animFlipX = (animFlipXMap.get(AnimName) == true);
 		}
 		_lastPlayedAnimation = AnimName;
 
@@ -546,7 +555,7 @@ class Character extends FlxSprite
 			atlas.angle = angle;
 			atlas.alpha = alpha;
 			atlas.visible = visible;
-			atlas.flipX = flipX;
+			atlas.flipX = (flipX != animFlipX);
 			atlas.flipY = flipY;
 			atlas.shader = shader;
 			atlas.antialiasing = antialiasing;

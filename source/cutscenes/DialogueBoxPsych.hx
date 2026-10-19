@@ -8,6 +8,8 @@ import cutscenes.DialogueCharacter;
 
 typedef DialogueFile = {
 	var dialogue:Array<DialogueLine>;
+	// When true, PlayState uses the Week 6 style pixel box (PixelDialogueBox) instead of the speech bubble.
+	@:optional var pixel:Null<Bool>;
 }
 
 typedef DialogueLine = {

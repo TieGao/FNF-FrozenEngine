@@ -236,11 +236,29 @@ class Paths
 
 	public static var currentTrackedVideos:Map<String, String> = [];
 	
-		static public function video(key:String):String
+	/** 视频扩展名候选（libvlc 按内容探测 demux，这些格式都能播）。 */
+	public static var VIDEO_EXTS:Array<String> = ['mp4', 'mkv', 'webm', 'ogv'];
+
+	/** 视频候选目录：内容包 videos/ → 依赖包同式 → assets/videos（mods 最优先）。 */
+	static public function video(key:String):String
 	{
 		#if MODS_ALLOWED
 		var file:String = modsVideo(key);
 		if(FileSystem.exists(file)) return file;
+		#end
+		#if sys
+		if (currentContentRoot != null && currentContentRoot.length > 0)
+		{
+			var packDirs:Array<String> = [currentContentRoot + '/videos'];
+			for (dependencyRoot in currentContentDependencyRoots)
+				packDirs.push(dependencyRoot + '/videos');
+			for (dir in packDirs)
+				for (ext in VIDEO_EXTS)
+				{
+					var candidate:String = '$dir/$key.$ext';
+					if (FileSystem.exists(candidate)) return candidate;
+				}
+		}
 		#end
 		return 'assets/videos/$key.$VIDEO_EXT';
 	}

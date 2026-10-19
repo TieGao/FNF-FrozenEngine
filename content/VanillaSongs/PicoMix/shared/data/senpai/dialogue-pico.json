@@ -1,0 +1,124 @@
+{
+ "pixel": true,
+ "dialogue": [
+  {
+   "portrait": "senpai",
+   "expression": "talkEnter",
+   "text": "Ah, another lovely fair maiden has graced m-",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "senpai-bwuh",
+   "expression": "talk",
+   "text": "wait",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "senpai-bwuh",
+   "expression": "talk",
+   "text": "Ew.",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "senpai-bwuh",
+   "expression": "talk",
+   "text": "Who are you two?",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "nene-pixel",
+   "expression": "talkEnter",
+   "text": "I'm Nene.",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "nene-pixel",
+   "expression": "talk",
+   "text": "He's Pico.",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "pico-pixel",
+   "expression": "talkEnter",
+   "text": "Hey.",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "senpai",
+   "expression": "talk",
+   "text": "My my, such odd clothing...",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "nene-pixel",
+   "expression": "talk",
+   "text": "Look who's talking.",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "senpai",
+   "expression": "talk",
+   "text": "And bringing a gun to school?",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "senpai",
+   "expression": "talk",
+   "text": "You've scared away all the lovely roses who enjoy my performances so...",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "senpai",
+   "expression": "talk",
+   "text": "Even if it IS fake, you know that's at least 3 days suspension!",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "nene-pixel",
+   "expression": "talk",
+   "text": "No that's real it-",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "senpai",
+   "expression": "talk",
+   "text": "I'll enjoy informing the principal, right after I teach you what's stronger than bad manners...",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "senpai",
+   "expression": "talk",
+   "text": "The beauty of SONG!",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "nene-pixel-peeved",
+   "expression": "talk",
+   "text": "...",
+   "boxState": "angry",
+   "speed": 0.05
+  },
+  {
+   "portrait": "pico-pixel-peeved",
+   "expression": "talk",
+   "text": "...",
+   "boxState": "angry",
+   "speed": 0.05
+  }
+ ]
+}

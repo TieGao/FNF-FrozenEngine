@@ -15,6 +15,7 @@ import flixel.input.keyboard.FlxKey;
 import openfl.events.KeyboardEvent;
 
 import cutscenes.DialogueBoxPsych;
+import cutscenes.PixelDialogueBox;
 
 import states.StoryMenuState;
 import states.OldFreeplayState;
@@ -1128,6 +1129,29 @@ class PlayState extends MusicBeatState
 					initHScript(folder + file);
 				#end
 			}
+
+		// 内容包的 per-song 脚本（与 base 侧同构：content/<包>/shared/data/<歌>/ 下的 .lua/.hx）
+		#if sys
+		if (Paths.currentContentRoot != null && Paths.currentContentRoot.length > 0)
+		{
+			var packSongDirs:Array<String> = [Paths.currentContentRoot + '/shared/data/$songName'];
+			for (depRoot in Paths.currentContentDependencyRoots)
+				packSongDirs.push(depRoot + '/shared/data/$songName');
+			for (songDir in packSongDirs)
+				if (FileSystem.exists(songDir) && FileSystem.isDirectory(songDir))
+					for (file in FileSystem.readDirectory(songDir))
+					{
+						#if LUA_ALLOWED
+						if(file.toLowerCase().endsWith('.lua'))
+							new FunkinLua(songDir + '/' + file);
+						#end
+						#if HSCRIPT_ALLOWED
+						if(file.toLowerCase().endsWith('.hx'))
+							initHScript(songDir + '/' + file);
+						#end
+					}
+		}
+		#end
 		#end
 
 		if(eventNotes.length > 0)
@@ -1524,14 +1548,38 @@ class PlayState extends MusicBeatState
 
 	var dialogueCount:Int = 0;
 	public var psychDialogue:DialogueBoxPsych;
+	public var pixelDialogue:PixelDialogueBox;
 	//You don't have to add a song, just saying. You can just do "startDialogue(DialogueBoxPsych.parseDialogue(Paths.json(songName + '/dialogue')))" and it should load dialogue.json
 	public function startDialogue(dialogueFile:DialogueFile, ?song:String = null):Void
 	{
 		// TO DO: Make this more flexible, maybe?
-		if(psychDialogue != null) return;
+		if(psychDialogue != null || pixelDialogue != null) return;
 
 		if(dialogueFile.dialogue.length > 0) {
 			inCutscene = true;
+
+			// Vanilla pixel covers (Pico Mix senpai/roses) use the Week 6 pixel box, not the speech bubble
+			if(dialogueFile.pixel == true) {
+				pixelDialogue = new PixelDialogueBox(dialogueFile, song);
+				pixelDialogue.scrollFactor.set();
+				if(endingSong) {
+					pixelDialogue.finishThing = function() {
+						pixelDialogue = null;
+						endSong();
+					}
+				} else {
+					pixelDialogue.finishThing = function() {
+						pixelDialogue = null;
+						startCountdown();
+					}
+				}
+				pixelDialogue.nextDialogueThing = startNextDialogue;
+				pixelDialogue.skipDialogueThing = skipDialogue;
+				pixelDialogue.cameras = [camHUD];
+				add(pixelDialogue);
+				return;
+			}
+
 			psychDialogue = new DialogueBoxPsych(dialogueFile, song);
 			psychDialogue.scrollFactor.set();
 			if(endingSong) {
@@ -4822,6 +4870,8 @@ public function reloadCounterColors()
 				animToPlay = singAnimations[idx] + 'miss' + postfix;
 			else
 				animToPlay = singAnimations[idx] + postfix;
+
+			char.playAnim(animToPlay, true);
 
 			// Set character to gray color on miss
 			var originalColor:FlxColor = char.color;

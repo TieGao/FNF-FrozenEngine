@@ -1,0 +1,42 @@
+{
+ "image": "portrait-senpai-bwuh",
+ "no_antialiasing": true,
+ "dialogue_pos": "left",
+ "scale": 7.714,
+ "position": [
+  0,
+  0
+ ],
+ "animations": [
+  {
+   "anim": "talkEnter",
+   "loop_name": "portraitEnter0",
+   "idle_name": "portraitTalk0",
+   "loop_offsets": [
+    0,
+    0
+   ],
+   "idle_offsets": [
+    0,
+    0
+   ]
+  },
+  {
+   "anim": "talk",
+   "loop_name": "portraitTalk0",
+   "idle_name": "portraitTalk0",
+   "loop_offsets": [
+    0,
+    0
+   ],
+   "idle_offsets": [
+    0,
+    0
+   ]
+  }
+ ],
+ "pixel_offsets": [
+  -488,
+  -210
+ ]
+}

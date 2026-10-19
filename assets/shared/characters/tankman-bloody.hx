@@ -3,6 +3,8 @@
 // 结尾 hehPrettyGood 也只有 -bloody 版本。引擎把 V-Slice 的 Redheads 转成
 // PlayAnimation(redheadsAnim, True)，并在事件分支里直接 playAnim('redheadsAnim')（该动画存在于角色 JSON）。
 // 角色脚本只负责：事件触发后把后续基础动画换成 -bloody 后缀。
+// 注意：atlas 角色的 animation 控制器永远为空（playAnim 走 atlas.anim）——
+// 必须用 getAnimationName() / hasAnimation()，不能用 dad.animation.curAnim / animation.getByName。
 
 var isBloody:Bool = false;
 
@@ -25,7 +27,7 @@ function onEvent(name:String, value1:String, value2:String, strumTime:Float)
     if (isBloody)
     {
         var bloodyName:String = value1 + '-bloody';
-        if (dad.animation.getByName(bloodyName) != null)
+        if (dad.hasAnimation(bloodyName))
             dad.playAnim(bloodyName, true);
     }
 }
@@ -37,7 +39,7 @@ function onUpdate(elapsed:Float)
     var dad = game.dad;
     if (dad == null || dad.curCharacter != 'tankman-bloody') return;
 
-    var cur:String = (dad.animation.curAnim != null) ? dad.animation.curAnim.name : '';
+    var cur:String = dad.getAnimationName();
     switch (cur)
     {
         case 'idle' | 'singLEFT' | 'singDOWN' | 'singUP' | 'singRIGHT':

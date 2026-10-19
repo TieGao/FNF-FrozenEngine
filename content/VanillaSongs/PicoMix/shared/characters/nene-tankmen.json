@@ -1,274 +1,78 @@
 {
 	"animations": [
 		{
+			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "danceLeft",
-			"fps": 24,
-			"loop": false,
-			"offsets": [
-				0,
-				0
-			],
-			"name": "Nene ALL ANIMS",
-			"indices": [
-				0,
-				1,
-				2,
-				3,
-				4,
-				5,
-				6,
-				7,
-				8,
-				9,
-				10,
-				11,
-				12,
-				13,
-				14
-			]
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+			"name": "Nene ALL ANIMS"
 		},
 		{
+			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "danceRight",
-			"fps": 24,
-			"loop": false,
-			"offsets": [
-				0,
-				0
-			],
-			"name": "Nene ALL ANIMS",
-			"indices": [
-				15,
-				16,
-				17,
-				18,
-				19,
-				20,
-				21,
-				22,
-				23,
-				24,
-				25,
-				26,
-				27,
-				28,
-				29
-			]
+			"indices": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29],
+			"name": "Nene ALL ANIMS"
 		},
 		{
+			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "combo50",
-			"fps": 24,
-			"loop": false,
-			"offsets": [
-				0,
-				0
-			],
-			"name": "Nene ALL ANIMS",
-			"indices": [
-				83,
-				84,
-				85,
-				86,
-				87,
-				88,
-				89,
-				90,
-				91,
-				92,
-				93,
-				94,
-				95,
-				96,
-				97,
-				98
-			]
+			"indices": [83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98],
+			"name": "Nene ALL ANIMS"
 		},
 		{
+			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "drop70",
-			"fps": 24,
-			"loop": false,
-			"offsets": [
-				0,
-				0
-			],
-			"name": "Nene ALL ANIMS",
-			"indices": [
-				71,
-				72,
-				73,
-				74,
-				75,
-				76,
-				77,
-				78,
-				79,
-				80,
-				81,
-				82,
-				78,
-				79,
-				80,
-				81,
-				82,
-				78,
-				79,
-				80,
-				81,
-				82,
-				78,
-				79,
-				80,
-				81,
-				82,
-				78,
-				79,
-				80,
-				81,
-				82,
-				78,
-				79,
-				80,
-				81,
-				82
-			]
+			"indices": [71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 78, 79, 80, 81, 82, 78, 79, 80, 81, 82, 78, 79, 80, 81, 82, 78, 79, 80, 81, 82, 78, 79, 80, 81, 82],
+			"name": "Nene ALL ANIMS"
 		},
 		{
+			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "combo200",
-			"fps": 24,
-			"loop": false,
-			"offsets": [
-				0,
-				0
-			],
-			"name": "Nene ALL ANIMS",
-			"indices": [
-				99,
-				100,
-				101,
-				102,
-				103,
-				104,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105,
-				105
-			]
+			"indices": [99, 100, 101, 102, 103, 104, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105, 105],
+			"name": "Nene ALL ANIMS"
 		},
 		{
+			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "raiseKnife",
-			"fps": 24,
-			"loop": false,
-			"offsets": [
-				0,
-				0
-			],
-			"name": "Nene ALL ANIMS",
-			"indices": [
-				30,
-				31,
-				32,
-				33,
-				34,
-				35,
-				36,
-				37,
-				38,
-				39,
-				40,
-				41,
-				42,
-				43,
-				44,
-				45,
-				46,
-				47
-			]
+			"indices": [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47],
+			"name": "Nene ALL ANIMS"
 		},
 		{
+			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "idleKnife",
-			"fps": 24,
-			"loop": false,
-			"offsets": [
-				0,
-				0
-			],
-			"name": "Nene ALL ANIMS",
-			"indices": [
-				48,
-				49,
-				50,
-				51,
-				52,
-				53,
-				54,
-				55,
-				56,
-				57,
-				58
-			]
+			"indices": [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58],
+			"name": "Nene ALL ANIMS"
 		},
 		{
-			"anim": "lowerKnife",
-			"fps": 24,
+			"offsets": [0, 0],
 			"loop": false,
-			"offsets": [
-				0,
-				0
-			],
-			"name": "Nene ALL ANIMS",
-			"indices": [
-				59,
-				60,
-				61,
-				62,
-				63,
-				64,
-				65,
-				66,
-				67,
-				68,
-				69,
-				70
-			]
+			"fps": 24,
+			"anim": "lowerKnife",
+			"indices": [59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70],
+			"name": "Nene ALL ANIMS"
 		}
 	],
 	"vocals_file": "",
 	"no_antialiasing": false,
 	"image": "characters/nene-tankmen",
-	"position": [
-		12,
-		42
-	],
+	"position": [410, 52],
 	"healthicon": "nene-tankmen",
 	"flip_x": false,
-	"healthbar_colors": [
-		161,
-		161,
-		161
-	],
-	"camera_position": [
-		-150,
-		100
-	],
+	"healthbar_colors": [161, 161, 161],
+	"camera_position": [-150, 100],
 	"sing_duration": 4,
 	"scale": 1,
 	"_editor_isPlayer": false

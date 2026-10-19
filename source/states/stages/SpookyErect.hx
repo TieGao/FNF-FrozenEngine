@@ -41,8 +41,8 @@ class SpookyErect extends BaseStage
 	 * 只列差得远的成对角色；官方成对导出的（spooky-dark/pico-dark 对 base 图）差异可忽略。
 	 */
 	static var TWIN_CENTER_OFFSET:Map<String, Array<Float>> = [
-		// dark: nene-dark(atlas) 中心(-77,-121.5)；light: base nene(sparrow Idle) 中心(326,167.5)
-		'nene-dark' => [-403, -289],
+		// dark: nene-dark 与 light: nene 自 10-18 起 PicoMix 两侧都是同一套官方 atlas（几何同源）→ 差为 0
+		'nene-dark' => [0, 0],
 		// dark: bf-dark(atlas Erect 包) 中心(0.7,6.1)；light: base bf(sparrow) 中心(204,216)
 		'bf-dark' => [-203, -210],
 		// dark: gf-dark(atlas Erect 包) 中心(202.3,5.7)；light: base gf(sparrow) 中心(351.5,330.5)

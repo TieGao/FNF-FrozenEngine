@@ -91,6 +91,11 @@ class Tank extends BaseStage
 	{
 		add(foregroundSprites);
 
+		// Pico Mix 变体：死亡音效换 pico-and-nene 版（官方 week7/sounds/gameplay/gameover/）
+		if (Paths.currentContentVariant == 'pico'
+			&& (PlayState.SONG.gameOverSound == null || PlayState.SONG.gameOverSound.trim().length < 1))
+			GameOverSubstate.deathSoundName = 'fnf_loss_sfx-pico-and-nene';
+
 		if(!ClientPrefs.data.lowQuality)
 		{
 			for (daGf in gfGroup)
