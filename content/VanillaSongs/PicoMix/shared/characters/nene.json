@@ -1,154 +1,154 @@
 {
 	"animations": [
 		{
-			"offsets": [0, 2],
 			"loop": true,
-			"fps": 24,
+			"offsets": [0, 2],
 			"anim": "danceLeft",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-			"name": "Nene Idle"
+			"fps": 24,
+			"name": "Nene Idle",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 		},
 		{
+			"loop": true,
 			"offsets": [0, 2],
-			"loop": true,
-			"fps": 24,
 			"anim": "danceRight",
-			"indices": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29],
-			"name": "Nene Idle"
+			"fps": 24,
+			"name": "Nene Idle",
+			"indices": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
 		},
 		{
+			"loop": false,
 			"offsets": [80, 12],
-			"loop": false,
-			"fps": 24,
 			"anim": "combo50",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
-			"name": "combo celebration 1 nene"
+			"fps": 24,
+			"name": "combo celebration 1 nene",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
 		},
 		{
-			"offsets": [-250, -363],
 			"loop": false,
-			"fps": 24,
+			"offsets": [-250, -363],
 			"anim": "drop70",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11],
-			"name": "laughing nene"
+			"fps": 24,
+			"name": "laughing nene",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11]
 		},
 		{
-			"offsets": [-250, -363],
 			"loop": false,
-			"fps": 24,
+			"offsets": [-250, -363],
 			"anim": "laughCutscene",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11],
-			"name": "laughing nene"
+			"fps": 24,
+			"name": "laughing nene",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11]
 		},
 		{
+			"loop": false,
 			"offsets": [72, 10],
-			"loop": false,
-			"fps": 24,
 			"anim": "combo200",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
-			"name": "fawn nene"
+			"fps": 24,
+			"name": "fawn nene",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]
 		},
 		{
+			"loop": false,
 			"offsets": [-34, 63],
-			"loop": false,
-			"fps": 24,
 			"anim": "raiseKnife",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
-			"name": "knife raise"
+			"fps": 24,
+			"name": "knife raise",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 		},
 		{
-			"offsets": [-34, 55],
 			"loop": true,
-			"fps": 24,
+			"offsets": [-34, 55],
 			"anim": "idleKnife",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-			"name": "knife high held"
+			"fps": 24,
+			"name": "knife high held",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 		},
 		{
+			"loop": false,
 			"offsets": [-257, -352],
-			"loop": false,
-			"fps": 24,
 			"anim": "lowerKnife",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-			"name": "knife lower"
+			"fps": 24,
+			"name": "knife lower",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 		},
 		{
-			"offsets": [4, 4],
 			"loop": true,
-			"fps": 24,
+			"offsets": [4, 4],
 			"anim": "hairBlowNormal",
-			"indices": [0, 1, 2, 3, 0, 1, 2, 3],
-			"name": "Nene Hair Blowing"
+			"fps": 24,
+			"name": "Nene Hair Blowing",
+			"indices": [0, 1, 2, 3, 0, 1, 2, 3]
 		},
 		{
-			"offsets": [4, 4],
 			"loop": true,
-			"fps": 24,
+			"offsets": [4, 4],
 			"anim": "hairFallNormal",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-			"name": "Nene Hair Blowing"
+			"fps": 24,
+			"name": "Nene Hair Blowing",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 		},
 		{
-			"offsets": [-34, 55],
 			"loop": true,
-			"fps": 24,
+			"offsets": [-34, 55],
 			"anim": "hairBlowKnife",
-			"indices": [0, 1, 2, 3, 0, 1, 2, 3],
-			"name": "knife high held hair blowing"
+			"fps": 24,
+			"name": "knife high held hair blowing",
+			"indices": [0, 1, 2, 3, 0, 1, 2, 3]
 		},
 		{
+			"loop": true,
 			"offsets": [-34, 55],
-			"loop": true,
-			"fps": 24,
 			"anim": "hairFallKnife",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-			"name": "knife high held hair blowing"
+			"fps": 24,
+			"name": "knife high held hair blowing",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 		},
 		{
-			"offsets": [4, 4],
 			"loop": true,
-			"fps": 24,
-			"anim": "hairBlow",
-			"indices": [0, 1, 2, 3, 0, 1, 2, 3],
-			"name": "Nene Hair Blowing"
-		},
-		{
 			"offsets": [4, 4],
-			"loop": false,
+			"anim": "hairBlow",
 			"fps": 24,
+			"name": "Nene Hair Blowing",
+			"indices": [0, 1, 2, 3, 0, 1, 2, 3]
+		},
+		{
+			"loop": false,
+			"offsets": [4, 4],
 			"anim": "hairFall",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-			"name": "Nene Hair Blowing"
+			"fps": 24,
+			"name": "Nene Hair Blowing",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 		},
 		{
+			"loop": false,
 			"offsets": [-250, -363],
-			"loop": false,
-			"fps": 24,
 			"anim": "sad",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11],
-			"name": "laughing nene"
+			"fps": 24,
+			"name": "laughing nene",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11, 7, 8, 9, 10, 11]
 		},
 		{
+			"loop": false,
 			"offsets": [66, -4],
-			"loop": false,
-			"fps": 24,
 			"anim": "cheer",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
-			"name": "combo celebration 1 nene"
+			"fps": 24,
+			"name": "combo celebration 1 nene",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
 		},
 		{
-			"offsets": [66, 6],
 			"loop": false,
-			"fps": 24,
+			"offsets": [66, 6],
 			"anim": "combo100",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
-			"name": "fawn nene"
+			"fps": 24,
+			"name": "fawn nene",
+			"indices": [0, 1, 2, 3, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]
 		}
 	],
 	"vocals_file": "",
 	"no_antialiasing": false,
 	"image": "characters/nene",
-	"position": [60, 20],
+	"position": [260, 20],
 	"healthicon": "face",
 	"flip_x": false,
 	"healthbar_colors": [161, 161, 161],
