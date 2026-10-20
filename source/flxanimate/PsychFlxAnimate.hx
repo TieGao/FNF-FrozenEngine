@@ -138,14 +138,65 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 		}
 
 		var extra:AnimAtlas = cast haxe.Json.parse(_removeBOM(animText));
+		var renamed:Map<String, String> = namespaceExtraSymbols(extra, folderOrImg);
 
 		// 子图集的主时间轴也要注册 —— 逐动画的 `name` 写的就是它的主符号名
 		anim.symbolDictionary.set(extra.AN.SN, new FlxSymbol(haxe.io.Path.withoutDirectory(extra.AN.SN), FlxTimeline.fromJSONEx(extra.AN.TL)));
 		if (extra.SD != null)
 		{
 			for (symbol in extra.SD.S)
-				anim.symbolDictionary.set(symbol.SN, new FlxSymbol(haxe.io.Path.withoutDirectory(symbol.SN), FlxTimeline.fromJSONEx(symbol.TL)));
+			{
+				var key:String = renamed.exists(symbol.SN) ? renamed.get(symbol.SN) : symbol.SN;
+				anim.symbolDictionary.set(key, new FlxSymbol(haxe.io.Path.withoutDirectory(key), FlxTimeline.fromJSONEx(symbol.TL)));
+			}
 		}
+	}
+
+	/**
+	 * 子图集里与已注册符号重名的，改名成 `<名字>@<图集名>`，子图集内部的引用一起改。
+	 * 返回 旧名 → 新名 的映射，注册时按这个映射换 key。
+	 *
+	 * 两份 Animate 文档会用到同一批通用符号名（pico-dark 的 `Bitmap 3`、tankman-bloody 的十几个零件），
+	 * 而 symbolDictionary 只有一个命名空间：直接 set 会让后注册的子图集符号盖掉主图集的，
+	 * 主图集里引用同名符号的动画就画成子图集的帧（表现为只剩一个身体 / 某个零件）。
+	 */
+	function namespaceExtraSymbols(extra:AnimAtlas, folderOrImg:String):Map<String, String>
+	{
+		var renamed:Map<String, String> = [];
+		if (extra == null || extra.SD == null || extra.SD.S == null || anim.symbolDictionary == null) return renamed;
+
+		var suffix:String = haxe.io.Path.withoutDirectory(folderOrImg);
+		for (symbol in extra.SD.S)
+		{
+			if (anim.symbolDictionary.exists(symbol.SN))
+				renamed.set(symbol.SN, symbol.SN + '@' + suffix);
+		}
+		if (Lambda.count(renamed) < 1) return renamed;
+
+		function renameRefs(tl:Dynamic):Void
+		{
+			if (tl == null || tl.L == null) return;
+			for (layer in cast(tl.L, Array<Dynamic>))
+			{
+				if (layer == null || layer.FR == null) continue;
+				for (frame in cast(layer.FR, Array<Dynamic>))
+				{
+					if (frame == null || frame.E == null) continue;
+					for (element in cast(frame.E, Array<Dynamic>))
+					{
+						if (element == null || element.SI == null) continue;
+						var ref:String = element.SI.SN;
+						if (ref != null && renamed.exists(ref)) element.SI.SN = renamed.get(ref);
+					}
+				}
+			}
+		}
+
+		renameRefs(extra.AN.TL);
+		for (symbol in extra.SD.S)
+			renameRefs(symbol.TL);
+
+		return renamed;
 	}
 
 	/**

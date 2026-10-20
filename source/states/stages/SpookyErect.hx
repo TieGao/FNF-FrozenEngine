@@ -246,7 +246,7 @@ class SpookyErect extends BaseStage
 		light.angle = dark.angle;
 		light.flipX = dark.flipX;
 		light.visible = dark.visible;
-		light.alpha = (lightLevel > 0) ? 1 : 0;
+		light.alpha = lightLevel; // 与本体 1 - lightLevel 互补，闪电后的 1.5s 淡出才是交叉渐变
 
 		// 本体可能是 AnimateAtlas 角色（pico mix 的 pico-dark / nene-dark），
 		// `animation.curAnim` 对它是 null，要经 Character 的封装拿名字与帧号
@@ -258,7 +258,13 @@ class SpookyErect extends BaseStage
 
 		var darkFrame:Int = dark.isAnimateAtlas ? dark.atlas.anim.curFrame : dark.animation.curAnim.curFrame;
 		if (light.isAnimateAtlas)
+		{
 			light.atlas.anim.curFrame = darkFrame;
+			// 孪生 `active = false`，FlxGroup 不会调它的 update；而 flxanimate 的渲染数据
+			// 只在 `FlxAnim.update → curInstance.updateRender` 里重建，只改 curFrame 画面不会变
+			// → 可见期间手动刷一次（elapsed 传 0，只重建不推进帧）
+			if (lightLevel > 0) light.atlas.updateAnimation(0);
+		}
 		else if (light.animation.curAnim != null)
 			light.animation.curAnim.curFrame = darkFrame;
 	}

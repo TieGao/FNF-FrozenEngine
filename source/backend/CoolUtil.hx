@@ -2,37 +2,66 @@ package backend;
 
 import openfl.utils.Assets;
 import lime.utils.Assets as LimeAssets;
+import openfl.events.Event;
+import openfl.events.IOErrorEvent;
+import openfl.events.SecurityErrorEvent;
+import openfl.net.URLLoader;
+import openfl.net.URLLoaderDataFormat;
+import openfl.net.URLRequest;
 import flixel.FlxBasic;
 import flixel.FlxObject;
 
 class CoolUtil
 {
-	public static function checkForUpdates(url:String = null, ?onResult:String->Void):String {
-		if (url == null || url.length == 0)
-			if (ClientPrefs.data.betaUpdates) url = "https://raw.githubusercontent.com/TieGao/FNF-FrozenEngine/main/gitBeta.txt";
-			else url = "https://raw.githubusercontent.com/TieGao/FNF-FrozenEngine/main/gitVersion.txt";
+	static inline var UPDATE_URL:String = "https://raw.githubusercontent.com/TieGao/FNF-FrozenEngine/main/gitVersion.txt";
+	static inline var UPDATE_URL_BETA:String = "https://raw.githubusercontent.com/TieGao/FNF-FrozenEngine/main/gitBeta.txt";
+
+	/** 正在进行的更新请求。持住引用，避免加载途中被 GC 回收 */
+	static var updateLoader:URLLoader = null;
+
+	/**
+	 * 检查更新，返回本地版本号；线上版本若不同则通过 `onResult` 异步回调。
+	 *
+	 * 走 lime 的 URLLoader 而不是 `haxe.Http`：后者在 cpp 上是同步阻塞的，
+	 * 会卡住调用帧（进主菜单时明显顿一下）；URLLoader 在原生平台由线程池里的
+	 * curl 完成，事件回到主线程，主循环不受影响。
+	 */
+	public static function checkForUpdates(url:String = null, ?onResult:String->Void):String
+	{
 		var version:String = states.MainMenuState.frozenEngineVersion.trim();
-		if(ClientPrefs.data.checkForUpdates) {
-			trace('checking for updates...');
-			var http = new haxe.Http(url);
-			http.onData = function (data:String)
+		if (!ClientPrefs.data.checkForUpdates) return version;
+		if (updateLoader != null) return version; // 已有请求在跑，不重复发
+
+		if (url == null || url.length == 0)
+			url = ClientPrefs.data.betaUpdates ? UPDATE_URL_BETA : UPDATE_URL;
+
+		trace('checking for updates...');
+
+		var loader = new URLLoader();
+		loader.dataFormat = URLLoaderDataFormat.TEXT;
+		updateLoader = loader;
+
+		loader.addEventListener(Event.COMPLETE, function(_) {
+			updateLoader = null;
+			var data:String = Std.string(loader.data);
+			var newVersion:String = data.split('\n')[0].trim();
+			trace('version online: $newVersion, your version: $version');
+			if (newVersion != version)
 			{
-				var newVersion:String = data.split('\n')[0].trim();
-				trace('version online: $newVersion, your version: $version');
-				if(newVersion != version) {
-					trace('versions arent matching! please update');
-					version = newVersion;
-					if (onResult != null) onResult(newVersion);
-					http.onData = null;
-					http.onError = null;
-					http = null;
-				}
+				trace('versions arent matching! please update');
+				if (onResult != null) onResult(newVersion);
 			}
-			http.onError = function (error) {
-				trace('error: $error');
-			}
-			http.request();
-		}
+		});
+		loader.addEventListener(IOErrorEvent.IO_ERROR, function(e) {
+			updateLoader = null;
+			trace('update check error: ${e.text}');
+		});
+		loader.addEventListener(SecurityErrorEvent.SECURITY_ERROR, function(e) {
+			updateLoader = null;
+			trace('update check security error: ${e.text}');
+		});
+
+		loader.load(new URLRequest(url));
 		return version;
 	}
 	inline public static function quantize(f:Float, snap:Float){

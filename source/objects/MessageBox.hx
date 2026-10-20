@@ -10,10 +10,12 @@ import openfl.Lib;
 
 import flixel.FlxG;
 import flixel.text.FlxText;
+import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
 
 import backend.Paths;
 import backend.ClientPrefs;
+import backend.MetroEase;
 import backend.UITheme;
 
 /**
@@ -21,6 +23,10 @@ import backend.UITheme;
  *
  * 与成就弹窗 `AchievementPopup` 同机制：直接挂到 `FlxG.game`，
  * 脱离 FlxState 显示列表，因此切换界面 / 切换 state 也不会消失，动画完全自驱动。
+ *
+ * 贴屏幕右边缘（直角、无阴影），从右侧推入并淡入，停留计时结束后向右滑出并淡出。
+ * 缓动走 Win8 官方的两条 cubic-bezier：入场 entrance（先快后慢），
+ * 出场 exit（先慢后快，不抢注意力）。
  *
  * 两种类型：
  *  - `MESSAGE`：纯消息，点击 = 关闭。
@@ -33,15 +39,30 @@ class MessageBox extends Sprite
 {
 	public static var active:Array<MessageBox> = [];
 
-	/** 设计尺寸（game 坐标） */
-	static var WIDTH:Float = 360;
-	static var HEIGHT:Float = 110;
-	static var TOP_MARGIN:Float = 50; // 距顶部 50px
-	static var SIDE_MARGIN:Float = 20;
-	static var STACK_GAP:Float = 12;
+	/** 设计尺寸（game 坐标），Win8 通知条的 400x80 */
+	static var WIDTH:Float = 400;
+	static var HEIGHT:Float = 80;
+	static var PAD:Float = 16;
+	static var TOP_MARGIN:Float = 24;
+	static var SIDE_MARGIN:Float = 0; // 紧贴右边缘
+	static var STACK_GAP:Float = 8;
 
-	static var START_Y(get, never):Float;
-	static function get_START_Y():Float return -(HEIGHT + 20); // 屏幕上方（game 坐标）
+	// Win8 动效时长：入场 333ms，出场 200ms
+	static var SLIDE_IN_TIME:Float = 0.33;
+	static var SLIDE_OUT_TIME:Float = 0.20;
+	static var FADE_IN_TIME:Float = 0.16;
+	static var FADE_OUT_TIME:Float = 0.20;
+
+	static var EASE_ENTER:Float->Float = MetroEase.ENTRANCE;
+	static var EASE_EXIT:Float->Float = MetroEase.EXIT;
+
+	/** 屏幕右侧之外（game 坐标） */
+	static var START_X(get, never):Float;
+	static function get_START_X():Float return FlxG.width + 8;
+
+	/** 停留位置（game 坐标） */
+	static var TARGET_X(get, never):Float;
+	static function get_TARGET_X():Float return FlxG.width - WIDTH - SIDE_MARGIN;
 
 	public static function show(title:String, body:String,
 		?type:MessageBoxType = MESSAGE, ?action:Void->Void, ?duration:Float = 5.0):MessageBox
@@ -49,6 +70,10 @@ class MessageBox extends Sprite
 		var mb = new MessageBox(title, body, type, action, duration);
 		active.push(mb);
 		recalcTargets();
+		// 新条直接落在自己的槽位，只做横向推入
+		mb.yPos = mb.targetY;
+		mb.y = mb.yPos * mb.lastScale;
+		mb.slideIn();
 		return mb;
 	}
 
@@ -67,10 +92,13 @@ class MessageBox extends Sprite
 
 	var timeLeft:Float;
 	var progress:Float = 1;
-	var yPos:Float = START_Y;
+	var yPos:Float = TOP_MARGIN;
 	var state:Int = 0; // 0=SLIDE_IN, 1=HOLD, 2=SLIDE_OUT
 	var timePassed:Float = -1;
 	var lastScale:Float = 1;
+
+	var tweenX:FlxTween = null;
+	var tweenFade:FlxTween = null;
 
 	var bar:Shape;
 	var bitmaps:Array<BitmapData> = [];
@@ -84,17 +112,17 @@ class MessageBox extends Sprite
 		this.duration = duration;
 		this.timeLeft = duration;
 
-		// 背景（Metro 扁平，强调色）
-		graphics.beginFill(UITheme.accent);
-		graphics.drawRoundRect(0, 0, WIDTH, HEIGHT, 8, 8);
+		// 背景（Metro 扁平直角 + Win8 深蓝）
+		graphics.beginFill(UITheme.toast);
+		graphics.drawRect(0, 0, WIDTH, HEIGHT);
 		graphics.endFill();
 
 		// 标题（较大）
-		drawText(title, 18, 16, 14, WIDTH - 32, UITheme.textPrimary);
+		drawText(title, 17, PAD, 8, WIDTH - PAD * 2, UITheme.textPrimary);
 		// 正文（较小，可换行）
-		drawText(body, 14, 16, 46, WIDTH - 32, UITheme.textPrimary);
+		drawText(body, 13, PAD, 30, WIDTH - PAD * 2, UITheme.textPrimary);
 
-		// 进度条（底部，每帧重画）
+		// 进度条（贴底，每帧重画）
 		bar = new Shape();
 		addChild(bar);
 
@@ -102,17 +130,65 @@ class MessageBox extends Sprite
 		this.buttonMode = true;
 		addEventListener(MouseEvent.CLICK, onClick);
 
-		// 自身 graphics（背景圆角矩形 + 文本 bitmap）已覆盖整块区域，天然可命中，无需额外 hitArea
+		// 自身 graphics（背景 + 文本 bitmap）已覆盖整块区域，天然可命中，无需额外 hitArea
 		FlxG.stage.addEventListener(Event.RESIZE, onResize);
 		addEventListener(Event.ENTER_FRAME, update);
 
 		lastScale = (FlxG.stage.stageHeight / FlxG.height);
 		this.scaleX = lastScale;
 		this.scaleY = lastScale;
-		this.x = (FlxG.width - WIDTH - SIDE_MARGIN) * lastScale;
+		this.x = START_X * lastScale;
 		this.y = yPos * lastScale;
 
 		FlxG.game.addChild(this); // 全局挂载：切界面不消失
+	}
+
+	/** 从屏幕右侧推入并淡入 */
+	function slideIn():Void
+	{
+		state = 0;
+		cancelTweens();
+
+		alpha = 0;
+		tweenX = FlxTween.tween(this, {x: TARGET_X * lastScale}, SLIDE_IN_TIME, {
+			ease: EASE_ENTER,
+			onComplete: function(_) {
+				tweenX = null;
+				if (state == 0) state = 1;
+			}
+		});
+		tweenFade = FlxTween.tween(this, {alpha: 1}, FADE_IN_TIME, {ease: EASE_ENTER});
+	}
+
+	/** 向右滑出屏幕并淡出，结束后自毁 */
+	function slideOut():Void
+	{
+		if (state == 2) return;
+		state = 2;
+		cancelTweens();
+
+		tweenX = FlxTween.tween(this, {x: START_X * lastScale}, SLIDE_OUT_TIME, {
+			ease: EASE_EXIT,
+			onComplete: function(_) {
+				tweenX = null;
+				destroy();
+			}
+		});
+		tweenFade = FlxTween.tween(this, {alpha: 0}, FADE_OUT_TIME, {ease: EASE_EXIT});
+	}
+
+	function cancelTweens():Void
+	{
+		if (tweenX != null)
+		{
+			tweenX.cancel();
+			tweenX = null;
+		}
+		if (tweenFade != null)
+		{
+			tweenFade.cancel();
+			tweenFade = null;
+		}
 	}
 
 	function drawText(text:String, size:Int, x:Float, y:Float, width:Float, color:FlxColor):Void
@@ -135,16 +211,14 @@ class MessageBox extends Sprite
 
 	function drawProgress(p:Float):Void
 	{
-		var barH:Float = 6;
-		var pad:Float = 14;
-		var barW:Float = WIDTH - pad * 2;
-		var barY:Float = HEIGHT - barH - 10;
+		var barH:Float = 3;
+		var barY:Float = HEIGHT - barH;
 
 		bar.graphics.clear();
-		bar.graphics.beginFill(UITheme.accentDeep);
-		bar.graphics.drawRect(pad, barY, barW, barH);
+		bar.graphics.beginFill(UITheme.toastBarTrack);
+		bar.graphics.drawRect(0, barY, WIDTH, barH);
 		bar.graphics.beginFill(FlxColor.WHITE);
-		bar.graphics.drawRect(pad, barY, barW * p, barH);
+		bar.graphics.drawRect(0, barY, WIDTH * p, barH);
 		bar.graphics.endFill();
 	}
 
@@ -154,7 +228,7 @@ class MessageBox extends Sprite
 		if (type == ACTION && action != null)
 			action();
 		progress = 0; // 进度条到头
-		state = 2;    // 立刻回缩
+		slideOut();   // 立刻滑出
 	}
 
 	function update(e:Event):Void
@@ -171,28 +245,14 @@ class MessageBox extends Sprite
 
 		if (elapsed >= 0.5) return; // 跳过加载等大间隔
 
-		switch (state)
+		// 横向由 tween 驱动，这里只管竖直方向（堆叠重排的平滑跟随）
+		yPos += (targetY - yPos) * Math.min(1, elapsed * 11);
+
+		if (state == 1)
 		{
-			case 0: // SLIDE_IN
-				yPos += (targetY - yPos) * Math.min(1, elapsed * 11);
-				if (Math.abs(targetY - yPos) < 1)
-				{
-					yPos = targetY;
-					state = 1;
-				}
-			case 1: // HOLD（同时平滑跟随 targetY，支持堆叠重排）
-				yPos += (targetY - yPos) * Math.min(1, elapsed * 11);
-				timeLeft -= elapsed;
-				progress = Math.max(0, timeLeft / duration);
-				if (timeLeft <= 0)
-					state = 2;
-			case 2: // SLIDE_OUT
-				yPos += (START_Y - yPos) * Math.min(1, elapsed * 13);
-				if (yPos <= START_Y + 1)
-				{
-					destroy();
-					return;
-				}
+			timeLeft -= elapsed;
+			progress = Math.max(0, timeLeft / duration);
+			if (timeLeft <= 0) slideOut();
 		}
 
 		this.y = yPos * lastScale;
@@ -205,15 +265,31 @@ class MessageBox extends Sprite
 		scaleX = mult;
 		scaleY = mult;
 
-		x = (mult / lastScale) * x;
 		y = (mult / lastScale) * y;
 		lastScale = mult;
+
+		// 滑入/滑出途中被缩放打断：tween 的起止值是旧的缩放基准，直接收尾到该状态的终点
+		if (tweenX != null || tweenFade != null)
+		{
+			cancelTweens();
+			if (state == 2)
+			{
+				destroy();
+				return;
+			}
+			alpha = 1;
+			state = 1;
+		}
+
+		x = (state == 2 ? START_X : TARGET_X) * lastScale;
 	}
 
 	public function destroy():Void
 	{
 		active.remove(this);
 		recalcTargets();
+
+		cancelTweens();
 
 		if (FlxG.game.contains(this))
 			FlxG.game.removeChild(this);

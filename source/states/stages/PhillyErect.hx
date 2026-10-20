@@ -319,13 +319,56 @@ class PhillyErect extends BaseStage
 	var dopWasExplodeKill:Bool = false;
 	static var dopLastPlayedAt:Float = 0;
 
+	/** 射手那只（活下来开枪的） */
+	var dopShooter:FlxAnimate;
+	/** 被打死那只（开场抽着烟、倒地的那只） */
+	var dopDead:FlxAnimate;
+	var dopShooterCenterX:Float = 0;
+	var dopDeadCenterX:Float = 0;
+
 	/**
 	 * 替身过场两个 pico 的落点微调（像素，正数 = 往下 / 往右）。
-	 * `pico_doppleganger` 图集的注册原点和官方 VSlice 舞台不一样，官方那套 -144 的偏移在 FE 里两个 pico
-	 * 会飘到天上，实测要往下 200 才踩在街上。想再挪就只改这两个数。
+	 * 默认按图集内容自动对齐，一般不用动。
 	 */
-	public static var dopplegangerOffsetX:Float = 0;
-	public static var dopplegangerOffsetY:Float = 200;
+	public static var dopplegangerOffsetX:Float = -100;
+	public static var dopplegangerOffsetY:Float = 100;
+
+	/**
+	 * `pico_doppleganger` 图集的几何量（相对精灵注册锚点，像素）。
+	 * 锚点在 pico 膝盖附近：内容从锚点往上约 440、脚底在 +91，左右中心在锚点右侧
+	 * （玩家那只是镜像图，中心偏 171；对手那只 151）。
+	 */
+	static inline var DOP_FEET_Y:Float = 91;
+	static inline var DOP_PLAYER_CENTER_X:Float = 171;
+	static inline var DOP_OPPONENT_CENTER_X:Float = 151;
+	/** 两只 pico 站在街上的横向间距 */
+	static inline var DOP_GAP_X:Float = 700;
+	/** 嘴的位置（相对锚点），香烟从这里飞出去 */
+	static inline var DOP_MOUTH_X:Float = 145;
+	static inline var DOP_MOUTH_Y:Float = -225;
+	/** `cigarette` 图集第 0 帧的内容中心：画布右侧 515 / 翻转后左侧 42，纵向 74 */
+	static inline var CIG_FRAME_RIGHT_X:Float = 515;
+	static inline var CIG_FRAME_LEFT_X:Float = 42;
+	static inline var CIG_FRAME_Y:Float = 74;
+	/** `bloodPool` 图集内容中心（相对锚点） */
+	static inline var BLOOD_CENTER_X:Float = 1362;
+	static inline var BLOOD_CENTER_Y:Float = 626;
+
+	/**
+	 * 把图集里的帧标签注册成动画。
+	 * `pico_doppleganger` 的 8 段动作（shootPlayer / cigaretteOpponent …）只有帧标签，
+	 * flxanimate 不会自动把标签变成 anim，直接 play 会失败并退回播主时间轴 ——
+	 * 表现就是两只 pico 播同一套动作、完全没有互动。
+	 */
+	function registerDopplegangerAnims(spr:FlxAnimate, role:String):Void
+	{
+		for (base in ['shoot', 'explode', 'loop', 'cigarette'])
+		{
+			var name:String = base + role;
+			if (spr.anim.existsByName(name)) continue;
+			spr.anim.addByFrameLabel(name, name, 24, base == 'loop');
+		}
+	}
 
 	function createDopplegangerAssets():Void
 	{
@@ -341,22 +384,36 @@ class PhillyErect extends BaseStage
 		dopOpponent = new FlxAnimate(0, 0);
 		Paths.loadAnimateAtlas(dopOpponent, 'philly/erect/pico_doppleganger');
 
-		dopPlayer.setPosition(boyfriend.x - 402 + dopplegangerOffsetX, boyfriend.y - 144 + dopplegangerOffsetY);
-		dopOpponent.setPosition(dad.x - 333 + dopplegangerOffsetX, dad.y - 144.5 + dopplegangerOffsetY);
+		registerDopplegangerAnims(dopPlayer, 'Player');
+		registerDopplegangerAnims(dopOpponent, 'Opponent');
 
-		// 血泊 / 香烟位置（照官方两分支）
-		if (dopPlayerShoots)
-		{
-			dopBloodPool.setPosition(dad.x - 30, dad.y + 460);
-			dopCigarette = new BGSprite('philly/erect/cigarette', boyfriend.x - 10, boyfriend.y + 260);
-			dopCigarette.flipX = true;
-		}
-		else
-		{
-			dopBloodPool.setPosition(boyfriend.x + 640, boyfriend.y + 460);
-			dopCigarette = new BGSprite('philly/erect/cigarette', boyfriend.x - 350, boyfriend.y + 260);
-		}
-		dopCigarette.animation.addByPrefix('cigarette spit', 'cigarette spit', 24, false);
+		// 站位：脚底贴对手的脚底（对手是普通分尸图角色，y + height 就是脚底），玩家那只按间距往右挪。
+		// 不能拿 bf.x / bf.y 当基准 —— pico-playable 是分尸图角色，它的 x/y 是图集画布原点，跟实际站位差好几百像素。
+		var groundY:Float = dad.y + dad.height;
+		var opponentCenterX:Float = dad.x + dad.width / 2;
+		var playerCenterX:Float = opponentCenterX + DOP_GAP_X;
+
+		dopPlayer.setPosition(playerCenterX - DOP_PLAYER_CENTER_X + dopplegangerOffsetX,
+			groundY - DOP_FEET_Y + dopplegangerOffsetY);
+		dopOpponent.setPosition(opponentCenterX - DOP_OPPONENT_CENTER_X + dopplegangerOffsetX,
+			groundY - DOP_FEET_Y + dopplegangerOffsetY);
+
+		dopShooter = dopPlayerShoots ? dopPlayer : dopOpponent;
+		dopDead = dopPlayerShoots ? dopOpponent : dopPlayer;
+		dopShooterCenterX = dopPlayerShoots ? DOP_PLAYER_CENTER_X : DOP_OPPONENT_CENTER_X;
+		dopDeadCenterX = dopPlayerShoots ? DOP_OPPONENT_CENTER_X : DOP_PLAYER_CENTER_X;
+
+		// 血泊铺在倒地那只的脚下
+		dopBloodPool.setPosition(dopDead.x + dopDeadCenterX - BLOOD_CENTER_X,
+			dopDead.y + DOP_FEET_Y - BLOOD_CENTER_Y);
+
+		// 香烟从倒地那只嘴里飞出去：玩家朝左不翻转（往左飞），对手朝右翻转（往右飞）。
+		// 必须把动画名传进 BGSprite 构造 —— 不传 animArray 时 BGSprite 走 loadGraphic，
+		// 整张 cigarette.png 会被当成一帧画出来（看到的"一整个图集"）。
+		dopCigarette = new BGSprite('philly/erect/cigarette', 0, 0, 1, 1, ['cigarette spit'], false);
+		dopCigarette.flipX = dopPlayerShoots;
+		dopCigarette.setPosition(dopDead.x + DOP_MOUTH_X - (dopPlayerShoots ? CIG_FRAME_LEFT_X : CIG_FRAME_RIGHT_X),
+			dopDead.y + DOP_MOUTH_Y - CIG_FRAME_Y);
 		dopCigarette.visible = false;
 
 		// 分层：血泊/香烟垫底，射手一侧的替身在上
@@ -374,15 +431,14 @@ class PhillyErect extends BaseStage
 		}
 	}
 
-	function dopCameraFocus(char:Character, isDad:Bool):Array<Float>
+	/** 镜头焦点：直接按替身精灵的实际位置算（分尸图角色的 getMidpoint 拿到的不是站位）。 */
+	function dopCameraFocus(spr:FlxAnimate, centerOffsetX:Float, isOpponent:Bool):Array<Float>
 	{
-		// PlayState.moveCamera 的焦点公式
-		var mid = char.getMidpoint();
-		if (isDad)
-			return [mid.x + 150 + char.cameraPosition[0] + game.opponentCameraOffset[0],
-				mid.y - 100 + char.cameraPosition[1] + game.opponentCameraOffset[1]];
-		return [mid.x - 100 - char.cameraPosition[0] + game.boyfriendCameraOffset[0],
-			mid.y - 100 + char.cameraPosition[1] + game.boyfriendCameraOffset[1]];
+		var cx:Float = spr.x + centerOffsetX;
+		var cy:Float = spr.y + DOP_FEET_Y - 337;   // 身体中段再上移 100，同 PlayState.moveCamera
+		if (isOpponent)
+			return [cx + 150 + game.opponentCameraOffset[0], cy + game.opponentCameraOffset[1]];
+		return [cx - 100 + game.boyfriendCameraOffset[0], cy + game.boyfriendCameraOffset[1]];
 	}
 
 	function dopGangerCutscene()
@@ -435,8 +491,8 @@ class PhillyErect extends BaseStage
 		}
 
 		// 相机：两人中点 → 烟 → 射手 → （8.75s 禁跳过）回烟 → 血泊 → 香烟
-		var shooter = dopCameraFocus(dopPlayerShoots ? boyfriend : dad, !dopPlayerShoots);
-		var cigarettePos = dopCameraFocus(dopPlayerShoots ? dad : boyfriend, dopPlayerShoots);
+		var shooter = dopCameraFocus(dopShooter, dopShooterCenterX, !dopPlayerShoots);
+		var cigarettePos = dopCameraFocus(dopDead, dopDeadCenterX, dopPlayerShoots);
 		var mid = [(shooter[0] + cigarettePos[0]) / 2, (shooter[1] + cigarettePos[1]) / 2];
 
 		game.isCameraOnForcedPos = true;
@@ -503,6 +559,8 @@ class PhillyErect extends BaseStage
 		if (dopBloodPool != null) { remove(dopBloodPool, true); dopBloodPool = null; }
 		if (dopCigarette != null) { remove(dopCigarette, true); dopCigarette = null; }
 		if (dopSkipText != null) { remove(dopSkipText, true); dopSkipText = null; }
+		dopShooter = null;
+		dopDead = null;
 		dopBloodExtending = false;
 	}
 
@@ -542,6 +600,11 @@ class PhillyErect extends BaseStage
 			dopRestoreCamera();
 			startCountdown();
 		}
+
+		inCutscene = false;
+		canPause = true;
+		camHUD.visible = true;
+
 	}
 
 	// 过场把镜头锁在舞台中间，收尾要还给常规 section 跟随
