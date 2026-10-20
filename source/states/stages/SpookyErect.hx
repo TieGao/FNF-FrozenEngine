@@ -49,6 +49,15 @@ class SpookyErect extends BaseStage
 		'gf-dark' => [-149, -325],
 	];
 
+	/**
+	 * 亮色孪生的角色名特例（默认规则是去掉 `-dark` 后缀）。
+	 * `pico-dark` 官方 `pico-dark.hxc` 用的是 `pico-playable`：`pico` 是对手版图集，
+	 * 没有 hey / cheer / burp* / 死亡动画，孪生会在这些动画上卡帧。
+	 */
+	static var TWIN_BASE_NAME:Map<String, String> = [
+		'pico-dark' => 'pico-playable',
+	];
+
 	/** 闪电第二次亮起后淡回全暗用的时长 */
 	static inline var LIGHT_FADE:Float = 1.5;
 
@@ -131,9 +140,12 @@ class SpookyErect extends BaseStage
 			return;
 		}
 
-		// 亮色孪生 = 本角色名去掉 `-dark` 后缀（pico-dark → pico、nene-dark → nene），
+		// 亮色孪生 = 本角色名去掉 `-dark` 后缀（nene-dark → nene），特例见 TWIN_BASE_NAME；
 		// 写死 baseName 会在 pico mix 下把 pico/nene 错换成 bf/gf
-		var light:Character = new Character(0, 0, dark.curCharacter.substring(0, dark.curCharacter.length - 5), dark.isPlayer);
+		var twinName:String = dark.curCharacter.substring(0, dark.curCharacter.length - 5);
+		if (TWIN_BASE_NAME.exists(dark.curCharacter)) twinName = TWIN_BASE_NAME.get(dark.curCharacter);
+
+		var light:Character = new Character(0, 0, twinName, dark.isPlayer);
 		light.x = dark.x;
 		light.y = dark.y;
 		light.scrollFactor.copyFrom(dark.scrollFactor);

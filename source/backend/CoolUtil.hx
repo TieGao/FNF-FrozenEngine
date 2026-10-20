@@ -7,7 +7,7 @@ import flixel.FlxObject;
 
 class CoolUtil
 {
-	public static function checkForUpdates(url:String = null):String {
+	public static function checkForUpdates(url:String = null, ?onResult:String->Void):String {
 		if (url == null || url.length == 0)
 			if (ClientPrefs.data.betaUpdates) url = "https://raw.githubusercontent.com/TieGao/FNF-FrozenEngine/main/gitBeta.txt";
 			else url = "https://raw.githubusercontent.com/TieGao/FNF-FrozenEngine/main/gitVersion.txt";
@@ -22,6 +22,7 @@ class CoolUtil
 				if(newVersion != version) {
 					trace('versions arent matching! please update');
 					version = newVersion;
+					if (onResult != null) onResult(newVersion);
 					http.onData = null;
 					http.onError = null;
 					http = null;

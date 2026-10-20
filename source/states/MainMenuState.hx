@@ -8,6 +8,7 @@ import options.psychoptions.PsychOptionsState;
 import options.OptionsState;
 import options.keoptions.KEOptionsMenu;
 import backend.Highscore;
+import objects.MessageBox;
 
 enum MainMenuColumn {
 	LEFT;
@@ -166,15 +167,29 @@ class MainMenuState extends MusicBeatState
 		#end
 
 		#if CHECK_FOR_UPDATES
-		if (showOutdatedWarning && ClientPrefs.data.checkForUpdates && substates.OutdatedSubState.updateVersion != frozenEngineVersion) {
-			persistentUpdate = false;
+		// 非阻塞通知：右上角 toast 提示有新版本，点一下才跳 releases；游戏照常进行
+		if (showOutdatedWarning && ClientPrefs.data.checkForUpdates)
+		{
 			showOutdatedWarning = false;
-			openSubState(new substates.OutdatedSubState());
+			CoolUtil.checkForUpdates(null, onUpdateAvailable);
 		}
 		#end
 
 		FlxG.camera.follow(camFollow, null, 0.15);
 	}
+
+	#if CHECK_FOR_UPDATES
+	function onUpdateAvailable(newVersion:String):Void
+	{
+		MessageBox.show(
+			Language.getPhrase('update.available.title', 'Update Available'),
+			Language.getPhrase('update.available.body', 'A new version ({1}) is available.\nClick to open the downloads page.', [newVersion]),
+			ACTION,
+			function() CoolUtil.browserLoad('https://github.com/TieGao/FNF-FrozenEngine/releases'),
+			8.0
+		);
+	}
+	#end
 
 	function createMenuItem(name:String, x:Float, y:Float):FlxSprite
 	{

@@ -3,6 +3,7 @@ package options.objects.backend;
 import options.Option;
 import backend.UIControlTheme;
 import shapeEx.Rect;
+import objects.MessageBox;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 
@@ -247,6 +248,7 @@ class OptionButton extends FlxSpriteGroup
         if (follow.action != null)
         {
             follow.action();
+            showResetSuccess(follow.name);
             return;
         }
 
@@ -260,12 +262,29 @@ class OptionButton extends FlxSpriteGroup
                 o.saveCurrentValue();
                 if (o.updateDisText != null) o.updateDisText();
             }
+            showResetSuccess(cat.displayName);
         }
         else
         {
             follow.setValue(follow.defaultValue);
             follow.change();
             follow.saveCurrentValue();
+            showResetSuccess(follow.name);
         }
+    }
+
+    /** 重置完成后右上角弹一条全局成功提示（可按 target 覆盖「重置了什么」） */
+    function showResetSuccess(target:String):Void
+    {
+        if (target == null || target == '')
+            target = Language.getPhrase('options.action.reset', 'Reset');
+
+        MessageBox.show(
+            Language.getPhrase('options.reset.title', 'Reset'),
+            Language.getPhrase('options.reset.success', 'Reset {1} succeeded', [target]),
+            MESSAGE,
+            null,
+            3.0
+        );
     }
 }

@@ -21,6 +21,16 @@ class GameOverSubstate extends MusicBeatSubstate
 	public static var endSoundName:String = 'gameOverEnd';
 	public static var deathDelay:Float = 0;
 
+	/**
+	 * 死亡镜头微调（像素）：正数 = 镜头往右 / 往下移。
+	 * 角色的 camera_position 已经按 PlayState.moveCamera 的约定算进去了，这里只做最后的目测微调。
+	 */
+	public static var deathCamOffsetX:Float = 0;
+	public static var deathCamOffsetY:Float = 0;
+
+	/** nene 扔刀相对 gf 的落点（像素，官方 pico-playable.hxc 用 gf.originalPosition + [120, 0]） */
+	public static var neneKnifeOffset:Array<Float> = [120, 0];
+
 	public static var instance:GameOverSubstate;
 	public function new(?playStateBoyfriend:Character = null)
 	{
@@ -75,7 +85,11 @@ class GameOverSubstate extends MusicBeatSubstate
 		boyfriend.playAnim('firstDeath');
 
 		camFollow = new FlxObject(0, 0, 1, 1);
-		camFollow.setPosition(boyfriend.getGraphicMidpoint().x + boyfriend.cameraPosition[0], boyfriend.getGraphicMidpoint().y + boyfriend.cameraPosition[1]);
+		// 与 PlayState.moveCamera 保持同一套符号：camera_position.x 是**减**。
+		// （Psych 原版这里写成加；pico 的 camera_position 是负值，加完镜头整体偏左，PicoMix 死亡时特别明显）
+		var camOff:Array<Float> = boyfriend.cameraPosition != null ? boyfriend.cameraPosition : [0, 0];
+		camFollow.setPosition(boyfriend.getGraphicMidpoint().x - camOff[0] + deathCamOffsetX,
+			boyfriend.getGraphicMidpoint().y + camOff[1] + deathCamOffsetY);
 		FlxG.camera.focusOn(new FlxPoint(FlxG.camera.scroll.x + (FlxG.camera.width / 2), FlxG.camera.scroll.y + (FlxG.camera.height / 2)));
 		FlxG.camera.follow(camFollow, LOCKON, 0.01);
 		add(camFollow);
@@ -112,22 +126,36 @@ class GameOverSubstate extends MusicBeatSubstate
 			}
 
 			if(PlayState.instance.gf != null && PlayState.instance.gf.curCharacter == 'nene')
-			{
-				var neneKnife:FlxSprite = new FlxSprite(boyfriend.x - 450, boyfriend.y - 250);
-				neneKnife.frames = Paths.getSparrowAtlas('NeneKnifeToss');
-				neneKnife.animation.addByPrefix('anim', 'knife toss', 24, false);
-				neneKnife.antialiasing = ClientPrefs.data.antialiasing;
-				neneKnife.animation.finishCallback = function(_)
-				{
-					remove(neneKnife);
-					//neneKnife.destroy();
-				}
-				insert(0, neneKnife);
-				neneKnife.animation.play('anim', true);
-			}
+				spawnNeneKnife(boyfriend.x - 450, boyfriend.y - 250);
+		}
+		// PicoMix：官方 pico-playable.hxc（PicoPlayerBaseCharacter）在 firstDeath 时无条件生成 NeneKnifeToss，
+		// 所以 pico-playable / pico-christmas / pico-dark 的死亡都该有 nene 扔刀。
+		// pico-pixel 和 pico-holding-nene 是另一套基类，官方没有这段，这里跟着不放。
+		else if(isPicoPlayerDeath(characterName) && PlayState.instance.gf != null)
+		{
+			spawnNeneKnife(PlayState.instance.gf.x + neneKnifeOffset[0], PlayState.instance.gf.y + neneKnifeOffset[1]);
 		}
 
 		super.create();
+	}
+
+	/** 官方 PicoPlayerBaseCharacter 派生的死亡角色（这几个才有 nene 扔刀） */
+	inline static function isPicoPlayerDeath(char:String):Bool
+		return char == 'pico-playable' || char == 'pico-christmas' || char == 'pico-dark';
+
+	/** nene 扔刀（官方 NeneKnifeToss，播完自己移除） */
+	function spawnNeneKnife(x:Float, y:Float):Void
+	{
+		var neneKnife:FlxSprite = new FlxSprite(x, y);
+		neneKnife.frames = Paths.getSparrowAtlas('NeneKnifeToss');
+		neneKnife.animation.addByPrefix('anim', 'knife toss', 24, false);
+		neneKnife.antialiasing = ClientPrefs.data.antialiasing;
+		neneKnife.animation.finishCallback = function(_)
+		{
+			remove(neneKnife);
+		}
+		insert(0, neneKnife);
+		neneKnife.animation.play('anim', true);
 	}
 
 	override function update(elapsed:Float)

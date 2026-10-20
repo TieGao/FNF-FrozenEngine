@@ -319,6 +319,14 @@ class PhillyErect extends BaseStage
 	var dopWasExplodeKill:Bool = false;
 	static var dopLastPlayedAt:Float = 0;
 
+	/**
+	 * 替身过场两个 pico 的落点微调（像素，正数 = 往下 / 往右）。
+	 * `pico_doppleganger` 图集的注册原点和官方 VSlice 舞台不一样，官方那套 -144 的偏移在 FE 里两个 pico
+	 * 会飘到天上，实测要往下 200 才踩在街上。想再挪就只改这两个数。
+	 */
+	public static var dopplegangerOffsetX:Float = 0;
+	public static var dopplegangerOffsetY:Float = 200;
+
 	function createDopplegangerAssets():Void
 	{
 		dopPlayerShoots = FlxG.random.bool(50);
@@ -333,8 +341,8 @@ class PhillyErect extends BaseStage
 		dopOpponent = new FlxAnimate(0, 0);
 		Paths.loadAnimateAtlas(dopOpponent, 'philly/erect/pico_doppleganger');
 
-		dopPlayer.setPosition(boyfriend.x - 402, boyfriend.y - 144);
-		dopOpponent.setPosition(dad.x - 333, dad.y - 144.5);
+		dopPlayer.setPosition(boyfriend.x - 402 + dopplegangerOffsetX, boyfriend.y - 144 + dopplegangerOffsetY);
+		dopOpponent.setPosition(dad.x - 333 + dopplegangerOffsetX, dad.y - 144.5 + dopplegangerOffsetY);
 
 		// 血泊 / 香烟位置（照官方两分支）
 		if (dopPlayerShoots)
