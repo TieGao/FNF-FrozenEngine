@@ -9,6 +9,9 @@ function onCreatePost()
 	var ps = PlayState.instance;
 	if (ps == null || ps.gf == null || ps.gfGroup == null) return;
 
+	// 低血量抬刀状态机（5 个 nene 变体共用一份）
+	ps.startHScriptsNamed('characters/nene-knife.hx');
+
 	addHaxeLibrary('ABotSpeaker', 'states.stages.objects');
 	abot = new ABotSpeaker(ps.gfGroup.x - 90, ps.gfGroup.y + 290, false, true);
 	ps.insert(ps.members.indexOf(ps.gfGroup), abot);
