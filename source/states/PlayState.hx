@@ -1180,7 +1180,7 @@ class PlayState extends MusicBeatState
 
 		stagesFunc(function(stage:BaseStage) stage.createPost());
 		callOnScripts('onCreatePost');
-		
+
 		// 真正预热：每一列都 spawn 一次
 		var splashColumns:Int = Note.getColumnsPerPlayer(SONG);
 		if (isCoopMode()) splashColumns *= 2;
@@ -1225,7 +1225,9 @@ class PlayState extends MusicBeatState
 		// 使用新的 JudgementCounter 模块替代旧的 createCounterUI
 		if (judgementCounterObj == null && !isSplitCoopMode()) judgementCounterObj = new objects.JudgementCounter(this);
 
-		Paths.clearUnusedMemory();
+		// 不调 Paths.clearUnusedMemory()：它按 localTrackedAssets 判断存活，而该表跨歌只增不减、
+		// key 还带 contentRoot 后缀。同一进程第二次进歌时判定失准，会把角色分尸图集当成未使用
+		// 销毁掉，紧接着 cacheCountdown 重建同 key 图集时闪退。移动版同样去掉了这一步。
 
 		cacheCountdown();
 		cachePopUpScore();
@@ -1282,6 +1284,13 @@ class PlayState extends MusicBeatState
 
 	#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
 	public function addTextToDebug(text:String, color:FlxColor) {
+		Sys.println(text); // 命令行始终照旧
+
+		// 调试打印关掉时拦在入口：不 recycle FlxText、不做文字光栅化、不推挤已有行。
+		// 光靠 visible=false 只省了渲染，每次打印的排版 + 贴图重建照样发生。
+		luaDebugGroup.visible = ClientPrefs.data.luadebugPrint;
+		if(!ClientPrefs.data.luadebugPrint) return;
+
 		var newText:psychlua.DebugLuaText = luaDebugGroup.recycle(psychlua.DebugLuaText);
 		newText.text = text;
 		newText.color = color;
@@ -1293,8 +1302,6 @@ class PlayState extends MusicBeatState
 			spr.y += newText.height + 2;
 		});
 		luaDebugGroup.add(newText);
-
-		Sys.println(text);
 	}
 	#end
 

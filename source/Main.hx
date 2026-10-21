@@ -99,6 +99,9 @@ class Main extends Sprite
 
 	private function setupGame():Void
 	{
+		// 尽早接管 trace，加载阶段的日志也能进屏幕缓冲（显示开关见 Advanced → Show Console Log）
+		debug.ScreenLog.install();
+
 		var stageWidth:Int = Lib.current.stage.stageWidth;
 		var stageHeight:Int = Lib.current.stage.stageHeight;
 
@@ -206,6 +209,9 @@ class Main extends Sprite
 		#if ACHIEVEMENTS_ALLOWED Achievements.load(); #end
 
 		addChild(new FlxGame(game.width, game.height, game.initialState, #if (flixel < "5.0.0") game.zoom, #end game.framerate, game.framerate, game.skipSplash, game.startFullscreen));
+
+		// 全局屏幕日志：挂在 FlxG.game 上，切换 state 不会跟着消失
+		debug.ScreenLog.attach();
 
 		#if (cpp || hl)
 		// 启动时：如果 useDpiSettings 为 true，则不 resize 物理窗口

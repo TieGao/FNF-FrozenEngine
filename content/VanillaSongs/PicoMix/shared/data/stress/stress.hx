@@ -58,6 +58,31 @@ function onCreatePost(?e) {
 	animWindows = [];
 	endCutActive = false;
 	isBloody = false;
+
+	// 分尸图动画逐帧预热：FlxAnimate 每一帧都要现场构建符号实例树（FlxAnim.update 里
+	// 无条件走 updateRender），不预热的话 redhead 换皮 / 结尾笑 正式播放时会逐帧掉帧。
+	var dad = p.dad;
+	if (dad != null) {
+		sweepAnim(dad, 'redheadsAnim');
+		sweepAnim(dad, 'idle-bloody');
+		sweepAnim(dad, 'hehPrettyGood-bloody');
+		if (dad.hasAnimation('idle')) dad.playAnim('idle', true);
+	}
+	sweepAnim(p.boyfriend, 'knifeToss');
+}
+
+function sweepAnim(ch, name) {
+	if (ch == null || !ch.hasAnimation(name)) return;
+	try {
+		ch.playAnim(name, true);
+		var atlas = ch.atlas;
+		if (atlas == null || atlas.anim == null) return;
+		var len:Int = atlas.anim.length;
+		for (i in 0...len) {
+			atlas.anim.curFrame = i;
+			atlas.update(0);
+		}
+	} catch (e:Dynamic) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -78,14 +103,6 @@ function onStartCountdown() {
 
 	setVar('stressPicoCutscene_at', Date.now().getTime());
 	p.startVideo('stressPicoCutscene', false, true);
-	// 预热 tankman-bloody 的 extra 图集纹理（首次绘制的 VRAM 上传挪到加载期）
-	var dad = p.dad;
-	if (dad != null && dad.hasAnimation('redheadsAnim')) {
-		dad.playAnim('redheadsAnim', true);
-		dad.playAnim('idle', true);
-		if (dad.hasAnimation('idle-bloody')) dad.playAnim('idle-bloody', true);
-		dad.playAnim('idle', true);
-	}
 	return '##PSYCHLUA_FUNCTIONSTOP';
 }
 

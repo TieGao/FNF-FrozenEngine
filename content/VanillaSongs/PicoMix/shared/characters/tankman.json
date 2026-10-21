@@ -1,99 +1,99 @@
 {
 	"animations": [
 		{
+			"offsets": [0, 0],
 			"loop": true,
-			"offsets": [0, 0],
+			"fps": 24,
 			"anim": "idle",
-			"fps": 24,
 			"flip_x": true,
-			"name": "Tankman Idle Dance",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
+			"name": "Tankman Idle Dance"
 		},
 		{
-			"loop": false,
 			"offsets": [0, 0],
+			"loop": false,
+			"fps": 24,
 			"anim": "singLEFT",
-			"fps": 24,
 			"flip_x": true,
-			"name": "Tankman Right Note",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+			"name": "Tankman Right Note"
 		},
 		{
-			"loop": false,
 			"offsets": [19, -105],
+			"loop": false,
+			"fps": 24,
 			"anim": "singDOWN",
-			"fps": 24,
 			"flip_x": true,
-			"name": "Tankman DOWN note",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+			"name": "Tankman DOWN note"
 		},
 		{
-			"loop": false,
 			"offsets": [41, 44],
+			"loop": false,
+			"fps": 24,
 			"anim": "singUP",
-			"fps": 24,
 			"flip_x": true,
-			"name": "Tankman UP note",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+			"name": "Tankman UP note"
 		},
 		{
-			"loop": false,
 			"offsets": [28, -31],
+			"loop": false,
+			"fps": 24,
 			"anim": "singRIGHT",
-			"fps": 24,
 			"flip_x": true,
-			"name": "Tankman Note Left",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7]
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7],
+			"name": "Tankman Note Left"
 		},
 		{
-			"loop": false,
 			"offsets": [11, -226],
+			"loop": false,
+			"assetPath": "characters/tankman_extra-animations",
+			"fps": 24,
 			"anim": "hehPrettyGood",
-			"fps": 24,
-			"assetPath": "characters/tankman_extra-animations",
 			"flip_x": false,
-			"name": "ex_PRETTY GOOD tankman",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66]
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66],
+			"name": "ex_PRETTY GOOD tankman"
 		},
 		{
-			"loop": false,
 			"offsets": [11, -226],
+			"loop": false,
+			"assetPath": "characters/tankman_extra-animations",
+			"fps": 24,
 			"anim": "ugh",
-			"fps": 24,
-			"assetPath": "characters/tankman_extra-animations",
 			"flip_x": false,
-			"name": "ex_TANKMAN UGH",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+			"name": "ex_TANKMAN UGH"
 		},
 		{
-			"loop": false,
 			"offsets": [-100, -228],
+			"loop": false,
+			"assetPath": "characters/tankman_extra-animations",
+			"fps": 24,
 			"anim": "laugh",
-			"fps": 24,
-			"assetPath": "characters/tankman_extra-animations",
 			"flip_x": false,
-			"name": "ex_tankman laugh",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+			"name": "ex_tankman laugh"
 		},
 		{
-			"loop": false,
 			"offsets": [-100, -228],
+			"loop": false,
+			"assetPath": "characters/tankman_extra-animations",
+			"fps": 24,
 			"anim": "beat it",
-			"fps": 24,
-			"assetPath": "characters/tankman_extra-animations",
 			"flip_x": false,
-			"name": "ex_tankman beat it",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+			"name": "ex_tankman beat it"
 		},
 		{
-			"loop": false,
 			"offsets": [-100, -228],
-			"anim": "augh",
-			"fps": 24,
+			"loop": false,
 			"assetPath": "characters/tankman_extra-animations",
+			"fps": 24,
+			"anim": "augh",
 			"flip_x": false,
-			"name": "ex_tankman ARGH",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+			"indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+			"name": "ex_tankman ARGH"
 		}
 	],
 	"vocals_file": "",

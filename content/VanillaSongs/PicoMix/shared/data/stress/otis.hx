@@ -20,7 +20,6 @@ var SHOOT_HOLD = 520;
 
 var shootTimes:Array<Float> = [];
 var shootDirs:Array<Int> = [];
-var nextShot:Int = 0;
 var armed:Bool = false;
 var shootUntil:Float = 0;
 
@@ -39,6 +38,39 @@ function onCreatePost(?e)
 	loadChart();
 	buildMuzzle(p);
 	buildAbot(p);
+	prewarm(gf);
+}
+
+// ---------------------------------------------------------------------------
+// 预热：FlxAnimate 的每一帧都要现场构建符号实例树，首次播放会掉帧。
+// 这里把 idle + shoot1-4 的每一帧都先渲染一遍（5 个动画正好覆盖 otis all 的 65 帧），
+// 正式开枪时实例已缓存。atlas.update(0) 里 FlxAnim.update 第一行就无条件走 updateRender，
+// 所以 elapsed 传 0 也能把该帧实例化。
+// ---------------------------------------------------------------------------
+function prewarm(gf)
+{
+	if (gf == null) return;
+	var names = ['idle', 'shoot1', 'shoot2', 'shoot3', 'shoot4'];
+	for (n in names) prewarmAnim(gf, n);
+	try { gf.playAnim('idle', true); } catch (e:Dynamic) {}
+}
+
+function prewarmAnim(ch, name)
+{
+	if (ch == null || !ch.hasAnimation(name)) return;
+	try
+	{
+		ch.playAnim(name, true);
+		var atlas = ch.atlas;
+		if (atlas == null || atlas.anim == null) return;
+		var len:Int = atlas.anim.length;
+		for (i in 0...len)
+		{
+			atlas.anim.curFrame = i;
+			atlas.update(0);
+		}
+	}
+	catch (e:Dynamic) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -48,7 +80,6 @@ function loadChart()
 {
 	shootTimes = [];
 	shootDirs = [];
-	nextShot = 0;
 
 	var path = Paths.json('stress/picospeaker');
 	if (path == null || !FileSystem.exists(path))
@@ -135,7 +166,11 @@ function buildAbot(p)
 
 function onSongStart()
 {
-	if (abot != null) abot.snd = FlxG.sound.music;
+	if (abot != null)
+	{
+		try { abot.snd = FlxG.sound.music; }
+		catch (e:Dynamic) {}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -156,10 +191,17 @@ function onUpdate(elapsed)
 	if (muzzle != null && muzzle.visible && muzzle.animation.curAnim != null && muzzle.animation.finished)
 		muzzle.visible = false;
 
-	while (nextShot < shootTimes.length && shootTimes[nextShot] <= Conductor.songPosition)
+	// 队列用 shift 消耗（脚本顶层变量的 ++ 在 Iris hscript 里不生效，不能拿它当游标，
+	// 否则 while 条件恒成立 → 单帧内无限开枪 → 主线程卡死）。
+	// for 的计数由解释器自己维护，天然有上限，避免再出同类事故。
+	for (i in 0...8)
 	{
-		fire(shootDirs[nextShot]);
-		nextShot++;
+		if (shootTimes.length == 0 || shootTimes[0] > Conductor.songPosition) break;
+
+		var dir:Int = shootDirs.shift();
+		shootTimes.shift();
+		if (dir == null) dir = 0;
+		try { fire(dir); } catch (e:Dynamic) {}
 	}
 }
 
@@ -180,6 +222,7 @@ function fire(dir:Int)
 	if (muzzle != null)
 	{
 		var off = MUZZLE_OFFSETS[dir];
+		if (off == null) off = [0, 0];
 		muzzle.setPosition(gf.x + off[0], gf.y + off[1]);
 		muzzle.visible = true;
 		muzzle.animation.play(anim, true);

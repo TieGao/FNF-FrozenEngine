@@ -229,6 +229,8 @@ import states.TitleState;
 	public var saveReplays:Bool = true;
 	public var replayQuality:Bool = true;
 	public var luadebugPrint:Bool = true;
+	// 把 trace（命令行）输出同步画到屏幕上，默认关闭
+	public var screenLog:Bool = false;
 	// lua 静态解析模式：native（不解析）/ check（只校验语法）/ preload（抽资源预载）
 	public var luaScriptParser:String = 'native';
 

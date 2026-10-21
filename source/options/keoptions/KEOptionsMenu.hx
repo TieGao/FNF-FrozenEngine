@@ -1388,6 +1388,7 @@ function onScrollChange()
 			KEOption.create("Loading Screen", "Show loading screen", "loadingScreen", "bool"),
 			KEOption.create('Lua Text Antialiasing', "Enable antialiasing on lua texts", "luatextantialiasing", "bool"),
 			KEOption.create("Enable LUA Debug Printer", "Uncheck it if u dont want to see them ", "luadebugPrint", "bool"),
+			KEOption.create("Console Log On Screen", "Show trace (console) output on screen, applies to every screen", "screenLog", "bool"),
 			KEOption.create("Discord RPC", "Enable Discord Rich Presence", "discordRPC", "bool"),
 			KEOption.create("Replay", "[Score Menu and Replay Required]", "saveReplays", "bool"),
 			KEOption.create("High Quality Replays", "Enable high-quality replays", "replayQuality", "bool"),
