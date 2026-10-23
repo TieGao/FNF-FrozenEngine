@@ -231,6 +231,14 @@ import states.TitleState;
 	public var luadebugPrint:Bool = true;
 	// 把 trace（命令行）输出同步画到屏幕上，默认关闭
 	public var screenLog:Bool = false;
+	// 把 trace 同时写进 crash/latest.log
+	public var sessionLog:Bool = true;
+	// 崩溃时用全屏蓝屏界面呈现（关 = 保持原生弹窗）
+	public var blueScreen:Bool = false;
+	// 蓝屏停留秒数，到点自动回标题界面（0 = 只等按键）
+	public var blueScreenTime:Int = 15;
+	// 屏幕日志单行存活秒数，到点淡出消失
+	public var screenLogLifetime:Int = 2;
 	// lua 静态解析模式：native（不解析）/ check（只校验语法）/ preload（抽资源预载）
 	public var luaScriptParser:String = 'native';
 

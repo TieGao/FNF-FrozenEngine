@@ -298,6 +298,9 @@ class KEOption
 				case "About":
 					KEOptionsMenu.instance.openSubState(new substates.AboutSubState());
 					return false;
+				case "Crash Test":
+					backend.BlueScreenCrashHandler.simulateNullCrash();
+					return false;
 			}
 			return true;
 		}

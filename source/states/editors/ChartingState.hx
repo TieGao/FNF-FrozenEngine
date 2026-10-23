@@ -3141,7 +3141,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		};
 
 		objY += 40;
-		var copyButton:PsychUIButton = new PsychUIButton(objX, objY, 'Copy Section', copyNotesOnSection.bind());
+		var copyButton:PsychUIButton = new PsychUIButton(objX, objY, 'Copy Section', () -> copyNotesOnSection());
 		var pasteButton:PsychUIButton = new PsychUIButton(objX + 100, objY, 'Paste Section', function()
 		{
 			pasteCopiedNotesToSection(affectNotes.checked, affectEvents.checked);
@@ -4885,32 +4885,32 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					state.add(btn);
 
 					var btnY = 320;
-					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'Light', changeTheme.bind(LIGHT));
+					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'Light', () -> changeTheme(LIGHT));
 					btn.screenCenter(X);
 					btn.x -= 180;
 					btn.cameras = state.cameras;
 					state.add(btn);
 			
-					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'Dark', changeTheme.bind(DARK));
+					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'Dark', () -> changeTheme(DARK));
 					btn.screenCenter(X);
 					btn.x -= 60;
 					btn.cameras = state.cameras;
 					state.add(btn);
 					
-					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'Default', changeTheme.bind(DEFAULT));
+					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'Default', () -> changeTheme(DEFAULT));
 					btn.screenCenter(X);
 					btn.cameras = state.cameras;
 					btn.x += 60;
 					state.add(btn);
 			
-					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'V-Slice', changeTheme.bind(VSLICE));
+					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'V-Slice', () -> changeTheme(VSLICE));
 					btn.screenCenter(X);
 					btn.x += 180;
 					btn.cameras = state.cameras;
 					state.add(btn);
 
 					btnY += 60;
-					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'Custom', changeTheme.bind(CUSTOM));
+					var btn:PsychUIButton = new PsychUIButton(0, btnY, 'Custom', () -> changeTheme(CUSTOM));
 					btn.screenCenter(X);
 					btn.x -= 180;
 					btn.cameras = state.cameras;

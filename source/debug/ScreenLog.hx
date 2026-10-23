@@ -11,13 +11,17 @@ private typedef LogLine = {
 	text:String,
 	/** 连续重复次数（同一行被连着重打时只在末尾追加 xN） */
 	count:Int,
-	color:Int
+	color:Int,
+	/** 最后一次出现的时间戳（haxe.Timer.stamp），用来算存活时间 */
+	time:Float
 }
 
 /**
  * 全局屏幕日志：把 `trace()`（也就是命令行输出）同步画到屏幕上，方便不开控制台调试。
  *
  * - 静态侧 `install()` 接管 `haxe.Log.trace`：先原样交给命令行，再压进环形缓冲。
+ * - 同一批行同时落盘到 `crash/latest.log`（见 `debug.LogFile`，开关在 Advanced → Debug）。
+ *   文件由 `LogFile.start()` 在 `ClientPrefs.loadPrefs()` 之后打开，这里只负责往里送行。
  * - 实例侧是一个 openfl `Sprite`，挂到 `FlxG.game`（不属于任何 FlxState），
  *   所以切界面、换 state 都不会消失，并且盖在所有 flixel 内容之上。
  * - 显示开关 = `ClientPrefs.data.screenLog`（Advanced → Show Console Log）。
@@ -46,12 +50,17 @@ class ScreenLog extends Sprite
 	static inline var BG_ALPHA:Float = 0.45;
 	/** 重排间隔：trace 可能每帧都来，别跟着每帧重画文本 */
 	static inline var REBUILD_INTERVAL:Float = 1 / 20;
+	/** 设置读不到时的兜底存活时长（秒） */
+	static inline var DEFAULT_LIFETIME:Float = 2;
 
 	static var buffer:Array<LogLine> = [];
 	static var dirty:Bool = true;
 	static var installed:Bool = false;
 	static var origTrace:Dynamic = null;
 	static var instance:ScreenLog = null;
+
+	/** 崩溃界面接管屏幕时置 true，别让日志叠在蓝屏上面 */
+	public static var suppressed:Bool = false;
 
 	/**
 	 * 接管 `haxe.Log.trace`。越早调用越好（`Main.setupGame()` 开头），
@@ -114,6 +123,8 @@ class ScreenLog extends Sprite
 		{
 			var text:String = line.rtrim();
 			if (text.length == 0) continue;
+			// 屏幕缓冲有字符上限，文件侧留全量
+			LogFile.append(text);
 			if (text.length > MAX_CHARS) text = text.substr(0, MAX_CHARS) + '...';
 			appendLine(text);
 		}
@@ -122,14 +133,15 @@ class ScreenLog extends Sprite
 	static function appendLine(text:String):Void
 	{
 		var last:LogLine = (buffer.length > 0) ? buffer[buffer.length - 1] : null;
-		// 同一行连着刷（每帧打同一句之类）只涨计数，不占新行
+		// 同一行连着刷（每帧打同一句之类）只涨计数、刷新存活时间，不占新行
 		if (last != null && last.text == text)
 		{
 			last.count++;
+			last.time = haxe.Timer.stamp();
 			return;
 		}
 
-		buffer.push({text: text, count: 1, color: colorFor(text)});
+		buffer.push({text: text, count: 1, color: colorFor(text), time: haxe.Timer.stamp()});
 		while (buffer.length > MAX_BUFFER) buffer.shift();
 	}
 
@@ -139,6 +151,57 @@ class ScreenLog extends Sprite
 		if (up.indexOf('ERROR') > -1 || up.indexOf('FATAL') > -1 || up.indexOf('EXCEPTION') > -1) return 0xFFFF6060;
 		if (up.indexOf('WARN') > -1) return 0xFFFFD24A;
 		return 0xFFFFFFFF;
+	}
+
+	/** 单行存活时长（秒）。每帧都读设置 —— KE 菜单没有 onChange，改完要立刻生效。 */
+	static function lifetime():Float
+	{
+		var data = ClientPrefs.data;
+		if (data == null) return DEFAULT_LIFETIME;
+
+		var seconds:Int = data.screenLogLifetime;
+		return seconds < 1 ? 1 : seconds;
+	}
+
+	/** 淡出时长：占存活时长的 35%，最多 1 秒 */
+	static function fadeTime():Float
+	{
+		var fade:Float = lifetime() * 0.35;
+		return fade > 1 ? 1 : fade;
+	}
+
+	/** 丢掉超过存活时间的行；有行处在淡出区间时置 dirty，让 rebuild 逐帧更新透明度。 */
+	static function expireLines():Void
+	{
+		var life:Float = lifetime();
+		var fade:Float = fadeTime();
+		var now:Float = haxe.Timer.stamp();
+		var i:Int = buffer.length - 1;
+		while (i >= 0)
+		{
+			var age:Float = now - buffer[i].time;
+			if (age >= life)
+			{
+				buffer.splice(i, 1);
+				dirty = true;
+			}
+			else if (age >= life - fade)
+			{
+				dirty = true;
+			}
+			i--;
+		}
+	}
+
+	static function lineAlpha(line:LogLine, now:Float):Float
+	{
+		var life:Float = lifetime();
+		var fade:Float = fadeTime();
+		var age:Float = now - line.time;
+		if (age <= life - fade) return 1;
+
+		var alpha:Float = (life - age) / fade;
+		return alpha < 0 ? 0 : (alpha > 1 ? 1 : alpha);
 	}
 
 	// =========================================================
@@ -169,12 +232,15 @@ class ScreenLog extends Sprite
 
 	function onFrame(e:Event):Void
 	{
-		if (ClientPrefs.data == null || !ClientPrefs.data.screenLog)
+		if (suppressed || ClientPrefs.data == null || !ClientPrefs.data.screenLog)
 		{
 			visible = false;
 			return;
 		}
 		visible = true;
+
+		// 到期的行直接丢掉，剩下的自动顶上；淡出中的行要逐帧重排
+		expireLines();
 
 		// 窗口尺寸 / 分辨率变了就跟着缩放；子对象坐标统一用 game 坐标，缩放交给这里
 		var mult:Float = (FlxG.stage != null) ? FlxG.stage.stageHeight / FlxG.height : 1;
@@ -219,6 +285,7 @@ class ScreenLog extends Sprite
 	{
 		var fieldWidth:Float = FlxG.width - BASE_X * 2 - PAD * 2;
 		var budget:Float = FlxG.height * MAX_HEIGHT_RATIO;
+		var now:Float = haxe.Timer.stamp();
 
 		// 从最新一行往回收集，受「行数」和「高度」双重限制
 		var count:Int = 0;
@@ -231,6 +298,7 @@ class ScreenLog extends Sprite
 			field.width = fieldWidth;
 			field.text = (line.count > 1) ? '${line.text} (x${line.count})' : line.text;
 			field.textColor = line.color;
+			field.alpha = lineAlpha(line, now);
 
 			var h:Float = field.height;
 			if (count > 0 && totalH + h > budget) break; // 至少留一行

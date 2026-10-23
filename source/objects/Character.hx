@@ -141,7 +141,7 @@ class Character extends FlxSprite
 
 		skipDance = false;
 		hasMissAnimations = hasAnimation('singLEFTmiss') || hasAnimation('singDOWNmiss') || hasAnimation('singUPmiss') || hasAnimation('singRIGHTmiss');
-		trace('hasMiss=$hasMissAnimations  keys=' + [for (k in animOffsets.keys()) k]);
+		//trace('hasMiss=$hasMissAnimations  keys=' + [for (k in animOffsets.keys()) k]);
 		recalculateDanceIdle();
 		dance();
 	}
