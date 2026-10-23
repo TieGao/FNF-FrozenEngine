@@ -46,14 +46,16 @@ class EditorMusicState extends MusicBeatState
         try
         {
             if (pauseSong != null)
-                pauseMusic.load(Paths.music(pauseSong), true);
+                pauseMusic.load(Paths.music(pauseSong));
             else
-                pauseMusic.load(Paths.music('breakfast'), true);
+                pauseMusic.load(Paths.music('breakfast'));
         }
         catch(e:Dynamic)
         {
-            pauseMusic.load(Paths.music('breakfast'), true);
+            pauseMusic.load(Paths.music('breakfast'));
         }
+
+        pauseMusic.looped = true;
 
         pauseMusic.volume = 0;
         pauseMusic.play();
