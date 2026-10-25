@@ -58,10 +58,16 @@ jobs:
           cd C:/haxelib/lime/git
           git submodule update --init --recursive --depth 1
           git apply $env:GITHUB_WORKSPACE\setup\lime-arm64-windows.patch
+          # 强制 run.n 从补丁后的源码重建工具：防止任何陈旧 tools.n 让 stock
+          # 逻辑接管（症状会是 ndll 被编成 x64 落到 ndll/Windows64）。
+          Remove-Item tools/tools.n -ErrorAction SilentlyContinue
 
       - name: Rebuild lime.ndll for ARM64
         shell: pwsh
-        run: haxelib run lime rebuild windows arm64
+        run: |
+          haxelib run lime rebuild windows -arm64 -release
+          # rebuild 只落 lime.ndll，不拷导入库；游戏 exe 链接 ndll 时要在同目录找到 lime.lib
+          Copy-Item C:/haxelib/lime/git/project/obj/lib/lime.lib C:/haxelib/lime/git/ndll/WindowsArm64/
 
       - name: Skip SScript setup mode
         shell: cmd

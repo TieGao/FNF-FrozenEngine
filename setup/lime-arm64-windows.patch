@@ -1,3 +1,209 @@
+diff --git a/project/lib/custom/openal/include/config-windows-arm64.h b/project/lib/custom/openal/include/config-windows-arm64.h
+new file mode 100644
+index 00000000..ea3ea237
+--- /dev/null
++++ b/project/lib/custom/openal/include/config-windows-arm64.h
+@@ -0,0 +1,138 @@
++/* API declaration export attribute */
++#define AL_API  __declspec(dllexport)
++#define ALC_API __declspec(dllexport)
++
++/* Define a restrict macro for non-aliased pointers */
++#define RESTRICT __restrict
++
++/* Define if HRTF data is embedded in the library */
++#define ALSOFT_EMBED_HRTF_DATA
++
++/* Define if we have the posix_memalign function */
++/* #undef HAVE_POSIX_MEMALIGN */
++
++/* Define if we have the _aligned_malloc function */
++#define HAVE__ALIGNED_MALLOC
++
++/* Define if we have the proc_pidpath function */
++/* #undef HAVE_PROC_PIDPATH */
++
++/* Define if we have the getopt function */
++/* #undef HAVE_GETOPT */
++
++/* Define if we have SSE CPU extensions */
++/* #undef HAVE_SSE */
++/* #undef HAVE_SSE2 */
++/* #undef HAVE_SSE3 */
++/* #undef HAVE_SSE4_1 */
++
++/* Define if we have ARM Neon CPU extensions */
++/* #undef HAVE_NEON */
++
++/* Define if we have the ALSA backend */
++/* #undef HAVE_ALSA */
++
++/* Define if we have the OSS backend */
++/* #undef HAVE_OSS */
++
++/* Define if we have the Solaris backend */
++/* #undef HAVE_SOLARIS */
++
++/* Define if we have the SndIO backend */
++/* #undef HAVE_SNDIO */
++
++/* Define if we have the QSA backend */
++/* #undef HAVE_QSA */
++
++/* Define if we have the WASAPI backend */
++#define HAVE_WASAPI
++
++/* Define if we have the DSound backend */
++/* #undef HAVE_DSOUND */
++
++/* Define if we have the Windows Multimedia backend */
++#define HAVE_WINMM
++
++/* Define if we have the PortAudio backend */
++/* #undef HAVE_PORTAUDIO */
++
++/* Define if we have the PulseAudio backend */
++/* #undef HAVE_PULSEAUDIO */
++
++/* Define if we have the JACK backend */
++/* #undef HAVE_JACK */
++
++/* Define if we have the CoreAudio backend */
++/* #undef HAVE_COREAUDIO */
++
++/* Define if we have the OpenSL backend */
++/* #undef HAVE_OPENSL */
++
++/* Define if we have the Wave Writer backend */
++#define HAVE_WAVE
++
++/* Define if we have the SDL2 backend */
++/* #undef HAVE_SDL2 */
++
++/* Define if we have the stat function */
++#define HAVE_STAT
++
++/* Define to the size of a long int type */
++#define SIZEOF_LONG 4
++
++/* Define if we have GCC's format attribute */
++/* #undef HAVE_GCC_FORMAT */
++
++/* Define if we have dlfcn.h */
++/* #undef HAVE_DLFCN_H */
++
++/* Define if we have pthread_np.h */
++/* #undef HAVE_PTHREAD_NP_H */
++
++/* Define if we have malloc.h */
++#define HAVE_MALLOC_H
++
++/* Define if we have dirent.h */
++/* #undef HAVE_DIRENT_H */
++
++/* Define if we have cpuid.h */
++/* #undef HAVE_CPUID_H */
++
++/* Define if we have intrin.h */
++#define HAVE_INTRIN_H
++
++/* Define if we have sys/sysconf.h */
++/* #undef HAVE_SYS_SYSCONF_H */
++
++/* Define if we have guiddef.h */
++#define HAVE_GUIDDEF_H
++
++/* Define if we have initguid.h */
++/* #undef HAVE_INITGUID_H */
++
++/* Define if we have GCC's __get_cpuid() */
++/* #undef HAVE_GCC_GET_CPUID */
++
++/* Define if we have the __cpuid() intrinsic */
++#define HAVE_CPUID_INTRINSIC
++
++/* Define if we have the _BitScanForward64() intrinsic */
++/* #undef HAVE_BITSCANFORWARD64_INTRINSIC */
++
++/* Define if we have the _BitScanForward() intrinsic */
++#define HAVE_BITSCANFORWARD_INTRINSIC
++
++/* Define if we have pthread_setschedparam() */
++/* #undef HAVE_PTHREAD_SETSCHEDPARAM */
++
++/* Define if we have pthread_setname_np() */
++/* #undef HAVE_PTHREAD_SETNAME_NP */
++
++/* Define if pthread_setname_np() only accepts one parameter */
++/* #undef PTHREAD_SETNAME_NP_ONE_PARAM */
++
++/* Define if pthread_setname_np() accepts three parameters */
++/* #undef PTHREAD_SETNAME_NP_THREE_PARAMS */
++
++/* Define if we have pthread_set_name_np() */
++/* #undef HAVE_PTHREAD_SET_NAME_NP */
+diff --git a/project/lib/custom/openal/include/config.h b/project/lib/custom/openal/include/config.h
+index 89959b23..b993cf10 100644
+--- a/project/lib/custom/openal/include/config.h
++++ b/project/lib/custom/openal/include/config.h
+@@ -8,7 +8,9 @@
+ 
+ #elif defined(HX_WINDOWS)
+ 
+-#ifdef HXCPP_M64
++#if defined(HXCPP_ARM64)
++#include "config-windows-arm64.h"
++#elif defined(HXCPP_M64)
+ #include "config-windows-x86_64.h"
+ #else
+ #include "config-windows-x86.h"
+diff --git a/project/lib/custom/pixman/pixman-config.h b/project/lib/custom/pixman/pixman-config.h
+index 02ffd501..4dbacfe9 100644
+--- a/project/lib/custom/pixman/pixman-config.h
++++ b/project/lib/custom/pixman/pixman-config.h
+@@ -264,14 +264,14 @@
+ /* #undef USE_OPENMP */
+ 
+ /* use SSE2 compiler intrinsics */
+-#if defined(HX_WINDOWS) || (defined(HX_MACOS) && !defined(HXCPP_ARM64)) || (defined(HX_LINUX) && !defined(RASPBERRYPI) && !defined(HXCPP_ARM64))
++#if (defined(HX_WINDOWS) && !defined(HXCPP_ARM64)) || (defined(HX_MACOS) && !defined(HXCPP_ARM64)) || (defined(HX_LINUX) && !defined(RASPBERRYPI) && !defined(HXCPP_ARM64))
+ #define USE_SSE2 1
+ #else
+ /* #undef USE_SSE2 */
+ #endif
+ 
+ /* use SSSE3 compiler intrinsics */
+-#if defined(HX_WINDOWS) || (defined(HX_MACOS) && !defined(HXCPP_ARM64)) || (defined(HX_LINUX) && !defined(RASPBERRYPI) && !defined(HXCPP_ARM64))
++#if (defined(HX_WINDOWS) && !defined(HXCPP_ARM64)) || (defined(HX_MACOS) && !defined(HXCPP_ARM64)) || (defined(HX_LINUX) && !defined(RASPBERRYPI) && !defined(HXCPP_ARM64))
+ #define USE_SSE3 1
+ #else
+ /* #undef USE_SSE3 */
+diff --git a/project/lib/openal-files.xml b/project/lib/openal-files.xml
+index c81a0eb3..18cd2077 100644
+--- a/project/lib/openal-files.xml
++++ b/project/lib/openal-files.xml
+@@ -63,7 +63,7 @@
+         <file name="${NATIVE_TOOLKIT_PATH}/openal/alc/hrtf.cpp" />
+         <file name="${NATIVE_TOOLKIT_PATH}/openal/alc/mastering.cpp" />
+         <file name="${NATIVE_TOOLKIT_PATH}/openal/alc/mixer/mixer_c.cpp" />
+-        <file name="${NATIVE_TOOLKIT_PATH}/openal/alc/mixer/mixer_neon.cpp" if="rpi || HXCPP_ARM64" />
++        <file name="${NATIVE_TOOLKIT_PATH}/openal/alc/mixer/mixer_neon.cpp" if="rpi || HXCPP_ARM64" unless="windows" />
+         <file name="${NATIVE_TOOLKIT_PATH}/openal/alc/mixer/mixer_sse.cpp" unless="rpi || android || HXCPP_ARM64" />
+         <file name="${NATIVE_TOOLKIT_PATH}/openal/alc/mixer/mixer_sse2.cpp" unless="rpi || android || HXCPP_ARM64" />
+         <file name="${NATIVE_TOOLKIT_PATH}/openal/alc/mixer/mixer_sse3.cpp" unless="rpi || android || HXCPP_ARM64" />
+diff --git a/project/lib/pixman-files.xml b/project/lib/pixman-files.xml
+index cd266b1f..ba76c710 100644
+--- a/project/lib/pixman-files.xml
++++ b/project/lib/pixman-files.xml
+@@ -2,7 +2,7 @@
+ 
+ 	<!-- <set name="PIXMAN_ARM_SIMD" value="1" if="android || rpi" unless="HXCPP_ARMV7 || HXCPP_ARMV7S || HXCPP_ARM64 || HXCPP_X86" /> -->
+ 	<set name="PIXMAN_ARM_NEON" value="1" if="HXCPP_ARMV7 || HXCPP_ARMV7S || rpi" unless="ios || HXCPP_ARM64" />
+-	<set name="PIXMAN_ARM_A64_NEON" value="1" if="HXCPP_ARM64"/>
++	<set name="PIXMAN_ARM_A64_NEON" value="1" if="HXCPP_ARM64" unless="windows" />
+ 
+ 	<files id="native-toolkit-pixman">
+ 
 diff --git a/tools/platforms/WindowsPlatform.hx b/tools/platforms/WindowsPlatform.hx
 index d64658c9..0bc898c4 100644
 --- a/tools/platforms/WindowsPlatform.hx
