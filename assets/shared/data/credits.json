@@ -1,0 +1,249 @@
+{
+  "version": 1,
+  "sections": [
+    {
+      "id": "frozen",
+      "name": "Frozen Engine Contributors",
+      "kind": "engine",
+      "color": "87CEEB",
+      "subsections": [
+        {
+          "name": "Creator",
+          "people": [
+            {
+              "name": "Ice_Axe",
+              "icon": "iceaxe",
+              "role": "Developer",
+              "desc": "Creator of Frozen Engine",
+              "link": "https://github.com/TieGao",
+              "color": "87CEEB"
+            }
+          ]
+        },
+        {
+          "name": "Special Thanks",
+          "people": [
+            {
+              "name": "beihu",
+              "icon": "beihu",
+              "role": "Special Thanks",
+              "desc": "Original of KeyboardViewer | Replay | Win10StyleOptions",
+              "link": "https://space.bilibili.com/511083372",
+              "color": "FF69B4",
+              "video": "Beihu"
+            },
+            {
+              "name": "Ledonic",
+              "icon": "ledonic",
+              "role": "[Erect Mode] Original Erect Songs Porter",
+              "desc": "Ported the remixes",
+              "link": "https://x.com/ledonic852",
+              "color": "3897FF"
+            },
+            {
+              "name": "Cyachao",
+              "icon": "",
+              "role": "[Erect Mode] Shader",
+              "desc": "Provided the updated rain shader\nObtained at the Psych Ward (Official Psych Discord Server)",
+              "link": "https://gamebanana.com/members/2142156",
+              "color": "A1A1A1"
+            },
+            {
+              "name": "MrCatz",
+              "icon": "mrcatz",
+              "role": "[Erect Mode] Animator",
+              "desc": "Made the 'Hey!' animation for the bottom characters\n in the Week 5 Erect stage",
+              "link": "https://mrcatstudios.straw.page",
+              "color": "342C3C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "psych",
+      "name": "Psych Engine Contributors",
+      "kind": "psych",
+      "color": "444444",
+      "subsections": [
+        {
+          "name": "Psych Engine Team",
+          "people": [
+            {
+              "name": "Shadow Mario",
+              "icon": "shadowmario",
+              "role": "Lead Programmer",
+              "desc": "Main Programmer and Head of Psych Engine",
+              "link": "https://ko-fi.com/shadowmario",
+              "color": "444444"
+            },
+            {
+              "name": "Riveren",
+              "icon": "riveren",
+              "role": "Lead Artist",
+              "desc": "Main Artist/Animator of Psych Engine",
+              "link": "https://x.com/riverennn",
+              "color": "14967B"
+            }
+          ]
+        },
+        {
+          "name": "Former Engine Members",
+          "people": [
+            {
+              "name": "bb-panzu",
+              "icon": "bb",
+              "role": "Ex-Programmer",
+              "desc": "Ex-Programmer of Psych Engine",
+              "link": "https://x.com/bbsub3",
+              "color": "3E813A"
+            }
+          ]
+        },
+        {
+          "name": "Engine Contributors",
+          "people": [
+            {
+              "name": "crowplexus",
+              "icon": "crowplexus",
+              "role": "Programmer",
+              "desc": "Linux Support, HScript Iris, Input System v3, and Other PRs",
+              "link": "https://twitter.com/IamMorwen",
+              "color": "CFCFCF"
+            },
+            {
+              "name": "Kamizeta",
+              "icon": "kamizeta",
+              "role": "Artist",
+              "desc": "Creator of Pessy, Psych Engine's mascot.",
+              "link": "https://www.instagram.com/cewweey/",
+              "color": "D21C11"
+            },
+            {
+              "name": "MaxNeton",
+              "icon": "maxneton",
+              "role": "Artist",
+              "desc": "Loading Screen Easter Egg Artist/Animator.",
+              "link": "https://bsky.app/profile/maxneton.bsky.social",
+              "color": "3C2E4E"
+            },
+            {
+              "name": "Keoiki",
+              "icon": "keoiki",
+              "role": "Animator",
+              "desc": "Note Splash Animations and Latin Alphabet",
+              "link": "https://x.com/Keoiki_",
+              "color": "D2D2D2"
+            },
+            {
+              "name": "SqirraRNG",
+              "icon": "sqirra",
+              "role": "Programmer",
+              "desc": "Crash Handler and Base code for\nChart Editor's Waveform",
+              "link": "https://x.com/gedehari",
+              "color": "E1843A"
+            },
+            {
+              "name": "EliteMasterEric",
+              "icon": "mastereric",
+              "role": "Programmer",
+              "desc": "Runtime Shaders support and Other PRs",
+              "link": "https://x.com/EliteMasterEric",
+              "color": "FFBD40"
+            },
+            {
+              "name": "MAJigsaw77",
+              "icon": "majigsaw",
+              "role": "Programmer",
+              "desc": ".MP4 Video Loader Library (hxvlc)",
+              "link": "https://x.com/MAJigsaw77",
+              "color": "5F5F5F"
+            },
+            {
+              "name": "iFlicky",
+              "icon": "flicky",
+              "role": "Composer",
+              "desc": "Composer of Psync and Tea Time\nAnd some sound effects",
+              "link": "https://x.com/flicky_i",
+              "color": "9E29CF"
+            },
+            {
+              "name": "KadeDev",
+              "icon": "kade",
+              "role": "Programmer",
+              "desc": "Fixed some issues on Chart Editor and Other PRs",
+              "link": "https://x.com/kade0912",
+              "color": "64A250"
+            },
+            {
+              "name": "superpowers04",
+              "icon": "superpowers04",
+              "role": "Programmer",
+              "desc": "LUA JIT Fork",
+              "link": "https://x.com/superpowers04",
+              "color": "B957ED"
+            },
+            {
+              "name": "CheemsAndFriends",
+              "icon": "cheems",
+              "role": "Programmer",
+              "desc": "Creator of FlxAnimate",
+              "link": "https://x.com/CheemsnFriendos",
+              "color": "E1E1E1"
+            }
+          ]
+        },
+        {
+          "name": "Funkin' Crew",
+          "people": [
+            {
+              "name": "ninjamuffin99",
+              "icon": "ninjamuffin99",
+              "role": "Programmer",
+              "desc": "Programmer of Friday Night Funkin'",
+              "link": "https://x.com/ninja_muffin99",
+              "color": "CF2D2D"
+            },
+            {
+              "name": "PhantomArcade",
+              "icon": "phantomarcade",
+              "role": "Animator",
+              "desc": "Animator of Friday Night Funkin'",
+              "link": "https://x.com/PhantomArcade3K",
+              "color": "FADC45"
+            },
+            {
+              "name": "evilsk8r",
+              "icon": "evilsk8r",
+              "role": "Artist",
+              "desc": "Artist of Friday Night Funkin'",
+              "link": "https://x.com/evilsk8r",
+              "color": "5ABD4B"
+            },
+            {
+              "name": "kawaisprite",
+              "icon": "kawaisprite",
+              "role": "Composer",
+              "desc": "Composer of Friday Night Funkin'",
+              "link": "https://x.com/kawaisprite",
+              "color": "378FC7"
+            }
+          ]
+        },
+        {
+          "name": "Psych Engine Discord",
+          "people": [
+            {
+              "name": "Join the Psych Ward!",
+              "icon": "discord",
+              "role": "Community",
+              "desc": "",
+              "link": "https://discord.gg/2ka77eMXDv",
+              "color": "5165F6"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

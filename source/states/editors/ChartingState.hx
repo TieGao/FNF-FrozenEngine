@@ -22,6 +22,8 @@ import states.editors.content.MetaNote;
 import states.editors.content.VSlice;
 import states.editors.content.Prompt;
 import states.editors.content.*;
+import states.editors.content.ChartMinimap.ChartMinimapPanel;
+import states.editors.content.ChartMinimap.ChartMinimapSection;
 
 import substates.ChartSourceSelectSubstate;
 
@@ -138,6 +140,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	var curSec:Int = 0;
 
 	var chartEditorSave:FlxSave;
+	var chartMinimap:ChartMinimap;
 	var mainBox:PsychUIBox;
 	var mainBoxPosition:FlxPoint = FlxPoint.get(920, 40);
 	var infoBox:PsychUIBox;
@@ -380,6 +383,16 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		addEditTab();
 		addViewTab();
 		//
+
+		// 谱面缩略图（密度条）：点击/拖拽跳转时间，齿轮开 Win8 设置面板。
+		// 设置跟着编辑器自己的 chart_editor_data 走
+		chartMinimap = new ChartMinimap(chartEditorSave);
+		chartMinimap.buildSections = buildMinimapSections;
+		chartMinimap.getPlayheadPos = function() return FlxG.sound.music != null ? FlxG.sound.music.time : 0;
+		chartMinimap.onSeek = seekToMinimapTime;
+		chartMinimap.openSettings = function() openSubState(new ChartMinimapPanel(chartMinimap, camUI));
+		chartMinimap.cameras = [camUI];
+		add(chartMinimap);
 
 		loadMusic();
 		reloadNotesDropdowns();
@@ -882,7 +895,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 					else loadSection(0);
 					Conductor.songPosition = FlxG.sound.music.time = vocals.time = opponentVocals.time = timeToGoBack;
 				}
-				else if(FlxG.keys.pressed.W != FlxG.keys.pressed.S || FlxG.mouse.wheel != 0)
+				// 鼠标在缩略图上滚轮是缩放时间轴，别同时滚谱面
+				else if(FlxG.keys.pressed.W != FlxG.keys.pressed.S
+					|| (FlxG.mouse.wheel != 0 && !(chartMinimap != null && chartMinimap.barHovered)))
 				{
 					if(FlxG.sound.music.playing)
 						setSongPlaying(false);
@@ -1154,7 +1169,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			else if(FlxG.mouse.justMoved)
 				updateSelectionBox();
 		}
-		else if(FlxG.mouse.pressedRight && (FlxG.mouse.deltaViewX != 0 || FlxG.mouse.deltaViewY != 0))
+		else if(FlxG.mouse.pressedRight && (FlxG.mouse.deltaViewX != 0 || FlxG.mouse.deltaViewY != 0)
+			&& !(chartMinimap != null && chartMinimap.mouseOver))
 		{
 			selectionBox.setPosition(FlxG.mouse.viewX, FlxG.mouse.viewY);
 			selectionStart.set(FlxG.mouse.viewX, FlxG.mouse.viewY);
@@ -1167,6 +1183,9 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		// 而主相机 scroll.y 被 scrollY 顶着走、camUI 不动，两个坐标空间对不上 —— 谱面一滚动 overlaps 就恒为 false，
 		// 于是点任何 UI 都会清空选中（按钮是松开才触发的，选中已先被清掉，所以事件加不上、音符改不动）。
 		if(FlxG.mouse.justPressed && (isMouseOverUI(mainBox) || isMouseOverUI(infoBox) || isMouseOverUI(upperBox)))
+			ignoreClickForThisFrame = true;
+		// 谱面缩略图上的点击不能落到网格上（放/删 note）
+		else if(FlxG.mouse.justPressed && chartMinimap != null && chartMinimap.mouseOver)
 			ignoreClickForThisFrame = true;
 
 		var minX:Float = gridBg.x;
@@ -1591,6 +1610,57 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		if(secStartTime == null || secCrochet == null || secRows == null) return;
 
 		scrollY = (((Conductor.songPosition - secStartTime) / secCrochet * GRID_SIZE * 4) + (secRows * GRID_SIZE)) * curZoom - FlxG.height/2;
+	}
+
+	// ===== 谱面缩略图（ChartMinimap）=====
+
+	/** 给缩略图提供每个 section 的数据：时间用 cachedSectionTimes，note 数现场从 notes[] 统计 */
+	function buildMinimapSections():Array<ChartMinimapSection>
+	{
+		var out:Array<ChartMinimapSection> = [];
+		if(PlayState.SONG == null || PlayState.SONG.notes == null || cachedSectionTimes == null) return out;
+
+		var songLen:Float = (FlxG.sound.music != null && FlxG.sound.music.length > 0) ? FlxG.sound.music.length : 0;
+		for (i in 0...PlayState.SONG.notes.length)
+		{
+			var st:Null<Float> = cast cachedSectionTimes[i];
+			if(st == null) break;
+			var et:Float = (i + 1 < cachedSectionTimes.length) ? cachedSectionTimes[i + 1] : Math.max(songLen, st + 1);
+			var bpm:Float = (i < cachedSectionBPMs.length) ? cachedSectionBPMs[i] : PlayState.SONG.bpm;
+			out.push({time: st, endTime: et, bpm: bpm, noteCount: 0});
+		}
+		if(out.length == 0) return out;
+
+		// 现场编辑的真数据源是 notes[]（MetaNote），按时间归节计数
+		for (note in notes)
+		{
+			if(note == null || note.isEvent) continue;
+			var t:Float = note.strumTime;
+			for (j in 0...out.length)
+			{
+				if(t < out[j].endTime || j == out.length - 1) { out[j].noteCount++; break; }
+			}
+		}
+		return out;
+	}
+
+	/** 缩略图跳转：对齐 View > Go to 的做法 —— 定位 curSec + 拉音乐时间 + loadSection() */
+	function seekToMinimapTime(ms:Float):Void
+	{
+		if(FlxG.sound.music == null || PlayState.SONG == null || cachedSectionTimes == null) return;
+		ms = FlxMath.bound(ms, 0, FlxG.sound.music.length - 1);
+
+		var target:Int = 0;
+		for (i => t in cachedSectionTimes)
+		{
+			if(t <= ms) target = i;
+			else break;
+		}
+		curSec = target;
+
+		FlxG.sound.music.time = ms;
+		Conductor.songPosition = ms;
+		loadSection();
 	}
 
 	function updateSelectionBox()
@@ -3622,27 +3692,55 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		tab_group.add(btn);
 
 		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Open from content/CustomCharts...', function()
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Charts Selecter', function()
 		{
 			upperBox.isMinimized = true;
 			upperBox.bg.visible = false;
 			openSubState(new ChartSourceSelectSubstate(function(category:String, path:String, difficulty:String, variant:String)
 			{
-				chartAudioCategory = category;
-				Paths.currentChartCategory = category;
+				var normPath:String = path.replace('\\', '/');
+
+				// VanillaSongs 的谱面要进对应内容包上下文：音轨目录 songs/<歌>-<变体>、
+				// 角色/舞台等资源都靠 currentContentRoot 命中（变体优先从文件名推——
+				// Erect 包的周定义没写 variant，自动反查推不出来）。其他来源一律清空，
+				// 防止上一首的内容包把 inst/voices 的候选路径带偏。
+				var packRoot:String = ChartSourceSelectSubstate.vanillaPackRootOf(normPath);
+				Paths.setContentRoot(packRoot, (packRoot != null) ? ChartSourceSelectSubstate.vanillaVariantOf(normPath) : null);
+
 				if (category == 'v_slice')
 				{
-					loadVSliceChartFromFolder(path, difficulty, variant);
+					chartAudioCategory = category;
+					Paths.currentChartCategory = category;
+					Paths.currentChartDirectory = null;
+					Mods.loadTopMod();
+					loadVSliceChartFromFolder(normPath, difficulty, variant);
 				}
-				else if (path.toLowerCase().endsWith('.osu'))
+				else if (category == 'assets' || category == 'mods')
 				{
-					openOsuChartFromFile(path);
+					// assets/mods 里的谱面：音频走标准查找链(mods→content→assets),
+					// 并把谱面所在目录注册为自定义谱面目录,支持同目录 inst.ogg/voices。
+					chartAudioCategory = null;
+					Paths.currentChartCategory = null;
+					Paths.currentChartDirectory = normPath.substring(0, normPath.lastIndexOf('/'));
+					if (category == 'mods')
+					{
+						// 打开 mods 谱面：把"当前模组"切到该谱面所属的 mod，
+						// 之后编辑器里的资源查找（图片/音频/事件）都会先查 mods/<该mod>/ 再回退。
+						var modRest:String = normPath.substring('mods/'.length);
+						var modSlash:Int = modRest.indexOf('/');
+						Mods.currentModDirectory = (modSlash > 0) ? modRest.substring(0, modSlash) : modRest;
+					}
+					else Mods.loadTopMod();
+					loadChartFromAnyPath(normPath);
 				}
-				else if (path.toLowerCase().endsWith('.json'))
+				else
 				{
-					loadChartFromFile(path);
+					chartAudioCategory = category;
+					Paths.currentChartCategory = category;
+					Paths.currentChartDirectory = null;
+					Mods.loadTopMod();
+					loadChartFromAnyPath(normPath);
 				}
-				else showOutput('Unsupported chart file: $path', true);
 			}, function()
 			{
 				showOutput('Chart source selection cancelled');
@@ -4392,7 +4490,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		// === StepMania 导出 ===
 		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Export to StepMania...', function()
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Export StepMania...', function()
 		{
 			if(!fileDialog.completed) return;
 			upperBox.isMinimized = true;
@@ -4485,7 +4583,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		btnY++;
 		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Swap Player/Opponent', function()
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Swap Player/Opp', function()
 		{
 			swapAllPlayerTracks();
 			prepareReload();
@@ -5332,6 +5430,16 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		MetaNote.noteTypeTexts = [];
 		fileDialog.destroy();
 		super.destroy();
+	}
+
+	function loadChartFromAnyPath(path:String)
+	{
+		var lowerPath:String = path.toLowerCase();
+		if (lowerPath.endsWith('.osu'))
+			openOsuChartFromFile(path);
+		else if (lowerPath.endsWith('.json'))
+			loadChartFromFile(path);
+		else showOutput('Unsupported chart file: $path', true);
 	}
 
 	function loadChartFromFile(filePath:String)

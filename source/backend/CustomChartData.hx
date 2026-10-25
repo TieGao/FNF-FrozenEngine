@@ -141,7 +141,9 @@ class CustomChartData
         for (item in FileSystem.readDirectory(groupPath))
         {
             var path:String = '$groupPath/$item';
-            if (!item.startsWith('.') && FileSystem.isDirectory(path) && categoryHasChartFiles(path)) result.push(item);
+            // MODS 菜单里被禁用的内容包（contentList.txt）不出现在 Freeplay 分类列表里
+            if (!item.startsWith('.') && FileSystem.isDirectory(path) && categoryHasChartFiles(path)
+                && !ContentPacks.isDisabled('$group/$item')) result.push(item);
         }
         return result;
     }

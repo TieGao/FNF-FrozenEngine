@@ -2,6 +2,7 @@ package states;
 
 import backend.WeekData;
 import backend.Mods;
+import backend.ContentPacks;
 import backend.MouseMove;
 
 import flixel.FlxBasic;
@@ -34,19 +35,29 @@ private typedef ModItemChildTransform = {
 
 class ModsMenuState extends MusicBeatState
 {
+	/** Reload 时用来在 startMod 里标记"当前在 Content 页"的前缀 */
+	static inline var CONTENT_PREFIX:String = 'content:';
+
 	var bg:FlxFilteredSprite;
 	var icon:FlxSprite;
 	var modName:Alphabet;
 	var modDesc:FlxText;
 	var modRestartText:FlxText;
 	var modsList:ModsList = null;
+	/** Content 体系（content/<大类>/<包>）的启用表，结构与 modsList 完全一致，切换页签只是换个指针。 */
+	var contentList:ModsList = null;
+	var usingContent:Bool = false;
 
 	var bgList:FlxSprite;
 	var buttonReload:MenuButton;
 	//var buttonModFolder:MenuButton;
 	var buttonEnableAll:MenuButton;
 	var buttonDisableAll:MenuButton;
+	/** MODS ⇄ CONTENT 页签切换（放在按钮栏第二行最左边） */
+	var buttonSwitchList:MenuButton;
 	var buttons:Array<MenuButton> = [];
+	/** 置顶 / 置底 / 上移 / 下移 四个按钮，Content 页里它们没有意义，需要单独禁用 */
+	var moveButtons:Array<MenuButton> = [];
 	var settingsButton:MenuButton;
 
 	// 功能栏新增的两个"上/下选择"按钮（模拟键盘上/下键）。**故意不放进 buttons 数组**，见 create() 里的注释
@@ -58,6 +69,9 @@ class ModsMenuState extends MusicBeatState
 	var bgButtons:FlxSprite;
 
 	var modsGroup:FlxTypedGroup<ModItem>;
+	/** mods/ 与 content/ 各自一组卡片，页签切换只换 modsGroup 指针（两组都在，未激活的整组隐藏） */
+	var groupMods:FlxTypedGroup<ModItem>;
+	var groupContent:FlxTypedGroup<ModItem>;
 	var curSelectedMod:Int = 0;
 	
 	var hoveringOnMods:Bool = true;
@@ -81,7 +95,16 @@ class ModsMenuState extends MusicBeatState
 		persistentUpdate = false;
 
 		modsList = Mods.parseList();
+		contentList = ContentPacks.parseList();
 		Mods.loadTopMod();
+
+		// Reload 时把"当前在 Content 页的哪一项"带过来（键加前缀，免得和 mods 目录名撞）
+		var contentStart:String = null;
+		if(startMod != null && startMod.startsWith(CONTENT_PREFIX))
+		{
+			contentStart = startMod.substr(CONTENT_PREFIX.length);
+			startMod = null;
+		}
 
 		#if DISCORD_ALLOWED
 		// Updating Discord Rich Presence
@@ -99,8 +122,8 @@ class ModsMenuState extends MusicBeatState
 		bgList = FlxSpriteUtil.drawRoundRect(new FlxSprite(40, 40).makeGraphic(340, 650, FlxColor.TRANSPARENT), 0, 0, 340, 650, 15, 15, FlxColor.BLACK);
 		bgList.alpha = 0.6;
 
-		modsGroup = new FlxTypedGroup<ModItem>();
-
+		// 两组卡片一次建好：页签切换只换指针，避免重建时丢掉滚动位置 / 拖拽状态
+		groupMods = new FlxTypedGroup<ModItem>();
 		for (i => mod in modsList.all)
 		{
 			if(startMod == mod) curSelectedMod = i;
@@ -108,34 +131,30 @@ class ModsMenuState extends MusicBeatState
 			var modItem:ModItem = new ModItem(mod);
 			if(modsList.disabled.contains(mod))
 				modItem.setDisabled(true);
-			modsGroup.add(modItem);
+			groupMods.add(modItem);
 		}
+
+		groupContent = new FlxTypedGroup<ModItem>();
+		var contentIndex:Int = 0;
+		for (path in contentList.all)
+		{
+			var item:ModItem = new ModItem(path, '${Paths.CONTENT_ROOT}/$path', contentDescription(path));
+			if(contentList.disabled.contains(path)) item.setDisabled(true);
+			if(contentStart == path) curSelectedMod = contentIndex;
+			groupContent.add(item);
+			contentIndex++;
+		}
+
+		// mods 一个都没有、但 content 有东西时，直接开在 Content 页（否则玩家会以为整个菜单是空的）
+		usingContent = (contentStart != null) || (modsList.all.length < 1 && contentList.all.length > 0);
+		modsGroup = usingContent ? groupContent : groupMods;
+		if(usingContent && contentStart == null) curSelectedMod = 0;
+		groupMods.active = groupMods.visible = !usingContent;
+		groupContent.active = groupContent.visible = usingContent;
+		hideGroupMembers(usingContent ? groupMods : groupContent);
 
 		var mod:ModItem = modsGroup.members[curSelectedMod];
 		if(mod != null) bg.color = mod.bgColor;
-
-
-		if(modsList.all.length < 1)
-		{
-			buttonDisableAll.visible = buttonDisableAll.enabled = false;
-			buttonEnableAll.visible = true;
-
-			var myX = bgList.x + bgList.width + 20;
-			noModsTxt = new FlxText(myX, 0, FlxG.width - myX - 20, Language.getPhrase('no_mods_installed', 'NO MODS INSTALLED\nPRESS BACK TO EXIT OR INSTALL A MOD'), 48);
-			if(FlxG.random.bool(0.1)) noModsTxt.text += '\nBITCH.'; //meanie
-			noModsTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-			noModsTxt.borderSize = 2;
-			add(noModsTxt);
-			noModsTxt.screenCenter(Y);
-
-			var txt = new FlxText(bgList.x + 15, bgList.y + 15, bgList.width - 30, Language.getPhrase('no_mods_found', "No Mods found."), 16);
-			txt.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE);
-			add(txt);
-
-			FlxG.autoPause = false;
-			changeSelectedMod();
-			return super.create();
-		}
 		//
 
 		bgTitle = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgList.x + bgList.width + 20, 40).makeGraphic(840, 180, FlxColor.TRANSPARENT), 0, 0, 840, 180, 15, 15, 0, 0, FlxColor.BLACK);
@@ -177,11 +196,13 @@ class ModsMenuState extends MusicBeatState
 		var button = new MenuButton(buttonsX, buttonsY, 80, 80, null, makeModTopIcon(), function() moveModToPosition(0));
 		add(button);
 		buttons.push(button);
+		moveButtons.push(button);
 
 		// Move to the bottom
-		var button = new MenuButton(buttonsX + 100, buttonsY, 80, 80, null, makeModBottomIcon(), function() moveModToPosition(modsList.all.length - 1));
+		var button = new MenuButton(buttonsX + 100, buttonsY, 80, 80, null, makeModBottomIcon(), function() moveModToPosition(curList().all.length - 1));
 		add(button);
 		buttons.push(button);
+		moveButtons.push(button);
 
 		// Move up
 		var button = new MenuButton(buttonsX + 200, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod - 1), 54, 54);
@@ -189,6 +210,7 @@ class ModsMenuState extends MusicBeatState
 		button.icon.animation.play('icon', true);
 		add(button);
 		buttons.push(button);
+		moveButtons.push(button);
 
 		// Move down
 		var button = new MenuButton(buttonsX + 300, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod + 1), 54, 54);
@@ -196,43 +218,23 @@ class ModsMenuState extends MusicBeatState
 		button.icon.animation.play('icon', true);
 		add(button);
 		buttons.push(button);
+		moveButtons.push(button);
 
-		// Reload / Enable-Disable All 移到右侧按钮栏第二行，左侧只留列表
-		buttonReload = new MenuButton(440, 590, 340, 80, Language.getPhrase('reload_button', 'RELOAD'), reload);
+		// 第二行：页签切换 / Reload / Enable-Disable All。
+		// 都用大号 VCR 文字（原来是 Alphabet —— 字形推进量太大，长标签会顶到隔壁按钮上），
+		// 三个按钮等距摆开，标签按按钮内宽自动缩放，任何语言都不会互相顶撞。
+		buttonSwitchList = new MenuButton(440, 590, 240, 80, listSwitchLabel(), null, function() switchList(!usingContent), 0, 0, 28);
+		add(buttonSwitchList);
+
+		buttonReload = new MenuButton(700, 590, 260, 80, Language.getPhrase('reload_button', 'RELOAD'), null, reload, 0, 0, 32);
 		add(buttonReload);
 
-		buttonEnableAll = new MenuButton(860, 590, 340, 80, Language.getPhrase('enable_all_button', 'ENABLE ALL'), function() {
-			for (mod in modsGroup.members)
-			{
-				if(modsList.disabled.contains(mod.folder))
-				{
-					modsList.disabled.remove(mod.folder);
-					modsList.enabled.push(mod.folder);
-					mod.setDisabled(false);
-				}
-			}
-			updateModDisplayData();
-			checkToggleButtons();
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
-		});
+		buttonEnableAll = new MenuButton(980, 590, 240, 80, Language.getPhrase('enable_all_button', 'ENABLE ALL'), null, function() setAllDisabled(false), 0, 0, 30);
 		buttonEnableAll.bg.color = FlxColor.GREEN;
 		buttonEnableAll.focusChangeCallback = function(focus:Bool) if(!focus) buttonEnableAll.bg.color = FlxColor.GREEN;
 		add(buttonEnableAll);
 
-		buttonDisableAll = new MenuButton(860, 590, 340, 80, Language.getPhrase('disable_all_button', 'DISABLE ALL'), function() {
-			for (mod in modsGroup.members)
-			{
-				if(modsList.enabled.contains(mod.folder))
-				{
-					modsList.enabled.remove(mod.folder);
-					modsList.disabled.push(mod.folder);
-					mod.setDisabled(true);
-				}
-			}
-			updateModDisplayData();
-			checkToggleButtons();
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
-		});
+		buttonDisableAll = new MenuButton(980, 590, 240, 80, Language.getPhrase('disable_all_button', 'DISABLE ALL'), null, function() setAllDisabled(true), 0, 0, 30);
 		buttonDisableAll.bg.color = 0xFFFF6666;
 		buttonDisableAll.focusChangeCallback = function(focus:Bool) if(!focus) buttonDisableAll.bg.color = 0xFFFF6666;
 		add(buttonDisableAll);
@@ -250,15 +252,7 @@ class ModsMenuState extends MusicBeatState
 		buttonSelectNext = new MenuButton(buttonsX - 100, buttonsY, 80, 80, null, makeModNavIcon(false), function() selectModByArrow(1));
 		add(buttonSelectNext);
 
-		if(modsList.all.length < 2)
-		{
-			for (button in buttons)
-				button.enabled = false;
-
-			// 它俩不在 buttons 里，得单独禁用（否则只有 1 个 mod 时还能点，点了会跳到 Reload 按钮上）
-			buttonSelectPrev.enabled = false;
-			buttonSelectNext.enabled = false;
-		}
+		updateMoveButtonsEnabled();
 
 		settingsButton = new MenuButton(buttonsX + 400, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //Settings
 		{
@@ -274,46 +268,26 @@ class ModsMenuState extends MusicBeatState
 		add(settingsButton);
 		buttons.push(settingsButton);
 
-		if(modsGroup.members[curSelectedMod].settings == null || modsGroup.members[curSelectedMod].settings.length < 1)
+		var curItem:ModItem = modsGroup.members[curSelectedMod];
+		if(curItem == null || curItem.settings == null || curItem.settings.length < 1)
 			settingsButton.enabled = false;
 
 		var button = new MenuButton(buttonsX + 500, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //On/Off
 		{
-			var curMod:ModItem = modsGroup.members[curSelectedMod];
-			var mod:String = curMod.folder;
-			if(!modsList.disabled.contains(mod)) //Enable
-			{
-				modsList.enabled.remove(mod);
-				modsList.disabled.push(mod);
-			}
-			else //Disable
-			{
-				modsList.disabled.remove(mod);
-				modsList.enabled.push(mod);
-			}
-			curMod.setDisabled(modsList.disabled.contains(mod));
-
-			if(curMod.mustRestart) waitingToRestart = true;
-			updateModDisplayData();
-			checkToggleButtons();
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+			toggleSelected();
 		}, 54, 54);
 		button.icon.animation.add('icon', [4]);
 		button.icon.animation.play('icon', true);
 		add(button);
 		buttons.push(button);
+		// 页签按钮也进 buttons：键盘 / 手柄左右切换才够得到它（放在队尾，不影响原导航顺序）
+		buttons.push(buttonSwitchList);
 		button.focusChangeCallback = function(focus:Bool) {
 			if(!focus)
-				button.bg.color = modsList.enabled.contains(modsGroup.members[curSelectedMod].folder) ? FlxColor.GREEN : 0xFFFF6666;
+				button.bg.color = curList().enabled.contains(curSelectedItemKey()) ? FlxColor.GREEN : 0xFFFF6666;
 		};
 
-		if(modsList.all.length < 1)
-		{
-			for (btn in buttons) btn.enabled = false;
-			button.focusChangeCallback = null;
-		}
-		
-		maxScrollPos = Math.max(0, modsList.all.length * ROW_H - (bgList.height - 10));
+		maxScrollPos = Math.max(0, curList().all.length * ROW_H - (bgList.height - 10));
 		cardScroller = new MouseMove(this, 'scrollPos', [0, maxScrollPos],
 			[[bgList.x, bgList.x + bgList.width], [bgList.y, bgList.y + bgList.height]],
 			function() { updateItemPositions(); updateScrollBar(); });
@@ -326,19 +300,21 @@ class ModsMenuState extends MusicBeatState
 		add(cardScroller);
 
 		add(bgList);
-		add(modsGroup);
+		add(groupMods);
+		add(groupContent);
 		_lastControllerMode = controls.controllerMode;
 
 		scrollBarTrack = new FlxSprite(bgList.x + bgList.width - 20, bgList.y + 20).makeGraphic(8, Std.int(bgList.height - 40), FlxColor.WHITE);
 		scrollBarTrack.alpha = 0.3;
 		add(scrollBarTrack);
-		var scrollBarThumb:Float = Math.max(30, (bgList.height - 40) * ((bgList.height - 10) / Math.max(1, modsList.all.length * ROW_H)));
+		var scrollBarThumb:Float = Math.max(30, (bgList.height - 40) * ((bgList.height - 10) / Math.max(1, curList().all.length * ROW_H)));
 		scrollBar = new FlxSprite(scrollBarTrack.x, scrollBarTrack.y).makeGraphic(8, Std.int(scrollBarThumb), FlxColor.WHITE);
 		scrollBar.alpha = 0.6;
 		add(scrollBar);
 
 
 		changeSelectedMod();
+		if(curList().all.length < 1) updateModDisplayData(); // 空列表也要把"没有内容"的提示画出来
 		super.create();
 	}
 	
@@ -406,7 +382,7 @@ class ModsMenuState extends MusicBeatState
 
 		if(controls.UI_DOWN_R || controls.UI_UP_R) holdTime = 0;
 
-		if(modsList.all.length > 0)
+		if(curList().all.length > 0)
 		{
 			if(controls.controllerMode && holdingMod)
 			{
@@ -426,7 +402,7 @@ class ModsMenuState extends MusicBeatState
 			}
 
 			var lastMode = hoveringOnMods;
-			if(modsList.all.length > 1)
+			if(curList().all.length > 1)
 			{
 				if(FlxG.mouse.justPressed)
 				{
@@ -479,7 +455,7 @@ class ModsMenuState extends MusicBeatState
 					else if(FlxG.keys.justPressed.HOME || FlxG.keys.justPressed.END ||
 						FlxG.gamepads.anyJustPressed(LEFT_TRIGGER) || FlxG.gamepads.anyJustPressed(RIGHT_TRIGGER))
 					{
-						if(FlxG.keys.justPressed.END || FlxG.gamepads.anyJustPressed(RIGHT_TRIGGER)) curSelectedMod = modsList.all.length-1;
+						if(FlxG.keys.justPressed.END || FlxG.gamepads.anyJustPressed(RIGHT_TRIGGER)) curSelectedMod = curList().all.length-1;
 						else curSelectedMod = 0;
 						changeSelectedMod();
 					}
@@ -505,8 +481,8 @@ class ModsMenuState extends MusicBeatState
 									{
 										curSelectedMod = pressIndex;
 										changeSelectedMod();
-										holdingMod = true; //changeSelectedMod 会复位 holdingMod，必须放在它之后
-										if(cardScroller != null)
+										holdingMod = !usingContent; //Content 页不支持拖拽排序；changeSelectedMod 会复位 holdingMod，必须放在它之后
+										if(holdingMod && cardScroller != null)
 										{
 											cardScroller.resetInputState();
 											cardScroller.inputAllow = false;
@@ -659,21 +635,34 @@ class ModsMenuState extends MusicBeatState
 		}
 		else
 		{
+			// 当前列表（mods 或 content）是空的：闪烁提示文字，并定时重新扫盘
 			noModsSine += 180 * elapsed;
-			noModsTxt.alpha = 1 - Math.sin((Math.PI * noModsSine) / 180);
-			
-			// Keep refreshing mods list every 2 seconds until you add a mod on the folder
+			if(noModsTxt != null) noModsTxt.alpha = 1 - Math.sin((Math.PI * noModsSine) / 180);
+
 			nextAttempt -= elapsed;
 			if(nextAttempt < 0)
 			{
 				nextAttempt = 1;
-				@:privateAccess
-				Mods.updateModList();
-				modsList = Mods.parseList();
-				if(modsList.all.length > 0)
+				if(usingContent)
 				{
-					trace('mod(s) found! reloading');
-					reload();
+					ContentPacks.invalidate();
+					contentList = ContentPacks.parseList();
+					if(contentList.all.length > 0)
+					{
+						trace('content pack(s) found! reloading');
+						reload();
+					}
+				}
+				else
+				{
+					@:privateAccess
+					Mods.updateModList();
+					modsList = Mods.parseList();
+					if(modsList.all.length > 0)
+					{
+						trace('mod(s) found! reloading');
+						reload();
+					}
 				}
 			}
 		}
@@ -692,6 +681,18 @@ class ModsMenuState extends MusicBeatState
 			curSelectedButton = -2;
 		else if(curSelectedButton > max)
 			curSelectedButton = max;
+
+		// 跳过被禁用的按钮（Content 页整排排序按钮、只有 1 个 mod 时的排序按钮），
+		// 否则焦点会停在按不动的按钮上，看起来像"卡住了"
+		var dir:Int = (add >= 0) ? 1 : -1;
+		var guard:Int = 0;
+		while(guard < buttons.length + 2 && curSelectedButton >= 0 && !getButton().enabled)
+		{
+			var next:Int = curSelectedButton + dir;
+			if(next < 0 || next > max) break;
+			curSelectedButton = next;
+			guard++;
+		}
 
 		var button = getButton();
 		button.ignoreCheck = button.onFocus = true;
@@ -720,13 +721,13 @@ class ModsMenuState extends MusicBeatState
 			case -1: return buttonEnableAll.enabled ? buttonEnableAll : buttonDisableAll;
 		}
 
-		if(modsList.all.length < 1) return buttonReload; //prevent possible crash from my irresponsibility
+		if(curList().all.length < 1) return buttonReload; //prevent possible crash from my irresponsibility
 		return buttons[Std.int(Math.max(0, Math.min(buttons.length-1, curSelectedButton)))];
 	}
 
 	function changeSelectedMod(add:Int = 0, isMouseWheel:Bool = false)
 	{
-		var max = modsList.all.length - 1;
+		var max = curList().all.length - 1;
 		if(max < 0) return;
 
 		if(hoveringOnMods)
@@ -892,7 +893,12 @@ class ModsMenuState extends MusicBeatState
 	function updateModDisplayData()
 	{
 		var curMod:ModItem = modsGroup.members[curSelectedMod];
-		if(curMod == null) return;
+		if(curMod == null)
+		{
+			showEmptyDetail();
+			return;
+		}
+		hideEmptyDetail();
 
 		FlxTween.cancelTweensOf(bg);
 		FlxTween.color(bg, 1, bg.color, curMod.bgColor);
@@ -915,7 +921,20 @@ class ModsMenuState extends MusicBeatState
 		var newScale = Math.min(620 / (modName.width / 0.8), 0.8);
 		modName.setScale(newScale, Math.min(newScale * 1.35, 0.8));
 		modName.y = modNameInitialY - (modName.height / 2);
-		modRestartText.visible = curMod.mustRestart;
+
+		// 内容包的开关不需要重启（Freeplay / Story 每次进都会重扫），换一句提示
+		if(curMod.mustRestart)
+		{
+			modRestartText.text = Language.getPhrase('mod_restart', '* Moving or Toggling On/Off this Mod will restart the game.');
+			modRestartText.visible = true;
+		}
+		else if(curMod.contentRoot != null)
+		{
+			modRestartText.text = Language.getPhrase('content_restart_note', '* On/Off takes effect the next time the song lists are loaded (no restart needed).');
+			modRestartText.visible = true;
+		}
+		else modRestartText.visible = false;
+
 		modDesc.text = curMod.desc;
 
 		for (button in buttons) if(button.focusChangeCallback != null) button.focusChangeCallback(button.onFocus);
@@ -958,7 +977,7 @@ class ModsMenuState extends MusicBeatState
 		{
 			if(mod == null)
 			{
-				trace('Mod #$i is null, maybe it was ' + modsList.all[i]);
+				trace('Mod #$i is null, maybe it was ' + curList().all[i]);
 				continue;
 			}
 
@@ -976,12 +995,15 @@ class ModsMenuState extends MusicBeatState
 	var waitingToRestart:Bool = false;
 	function moveModToPosition(?mod:String = null, position:Int = 0)
 	{
-		if(mod == null) mod = modsList.all[curSelectedMod];
-		if(position >= modsList.all.length) position = 0;
-		else if(position < 0) position = modsList.all.length-1;
+		// Content 页没有"加载顺序"这回事，排序/拖拽一律忽略
+		if(usingContent) return;
+
+		if(mod == null) mod = curList().all[curSelectedMod];
+		if(position >= curList().all.length) position = 0;
+		else if(position < 0) position = curList().all.length-1;
 
 		trace('Moved mod $mod to position $position');
-		var id:Int = modsList.all.indexOf(mod);
+		var id:Int = curList().all.indexOf(mod);
 		if(position == id) return;
 
 		var curMod:ModItem = modsGroup.members[id];
@@ -990,10 +1012,10 @@ class ModsMenuState extends MusicBeatState
 		if(curMod.mustRestart || modsGroup.members[position].mustRestart) waitingToRestart = true;
 
 		modsGroup.remove(curMod, true);
-		modsList.all.remove(mod);
+		curList().all.remove(mod);
 		//if(position > id) position--;
 		modsGroup.insert(position, curMod);
-		modsList.all.insert(position, mod);
+		curList().all.insert(position, mod);
 
 		curSelectedMod = position;
 		if(curMod != null) curMod.resetScale(); // 拖拽排序会改 group 结构，强制复位缩放
@@ -1010,8 +1032,233 @@ class ModsMenuState extends MusicBeatState
 
 	function checkToggleButtons()
 	{
-		buttonEnableAll.visible = buttonEnableAll.enabled = modsList.disabled.length > 0;
+		buttonEnableAll.visible = buttonEnableAll.enabled = curList().disabled.length > 0;
 		buttonDisableAll.visible = buttonDisableAll.enabled = !buttonEnableAll.visible;
+	}
+
+	// ============================================================
+	//  MODS / CONTENT 双列表
+	// ============================================================
+
+	/** 当前页签对应的列表 —— 两者结构完全一致（ModsList），下面所有逻辑都能共用。 */
+	inline function curList():ModsList
+		return usingContent ? contentList : modsList;
+
+	/** 当前选中项的键：mods 是 mods/ 下的目录名，content 是相对 content/ 的路径。 */
+	function curSelectedItemKey():String
+	{
+		var item:ModItem = (modsGroup != null) ? modsGroup.members[curSelectedMod] : null;
+		return (item != null) ? item.folder : '';
+	}
+
+	function listSwitchLabel():String
+	{
+		return usingContent
+			? Language.getPhrase('mods_menu_show_mods', 'SHOW MODS')
+			: Language.getPhrase('mods_menu_show_content', 'SHOW CONTENT');
+	}
+
+	/** 内容包在详情面板里的描述（没有 pack.json 时的兜底文案）。 */
+	function contentDescription(path:String):String
+	{
+		var info:ContentPackInfo = ContentPacks.getInfo(path);
+		var desc:String = Language.getPhrase('content_pack_desc', 'Content: {1}', ['${Paths.CONTENT_ROOT}/$path']);
+		if(info != null && info.songs > 0)
+			desc += '\n' + Language.getPhrase('content_pack_songs', 'Songs: {1}', [Std.string(info.songs)]);
+		desc += '\n\n' + Language.getPhrase('content_pack_hint', 'Disabling hides it from the Freeplay / Story song lists. No restart needed.');
+		return desc;
+	}
+
+	function hideGroupMembers(group:FlxTypedGroup<ModItem>)
+	{
+		if(group == null) return;
+		for (item in group.members)
+			if(item != null) item.visible = false;
+	}
+
+	/** Content 页没有"加载顺序"可言 —— 排序类按钮整页禁用。 */
+	function updateMoveButtonsEnabled()
+	{
+		var locked:Bool = usingContent || curList().all.length < 2;
+		for (button in moveButtons) button.enabled = !locked;
+		if(buttonSelectPrev != null) buttonSelectPrev.enabled = !locked;
+		if(buttonSelectNext != null) buttonSelectNext.enabled = !locked;
+	}
+
+	/** 切页签：只换 group 指针 + 复位滚动/选中，不重建卡片。 */
+	function switchList(toContent:Bool)
+	{
+		if(toContent == usingContent) return;
+
+		var oldGroup:FlxTypedGroup<ModItem> = modsGroup;
+		oldGroup.active = oldGroup.visible = false;
+		hideGroupMembers(oldGroup);
+
+		usingContent = toContent;
+		modsGroup = usingContent ? groupContent : groupMods;
+		modsGroup.active = modsGroup.visible = true;
+
+		curSelectedMod = 0;
+		scrollPos = 0;
+		holdingMod = false;
+		holdingElapsed = 0;
+		pressIndex = -1;
+		pressedMod = null;
+		pressHoldCancelled = false;
+
+		maxScrollPos = Math.max(0, curList().all.length * ROW_H - (bgList.height - 10));
+		if(cardScroller != null)
+		{
+			cardScroller.resetInputState();
+			cardScroller.inputAllow = true;
+			cardScroller.moveLimit = [0, maxScrollPos];
+			cardScroller.target = 0;
+			cardScroller.tweenData = 0;
+		}
+		refreshScrollBarThumb();
+		if(buttonSwitchList != null) buttonSwitchList.setText(listSwitchLabel());
+
+		// 从按钮栏点过来的话，把按钮焦点还回去，否则高亮会留在原按钮上
+		if(!hoveringOnMods)
+		{
+			var focused:MenuButton = getButton();
+			focused.ignoreCheck = focused.onFocus = false;
+			bgButtons.color = FlxColor.BLACK;
+			bgButtons.alpha = 0.2;
+		}
+
+		hoveringOnMods = true;
+		updateMoveButtonsEnabled();
+		updateModDisplayData();
+		updateItemPositions();
+		updateScrollBar();
+		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+	}
+
+	function refreshScrollBarThumb()
+	{
+		if(scrollBar == null || scrollBarTrack == null) return;
+		var thumb:Int = Std.int(Math.max(30, (bgList.height - 40) * ((bgList.height - 10) / Math.max(1, curList().all.length * ROW_H))));
+		scrollBar.makeGraphic(8, thumb, FlxColor.WHITE);
+		scrollBar.alpha = 0.6;
+	}
+
+	/** 单个开关（On/Off 按钮）。 */
+	function toggleSelected()
+	{
+		var curMod:ModItem = modsGroup.members[curSelectedMod];
+		if(curMod == null) return;
+
+		var list:ModsList = curList();
+		var key:String = curMod.folder;
+		var disable:Bool = !list.disabled.contains(key);
+		if(disable)
+		{
+			list.enabled.remove(key);
+			list.disabled.push(key);
+		}
+		else
+		{
+			list.disabled.remove(key);
+			list.enabled.push(key);
+		}
+		curMod.setDisabled(disable);
+
+		if(usingContent)
+		{
+			// 内容包立刻落盘：Freeplay / Story 每次进入都会重新扫盘，不用重启
+			ContentPacks.setDisabled(key, disable);
+		}
+		else if(curMod.mustRestart) waitingToRestart = true;
+
+		updateModDisplayData();
+		checkToggleButtons();
+		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+	}
+
+	/** 全开 / 全关（第二行那个绿 / 红按钮，按当前页签生效）。 */
+	function setAllDisabled(disable:Bool)
+	{
+		var list:ModsList = curList();
+		var restart:Bool = false;
+		for (mod in modsGroup.members)
+		{
+			if(mod == null) continue;
+			if(list.disabled.contains(mod.folder) == disable) continue;
+
+			if(disable)
+			{
+				list.enabled.remove(mod.folder);
+				list.disabled.push(mod.folder);
+			}
+			else
+			{
+				list.disabled.remove(mod.folder);
+				list.enabled.push(mod.folder);
+			}
+			mod.setDisabled(disable);
+			if(mod.mustRestart) restart = true;
+		}
+
+		if(usingContent)
+		{
+			ContentPacks.save(list);
+			ContentPacks.invalidate();
+		}
+		else if(restart) waitingToRestart = true;
+
+		updateModDisplayData();
+		checkToggleButtons();
+		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+	}
+
+	var noModsHint:FlxText;
+
+	function showEmptyDetail()
+	{
+		// 空列表时游戏会持续重扫目录，失焦也别暂停
+		FlxG.autoPause = false;
+
+		if(noModsTxt == null)
+		{
+			var myX:Float = bgList.x + bgList.width + 20;
+			noModsTxt = new FlxText(myX, 0, FlxG.width - myX - 20, '', 48);
+			noModsTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			noModsTxt.borderSize = 2;
+			add(noModsTxt);
+			noModsTxt.screenCenter(Y);
+		}
+		if(noModsHint == null)
+		{
+			noModsHint = new FlxText(bgList.x + 15, bgList.y + 15, bgList.width - 30, '', 16);
+			noModsHint.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE);
+			add(noModsHint);
+		}
+
+		noModsTxt.text = usingContent
+			? Language.getPhrase('no_content_packs', 'NO CONTENT PACKS FOUND\nPRESS BACK TO EXIT OR PUT ONE IN content/')
+			: Language.getPhrase('no_mods_installed', 'NO MODS INSTALLED\nPRESS BACK TO EXIT OR INSTALL A MOD');
+		noModsHint.text = usingContent
+			? Language.getPhrase('no_content_found', 'No content packs found.')
+			: Language.getPhrase('no_mods_found', 'No Mods found.');
+		noModsTxt.visible = noModsHint.visible = true;
+		noModsSine = 0;
+
+		icon.visible = false;
+		modName.visible = false;
+		modDesc.visible = false;
+		modRestartText.visible = false;
+		settingsButton.enabled = false;
+	}
+
+	function hideEmptyDetail()
+	{
+		if(noModsTxt != null) noModsTxt.visible = false;
+		if(noModsHint != null) noModsHint.visible = false;
+
+		icon.visible = true;
+		modName.visible = true;
+		modDesc.visible = true;
 	}
 
 	override function closeSubState()
@@ -1050,7 +1297,10 @@ class ModsMenuState extends MusicBeatState
 		FlxTransitionableState.skipNextTransIn = true;
 		FlxTransitionableState.skipNextTransOut = true;
 		var curMod:ModItem = modsGroup.members[curSelectedMod];
-		MusicBeatState.switchState(new ModsMenuState(curMod != null ? curMod.folder : null));
+		var startKey:String = (curMod != null) ? curMod.folder : null;
+		// 带着"页签 + 选中项"回来，别一 Reload 就掉回 MODS 页第一项
+		if(startKey != null && usingContent) startKey = CONTENT_PREFIX + startKey;
+		MusicBeatState.switchState(new ModsMenuState(startKey));
 	}
 	
 	function saveTxt()
@@ -1088,6 +1338,8 @@ class ModItem extends FlxSpriteGroup
 	public var bgColor:FlxColor = 0xFF665AFF;
 	public var pack:Dynamic = null;
 	public var folder:String = 'unknownMod';
+	/** 非 null = Content 体系里的包（相对仓库根的路径，如 content/VanillaSongs/Erect）；普通 mod 为 null。 */
+	public var contentRoot:String = null;
 	public var mustRestart:Bool = false;
 	public var settings:Array<Dynamic> = null;
 
@@ -1107,14 +1359,22 @@ class ModItem extends FlxSpriteGroup
 	private var _clipBottom:Float = 0;
 	private var _clipRowHeight:Float = 0;
 
-	public function new(folder:String)
+	/**
+	 * @param folder     mods/ 下的目录名；Content 页里是相对 content/ 的路径（VanillaSongs/Erect）
+	 * @param contentRoot 非 null 时表示这是 content/ 里的包（相对仓库根，如 content/VanillaSongs/Erect）
+	 * @param fallbackDesc 没有 pack.json 时用的描述（内容包用扫描信息拼出来）
+	 */
+	public function new(folder:String, ?contentRoot:String = null, ?fallbackDesc:String = null)
 	{
 		super();
 
 		this.folder = folder;
-		pack = Mods.getPack(folder);
+		this.contentRoot = contentRoot;
 
-		var path:String = Paths.mods('$folder/data/settings.json');
+		var base:String = (contentRoot != null) ? contentRoot : Paths.mods(folder);
+		pack = (contentRoot != null) ? readPackJson(base) : Mods.getPack(folder);
+
+		var path:String = '$base/data/settings.json';
 		if(FileSystem.exists(path))
 		{
 			try
@@ -1124,7 +1384,7 @@ class ModItem extends FlxSpriteGroup
 			}
 			catch(e:Dynamic)
 			{
-				var errorTitle = 'Mod name: ' + Mods.currentModDirectory;
+				var errorTitle = 'Mod name: ' + folder;
 				var errorMsg = 'An error occurred: $e';
 				#if windows
 				lime.app.Application.current.window.alert(errorMsg, errorTitle);
@@ -1151,11 +1411,17 @@ class ModItem extends FlxSpriteGroup
 		add(text);
 
 		var isPixel = false;
-		var file:String = Paths.mods('$folder/pack.png');
+		var file:String = '$base/pack.png';
 		if (!FileSystem.exists(file))
 		{
-			file = Paths.mods('$folder/pack-pixel.png');
+			file = '$base/pack-pixel.png';
 			isPixel = true;
+		}
+		if (!FileSystem.exists(file) && contentRoot != null)
+		{
+			// 内容包一般不带 pack.png，退一步找包根下的 icon.png
+			file = '$base/icon.png';
+			isPixel = false;
 		}
 		
 		var bmp:BitmapData = null;
@@ -1172,6 +1438,8 @@ class ModItem extends FlxSpriteGroup
 		icon.updateHitbox();
 		
 		this.name = folder;
+		// Content 条目的键是 VanillaSongs/Erect，卡片上只留最后一段（Erect）
+		var displayName:String = (contentRoot != null) ? folder.substr(folder.lastIndexOf('/') + 1) : folder;
 		if(pack != null)
 		{
 			if(pack.name != null) this.name = pack.name;
@@ -1184,6 +1452,13 @@ class ModItem extends FlxSpriteGroup
 											  pack.color[2] != null ? pack.color[2] : 255);
 			}
 			this.mustRestart = (pack.restart == true);
+		}
+		else
+		{
+			this.name = displayName;
+			if(fallbackDesc != null) this.desc = fallbackDesc;
+			if(contentRoot != null) this.bgColor = contentColor(displayName);
+			this.mustRestart = false; // 内容包开关不需要重启
 		}
 		text.text = this.name;
 
@@ -1215,6 +1490,29 @@ class ModItem extends FlxSpriteGroup
 				offsetY: child.offset.y
 			});
 		}
+	}
+
+	/** 读某个目录下的 pack.json（内容包一旦自带 pack.json 也能享受 name/desc/color/restart）。 */
+	static function readPackJson(base:String):Dynamic
+	{
+		var path:String = '$base/pack.json';
+		if(!FileSystem.exists(path)) return null;
+		try
+		{
+			var raw:String = File.getContent(path);
+			if(raw != null && raw.length > 0) return tjson.TJSON.parse(raw);
+		}
+		catch(e:Dynamic) trace(e);
+		return null;
+	}
+
+	/** 内容包没有 pack.json 时，按名字散列挑一个详情面板底色。 */
+	static function contentColor(name:String):FlxColor
+	{
+		var palette:Array<Int> = [0xFF665AFF, 0xFF24AD65, 0xFFFF9E24, 0xFF24A7FF, 0xFFE05AFF, 0xFF5AE0C8];
+		var hash:Int = 0;
+		for (i in 0...name.length) hash = (hash * 31 + name.charCodeAt(i)) % 1000003;
+		return palette[hash % palette.length];
 	}
 
 	public function setDisabled(on:Bool)
@@ -1328,12 +1626,12 @@ class ModItem extends FlxSpriteGroup
 class MenuButton extends FlxSpriteGroup
 {
 	public var bg:FlxSprite;
-	public var textOn:Alphabet;
-	public var textOff:Alphabet;
+	public var textOn:FlxText;
+	public var textOff:FlxText;
 	public var icon:FlxSprite;
 	public var onClick:Void->Void = null;
 	public var enabled(default, set):Bool = true;
-	public function new(x:Float, y:Float, width:Int, height:Int, ?text:String = null, ?img:FlxGraphic = null, onClick:Void->Void = null, animWidth:Int = 0, animHeight:Int = 0)
+	public function new(x:Float, y:Float, width:Int, height:Int, ?text:String = null, ?img:FlxGraphic = null, onClick:Void->Void = null, animWidth:Int = 0, animHeight:Int = 0, ?textSize:Int = 32)
 	{
 		super(x, y);
 		
@@ -1343,20 +1641,13 @@ class MenuButton extends FlxSpriteGroup
 
 		if(text != null)
 		{
-			textOn = new Alphabet(0, 0, "", false);
-			textOn.setScale(0.6);
-			textOn.text = text;
-			textOn.alpha = 0.6;
+			// 文字用大号 VCR 而不是 Alphabet：Alphabet 的字形推进量是未缩放的定值，
+			// 长标签（ENABLE ALL / DISABLE ALL）会溢出按钮、和隔壁按钮的标签撞在一起。
+			// FlxText 走真实字宽，配合 fitTextSprite() 按按钮内宽自动缩，怎么翻译都不会出界。
+			textOn = makeTextSprite(text, textSize + 2, FlxColor.BLACK, FlxTextBorderStyle.NONE);
+			textOff = makeTextSprite(text, textSize, FlxColor.WHITE, FlxTextBorderStyle.OUTLINE);
 			textOn.visible = false;
-			centerOnBg(textOn);
-			textOn.y -= 30;
 			add(textOn);
-			
-			textOff = new Alphabet(0, 0, "", true);
-			textOff.setScale(0.52);
-			textOff.text = text;
-			textOff.alpha = 0.6;
-			centerOnBg(textOff);
 			add(textOff);
 		}
 		else if(img != null)
@@ -1372,6 +1663,53 @@ class MenuButton extends FlxSpriteGroup
 		setButtonVisibility(false);
 
 		origin.set(Std.int(bg.width / 2), Std.int(bg.height / 2));
+	}
+
+	function makeTextSprite(str:String, size:Int, color:FlxColor, border:FlxTextBorderStyle):FlxText
+	{
+		var t:FlxText = new FlxText(0, 0, 0, str, size);
+		t.setFormat(Paths.font('vcr.ttf'), size, color, CENTER, border, FlxColor.BLACK);
+		t.borderSize = 2;
+		t.antialiasing = ClientPrefs.data.antialiasing;
+		fitTextSprite(t);
+		return t;
+	}
+
+	/**
+	 * 让文字塞进按钮：超宽就**降字号**（而不是缩放），居中摆放。
+	 * 用缩放的话 FlxText 的 offset 会跟着缩放走，居中算式会偏，字号方案干净得多。
+	 *
+	 * `withOffset`：坐标要不要加组偏移。
+	 * 本类是 FlxSpriteGroup，`add()` 时 `preAdd` 会把组的 x/y 加进子对象 —— 所以
+	 * **构造期（add 之前）写局部坐标**、**事后重排（add 之后）必须写绝对坐标**，
+	 * 否则等于把已经加上的偏移抹掉，文字会飞回屏幕左上角。
+	 */
+	function fitTextSprite(t:FlxText, withOffset:Bool = false):Void
+	{
+		if(t == null) return;
+
+		var maxW:Float = bg.width - 20;
+		var guard:Int = 0;
+		t.updateHitbox();
+		while(t.width > maxW && t.size > 9 && guard < 30)
+		{
+			t.setFormat(Paths.font('vcr.ttf'), t.size - 2, t.color, CENTER, t.borderStyle, FlxColor.BLACK);
+			t.updateHitbox();
+			guard++;
+		}
+
+		t.x = bg.width / 2 - t.width / 2 + (withOffset ? x : 0);
+		t.y = bg.height / 2 - t.height / 2 + (withOffset ? y : 0);
+	}
+
+	/** 换文字（MODS / CONTENT 页签按钮用）。 */
+	public function setText(str:String):Void
+	{
+		if(textOn == null || textOff == null) return;
+		textOn.text = str;
+		textOff.text = str;
+		fitTextSprite(textOn, true);
+		fitTextSprite(textOff, true);
 	}
 
 	public var focusChangeCallback:Bool->Void = null;

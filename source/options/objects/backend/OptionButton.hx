@@ -60,7 +60,7 @@ class OptionButton extends FlxSpriteGroup
             add(border);
         }
 
-        actionText = new FlxText(0, 0, width - 20, getActionText(), fontSize);
+        actionText = new FlxText(0, 0, width, getActionText(), fontSize);
         actionText.setFormat(Paths.font('montserrat.ttf'), fontSize,
             win8 ? UIControlTheme.text() : UITheme.textPrimary, CENTER);
         actionText.borderStyle = NONE;
@@ -281,7 +281,7 @@ class OptionButton extends FlxSpriteGroup
 
         MessageBox.show(
             Language.getPhrase('options.reset.title', 'Reset'),
-            Language.getPhrase('options.reset.success', 'Reset {1} succeeded', [target]),
+            Language.getPhrase('options.reset.success', '{1} succeeded', [target]),
             MESSAGE,
             null,
             3.0

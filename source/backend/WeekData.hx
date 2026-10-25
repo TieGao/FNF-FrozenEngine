@@ -186,6 +186,8 @@ class WeekData {
 		for (pack in FileSystem.readDirectory(groupPath))
 		{
 			if (pack.startsWith('.')) continue;
+			// MODS 菜单里被禁用的内容包（contentList.txt）不注册它的周
+			if (ContentPacks.isDisabled('VanillaSongs/$pack')) continue;
 			#if !BASE_GAME_ERECT_CONTENT
 			if (pack == 'Erect') continue; // 内容侧总开关：关掉 BASE_GAME_ERECT_CONTENT 则不注册 erect 内容包
 			#end

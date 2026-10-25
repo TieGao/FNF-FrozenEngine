@@ -132,6 +132,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
             close();
         });
         cancelBtn.normalStyle.bgColor = FlxColor.fromString('0xFFEF4444');
+        cancelBtn.text.font = Paths.font('vcr.ttf');
         cancelBtn.normalStyle.textColor = FlxColor.WHITE;
         cancelBtn.resize(120, 28);
         cancelBtn.x = centerX - cancelBtn.width / 2;
@@ -161,7 +162,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
         }
 
         infoText = new FlxText(boxBg.x + PADDING, currentY, DIALOG_WIDTH - PADDING * 2, infoMsg, 16);
-        infoText.setFormat(null, 16, FlxColor.fromString('0xFFCCCCCC'), CENTER);
+        infoText.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.fromString('0xFFCCCCCC'), CENTER);
         infoText.scrollFactor.set();
         add(infoText);
         currentY += 62;
@@ -170,6 +171,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
         convertKeysCheck = new PsychUICheckBox(centerX - 140, currentY, 
             Language.getPhrase('stepmania_convert_keys', 'Convert to different key count'), 220);
         convertKeysCheck.checked = (detectedKeys >= 7);
+        convertKeysCheck.text.font = Paths.font('vcr.ttf');
         convertKeysCheck.scrollFactor.set();
         add(convertKeysCheck);
         currentY += 36;
@@ -177,7 +179,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
         // 目标键数下拉菜单
         var targetLabel:FlxText = new FlxText(0, currentY + 4, 120, 
             Language.getPhrase('stepmania_target_keys', 'Target Keys:'), 16);
-        targetLabel.setFormat(null, 16, FlxColor.WHITE);
+        targetLabel.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.WHITE);
         targetLabel.x = centerX - 160;
         targetLabel.scrollFactor.set();
         add(targetLabel);
@@ -195,6 +197,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
         if (detectedKeys < 4) defaultIndex = 0;
         if (detectedKeys > 16) defaultIndex = 12;
         targetKeysDropDown.selectedIndex = defaultIndex;
+        targetKeysDropDown.textObj.font = Paths.font('vcr.ttf');
         targetKeysDropDown.scrollFactor.set();
         add(targetKeysDropDown);
         currentY += 48;
@@ -204,7 +207,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
             Language.getPhrase('stepmania_import_hint', 
                 'Note: Converting key counts will remap notes to the nearest column.\nHold notes will be preserved when possible.'),
             13);
-        hintText.setFormat(null, 13, FlxColor.fromString('0xFF888888'), CENTER);
+        hintText.setFormat(Paths.font('vcr.ttf'), 13, FlxColor.fromString('0xFF888888'), CENTER);
         hintText.scrollFactor.set();
         add(hintText);
         currentY += 38;
@@ -228,6 +231,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
             close();
         });
         importBtn.normalStyle.bgColor = FlxColor.fromString('0xFF3B82F6');
+        importBtn.text.font = Paths.font('vcr.ttf');
         importBtn.normalStyle.textColor = FlxColor.WHITE;
         importBtn.resize(BUTTON_WIDTH, BUTTON_HEIGHT);
         importBtn.scrollFactor.set();
@@ -247,7 +251,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
             [Std.string(currentKeys), Std.string(currentKeys - 1)]);
 
         infoText = new FlxText(boxBg.x + PADDING, currentY, DIALOG_WIDTH - PADDING * 2, infoMsg, 16);
-        infoText.setFormat(null, 16, FlxColor.fromString('0xFFCCCCCC'), CENTER);
+        infoText.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.fromString('0xFFCCCCCC'), CENTER);
         infoText.scrollFactor.set();
         add(infoText);
         currentY += 62;
@@ -255,7 +259,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
         // 格式选择
         var formatLabel:FlxText = new FlxText(0, currentY + 4, 100,
             Language.getPhrase('stepmania_format', 'Format:'), 16);
-        formatLabel.setFormat(null, 16, FlxColor.WHITE);
+        formatLabel.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.WHITE);
         formatLabel.x = centerX - 160;
         formatLabel.scrollFactor.set();
         add(formatLabel);
@@ -264,6 +268,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
             ['.sm (StepMania 4/5)', '.ssc (StepMania 5+)'], 
             function(id:Int, val:String) {});
         formatDropDown.selectedIndex = 0;
+        formatDropDown.textObj.font = Paths.font('vcr.ttf');
         formatDropDown.scrollFactor.set();
         add(formatDropDown);
         currentY += 44;
@@ -271,7 +276,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
         // 难度选择
         var diffLabel:FlxText = new FlxText(0, currentY + 4, 100,
             Language.getPhrase('stepmania_difficulty', 'Difficulty:'), 16);
-        diffLabel.setFormat(null, 16, FlxColor.WHITE);
+        diffLabel.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.WHITE);
         diffLabel.x = centerX - 160;
         diffLabel.scrollFactor.set();
         add(diffLabel);
@@ -280,6 +285,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
         difficultyDropDown = new PsychUIDropDownMenu(centerX - 20, currentY, diffOptions, 
             function(id:Int, val:String) {});
         difficultyDropDown.selectedIndex = 4; // 默认 Challenge
+        difficultyDropDown.textObj.font = Paths.font('vcr.ttf');
         difficultyDropDown.scrollFactor.set();
         add(difficultyDropDown);
         currentY += 48;
@@ -289,7 +295,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
             Language.getPhrase('stepmania_export_hint',
                 'Note: .sm is widely compatible.\n.ssc supports more features like labels and multiple BPM changes.'),
             13);
-        hintText.setFormat(null, 13, FlxColor.fromString('0xFF888888'), CENTER);
+        hintText.setFormat(Paths.font('vcr.ttf'), 13, FlxColor.fromString('0xFF888888'), CENTER);
         hintText.scrollFactor.set();
         add(hintText);
         currentY += 38;
@@ -313,6 +319,7 @@ class StepManiaDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
             close();
         });
         exportBtn.normalStyle.bgColor = FlxColor.fromString('0xFF22C55E');
+        exportBtn.text.font = Paths.font('vcr.ttf');
         exportBtn.normalStyle.textColor = FlxColor.WHITE;
         exportBtn.resize(BUTTON_WIDTH, BUTTON_HEIGHT);
         exportBtn.scrollFactor.set();

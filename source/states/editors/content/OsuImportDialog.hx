@@ -95,7 +95,7 @@ class OsuImportDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
         }
 
         infoText = new FlxText(0, currentY, DIALOG_WIDTH - PADDING * 2, infoMsg, 18);
-        infoText.setFormat(null, 18, FlxColor.fromString('0xFFCCCCCC'), CENTER);
+        infoText.setFormat(Paths.font('vcr.ttf'), 18, FlxColor.fromString('0xFFCCCCCC'), CENTER);
         infoText.scrollFactor.set();
         infoText.x = boxBg.x + PADDING;
         add(infoText);
@@ -106,6 +106,7 @@ class OsuImportDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
             convertTo4kCheck = new PsychUICheckBox(0, currentY, 
                 Language.getPhrase('osu_import_convert_check', 'Convert to 4K (3 key mania)'), 240);
             convertTo4kCheck.checked = true;
+            convertTo4kCheck.text.font = Paths.font('vcr.ttf');
             convertTo4kCheck.scrollFactor.set();
             convertTo4kCheck.x = centerX - convertTo4kCheck.width / 2;
             add(convertTo4kCheck);
@@ -124,7 +125,7 @@ class OsuImportDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
         var actionLabel:FlxText = new FlxText(0, currentY, DIALOG_WIDTH, 
             Language.getPhrase('osu_import_action_label', '— Choose Action —'), 15);
         actionLabel.screenCenter(X);
-        actionLabel.setFormat(null, 15, FlxColor.fromString('0xFF999999'), CENTER);
+        actionLabel.setFormat(Paths.font('vcr.ttf'), 15, FlxColor.fromString('0xFF999999'), CENTER);
         actionLabel.scrollFactor.set();
         add(actionLabel);
         currentY += 28;
@@ -142,6 +143,7 @@ class OsuImportDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
             close();
         });
         loadToEditorBtn.normalStyle.bgColor = FlxColor.fromString('0xFF3B82F6'); // 蓝色
+        loadToEditorBtn.text.font = Paths.font('vcr.ttf');
         loadToEditorBtn.normalStyle.textColor = FlxColor.WHITE;
         loadToEditorBtn.resize(BUTTON_WIDTH, BUTTON_HEIGHT);
         loadToEditorBtn.x = centerX - BUTTON_WIDTH - gap / 2;
@@ -157,6 +159,7 @@ class OsuImportDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
             close();
         });
         saveToFileBtn.normalStyle.bgColor = FlxColor.fromString('0xFF22C55E'); // 绿色
+        saveToFileBtn.text.font = Paths.font('vcr.ttf');
         saveToFileBtn.normalStyle.textColor = FlxColor.WHITE;
         saveToFileBtn.resize(BUTTON_WIDTH, BUTTON_HEIGHT);
         saveToFileBtn.x = centerX + gap / 2;
@@ -172,6 +175,7 @@ class OsuImportDialog extends MusicBeatSubstate implements PsychUIEventHandler.P
             close();
         });
         cancelBtn.normalStyle.bgColor = FlxColor.fromString('0xFFEF4444'); // 红色
+        cancelBtn.text.font = Paths.font('vcr.ttf');
         cancelBtn.normalStyle.textColor = FlxColor.WHITE;
         cancelBtn.resize(120, 28);
         cancelBtn.x = centerX - cancelBtn.width / 2;
