@@ -22,5 +22,6 @@ haxelib git linc_luajit https://github.com/TieGao/linc_luajit_largs 8e8340e67fe0
 haxelib git luahscript https://github.com/VapireMox/luahscript 122acb150ba5a55d02b138c2530fa5619fb06c3a --always
 haxelib git funkin.vis https://github.com/FunkinCrew/funkVis 22b1ce089dd924f15cdc4632397ef3504d464e90 --always
 haxelib git grig.audio https://gitlab.com/haxe-grig/grig.audio.git cbf91e2180fd2e374924fe74844086aab7891666 --always
+haxelib set hxcpp git
 echo Finished!
 pause
