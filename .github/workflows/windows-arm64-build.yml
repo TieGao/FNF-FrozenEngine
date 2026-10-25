@@ -2,25 +2,15 @@ name: Windows ARM64 Build
 
 # Windows on ARM64 原生构建（独立于 desktop-build.yml 的实验线）。
 #
-# 为什么单开一个文件 —— arm64 与 x64 的构建链有三处不同：
-#   1) lime 必须换成上游 8.4.0 线的源码版（LIME_COMMIT）：
-#      setup/windows.bat 钉的 TieGao/lime git fork 没有 project/（C++ 源码），
-#      编不出 ndll；上游源码才带全套 project/。
-#   2) 上游 lime 没有任何 Windows ARM64 支持（WindowsPlatform 只认 32/64 位），
-#      要先打 setup/lime-arm64-windows.patch —— 该补丁就是对着 LIME_COMMIT 生成
-#      的，换 commit 必须重新生成补丁。
-#   3) 上游与 lime release 包都不带 arm64 预编译 ndll，所以先
-#      `lime rebuild windows arm64` 从源码编出 WindowsArm64/lime.ndll 再编游戏。
-#      lime 8.4+ 的第三方（SDL/vorbis/hashlink/cairo 等）全是 git 子模块，haxelib
-#      git 拉取不会初始化它们，必须补 git submodule update —— 本地漏了这步会在
-#      ImageDataUtil.cpp 上报 C1083: hl.h 找不到。
+# lime 的双仓库分工：TieGao/lime = 库形态（setup/windows.bat 钉它，构建用；
+# 含 x64 与 WindowsArm64 预编译 ndll 及已带 arm64 支持的工具）；IceTheAxe/lime
+# = 开发形态（上游源码 + arm64 补丁 + openal 子模块改指 TieGao/openal-soft，
+# 重编 ndll / 改源码在那里做，产出再同步回 TieGao/lime 库形态）。
+# 本工作流不重建 ndll，直接消费库形态。
 #
 # 其余依赖全走 setup/windows.bat 的 pinned 清单（hxcpp 用 TieGao git fork，
 # 自带 WindowsArm64 工具链；hxvlc / linc_luajit 已带 arm64 二进制支持）。
 # windows-latest 的 VS2022 自带 MSVC ARM64 生成工具，无需额外安装。
-#
-# 不走 cache-build.yml：补丁后的 lime 与现场重建的 ndll 都在缓存语义之外，
-# 保持无缓存全量构建，等链路稳定后再考虑并入缓存。
 
 on:
   workflow_dispatch:
@@ -28,7 +18,6 @@ on:
 env:
   HAXE_VERSION: 4.3.7
   PROJECT_NAME: FrozenEngine
-  LIME_COMMIT: 4514e52aabac420bf4f5adda3a73032d4034c7e6
 
 jobs:
   build:
@@ -48,26 +37,6 @@ jobs:
         run: |
           haxelib setup C:/haxelib
           call setup\windows.bat
-          :: arm64 覆盖：lime 换上游源码版；native-desktop 是 lime 8.4 源码编译的前置库
-          haxelib git lime https://github.com/openfl/lime %LIME_COMMIT% --always
-          haxelib install native-desktop --skip-dependencies --always
-
-      - name: Init lime submodules and apply arm64 patch
-        shell: pwsh
-        run: |
-          cd C:/haxelib/lime/git
-          git submodule update --init --recursive --depth 1
-          git apply $env:GITHUB_WORKSPACE\setup\lime-arm64-windows.patch
-          # 强制 run.n 从补丁后的源码重建工具：防止任何陈旧 tools.n 让 stock
-          # 逻辑接管（症状会是 ndll 被编成 x64 落到 ndll/Windows64）。
-          Remove-Item tools/tools.n -ErrorAction SilentlyContinue
-
-      - name: Rebuild lime.ndll for ARM64
-        shell: pwsh
-        run: |
-          haxelib run lime rebuild windows -arm64 -release
-          # rebuild 只落 lime.ndll，不拷导入库；游戏 exe 链接 ndll 时要在同目录找到 lime.lib
-          Copy-Item C:/haxelib/lime/git/project/obj/lib/lime.lib C:/haxelib/lime/git/ndll/WindowsArm64/
 
       - name: Skip SScript setup mode
         shell: cmd
