@@ -1,0 +1,79 @@
+diff --git a/tools/platforms/WindowsPlatform.hx b/tools/platforms/WindowsPlatform.hx
+index d64658c9..0bc898c4 100644
+--- a/tools/platforms/WindowsPlatform.hx
++++ b/tools/platforms/WindowsPlatform.hx
+@@ -36,6 +36,7 @@ class WindowsPlatform extends PlatformTarget
+ 	private var applicationDirectory:String;
+ 	private var executablePath:String;
+ 	private var is64:Bool;
++	private var isARM64:Bool;
+ 	private var targetType:String;
+ 	private var outputFile:String;
+ 
+@@ -186,8 +187,18 @@ class WindowsPlatform extends PlatformTarget
+ 			targetType = "cpp";
+ 		}
+ 
++		isARM64 = project.targetFlags.exists("arm64") || project.defines.exists("arm64");
++
+ 		for (architecture in project.architectures)
+ 		{
++			if (architecture == Architecture.ARM64)
++			{
++				if (targetType == "cpp" || targetType == "winrt")
++				{
++					isARM64 = true;
++				}
++			}
++
+ 			if (architecture == Architecture.X64)
+ 			{
+ 				if ((targetType == "cpp" || targetType == "winrt"))
+@@ -344,7 +355,7 @@ class WindowsPlatform extends PlatformTarget
+ 					}
+ 					else
+ 					{
+-						ProjectHelper.copyLibrary(project, ndll, "Windows" + (is64 ? "64" : ""), "",
++						ProjectHelper.copyLibrary(project, ndll, isARM64 ? "WindowsArm64" : "Windows" + (is64 ? "64" : ""), "",
+ 							(ndll.haxelib != null && (ndll.haxelib.name == "hxcpp" || ndll.haxelib.name == "hxlibc")) ? ".dll" : ".ndll",
+ 							applicationDirectory, project.debug, targetSuffix);
+ 					}
+@@ -608,7 +619,13 @@ class WindowsPlatform extends PlatformTarget
+ 				var haxeArgs = [hxml, "-D", "resourceFile=ApplicationMain.rc"];
+ 				var flags = ["-DresourceFile=ApplicationMain.rc"];
+ 
+-				if (is64)
++				if (isARM64)
++				{
++					haxeArgs.push("-D");
++					haxeArgs.push("HXCPP_ARM64");
++					flags.push("-DHXCPP_ARM64");
++				}
++				else if (is64)
+ 				{
+ 					haxeArgs.push("-D");
+ 					haxeArgs.push("HXCPP_M64");
+@@ -825,7 +842,12 @@ class WindowsPlatform extends PlatformTarget
+ 			}
+ 			else
+ 			{
+-				if (!targetFlags.exists("64")
++				if (targetFlags.exists("arm64"))
++				{
++					commands.push(["-Dwindows", "-DHXCPP_ARM64"]);
++				}
++				else if (!targetFlags.exists("arm64")
++					&& !targetFlags.exists("64")
+ 					&& !targetFlags.exists("x86_64")
+ 					&& (command == "rebuild" || System.hostArchitecture == X86 || (targetType != "cpp" && targetType != "winrt")))
+ 				{
+@@ -843,7 +865,8 @@ class WindowsPlatform extends PlatformTarget
+ 				// as previous Windows builds. For now, force -64 to be done last
+ 				// so that it can be debugged in a default "rebuild"
+ 
+-				if (!targetFlags.exists("32")
++				if (!targetFlags.exists("arm64")
++					&& !targetFlags.exists("32")
+ 					&& !targetFlags.exists("x86_32")
+ 					&& System.hostArchitecture == X64
+ 					&& (command != "rebuild" || targetType == "cpp" || targetType == "neko" || targetType == "winrt"))

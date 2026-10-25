@@ -1,0 +1,78 @@
+name: Windows ARM64 Build
+
+# Windows on ARM64 原生构建（独立于 desktop-build.yml 的实验线）。
+#
+# 为什么单开一个文件 —— arm64 与 x64 的构建链有三处不同：
+#   1) lime 必须换成上游 8.4.0 线的源码版（LIME_COMMIT）：
+#      setup/windows.bat 钉的 TieGao/lime git fork 没有 project/（C++ 源码），
+#      编不出 ndll；上游源码才带全套 project/。
+#   2) 上游 lime 没有任何 Windows ARM64 支持（WindowsPlatform 只认 32/64 位），
+#      要先打 setup/lime-arm64-windows.patch —— 该补丁就是对着 LIME_COMMIT 生成
+#      的，换 commit 必须重新生成补丁。
+#   3) 上游与 lime release 包都不带 arm64 预编译 ndll，所以先
+#      `lime rebuild windows arm64` 从源码编出 WindowsArm64/lime.ndll 再编游戏。
+#      lime 8.4+ 的第三方（SDL/vorbis/hashlink/cairo 等）全是 git 子模块，haxelib
+#      git 拉取不会初始化它们，必须补 git submodule update —— 本地漏了这步会在
+#      ImageDataUtil.cpp 上报 C1083: hl.h 找不到。
+#
+# 其余依赖全走 setup/windows.bat 的 pinned 清单（hxcpp 用 TieGao git fork，
+# 自带 WindowsArm64 工具链；hxvlc / linc_luajit 已带 arm64 二进制支持）。
+# windows-latest 的 VS2022 自带 MSVC ARM64 生成工具，无需额外安装。
+#
+# 不走 cache-build.yml：补丁后的 lime 与现场重建的 ndll 都在缓存语义之外，
+# 保持无缓存全量构建，等链路稳定后再考虑并入缓存。
+
+on:
+  workflow_dispatch:
+
+env:
+  HAXE_VERSION: 4.3.7
+  PROJECT_NAME: FrozenEngine
+  LIME_COMMIT: 4514e52aabac420bf4f5adda3a73032d4034c7e6
+
+jobs:
+  build:
+    name: Windows ARM64
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Setup Haxe
+        uses: krdlab/setup-haxe@master
+        with:
+          haxe-version: ${{ env.HAXE_VERSION }}
+
+      - name: Install Libraries
+        shell: cmd
+        run: |
+          haxelib setup C:/haxelib
+          call setup\windows.bat
+          :: arm64 覆盖：lime 换上游源码版；native-desktop 是 lime 8.4 源码编译的前置库
+          haxelib git lime https://github.com/openfl/lime %LIME_COMMIT% --always
+          haxelib install native-desktop --skip-dependencies --always
+
+      - name: Init lime submodules and apply arm64 patch
+        shell: pwsh
+        run: |
+          cd C:/haxelib/lime/git
+          git submodule update --init --recursive --depth 1
+          git apply $env:GITHUB_WORKSPACE\setup\lime-arm64-windows.patch
+
+      - name: Rebuild lime.ndll for ARM64
+        shell: pwsh
+        run: haxelib run lime rebuild windows arm64
+
+      - name: Skip SScript setup mode
+        shell: cmd
+        run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> %USERPROFILE%/settings.cocoa
+
+      - name: Compile
+        shell: pwsh
+        run: echo y & haxelib run lime build windows -arm64 -D officialBuild -always
+
+      - name: Publish Artifact
+        uses: actions/upload-artifact@v4.3.4
+        with:
+          name: windowsBuild-arm64
+          path: export/release/windows/bin

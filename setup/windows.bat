@@ -18,7 +18,7 @@ haxelib install format --skip-dependencies
 haxelib install hxp --skip-dependencies
 haxelib git hxcpp https://github.com/TieGao/hxcpp.git
 haxelib git flxanimate https://github.com/Dot-Stuff/flxanimate 0188d47c982913eb10fad7bd75f062ddfc680f4b --always
-haxelib git linc_luajit https://github.com/TieGao/linc_luajit_largs 8e8340e67fe08560f3205110cc95d3279ecb3973 --always
+haxelib git linc_luajit https://github.com/TieGao/linc_luajit_largs 82388eb8d9eb084d91da6ff63de44426c4df0a6e --always
 haxelib git luahscript https://github.com/VapireMox/luahscript 122acb150ba5a55d02b138c2530fa5619fb06c3a --always
 haxelib git funkin.vis https://github.com/FunkinCrew/funkVis 22b1ce089dd924f15cdc4632397ef3504d464e90 --always
 haxelib git grig.audio https://gitlab.com/haxe-grig/grig.audio.git cbf91e2180fd2e374924fe74844086aab7891666 --always
