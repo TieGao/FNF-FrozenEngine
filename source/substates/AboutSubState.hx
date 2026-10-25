@@ -125,7 +125,7 @@ class AboutSubState extends MusicBeatSubstate
         var hxvlcText = createText(col1X, startY, "hxvlc " + getHxvlcVersion(), 20, FlxColor.CYAN, LEFT);
         infoContainer.add(hxvlcText);
         
-        var hscriptText = createText(col2X, startY, "hscript-iris " + getHscriptIrisVersion(), 20, FlxColor.CYAN, LEFT);
+        var hscriptText = createText(col2X, startY, "hscript-iris-nmv " + getHscriptIrisVersion(), 20, FlxColor.CYAN, LEFT);
         infoContainer.add(hscriptText);
         startY += textHeight + 10;
 
@@ -241,7 +241,7 @@ class AboutSubState extends MusicBeatSubstate
     function getHscriptIrisVersion():String
     {
         #if HSCRIPT_ALLOWED
-        return backend.VersionInfo.lib('hscript-iris');
+        return backend.VersionInfo.lib('hscript-iris-nmv');
         #else
         return 'N/A';
         #end

@@ -2,6 +2,7 @@ package states.freeplay;
 
 import backend.Mods;
 import backend.CustomChartData;
+import backend.NMVContentData;
 import backend.MusicBeatState;
 import backend.MouseMove;
 
@@ -41,6 +42,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 	static inline var LEVEL_VANILLA:Int = 1;
 	static inline var LEVEL_MODS:Int = 2;
 	static inline var LEVEL_CHARTS:Int = 3;
+	static inline var LEVEL_NMV:Int = 4;
 
 	// 列表项类型
 	static inline var KIND_SOURCE:String = 'source';     // 一级：进入某个来源的二级层（chartCategory = vanilla/mods/charts）
@@ -108,6 +110,8 @@ class ModFolderSubstate extends MusicBeatSubstate
 				level = LEVEL_VANILLA;
 			else if (FreeplayState.sourceFilter == 'mods')
 				level = LEVEL_MODS;
+			else if (FreeplayState.sourceFilter == 'nmv')
+				level = LEVEL_NMV;
 		}
 
 		// 计算可见项目数量
@@ -264,6 +268,8 @@ class ModFolderSubstate extends MusicBeatSubstate
 				itemIndex = buildModsLevel(startY, itemIndex);
 			case LEVEL_CHARTS:
 				itemIndex = buildChartsLevel(startY, itemIndex);
+			case LEVEL_NMV:
+				itemIndex = buildNmvLevel(startY, itemIndex);
 			default:
 				itemIndex = buildRootLevel(startY, itemIndex);
 		}
@@ -291,7 +297,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 		updateSelection();
 	}
 
-	/** 一级：ALL / Vanilla / Mods / CustomCharts 四类来源（NMVMODS 未实现，暂不列）。 */
+	/** 一级：ALL / Vanilla / Mods / CustomCharts / NMVMODS 五类来源。 */
 	function buildRootLevel(startY:Float, itemIndex:Int):Int
 	{
 		var contentMode:Bool = parent != null && parent.isContentMode();
@@ -316,6 +322,17 @@ class ModFolderSubstate extends MusicBeatSubstate
 			Language.getPhrase('mod_folder_charts_desc', 'Custom charts under content/CustomCharts'),
 			null, 'charts', KIND_SOURCE, itemIndex, startY, contentMode);
 		itemIndex++;
+
+		#if sys
+		// 没有 NMV 内容包时整项不显示，避免空目录也占一个入口
+		if (NMVContentData.listMods().length > 0)
+		{
+			addItem(Language.getPhrase('mod_folder_nmv', 'NMVMODS'),
+				Language.getPhrase('mod_folder_nmv_desc', 'NMV content packs under content/NMVMODS'),
+				null, 'nmv', KIND_SOURCE, itemIndex, startY, !contentMode && filter == 'nmv');
+			itemIndex++;
+		}
+		#end
 
 		return itemIndex;
 	}
@@ -380,6 +397,27 @@ class ModFolderSubstate extends MusicBeatSubstate
 			addItem(modName, modDesc, mod, null, KIND_FILTER, itemIndex, startY, filter == 'mods' && sub == mod, 'mods', mod);
 			itemIndex++;
 		}
+		return itemIndex;
+	}
+
+	/** 二级：NMV 内容包 —— content/NMVMODS 下各包（包名取 meta.json 的 name）。 */
+	function buildNmvLevel(startY:Float, itemIndex:Int):Int
+	{
+		itemIndex = addBackItem(startY, itemIndex);
+
+		#if sys
+		var filter:String = FreeplayState.sourceFilter;
+		var sub:String = FreeplayState.sourceSubFilter;
+
+		for (mod in NMVContentData.listMods())
+		{
+			addItem(NMVContentData.getTitle(mod),
+				Language.getPhrase('mod_folder_nmv_desc', 'NMV content packs under content/NMVMODS'),
+				mod, null, KIND_FILTER, itemIndex, startY, filter == 'nmv' && sub == mod, 'nmv', mod);
+			itemIndex++;
+		}
+		#end
+
 		return itemIndex;
 	}
 
@@ -820,6 +858,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 				{
 					case 'vanilla': LEVEL_VANILLA;
 					case 'mods':    LEVEL_MODS;
+					case 'nmv':     LEVEL_NMV;
 					default:        LEVEL_CHARTS;
 				}
 				buildList();

@@ -536,6 +536,9 @@ class PlayState extends MusicBeatState
 	public static var instance:PlayState;
 	#if LUA_ALLOWED public var luaArray:Array<FunkinLua> = []; #end
 
+	// NMV 脚本 API 容器（内容包模式下挂歌内脚本与 scripts/states/PlayState.hx）
+	#if HSCRIPT_ALLOWED public var nmvScripts:nmv.scripts.NMVSciptHolder = null; #end
+
 	#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
 	private var luaDebugGroup:FlxTypedGroup<psychlua.DebugLuaText>;
 	#end
@@ -1110,6 +1113,19 @@ class PlayState extends MusicBeatState
 					initHScript(folder + file);
 				#end
 			}
+		#end
+
+		// NMV 脚本 API：内容包模式下加载歌内脚本（谱面目录）与状态脚本（scripts/states/PlayState.hx）
+		#if HSCRIPT_ALLOWED
+		nmvScripts = new nmv.scripts.NMVSciptHolder(this);
+		if (Paths.isCustomChartCategory() || Paths.currentContentRoot != null)
+		{
+			var nmvScriptDir:String = (Paths.currentChartDirectory != null && Paths.currentChartDirectory.length > 0)
+				? Paths.currentChartDirectory
+				: (Paths.currentContentRoot != null ? Paths.currentContentRoot + '/songs/' + SONG.song : null);
+			nmvScripts.loadDir(nmvScriptDir, Mods.currentModDirectory);
+			nmvScripts.loadStateScript('PlayState', Mods.currentModDirectory);
+		}
 		#end
 
 		if(eventNotes.length > 0)
@@ -5067,6 +5083,13 @@ public function reloadCounterColors()
 			}
 
 		hscriptArray = null;
+
+		if (nmvScripts != null)
+		{
+			nmvScripts.group.call('onDestroy');
+			nmvScripts.destroy();
+			nmvScripts = null;
+		}
 		#end
 		#if BASE_GAME_ERECT
 		if (erectCameraTargetTween != null) erectCameraTargetTween.cancel();
@@ -5298,6 +5321,12 @@ public function reloadCounterColors()
 
 		var result:Dynamic = callOnLuas(funcToCall, args, ignoreStops, exclusions, excludeValues);
 		if(result == null || excludeValues.contains(result)) result = callOnHScript(funcToCall, args, ignoreStops, exclusions, excludeValues);
+
+		// NMV 脚本 API 容器与 lua/hscript 同一入口广播，事件名保持一套
+		#if HSCRIPT_ALLOWED
+		if (nmvScripts != null && (result == null || excludeValues.contains(result)))
+			result = nmvScripts.call(funcToCall, args ?? [], ignoreStops, exclusions ?? []);
+		#end
 		return result;
 	}
 

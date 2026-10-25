@@ -249,6 +249,20 @@ class Song
 		var formattedSong:String = Paths.formatToSongPath(jsonInput);
 		_lastPath = Paths.json('$formattedFolder/$formattedSong');
 
+		#if sys
+		// NMV 内容包的谱面是 songs/<歌>/data/<难度>.json，与 FE 的 data/<歌>/<歌>-<难度>.json 不同。
+		// 必须在 Assets.getText 之前判存在：那条路找不到会抛异常，回退就再也走不到了。
+		if (!FileSystem.exists(_lastPath))
+		{
+			var nmvPath:String = findNmvChart(formattedFolder, formattedSong);
+			if (nmvPath != null)
+			{
+				_lastPath = nmvPath;
+				return parseJSON(File.getContent(nmvPath), jsonInput);
+			}
+		}
+		#end
+
 		#if MODS_ALLOWED
 		if(FileSystem.exists(_lastPath))
 			rawData = File.getContent(_lastPath);
@@ -258,6 +272,32 @@ class Song
 
 		return rawData != null ? parseJSON(rawData, jsonInput) : null;
 	}
+
+	#if sys
+	/** NMV 内容包谱面回退：songs/<歌>/data/<难度>.json；难度文件缺失时回退 normal。 */
+	static function findNmvChart(folder:String, song:String):Null<String>
+	{
+		var mod:String = NMVContentData.currentMod;
+		if (mod == null || mod.length == 0) return null;
+
+		var difficulty:String = 'normal';
+		var dash:Int = song.lastIndexOf('-');
+		if (dash >= 0 && dash < song.length - 1) difficulty = song.substr(dash + 1);
+
+		var root:String = '${NMVContentData.ROOT}/$mod';
+		for (candidate in [
+			'$root/songs/$folder/data/$difficulty.json',
+			'$root/songs/$folder/$difficulty.json',
+			'$root/songs/$folder/data/normal.json',
+			'$root/songs/$folder/song.json'
+		])
+		{
+			if (FileSystem.exists(candidate)) return candidate;
+		}
+
+		return null;
+	}
+	#end
 
 	public static function parseJSON(rawData:String, ?nameForError:String = null, ?convertTo:String = 'psych_v1'):SwagSong
 	{

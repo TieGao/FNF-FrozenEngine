@@ -154,6 +154,7 @@ class WeekData {
 
 		#if sys
 		addContentPackWeeks(isStoryMode);
+		addNmvModWeeks(isStoryMode);
 		#end
 	}
 
@@ -198,6 +199,40 @@ class WeekData {
 					weeksLoaded.set(weekName, weekFile);
 					weeksList.push(weekName);
 				}
+			}
+		}
+	}
+	/**
+	 * 扫描 NMV 内容包的周定义（content/NMVMODS/<mod>/data/weeks/*.json）。
+	 * 只在启用 NMV 模式（NMVContentData.currentMod 非空）时注册，避免 NMV 的周混进默认列表。
+	 * 周 key 带包名前缀，避免与 assets / VanillaSongs 的周重名。
+	 */
+	private static function addNmvModWeeks(isStoryMode:Null<Bool>)
+	{
+		var mod:String = NMVContentData.currentMod;
+		if (mod == null || mod.length == 0) return;
+
+		for (path in NMVContentData.listWeekFiles(mod))
+		{
+			var week:WeekFile = NMVContentData.readWeek(path);
+			if (week == null) continue;
+
+			var fileName:String = path.substring(path.lastIndexOf('/') + 1);
+			var weekName:String = fileName.substring(0, fileName.length - 5);
+			var key:String = '$mod/$weekName';
+			if (weeksLoaded.exists(key)) continue;
+
+			var weekFile:WeekData = new WeekData(week, key);
+			weekFile.contentRoot = '${NMVContentData.ROOT}/$mod';
+			// NMV 的解锁靠 Cosmicube / 豆子系统（未移植），FE 的 weekCompleted 里也没有 NMV 的周名。
+			// 不清掉的话除 week1 外全部被 weekIsLocked 锁死。
+			weekFile.startUnlocked = true;
+			weekFile.weekBefore = '';
+
+			if (isStoryMode == null || (isStoryMode && !weekFile.hideStoryMode) || (!isStoryMode && !weekFile.hideFreeplay))
+			{
+				weeksLoaded.set(key, weekFile);
+				weeksList.push(key);
 			}
 		}
 	}
