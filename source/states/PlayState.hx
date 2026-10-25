@@ -768,6 +768,18 @@ class PlayState extends MusicBeatState
 		dadGroup = new FlxSpriteGroup(DAD_X, DAD_Y);
 		gfGroup = new FlxSpriteGroup(GF_X, GF_Y);
 
+		// NMV 脚本 API 容器。舞台脚本必须赶在角色创建之前跑 onLoad，
+		// 否则脚本里 add 的背景会叠在角色上面（NMV 的 Stage.runScript 时序）
+		#if HSCRIPT_ALLOWED
+		if (Paths.isCustomChartCategory() || Paths.currentContentRoot != null)
+		{
+			nmvScripts = new nmv.scripts.NMVSciptHolder(this);
+			// NMV 包的舞台脚本（stages/<stage>.hx）；FE 内容包的 stages/ 归 psych 扫描管
+			if (backend.NMVContentData.currentMod != null && curStage != null && curStage.length > 0)
+				nmvScripts.load(Paths.currentContentRoot + '/stages/' + curStage + '.hx', null, Mods.currentModDirectory);
+		}
+		#end
+
 		StageData.newStage(curStage);
 		if(isPixelStage) introSoundsSuffix = '-pixel';
 
@@ -836,7 +848,9 @@ class PlayState extends MusicBeatState
 
 		// 内容包自带脚本（content/<包>/scripts/** 含一级子目录；stages/ 为包根目录的舞台脚本，
 		// 对齐 PE 惯例 —— startHScriptsNamed 只查 mods/ 与 assets/shared/，内容包的 stages/ 走这里补扫）
-		if (Paths.currentContentRoot != null && Paths.currentContentRoot.length > 0)
+		// NMV 包（content/NMVMODS）不在此列：psych 运行时只调 onCreate，NMV 脚本的
+		// onLoad / 全局都对不上（此前把 20 个舞台脚本全错载过）—— 归 NMV 层自己加载
+		if (Paths.currentContentRoot != null && Paths.currentContentRoot.length > 0 && backend.NMVContentData.currentMod == null)
 		{
 			var contentScriptsDir:String = Paths.currentContentRoot + '/scripts';
 			var scriptDirs:Array<String> = [];
@@ -1157,10 +1171,10 @@ class PlayState extends MusicBeatState
 		#end
 		#end
 
-		// NMV 脚本 API：内容包模式下加载歌内脚本（谱面目录）与状态脚本（scripts/states/PlayState.hx）
+		// NMV 脚本 API：加载歌内脚本（谱面目录）与状态脚本（scripts/states/PlayState.hx）。
+		// 容器已在 create 早期（舞台脚本时序）建好，这里只补歌内与状态脚本
 		#if HSCRIPT_ALLOWED
-		nmvScripts = new nmv.scripts.NMVSciptHolder(this);
-		if (Paths.isCustomChartCategory() || Paths.currentContentRoot != null)
+		if (nmvScripts != null)
 		{
 			var nmvScriptDir:String = (Paths.currentChartDirectory != null && Paths.currentChartDirectory.length > 0)
 				? Paths.currentChartDirectory

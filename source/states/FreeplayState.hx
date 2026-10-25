@@ -1355,12 +1355,18 @@ class FreeplayState extends MusicBeatState
 
         var oldModDir:String = Mods.currentModDirectory;
         Mods.currentModDirectory = songs[index].folder;
+        // 内容包歌的小图标等资源只在包里 —— 建卡期间把资源根临时指过去，
+        // 否则 HealthIcon 命中不了 content/<包>/images/icons/（Freeplay 平时没有包根上下文）
+        var oldContentRoot:String = Paths.currentContentRoot;
+        var packRoot:String = songs[index].contentRoot;
+        if (packRoot != null && packRoot.length > 0) Paths.currentContentRoot = packRoot;
         card = new FreeplayCard(0, 0, songs[index].songName, songs[index].songCharacter, songs[index].color,
             songs[index].displayName, getSongVariant(songs[index]), getSongDifficultyNames(songs[index]));
         card.targetY = index;
         cards[index] = card;
         // 建完立刻补内容（BPM / 时长 / 键数 / 徽章），别让它停在占位状态
         applyCardSongInfo(index, card);
+        Paths.currentContentRoot = oldContentRoot;
         Mods.currentModDirectory = oldModDir;
         // 懒加载会让卡片在后续帧才创建：FlxGroup.draw 按 members 顺序绘制，
         // 直接 add 会排在背景/分数栏之后。这里显式插到背景组之前，保证卡片仍在底层。

@@ -51,6 +51,11 @@ class PresetFnf
 		script.set('DialogueBox', cutscenes.DialogueBox);
 		script.set("CutsceneHandler", cutscenes.CutsceneHandler);
 
+		// NMV 的宠物光标（Pet 继承 Bopper，未随路线 C 移植）：舞台/歌曲脚本普遍引用
+		// pet.curPet / pet.loadPet，缺了会让脚本 onLoad 中断，后续定时器闭包裸抛崩游戏。
+		// 行为桩：逻辑放行，宠物本体不显示。
+		script.set('pet', {curPet: '', loadPet: function(?name:String = '', ?force:Bool = false):Dynamic return null});
+
 		// 通用工具（Psych 系 preset 也有，脚本常直接调）
 		script.set('buildTarget', psychlua.LuaUtils.getBuildTarget());
 		script.set('Function_Stop', psychlua.LuaUtils.Function_Stop);
