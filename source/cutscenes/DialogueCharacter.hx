@@ -19,6 +19,9 @@ typedef DialogueCharacterFile = {
 	var animations:Array<DialogueAnimArray>;
 	var position:Array<Float>;
 	var scale:Float;
+	// Vanilla (V-Slice) speaker offsets, relative to the screen center. Kept for reference only:
+	// PixelDialogueBox positions speakers on PE's fixed left/right slots instead.
+	@:optional var pixel_offsets:Array<Float>;
 }
 
 class DialogueCharacter extends FlxSprite

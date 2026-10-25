@@ -2,7 +2,7 @@
 <project>
 	<!-- _________________________ Application Settings _________________________ -->
 
-	<app title="Friday Night Funkin': Frozen Engine" file="FrozenEngine" packageName="com.shadowmario.frozenengine" package="com.icetheaxe.frozenengine" main="Main" version="0.6.5" company="ShadowMario" />
+	<app title="Friday Night Funkin': Frozen Engine" file="FrozenEngine" packageName="com.shadowmario.frozenengine" package="com.icetheaxe.frozenengine" main="Main" version="0.6.7" company="ShadowMario" />
 
 	<!--Switch Export with Unique ApplicationID and Icon-->
 	<set name="APP_ID" value="0x0100f6c013bbc000" />
@@ -149,6 +149,8 @@
 
 	<haxelib name="flixel"/>
 	<haxelib name="flixel-addons"/>
+	<!-- 强制编进 FlxSkewedSprite（引擎源码没引用它，不 include 的话 hscript 里 resolveClass 拿不到） -->
+	<haxeflag name="--macro" value="include('flixel.addons.effects.FlxSkewedSprite')"/>
 	<haxelib name="tjson" version="1.4.0"/>
 
 	<!--Psych stuff needed-->

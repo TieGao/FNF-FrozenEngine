@@ -681,6 +681,7 @@
 					]
 				]
 			]
-		]
+		],
+		"format": "psych_v1_convert"
 	}
 }

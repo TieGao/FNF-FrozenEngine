@@ -141,6 +141,7 @@ class NumButton extends FlxSpriteGroup {
             if (mouseEvent.overlaps(specBG) || mouseEvent.overlaps(downBG)) {
                 setRodColor(colorNormal());
                 onFocus = false;
+                OptionInput.releasePointer(this);
                 return;
             }
         }
@@ -165,11 +166,13 @@ class NumButton extends FlxSpriteGroup {
 		if (mouse.justPressed && hoverRod)
         {
             onFocus = true;
+            OptionInput.capturePointer(this);   // 独占指针，别让列表跟着一起拖
             lastMouseX = OptionInput.mouseX();
         }
         else if (mouse.justPressed && hoverBG && !hoverRod)
         {
             onFocus = true;
+            OptionInput.capturePointer(this);
             jumpToPointer(OptionInput.mouseX());
             lastMouseX = OptionInput.mouseX();   // 防止下一帧 onHold 突跳
         }
@@ -192,6 +195,7 @@ class NumButton extends FlxSpriteGroup {
             if (mouse.justReleased)
             {
                 onFocus = false;
+                OptionInput.releasePointer(this);
             }
         }
 	}

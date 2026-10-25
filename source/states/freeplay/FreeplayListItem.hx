@@ -182,6 +182,54 @@ class FreeplayListItem extends FlxSpriteGroup
 		return bg != null && FlxG.mouse.overlaps(bg, camera);
 	}
 
+	/**
+	 * 把本行的绘制内容裁剪到给定视口矩形（世界坐标），只显示落在矩形内的部分。
+	 *
+	 * 必须逐个子 sprite 换算，不能设组级 clipRect：组级是按成员坐标平移下发矩形的
+	 * （`FlxSpriteGroup.clipRectTransform`），既算不了 scale / offset，也会被按压动画带偏。
+	 * 整行完全在视口内或完全在视口外时清掉裁剪，避免残留旧矩形。
+	 *
+	 * 滤镜背景（`FlxFilteredSprite`）画的是 `_blankFrame`，不吃 clipRect —— 需要裁剪时先关掉它的滤镜，
+	 * 让绘制回落到原生 clipRect 路径；回到完全可见再打开（会重跑一次滤镜）。
+	 */
+	public function clipToViewport(left:Float, top:Float, right:Float, bottom:Float):Void
+	{
+		var intersects:Bool = (x + itemWidth > left) && (x < right) && (y + itemHeight > top) && (y < bottom);
+		var fullyInside:Bool = (x >= left) && (y >= top) && (x + itemWidth <= right) && (y + itemHeight <= bottom);
+
+		var bgFilter:FlxFilteredSprite = Std.downcast(bg, FlxFilteredSprite);
+		if (bgFilter != null)
+			bgFilter.setFiltersEnabled(fullyInside || !intersects);
+
+		if (!intersects || fullyInside)
+		{
+			resetClip();
+			return;
+		}
+
+		if (bg != null) bg.clipToWorldBounds(left, top, right, bottom);
+		if (content != null && content.members != null)
+		{
+			for (member in content.members)
+			{
+				if (member != null) member.clipToWorldBounds(left, top, right, bottom);
+			}
+		}
+	}
+
+	/** 清掉本行所有成员上的裁剪。 */
+	public function resetClip():Void
+	{
+		if (bg != null && bg.clipRect != null) bg.clipRect = null;
+		if (content != null && content.members != null)
+		{
+			for (member in content.members)
+			{
+				if (member != null && member.clipRect != null) member.clipRect = null;
+			}
+		}
+	}
+
 	function buildBackground(w:Int, h:Int):FlxSprite
 	{
 		switch (style)

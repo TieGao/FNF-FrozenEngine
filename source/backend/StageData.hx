@@ -5,6 +5,8 @@ import haxe.Json;
 import backend.Song;
 import psychlua.ModchartSprite;
 
+import states.stages.*;
+
 typedef StageFile = {
 	var directory:String;
 	var defaultZoom:Float;
@@ -79,16 +81,52 @@ class StageData {
 	public static function getStageFile(stage:String):StageFile {
 		try
 		{
-			var path:String = Paths.getPath('stages/' + stage + '.json', TEXT, null, true);
+			var key:String = 'stages/' + stage + '.json';
+			var path:String = Paths.getPath(key, TEXT, null, true);
 			#if MODS_ALLOWED
 			if(FileSystem.exists(path))
 				return cast tjson.TJSON.parse(File.getContent(path));
-			#else
-			if(Assets.exists(path))
-				return cast tjson.TJSON.parse(Assets.getText(path));
 			#end
+			// 内容包与嵌入资源不在 FileSystem 里，补一条 Assets 通道
+			if(Assets.exists(path, TEXT))
+				return cast tjson.TJSON.parse(Assets.getText(path));
 		}
 		return dummy();
+	}
+
+	/**
+	 * 按舞台名创建对应的舞台类实例（PlayState 与场景编辑器共用，避免两处 switch 漂移）。
+	 * 没有对应舞台类时返回 null。
+	 */
+	public static function newStage(name:String):BaseStage
+	{
+		switch (name)
+		{
+			case 'stage': new StageWeek1(); 			//Week 1
+			case 'spooky': new Spooky();				//Week 2
+			case 'philly': new Philly();				//Week 3
+			case 'limo': new Limo();					//Week 4
+			case 'mall': new Mall();					//Week 5 - Cocoa, Eggnog
+			case 'mallEvil': new MallEvil();			//Week 5 - Winter Horrorland
+			case 'school': new School();				//Week 6 - Senpai, Roses
+			case 'schoolEvil': new SchoolEvil();		//Week 6 - Thorns
+			case 'tank': new Tank();					//Week 7 - Ugh, Guns, Stress
+			case 'phillyStreets': new PhillyStreets(); 	//Weekend 1 - Darnell, Lit Up, 2Hot
+			case 'phillyBlazin': new PhillyBlazin();	//Weekend 1 - Blazin
+			#if BASE_GAME_ERECT
+			case 'stage-erect': new StageErect();	//Week 1 Erect
+			case 'spooky-erect': new SpookyErect();	//Week 2 Erect
+			case 'philly-erect': new PhillyErect();	//Week 3 Erect
+			case 'limo-erect': new LimoErect();		//Week 4 Erect
+			case 'mall-erect': new MallErect();		//Week 5 Erect
+			case 'school-erect': new SchoolErect();	//Week 6 Erect - Senpai, Roses
+			case 'schoolEvil-erect': new SchoolEvilErect();	//Week 6 Erect - Thorns
+			case 'tank-erect': new TankErect();		//Week 7 Erect - Ugh
+			case 'phillyStreets-erect': new PhillyStreetsErect();	//Weekend 1 Erect - Darnell
+			#end
+			case 'audiostage': new AudioStage();
+		}
+		return null;
 	}
 
 	public static function vanillaSongStage(songName):String

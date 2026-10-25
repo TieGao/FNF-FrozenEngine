@@ -64,6 +64,10 @@ class FlxFilteredSprite extends FlxSprite
   @:nullSafety(Off)
   var _filterBmp2:BitmapData;
 
+  /** 用滤镜开关暂时收起的 filters，`setFiltersEnabled(false)` 时存这里。 */
+  @:nullSafety(Off)
+  var _savedFilters:Array<BitmapFilter>;
+
   override public function update(elapsed:Float)
   {
     super.update(elapsed);
@@ -91,6 +95,10 @@ class FlxFilteredSprite extends FlxSprite
 
   override public function draw():Void
   {
+    // 滤镜路径原来漏了这一步：renderTile 下 `clipRect` 只在 `checkClipRect()` 里被烘进 `_frame`，
+    // 不调用的话整个滤镜 sprite 完全不响应裁剪。
+    checkClipRect();
+
     checkEmptyFrame();
 
     if (alpha == 0 || _frame.type == FlxFrameType.EMPTY) return;
@@ -145,6 +153,29 @@ class FlxFilteredSprite extends FlxSprite
     }
 
     camera.drawPixels((filtered) ? _blankFrame : _frame, framePixels, _matrix, colorTransform, blend, antialiasing, shader);
+  }
+
+  /**
+   * 滤镜开关。滤镜路径画的是 `_blankFrame`（整张滤镜结果），不吃 `clipRect`，
+   * 所以要裁剪时先关掉、让绘制回落到原生 `_frame` + `checkClipRect` 路径；
+   * 完全可见时再开回来（会重跑一次滤镜）。
+   */
+  @:nullSafety(Off)
+  public function setFiltersEnabled(on:Bool):Void
+  {
+    if (on)
+    {
+      if (_savedFilters != null)
+      {
+        filters = _savedFilters;
+        _savedFilters = null;
+      }
+    }
+    else if (filters != null && _savedFilters == null)
+    {
+      _savedFilters = filters;
+      filters = null;
+    }
   }
 
   @:noCompletion

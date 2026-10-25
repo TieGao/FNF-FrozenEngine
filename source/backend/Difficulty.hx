@@ -49,13 +49,27 @@ class Difficulty
 	inline public static function getFilePath(num:Null<Int> = null)
 	{
 		if(num == null) num = PlayState.storyDifficulty;
+		return getFilePathForName(list[num], Paths.currentContentVariant);
+	}
 
-		var filePostfix:String = list[num];
-		if(filePostfix != null && Paths.formatToSongPath(filePostfix) != Paths.formatToSongPath(defaultDifficulty))
-			filePostfix = '-' + filePostfix;
-		else
-			filePostfix = '';
-		return Paths.formatToSongPath(filePostfix);
+	/**
+	 * 由「难度名 + 变体标识」拼谱面文件名后缀（含前导 '-'；返回 '' = 无后缀）。
+	 *
+	 * 变体包（PicoMix…）所有档位都带变体，**Normal 也不省略** —— 盘上就是
+	 * bopeebo-pico-easy / -pico-normal / -pico-hard，没有 bopeebo-pico.json。
+	 * 变体为空时沿用原版规则：Normal = 无后缀，其余 = '-' + 难度名。
+	 */
+	public static function getFilePathForName(diffName:String, ?variant:String):String
+	{
+		if (diffName == null || diffName.length == 0) return '';
+
+		if (variant != null && variant.length > 0)
+			return Paths.formatToSongPath('-' + variant + '-' + diffName);
+
+		if (Paths.formatToSongPath(diffName) == Paths.formatToSongPath(defaultDifficulty))
+			return '';
+
+		return Paths.formatToSongPath('-' + diffName);
 	}
 
 	inline public static function loadFromWeek(week:WeekData = null)
@@ -120,12 +134,19 @@ class Difficulty
 	 * 变体难度的音轨目录后缀 —— 变体难度的音轨放在 `songs/<歌>-<后缀>/` 里，目录名带变体、文件名不带。
 	 * 返回 null 表示该难度没有独立音轨目录（Easy / Normal / Hard）。
 	 *
+	 * 变体包（PicoMix…）的变体由内容包决定，与档位无关（三档共用同一套变体音轨），
+	 * 直接取当前内容的变体标识；只有旧式「变体写在难度名里」的包（Erect / Nightmare）
+	 * 才回退到按难度名推导。
+	 *
 	 * ⚠️ 后缀不能直接取难度名：Funkin 的 erect 变体含 `erect` / `nightmare` 两个难度，
 	 * 但 `playData.characters.instrumental` 只有一个 `"erect"`，原版也没有任何 `Inst-nightmare.ogg`
 	 * —— nightmare 与 erect 共用一套音轨，所以后缀要按「变体」取。
 	 */
 	public static function getAudioVariant(?num:Null<Int> = null):String
 	{
+		if (Paths.currentContentVariant != null && Paths.currentContentVariant.length > 0)
+			return Paths.currentContentVariant;
+
 		if (num == null) num = PlayState.storyDifficulty;
 		if (num < 0 || num >= list.length) return null;
 

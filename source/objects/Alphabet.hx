@@ -222,7 +222,11 @@ class Alphabet extends FlxSpriteGroup
 		var finalX:Float = x + fallbackXOffset;
 		var finalY:Float = y + fallbackYOffset;
 		fallbackText.setPosition(finalX, finalY);
-		
+
+		// 回退文本自己是个独立 FlxText，不会跟着 alignment 一起变 → 这里补一次，
+		// 否则 CENTERED / RIGHT 的回退文本永远按 LEFT 排版，外部按宽度反推居中的结果全错。
+		updateFallbackAlignment();
+
 		// 如果是菜单项，应用位置动画
 		if (isMenuItem)
 		{
@@ -367,6 +371,25 @@ class Alphabet extends FlxSpriteGroup
 		}
 	}
 
+	/**
+	 * 回退文本是独立子精灵，`FlxSpriteGroup.set_x` 只会按 delta 平移它；
+	 * 一旦外部用 `a.x = ...` 定位（菜单项每帧 lerp、标题居中都会这么做），
+	 * 回退文本就会留在原地 → 中文文本看似"不居中"。这里统一按绝对值同步。
+	 */
+	override function set_x(Value:Float):Float
+	{
+		var result:Float = super.set_x(Value);
+		if (useFallback && fallbackText != null) fallbackText.x = Value + fallbackXOffset;
+		return result;
+	}
+
+	override function set_y(Value:Float):Float
+	{
+		var result:Float = super.set_y(Value);
+		if (useFallback && fallbackText != null) fallbackText.y = Value + fallbackYOffset;
+		return result;
+	}
+
 	public function snapToPosition()
 	{
 		if (isMenuItem)
@@ -471,6 +494,57 @@ class Alphabet extends FlxSpriteGroup
 			return maxRow;
 		}
 		return 0;
+	}
+
+	/**
+	 * 实际画出来的宽度（含字形 offset 与缩放，回退文本走 FlxText 的宽度）。
+	 * 与 `getTextWidth()`（未缩放的理论行宽）不同，这个可以直接用来判断"会不会出界"。
+	 */
+	public function getVisualWidth():Float
+	{
+		if (useFallback && fallbackText != null) return fallbackText.width;
+
+		var minX:Float = Math.POSITIVE_INFINITY;
+		var maxX:Float = Math.NEGATIVE_INFINITY;
+		for (letter in letters)
+		{
+			if (letter == null) continue;
+			var left:Float = letter.x - letter.offset.x;
+			if (left < minX) minX = left;
+			if (left + letter.width > maxX) maxX = left + letter.width;
+		}
+		return (maxX > minX) ? (maxX - minX) : 0;
+	}
+
+	/** 实际画出来的最左像素的 x 坐标。 */
+	public function getVisualLeft():Float
+	{
+		if (useFallback && fallbackText != null) return fallbackText.x;
+
+		var minX:Float = Math.POSITIVE_INFINITY;
+		for (letter in letters)
+		{
+			if (letter == null) continue;
+			var left:Float = letter.x - letter.offset.x;
+			if (left < minX) minX = left;
+		}
+		return Math.isFinite(minX) ? minX : x;
+	}
+
+	/**
+	 * 把整块文字的水平中心对齐到 centerX，两条渲染路径都适用。
+	 * 直接用 `alignment = CENTERED` 做不到这件事：对齐是靠 letter.offset 实现的，
+	 * 而 offset 不含回退文本，且 setScale 之后 alignOffset 会与新的缩放脱节。
+	 */
+	public function centerOnX(centerX:Float):Void
+	{
+		var w:Float = getVisualWidth();
+		if (w <= 0)
+		{
+			x = centerX;
+			return;
+		}
+		x = x + (centerX - w * 0.5 - getVisualLeft());
 	}
 	
 	// 获取文本高度

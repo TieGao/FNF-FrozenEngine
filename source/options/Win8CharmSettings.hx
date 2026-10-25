@@ -1,6 +1,7 @@
 package options;
 
 import backend.MouseMove;
+import backend.MetroEase;
 import backend.UIControlTheme;
 import options.Option.OptionType;
 import options.objects.OptionWidgetFactory;
@@ -9,7 +10,6 @@ import options.objects.win8.Win8CharmRow;
 import options.objects.win8.Win8CharmSection;
 import shapeEx.Rect;
 import flixel.tweens.FlxTween;
-import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
 
 /**
@@ -61,6 +61,8 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 
 	public static inline var ANIM_IN:Float = 0.34;
 	public static inline var ANIM_OUT:Float = 0.24;
+	/** 遮罩淡入比面板更快：Win8 的遮罩几乎立刻到位，别让它拖慢整体节奏 */
+	static inline var ANIM_DIM_IN:Float = 0.20;
 
 	// =========================================================
 	// 数据
@@ -995,7 +997,7 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 		setWidgetsEnabled(false);
 
 		dim.alpha = 0;
-		FlxTween.tween(dim, {alpha: UIControlTheme.overlayAlpha()}, ANIM_IN, {ease: FlxEase.quadOut});
+		FlxTween.tween(dim, {alpha: UIControlTheme.overlayAlpha()}, ANIM_DIM_IN, {ease: MetroEase.ENTRANCE});
 
 		// 面板从屏幕右边外面滑到贴右位置。
 		// 不需要淡入：offset = panelW 时整个面板（含所有行）都在屏幕外，看不见。
@@ -1003,7 +1005,7 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 		panelSlide.value = panelW;
 		applyPanelOffset();
 
-		slidePanel(0, ANIM_IN, FlxEase.quartOut, function() {
+		slidePanel(0, ANIM_IN, MetroEase.ENTRANCE, function() {
 			isAnimating = false;
 			setWidgetsEnabled(true);
 		});
@@ -1024,7 +1026,7 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 		setWidgetsEnabled(false);
 
 		applyPanelOffset(); // 归一到当前 panelSlide（调用前应该是 panelW）
-		slidePanel(0, ANIM_IN, FlxEase.quartOut, function() {
+		slidePanel(0, ANIM_IN, MetroEase.ENTRANCE, function() {
 			isAnimating = false;
 			setWidgetsEnabled(true);
 		});
@@ -1046,7 +1048,7 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 
 		onPanelClosed(currentEntry());
 
-		slidePanel(panelW, ANIM_OUT, FlxEase.quartIn, function() {
+		slidePanel(panelW, ANIM_OUT, MetroEase.EXIT, function() {
 			isAnimating = false;
 		});
 	}
@@ -1060,8 +1062,8 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 
 		onPanelClosed(currentEntry());
 
-		FlxTween.tween(dim, {alpha: 0}, ANIM_OUT, {ease: FlxEase.quadOut});
-		slidePanel(panelW, ANIM_OUT, FlxEase.quartIn, function() {
+		FlxTween.tween(dim, {alpha: 0}, ANIM_OUT, {ease: MetroEase.EXIT});
+		slidePanel(panelW, ANIM_OUT, MetroEase.EXIT, function() {
 			closeCharmBar();
 		});
 	}

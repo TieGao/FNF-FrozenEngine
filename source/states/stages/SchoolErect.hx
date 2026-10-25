@@ -75,26 +75,37 @@ class SchoolErect extends BaseStage
 	{
 		if (!ClientPrefs.data.shaders) return;
 
-		// 原版 schoolErect.lua：hue -10 / sat -23 / contrast 24 / brightness -66，
-		// 边缘光朝上、强度 1、距离 5、阈值 0.1，颜色 #52351D
-		attachShadow(boyfriend, -10, -23, -66, 24, 90, 5, 0.1);
-		attachShadow(dad, -10, -23, -66, 24, 90, 5, 0.1);
+		// 原版 schoolErect.hxc：按角色挂 rim-light 蒙版
+		// BF：pico-pixel 用 picoPixel_mask，其余 bfPixel_mask（threshold 1）
+		attachShadow(boyfriend, -10, -23, -66, 24, 90, 5, 0.1,
+			1, (boyfriend != null && boyfriend.curCharacter == 'pico-pixel')
+				? 'weeb/erect/masks/picoPixel_mask' : 'weeb/erect/masks/bfPixel_mask');
+		// DAD：senpai_mask（threshold 1）
+		attachShadow(dad, -10, -23, -66, 24, 90, 5, 0.1, 1, 'weeb/erect/masks/senpai_mask');
 
-		// gf-pixel 在原版脚本里另有一组更弱的值
-		if (gf != null && gf.curCharacter == 'gf-pixel')
-			attachShadow(gf, -10, -25, -42, 5, 90, 3, 0.3);
-		else
-			attachShadow(gf, -10, -23, -66, 24, 90, 5, 0.1);
+		// gf：nene-pixel 用 nenePixel_mask（官方弱参数组 + 蒙版）；gf-pixel 弱参数 + gfPixel_mask
+		if (gf != null && gf.curCharacter == 'nene-pixel')
+			attachShadow(gf, -10, -25, -42, 5, 90, 3, 0.3, 1, 'weeb/erect/masks/nenePixel_mask');
+		else if (gf != null && gf.curCharacter == 'gf-pixel')
+			attachShadow(gf, -10, -25, -42, 5, 90, 3, 0.3, 1, 'weeb/erect/masks/gfPixel_mask');
+		else if (gf != null)
+			attachShadow(gf, -10, -23, -66, 24, 90, 5, 0.1, 1, 'weeb/erect/masks/gfPixel_mask');
 	}
 
 	static inline var RIM_COLOR:Int = 0xFF52351D;
 
-	/** 原版 `dropShadow` 的边缘高光 + Adjust Color 合一，颜色固定为本舞台的 RIM_COLOR。 */
+	/** 原版 `dropShadow` 的边缘高光 + Adjust Color 合一，颜色固定为本舞台的 RIM_COLOR；maskKey 非空时挂 rim 蒙版。 */
 	function attachShadow(char:FlxSprite, hue:Float, saturation:Float, brightness:Float, contrast:Float,
-		angle:Float, distance:Float, threshold:Float, strength:Float = 1):Void
+		angle:Float, distance:Float, threshold:Float, strength:Float = 1, ?maskKey:String, maskThreshold:Float = 1):DropShadowShader
 	{
-		if (char == null) return;
-		DropShadowShader.attach(char, {
+		if (char == null) return null;
+		var maskBmp = null;
+		if (maskKey != null)
+		{
+			var maskImg = Paths.image(maskKey);
+			maskBmp = (maskImg != null) ? maskImg.bitmap : null;
+		}
+		return DropShadowShader.attach(char, {
 			hue: hue,
 			saturation: saturation,
 			brightness: brightness,
@@ -103,7 +114,9 @@ class SchoolErect extends BaseStage
 			angle: angle,
 			strength: strength,
 			distance: distance,
-			threshold: threshold
+			threshold: threshold,
+			mask: maskBmp,
+			maskThreshold: maskThreshold
 		});
 	}
 }

@@ -7,12 +7,17 @@ class Highscore
 	public static var songRating:Map<String, Float> = new Map<String, Float>();
 	/** 游玩次数（歌曲+难度+模组+模式 分档），键与 songScores 同构 */
 	public static var songPlayCount:Map<String, Int> = new Map<String, Int>();
+	/** Personal Best 的 FC 档位（ratingFC：SFC/GFC/FC/SDCB/Clear），键与 songScores 同构。
+	 *  只对功能上线后刷新过纪录的游玩落盘；老存档没有这个 map，读取返回 "" 且不写回，
+	 *  已有保存的曲目保持原样（不灌空键、不改显示）。 */
+	public static var songRatingFC:Map<String, String> = new Map<String, String>();
 
 	public static function resetSong(song:String, diff:Int = 0, ?modFolder:String = null):Void
 	{
 		var daSong:String = formatSong(song, diff, modFolder);
 		setScore(daSong, 0);
 		setRating(daSong, 0);
+		resetRatingFC(daSong);
 	}
 
 	public static function resetWeek(week:String, diff:Int = 0, ?modFolder:String = null):Void
@@ -21,23 +26,24 @@ class Highscore
 		setWeekScore(daWeek, 0);
 	}
 
-	public static function saveScore(song:String, score:Int = 0, ?diff:Int = 0, ?rating:Float = -1, ?modFolder:String = null, ?mode:String = null):Void
+	public static function saveScore(song:String, score:Int = 0, ?diff:Int = 0, ?rating:Float = -1, ?modFolder:String = null, ?mode:String = null, ?fc:String = null):Void
 	{
 		if(song == null) return;
 		var daSong:String = formatSong(song, diff, modFolder, mode);
 
-		if (songScores.exists(daSong))
-		{
-			if (songScores.get(daSong) < score)
-			{
-				setScore(daSong, score);
-				if(rating >= 0) setRating(daSong, rating);
-			}
-		}
-		else
+		var isNew:Bool = !songScores.exists(daSong);
+		var beatRecord:Bool = isNew || songScores.get(daSong) < score;
+
+		if (beatRecord)
 		{
 			setScore(daSong, score);
-			if(rating >= 0) setRating(daSong, rating);
+			if (rating >= 0)
+			{
+				setRating(daSong, rating);
+				// FC 只跟着刷新纪录的游玩落盘：没破纪录不动旧 FC。
+				if (fc != null && fc.length > 0)
+					setRatingFC(daSong, fc);
+			}
 		}
 	}
 
@@ -67,7 +73,7 @@ class Highscore
 		FlxG.save.flush();
 	}
 
-	static function setRating(song:String, rating:Float):Void
+	public static function setRating(song:String, rating:Float):Void
 	{
 		songRating.set(song, rating);
 		FlxG.save.data.songRating = songRating;
@@ -79,6 +85,26 @@ class Highscore
 		songPlayCount.set(song, count);
 		FlxG.save.data.songPlayCount = songPlayCount;
 		FlxG.save.flush();
+	}
+
+	/** 写入 FC 档位（键为 formatSong 后的键，与 setRating 同口径）。空串视为无效不落盘。 */
+	public static function setRatingFC(songKey:String, fc:String):Void
+	{
+		if (songKey == null || fc == null || fc.length == 0) return;
+		songRatingFC.set(songKey, fc);
+		FlxG.save.data.songRatingFC = songRatingFC;
+		FlxG.save.flush();
+	}
+
+	/** 清除 FC（ResetScoreSubstate 重置成绩时走 resetSong 到这里）。 */
+	public static function resetRatingFC(songKey:String):Void
+	{
+		if (songRatingFC.exists(songKey))
+		{
+			songRatingFC.remove(songKey);
+			FlxG.save.data.songRatingFC = songRatingFC;
+			FlxG.save.flush();
+		}
 	}
 
 	/**
@@ -103,6 +129,37 @@ class Highscore
 		return formattedSong + diffPath + modeSuffix;
 	}
 
+	/**
+	 * 按「难度名 + 显式变体」拼键。
+	 *
+	 * formatSong 走 Difficulty.getFilePath()，那里取的是**全局** Paths.currentContentVariant ——
+	 * 游玩时全局一定是对的，所以存档键本来就带变体（bopeebo-pico-normal / bopeebo-normal），
+	 * 不需要改存档格式。但 Freeplay 列表是懒创建 + 切来源时全局还没写，
+	 * 读的一方如果也吃全局就会读到 base 的同名键。所以读侧一律走这个显式版本。
+	 */
+	public static function formatSongByName(song:String, diffName:String, ?modFolder:String = null,
+		?mode:String = null, ?variant:String = null):String
+	{
+		var formattedSong:String = Paths.formatToSongPath(song);
+		var diffPath:String = Difficulty.getFilePathForName(diffName, variant);
+		var modeSuffix:String = '';
+		if (mode != null && mode.length > 0 && mode != 'player')
+			modeSuffix = '_' + mode;
+
+		if (modFolder != null && modFolder.length > 0 && modFolder != "base")
+			return modFolder + ":" + formattedSong + diffPath + modeSuffix;
+
+		return formattedSong + diffPath + modeSuffix;
+	}
+
+	/** 只读查准确率（显式变体版）；缺失返回 0 且不写回存档。 */
+	public static function peekRatingByName(song:String, diffName:String, ?modFolder:String = null,
+		?mode:String = null, ?variant:String = null):Float
+	{
+		var value:Null<Float> = songRating.get(formatSongByName(song, diffName, modFolder, mode, variant));
+		return (value == null) ? 0 : value;
+	}
+
 	public static function getScore(song:String, diff:Int, ?modFolder:String = null, ?mode:String = null):Int
 	{
 		var daSong:String = formatSong(song, diff, modFolder, mode);
@@ -119,6 +176,24 @@ class Highscore
 			setRating(daSong, 0);
 
 		return songRating.get(daSong);
+	}
+
+	/**
+	 * 只读查成绩：缺失返回 0 且**不写回存档**。
+	 * Freeplay 的卡片徽章会按「每张可见卡 × 每个难度」读一遍，用 getScore 会触发成百次
+	 * setScore + flush（每次写盘），还会给存档灌满 0 值键。
+	 */
+	public static function peekScore(song:String, diff:Int, ?modFolder:String = null, ?mode:String = null):Int
+	{
+		var value:Null<Int> = songScores.get(formatSong(song, diff, modFolder, mode));
+		return (value == null) ? 0 : value;
+	}
+
+	/** 只读查准确率：缺失返回 0 且不写回存档（理由同 peekScore）。 */
+	public static function peekRating(song:String, diff:Int, ?modFolder:String = null, ?mode:String = null):Float
+	{
+		var value:Null<Float> = songRating.get(formatSong(song, diff, modFolder, mode));
+		return (value == null) ? 0 : value;
 	}
 
 	public static function getWeekScore(week:String, diff:Int, ?modFolder:String = null):Int
@@ -150,6 +225,19 @@ class Highscore
 		return (value == null) ? 0 : value;
 	}
 
+	/**
+	 * 读取 FC 档位。缺失返回 "" 且**不写回存档**（与 getPlayCount 同策略：
+	 * 老存档曲目不灌空键，保持原样）。
+	 */
+	public static function getRatingFC(song:String, diff:Int = 0, ?modFolder:String = null, ?mode:String = null):String
+	{
+		var daSong:String = formatSong(song, diff, modFolder, mode);
+		if (!songRatingFC.exists(daSong))
+			return "";
+		var value:String = songRatingFC.get(daSong);
+		return (value == null) ? "" : value;
+	}
+
 	public static function resetPlayCount(song:String, diff:Int = 0, ?modFolder:String = null, ?mode:String = null):Void
 	{
 		if (song == null) return;
@@ -169,5 +257,8 @@ class Highscore
 
 		if (FlxG.save.data.songPlayCount != null)
 			songPlayCount = FlxG.save.data.songPlayCount;
+
+		if (FlxG.save.data.songRatingFC != null)
+			songRatingFC = FlxG.save.data.songRatingFC;
 	}
 }

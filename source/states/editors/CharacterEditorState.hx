@@ -223,8 +223,26 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 		add(helpTexts);
 	}
 
+	var _oldContentRoot:String = null;
+	var _contentRootChanged:Bool = false;
+
 	function addCharacter(reload:Bool = false)
 	{
+		// 浏览态没有 currentContentRoot，content 包角色不在 Paths 解析链里——
+		// 探测角色所在包并临时进入（资源链加性回退，包里没有的仍落回 assets）；destroy 时恢复。
+		// 注意：从内容包 PlayState 进来时 currentContentRoot 本来就指着这个包（charRoot 相同，不切），
+		// 绝不能在 destroy 时把它清掉，否则回 PlayState 后角色/舞台/音轨全部解析失败（黑屏无角色）。
+		var charRoot:String = Paths.findContentRootForFile('characters/' + _char + '.json');
+		if (charRoot != null && Paths.currentContentRoot != charRoot)
+		{
+			if (!_contentRootChanged)
+			{
+				_oldContentRoot = Paths.currentContentRoot;
+				_contentRootChanged = true;
+			}
+			Paths.setContentRoot(charRoot);
+		}
+
 		var pos:Int = -1;
 		if(character != null)
 		{
@@ -249,6 +267,16 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 		updateCharacterPositions();
 		reloadAnimList();
 		if(healthBar != null && healthIcon != null) updateHealthBar();
+	}
+
+	override function destroy()
+	{
+		// 只有真的临时切进别的包才恢复；没切过就保持现状——
+		// 旧逻辑在“当前包就是角色所在包 / 无包角色”时会把 currentContentRoot 清成 null，
+		// 从内容包歌曲进编辑器再返回 PlayState 就会黑屏、找不到角色。
+		if (_contentRootChanged)
+			Paths.setContentRoot(_oldContentRoot);
+		super.destroy();
 	}
 
 	function makeUIMenu()
@@ -442,7 +470,18 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 		{
 			if(intended == null || intended.length < 1) return;
 
+			// content 包角色：预检查也走 Paths 内容包链，浏览态要先探测进包（destroy 恢复）
 			var characterPath:String = 'characters/$intended.json';
+			var charRoot:String = Paths.findContentRootForFile(characterPath);
+			if (charRoot != null && Paths.currentContentRoot != charRoot)
+			{
+				if (!_contentRootChanged)
+				{
+					_oldContentRoot = Paths.currentContentRoot;
+					_contentRootChanged = true;
+				}
+				Paths.setContentRoot(charRoot);
+			}
 			var path:String = Paths.getPath(characterPath, TEXT, null, true);
 			#if MODS_ALLOWED
 			if (FileSystem.exists(path))
@@ -1223,7 +1262,7 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 	var characterList:Array<String> = [];
 	function reloadCharacterDropDown() {
 		characterList = Mods.mergeAllTextsNamed('data/characterList.txt');
-		var foldersToCheck:Array<String> = Mods.directoriesWithFile(Paths.getSharedPath(), 'characters/');
+		var foldersToCheck:Array<String> = Mods.directoriesWithContentShared('characters/');
 		for (folder in foldersToCheck)
 			for (file in FileSystem.readDirectory(folder))
 				if(file.toLowerCase().endsWith('.json'))

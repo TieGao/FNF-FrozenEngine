@@ -38,7 +38,9 @@
 	"weekBefore": "tutorial",
 	"weekName": "Week 3 Pico Mix",
 	"startUnlocked": true,
-	"difficulties": "Pico Easy,Pico Normal,Pico Hard",
+	"difficulties": "Easy,Normal,Hard",
+	"variant": "Pico",
+	"variantLabel": "Pico Mix",
 	"hideStoryMode": false,
 	"hideFreeplay": false
 }

@@ -1,0 +1,138 @@
+{
+	"animations": [
+		{
+			"anim": "danceLeft",
+			"name": "idle",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "danceRight",
+			"name": "idle",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26,
+				27
+			],
+			"offsets": [
+				0,
+				0
+			]
+		},
+		{
+			"anim": "raiseKnife",
+			"name": "raise",
+			"fps": 24,
+			"loop": false,
+			"indices": [],
+			"offsets": [
+				-2,
+				10
+			]
+		},
+		{
+			"anim": "idleKnife",
+			"name": "blink",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				6,
+				7
+			],
+			"offsets": [
+				-2,
+				10
+			]
+		},
+		{
+			"anim": "idleKnifeBlink",
+			"name": "blink",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5
+			],
+			"offsets": [
+				-21,
+				10
+			]
+		},
+		{
+			"anim": "lowerKnife",
+			"name": "lower",
+			"fps": 24,
+			"loop": false,
+			"indices": [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5
+			],
+			"offsets": [
+				-2,
+				10
+			]
+		}
+	],
+	"vocals_file": "",
+	"no_antialiasing": true,
+	"image": "characters/nene-pixel",
+	"position": [
+		-90,
+		-20
+	],
+	"healthicon": "nene-pixel",
+	"flip_x": false,
+	"healthbar_colors": [
+		161,
+		161,
+		161
+	],
+	"camera_position": [
+		-60,
+		80
+	],
+	"sing_duration": 4,
+	"scale": 6,
+	"_editor_isPlayer": false
+}

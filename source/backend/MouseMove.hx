@@ -113,15 +113,20 @@ class MouseMove extends FlxBasic
     }
     
     if (checkInput && inputAllow) {
+        // 控件（拖数值条）按住指针时让位。不光是别开始新的拖拽 —— 已经挂起的
+        // _dragPending 也要清掉，否则按住滑块满 100ms 之后列表照样会开始滚。
+        var captured:Bool = OptionInput.isPointerCaptured();
+        if (captured) _dragPending = false;
+
         // 鼠标按下
-        if (mouse.justPressed) {
+        if (mouse.justPressed && !captured) {
             _dragPending = true;
             _dragPendingTick = FlxG.game.ticks;
             _dragPendingY = my;
             lastMouseY = my;
         }
 
-        if (_dragPending && mouse.pressed) {
+        if (_dragPending && mouse.pressed && !captured) {
             var heldMs = FlxG.game.ticks - _dragPendingTick;
             var moved = Math.abs(my - _dragPendingY);
             if (heldMs >= dragStartDelayMs || moved >= dragStartDistance) {

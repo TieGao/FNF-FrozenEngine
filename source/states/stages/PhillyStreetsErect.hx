@@ -12,6 +12,15 @@ package states.stages;
  */
 class PhillyStreetsErect extends PhillyStreets
 {
+	/**
+	 * 站位微调（单位像素，x 正=右、y 正=下；0 就是 stage json 原值）。
+	 * 只影响本舞台，不改 `phillyStreets-erect.json`；改完重进歌生效。
+	 * 偏移打在角色身上（不是 group），所以镜头跟随会一起跟。
+	 */
+	static var BF_OFFSET:Array<Float> = [-200, 0]; // 玩家（pico-playable）：偏右 → 往左拉
+	static var GF_OFFSET:Array<Float> = [0, 0]; // nene
+	static var DAD_OFFSET:Array<Float> = [0, -100]; // 丹尼尔：偏下 → 往上提
+
 	/** 雾带配置：6 组 × 3 张，同组互相追尾、出屏后绕回队尾。 */
 	static var MIST_IMAGE:Array<String> = ['mistMid', 'mistMid', 'mistBack', 'mistMid', 'mistBack', 'mistMid'];
 	static var MIST_SCROLL:Array<Float> = [1.2, 1.1, 1.2, 0.95, 0.8, 0.5];
@@ -135,6 +144,37 @@ class PhillyStreetsErect extends PhillyStreets
 		paper.antialiasing = ClientPrefs.data.antialiasing;
 		paper.visible = false;
 		add(paper);
+	}
+
+	override function createPost():Void
+	{
+		super.createPost(); // 音箱堆 / nene 工具等
+		applyCharacterOffsets();
+	}
+
+	/** 把 BF_OFFSET / GF_OFFSET / DAD_OFFSET 套到三个角色身上（角色已创建，createPost 里调用一次）。 */
+	function applyCharacterOffsets():Void
+	{
+		if (boyfriend != null)
+		{
+			boyfriend.x += BF_OFFSET[0];
+			boyfriend.y += BF_OFFSET[1];
+		}
+		if (dad != null)
+		{
+			dad.x += DAD_OFFSET[0];
+			dad.y += DAD_OFFSET[1];
+		}
+		if (gf != null)
+		{
+			gf.x += GF_OFFSET[0];
+			gf.y += GF_OFFSET[1];
+		}
+		if (abot != null) // nene 的音箱跟着 gf 走
+		{
+			abot.x += GF_OFFSET[0];
+			abot.y += GF_OFFSET[1];
+		}
 	}
 
 	/** 建一组雾带（3 张同图互相追尾）。给了 `after` 就插在它后面，否则追加到最前。 */

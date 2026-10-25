@@ -91,6 +91,30 @@ class Mods
 		return mergedList;
 	}
 
+	/**
+	 * Editor asset lists: assets/shared + every content pack (content/VanillaSongs/<pack>/shared)
+	 * that contains the given subfolder. Runtime resource lookup goes through Paths'
+	 * content-pack chain (per current pack), but editor dropdowns run in "browsing" mode
+	 * (no current pack), so scan content/ wholesale here.
+	 */
+	public static function directoriesWithContentShared(fileToFind:String):Array<String>
+	{
+		var result:Array<String> = directoriesWithFile(Paths.getSharedPath(), fileToFind);
+		#if sys
+		var vanillaRoot:String = 'content/VanillaSongs';
+		if (FileSystem.exists(vanillaRoot))
+		{
+			for (pack in FileSystem.readDirectory(vanillaRoot))
+			{
+				var sub:String = vanillaRoot + '/' + pack + '/shared/' + fileToFind;
+				if (FileSystem.exists(sub) && FileSystem.isDirectory(sub) && !result.contains(sub))
+					result.push(sub);
+			}
+		}
+		#end
+		return result;
+	}
+
 	inline public static function directoriesWithFile(path:String, fileToFind:String, mods:Bool = true)
 	{
 		var foldersToCheck:Array<String> = [];

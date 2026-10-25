@@ -35,6 +35,7 @@ typedef AnimArray = {
 	var loop:Bool;
 	var indices:Array<Int>;
 	var offsets:Array<Int>;
+	@:optional var flip_x:Bool; // atlas 专用：逐动画翻转（美术朝向不一致的图集用）
 }
 
 class Character extends FlxSprite
@@ -78,6 +79,10 @@ class Character extends FlxSprite
 	public var jsonScale:Float = 1;
 	public var noAntialiasing:Bool = false;
 	public var originalFlipX:Bool = false;
+	/** atlas 专用：逐动画翻转（json 动画条目可选字段 `flip_x`），解决同一图集内美术朝向不一致 */
+	public var animFlipXMap:Map<String, Bool> = new Map();
+	/** 当前动画的逐动画翻转状态（copyAtlasValues 时与整体 flipX 异或） */
+	public var animFlipX:Bool = false;
 	public var editorIsPlayer:Null<Bool> = null;
 
 	public function new(x:Float, y:Float, ?character:String = 'bf', ?isPlayer:Bool = false)
@@ -136,6 +141,7 @@ class Character extends FlxSprite
 
 		skipDance = false;
 		hasMissAnimations = hasAnimation('singLEFTmiss') || hasAnimation('singDOWNmiss') || hasAnimation('singUPmiss') || hasAnimation('singRIGHTmiss');
+		//trace('hasMiss=$hasMissAnimations  keys=' + [for (k in animOffsets.keys()) k]);
 		recalculateDanceIdle();
 		dance();
 	}
@@ -164,7 +170,31 @@ class Character extends FlxSprite
 			atlas.showPivot = false;
 			try
 			{
+				backend.Bread.crumb('char[' + curCharacter + '] atlas begin ' + json.image);
 				Paths.loadAnimateAtlas(atlas, json.image);
+				backend.Bread.crumb('char[' + curCharacter + '] atlas parsed');
+
+				// 逐动画的额外图集（原版 `multianimateatlas`：死亡 / 变体动画常放在另一张分尸图里）。
+				// 引擎的角色 json 只有 `image` 一个字段，所以额外图集写在动画条目自己的 `assetPath` 上，
+				// 这里收集去重后逐份并进来。
+				var extraAtlasPaths:Array<String> = [];
+				var rawAnims:Array<Dynamic> = cast json.animations;
+				if (rawAnims != null)
+				{
+					for (anim in rawAnims)
+					{
+						var extra:String = anim.assetPath;
+						if (extra == null || extra.length < 1 || extraAtlasPaths.contains(extra)) continue;
+						extraAtlasPaths.push(extra);
+					}
+				}
+				for (extra in extraAtlasPaths)
+				{
+					backend.Bread.crumb('char[' + curCharacter + '] extra atlas ' + extra);
+					atlas.addExtraAtlas(extra);
+					backend.Bread.crumb('char[' + curCharacter + '] extra atlas done');
+				}
+				backend.Bread.crumb('char[' + curCharacter + '] atlas ok');
 			}
 			catch(e:haxe.Exception)
 			{
@@ -218,10 +248,14 @@ class Character extends FlxSprite
 				#if flxanimate
 				else
 				{
+					// 防环版：图集里可能有与动画名同名的子符号（kazuha 的 idle），
+					// 原版 addBySymbolIndices 会覆盖它造成渲染期无限递归 → 栈溢出闪退
 					if(animIndices != null && animIndices.length > 0)
-						atlas.anim.addBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
+						atlas.safeAddBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
 					else
 						atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
+					// 逐动画翻转（tankman 的 basic 包 idle/sing 与 extra 包美术朝向不一致）
+					animFlipXMap.set(animAnim, (anim.flip_x == true));
 				}
 				#end
 
@@ -385,6 +419,7 @@ class Character extends FlxSprite
 		{
 			atlas.anim.play(AnimName, Force, Reversed, Frame);
 			atlas.update(0);
+			animFlipX = (animFlipXMap.get(AnimName) == true);
 		}
 		_lastPlayedAnimation = AnimName;
 
@@ -520,7 +555,7 @@ class Character extends FlxSprite
 			atlas.angle = angle;
 			atlas.alpha = alpha;
 			atlas.visible = visible;
-			atlas.flipX = flipX;
+			atlas.flipX = (flipX != animFlipX);
 			atlas.flipY = flipY;
 			atlas.shader = shader;
 			atlas.antialiasing = antialiasing;

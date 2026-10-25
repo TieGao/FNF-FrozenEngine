@@ -7,6 +7,11 @@ import backend.CustomChartMetadata.CustomChartMetadata;
 class NewSongMetaData
 {
     public var songName:String = "";
+    /**
+     * 列表展示名 —— 可能带变体标签（'Bopeebo (Pico Mix)'）。
+     * **路径 / 存档 / 回放一律用 songName**，只有展示层读这个字段。
+     */
+    public var displayName:String = "";
     public var week:Int = 0;
     public var songCharacter:String = "";
     public var color:Int = -7179779;
@@ -17,6 +22,10 @@ class NewSongMetaData
     public var customChart:CustomChartMetadata = null;
     /** 内容包资源根（content/VanillaSongs/<包>）；普通周为 null。加载歌曲时写进 Paths。 */
     public var contentRoot:String = null;
+    /** 内容包变体标识（Pico…）；无变体为 null。加载歌曲时写进 Paths。 */
+    public var variant:String = null;
+    /** 变体展示标签（'Pico Mix'）；无标签为 null。 */
+    public var variantLabel:String = null;
 
     /** 内容包 / base 的 metadata 署名（曲师 / 谱师），addSong 时解析。 */
     public var metaArtist:String = null;
@@ -30,6 +39,7 @@ class NewSongMetaData
     public function new(song:String, week:Int, songCharacter:String, color:Int)
     {
         this.songName = song;
+        this.displayName = song;
         this.week = week;
         this.songCharacter = songCharacter;
         this.color = color;

@@ -94,6 +94,12 @@ class UITheme
 	public static var icon:FlxColor = 0xFFCCCCCC;
 
 	// ---------------------------------------------------------
+	// 消息通知（toast）：Win8 通知条固定深蓝，不随明暗模式变
+	// ---------------------------------------------------------
+	public static var toast:FlxColor = 0xFF14406F;
+	public static var toastBarTrack:FlxColor = 0xFF0A2A4C;
+
+	// ---------------------------------------------------------
 	// 文字
 	// ---------------------------------------------------------
 	public static var textPrimary:FlxColor = 0xFFFFFFFF;
@@ -262,6 +268,9 @@ class UITheme
 		accentDeep = 0xFF0078D4;
 		icon = 0xFFCCCCCC;
 
+		toast = 0xFF14406F;
+		toastBarTrack = 0xFF0A2A4C;
+
 		textPrimary = 0xFFFFFFFF;
 		textSecondary = 0xFFAAAAAA;
 		textMuted = 0xFFE0E0E0;
@@ -322,6 +331,9 @@ class UITheme
 		accent = 0xFF0078D4;
 		accentDeep = 0xFF0078D4;
 		icon = 0xFF5A5A5A;
+
+		toast = 0xFF14406F;
+		toastBarTrack = 0xFF0A2A4C;
 
 		textPrimary = 0xFF1B1B1B;
 		textSecondary = 0xFF5A5A5A;

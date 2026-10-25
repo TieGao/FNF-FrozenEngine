@@ -16,6 +16,7 @@ import crowplexus.hscript.Expr.Error as IrisError;
 import crowplexus.hscript.Printer;
 
 import haxe.ValueException;
+import flixel.addons.effects.FlxSkewedSprite;
 
 typedef HScriptInfos = {
 	> haxe.PosInfos,
@@ -158,6 +159,27 @@ class HScript extends Iris
 		set('FlxTween', flixel.tweens.FlxTween);
 		set('FlxEase', flixel.tweens.FlxEase);
 		set('FlxColor', CustomFlxColor);
+		// Reflect 不是 Iris 预置全局（脚本里 Reflect.setProperty 会报 Unknown variable）——
+		// Reflect 本体不能当值传，用匿名对象把静态方法包一层
+		set('Reflect', {
+			setProperty: Reflect.setProperty,
+			getProperty: Reflect.getProperty,
+			hasField: Reflect.hasField,
+			field: Reflect.field,
+			fields: Reflect.fields,
+			callMethod: Reflect.callMethod,
+			deleteField: Reflect.deleteField,
+			compare: Reflect.compare,
+			copy: Reflect.copy
+		});
+		// 引擎侧引用 FlxSkewedSprite（Haxe 只编译被引用的模块，不引用的话 hscript 拿不到）
+		set('FlxSkewedSprite', FlxSkewedSprite);
+		// Iris 没有内置 haxe.Json —— 不预置的话脚本里 Json.parse 抛错（被 catch 吞掉后事件参数全变 null）
+		set('Json', haxe.Json);
+		// 类值上的静态方法经 hscript 反射拿不到（Json.parse 为 null）—— 给个直接的函数闭包最稳
+		set('parseJson', function(s:String):Dynamic return haxe.Json.parse(s));
+		set('stringifyJson', function(v:Dynamic):String return haxe.Json.stringify(v));
+		set('Type', Type);
 		set('Countdown', backend.BaseStage.Countdown);
 		set('PlayState', PlayState);
 		set('Paths', Paths);

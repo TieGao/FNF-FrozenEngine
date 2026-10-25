@@ -1,13 +1,22 @@
 package states.freeplay;
 
+import shaders.ColorSwap;
+import openfl.display.BlendMode;
+
 class FreeplayCard extends FlxTypedGroup<FlxSprite>
 {
     public var targetY:Float = 0;
     public var songName:String;
-    public var songCharacter:String;
+    /** 卡片上的标题文本。默认等于 songName，变体歌会带上标签（'Bopeebo (Pico Mix)'）；
+     *  songName 仍保持原始歌名 —— 评级 / 存档查找都按它算。 */
+    public var displayName:String;
     public var coloring:Int;
-    public var week:Int;
     public var folder:String;
+    /** 本卡所属内容包变体（Pico…）；base 歌为 null。徽章查成绩必须用它，不能吃全局 Paths.currentContentVariant。 */
+    public var variant:String = null;
+    /** 这首歌**真实拥有**的难度名（来自谱面信息）；为空时退回全局 Difficulty.list。
+     *  混排列表（base + Erect + PicoMix）里全局列表只可能对应其中一种。 */
+    public var diffNames:Array<String> = null;
     
     public var bgSprite:FlxSprite;
     public var textSprite:FlxText;
@@ -16,21 +25,34 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
     public var rhombusBg:FlxSprite;
     public var ratingSprite:FlxSprite;
     
+    // ---- 动态评级徽章（官方 rankbadges 图集） ----
+    /** 徽章缩放（原 0.7 偏小，1.5x ≈ 1.05；后续自调只改这里） */
+    public static inline var BADGE_SCALE:Float = 1.05;
+    public var hasBadgeAtlas:Bool = false;
+    public var currentRank:FreeplayRank = FreeplayRank.NONE;
+    public var hueShader:ColorSwap;   // 仅 RAINBOW 挂载
+    public var hueTime:Float = 0;
+    /** 评级应用动画期间为 true，updatePosition 跳过逐帧摆位 */
+    public var animLock:Bool = false;
+    
     public var bpmText:FlxText;
     public var lengthText:FlxText;
     public var keysText:FlxText;
     private var ratingText:FlxText;
 
-    public var isCardSelected:Bool = false;
+    /** 鼠标悬停态。由宿主维护 —— updatePosition 每帧重算 alpha，直接 setAlpha 会被覆盖。 */
+    public var isHovered:Bool = false;
 
-    public function new(x:Float, y:Float, songName:String, songCharacter:String, coloring:Int, week:Int)
+    public function new(x:Float, y:Float, songName:String, songCharacter:String, coloring:Int, ?displayName:String,
+                        ?variant:String = null, ?diffNames:Array<String> = null)
     {
         super();
         
         this.songName = songName;
-        this.songCharacter = songCharacter;
+        this.displayName = (displayName != null && displayName.length > 0) ? displayName : songName;
         this.coloring = coloring;
-        this.week = week;
+        this.variant = (variant != null && variant.length > 0) ? variant : null;
+        this.diffNames = (diffNames != null && diffNames.length > 0) ? diffNames : null;
         this.folder = Mods.currentModDirectory;
         if(this.folder == null) this.folder = '';
         
@@ -41,7 +63,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         
         add(bgSprite);
         
-        textSprite = new FlxText(x + 60, y + 10, 380, songName, 20);
+        textSprite = new FlxText(x + 60, y + 10, 380, this.displayName, 20);
         textSprite.antialiasing = ClientPrefs.data.antialiasing;
         textSprite.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT);
         textSprite.borderSize = 2;
@@ -73,7 +95,6 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         keysText.scrollFactor.set();
         add(keysText);
         
-        var oldModDir = Mods.currentModDirectory;
         Mods.currentModDirectory = this.folder;
         
         icon = new HealthIcon(songCharacter, false, true, this.folder);
@@ -99,14 +120,29 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         ratingSprite = new FlxSprite(x + 490, y + 20);
         ratingSprite.antialiasing = true;
         ratingSprite.scrollFactor.set();
+        
+        // 官方 rankbadges 图集（sparrowsheet，24fps 非循环，ADD 叠加发光）
+        try
+        {
+            ratingSprite.frames = Paths.getSparrowAtlas('freeplay/rankbadges');
+            for (anim in ['PERFECT rank', 'PERFECT rank GOLD', 'EXCELLENT rank', 'GREAT rank', 'GOOD rank', 'LOSS rank'])
+                ratingSprite.animation.addByPrefix(anim, anim, 24, false);
+            ratingSprite.blend = BlendMode.ADD;
+            hasBadgeAtlas = true;
+        }
+        catch (e:Dynamic)
+        {
+            hasBadgeAtlas = false;
+        }
+        
         add(ratingSprite);
         updateRatingSprite();
     }
     
-    public function updateSelection(isSelected:Bool):Void
+    /** 宿主维护悬停态；alpha 由 updatePosition 统一算，别在外部直接改成员 alpha。 */
+    public function setHovered(value:Bool):Void
     {
-        isCardSelected = isSelected;
-        // 发光已移除，这里只保留状态，不执行额外操作
+        isHovered = value;
     }
     
     public function updateDifficultyInfo(bpm:Float, formattedLength:String, ?noteCount:Int = 0, ?difficultyRating:Float = 0.0, ?keyCount:Int = 0)
@@ -132,9 +168,14 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         songLowercase = songLowercase.replace(" ", "-");
         
         var bestRating:Float = 0;
-        for (diff in 0...Difficulty.list.length)
+        // 难度名优先用这首歌自己的（混排列表里全局 Difficulty.list 未必对得上）；
+        // 变体显式传入 —— 切来源后全局 Paths.currentContentVariant 可能还是上一个包的，
+        // 吃全局会让 PicoMix 的卡读到 base 同名歌的成绩。
+        var ratingDiffs:Array<String> = (diffNames != null && diffNames.length > 0) ? diffNames : Difficulty.list;
+        for (diffName in ratingDiffs)
         {
-            var rating:Float = Highscore.getRating(songLowercase, diff, folder, mode);
+            // 只读版：这里每张卡都会遍历全部难度，getRating 会给缺失键写回存档 + flush
+            var rating:Float = Highscore.peekRatingByName(songLowercase, diffName, folder, mode, variant);
             if (rating > bestRating)
             {
                 bestRating = rating;
@@ -142,22 +183,60 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         }
         
         var percent:Float = bestRating * 100;
+        var newRank:FreeplayRank = FreeplayRank.fromAccuracy(percent);
         
+        if (hasBadgeAtlas)
+        {
+            // 档位没变就不重放动画（此函数会被 create/refresh/preload 回调多处调用）
+            if (newRank == currentRank && ratingSprite.animation.curAnim != null) return;
+            currentRank = newRank;
+            
+            if (newRank == FreeplayRank.NONE)
+            {
+                ratingSprite.visible = false;
+                ratingSprite.animation.stop();
+                return;
+            }
+            
+            ratingSprite.visible = true;
+            
+            // 彩色P：粉P素材 + 色相循环
+            if (newRank == FreeplayRank.RAINBOW)
+            {
+                if (hueShader == null)
+                {
+                    hueShader = new ColorSwap();
+                    hueShader.saturation = 0.1;
+                }
+                ratingSprite.shader = hueShader.shader;
+            }
+            else
+            {
+                ratingSprite.shader = null;
+            }
+            
+            ratingSprite.animation.play(newRank.animName, true, false, 0);
+            ratingSprite.scale.set(BADGE_SCALE, BADGE_SCALE);
+            ratingSprite.updateHitbox();
+            ratingSprite.x = rhombusBg.x + rhombusBg.width - 205;
+            ratingSprite.y = rhombusBg.y + (rhombusBg.height - ratingSprite.height) / 2;
+            return;
+        }
+        
+        // ---- 回退：官方图集缺失时用旧静态 PNG ----
         var ratingImage:String = "air";
         
-        if (percent >= 99) {
+        if (percent >= 98) {
             ratingImage = "P";
-        } else if (percent >= 97.5) {
-            ratingImage = "GP";
-        } else if (percent >= 95) {
-            ratingImage = "EP";
-        } else if (percent >= 92.5) {
-            ratingImage = "E";
         } else if (percent >= 90) {
-            ratingImage = "SG";
+            ratingImage = "GP";
         } else if (percent >= 80) {
-            ratingImage = "G";
+            ratingImage = "E";
         } else if (percent >= 70) {
+            ratingImage = "SG";
+        } else if (percent >= 60) {
+            ratingImage = "G";
+        } else if (percent > 0) {
             ratingImage = "L";
         }
         
@@ -195,8 +274,35 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         }
     }
     
-    public function updatePosition(curSelected:Float, selectedIndex:Int, isVisible:Bool = true)
+    /** RAINBOW 彩P 色相循环（卡片无自身 update，由 State 每帧驱动） */
+    public function updateRankHue(elapsed:Float):Void
     {
+        if (currentRank != FreeplayRank.RAINBOW || hueShader == null) return;
+        hueTime += elapsed;
+        hueShader.hue = (hueTime * 0.6) % 1.0;
+    }
+    
+    /** 动画用：整卡（含徽章）平移 */
+    public function shiftCard(dx:Float, dy:Float):Void
+    {
+        for (member in members)
+        {
+            if (member == null) continue;
+            member.x += dx;
+            member.y += dy;
+        }
+    }
+    
+    /** 动画用：整卡设置角度 */
+    public function setCardAngle(a:Float):Void
+    {
+        for (member in members)
+            if (member != null) member.angle = a;
+    }
+    
+    public function updatePosition(curSelected:Float, selectedIndex:Int)
+    {
+        if (animLock) return; // 评级应用动画期间由动画代码接管
         var distance = targetY - curSelected;
         
         if (Math.abs(distance) > 5) 
@@ -216,7 +322,8 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         textSprite.visible = textSprite.active = true;
         icon.visible = icon.active = true;
         rhombusBg.visible = rhombusBg.active = true;
-        ratingSprite.visible = ratingSprite.active = true;
+        // 未游玩（NONE）不显示徽章；帧序号默认 0，不藏住会画出图集第一帧（E）
+        ratingSprite.visible = ratingSprite.active = (currentRank != FreeplayRank.NONE);
         bpmText.visible = bpmText.active = true;
         lengthText.visible = lengthText.active = true;
         keysText.visible = keysText.active = true;
@@ -258,15 +365,11 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         }
 
         var isSelected:Bool = (targetY == selectedIndex);
-        updateSelection(isSelected);
         
-        var alpha = if (isSelected) 1.0 else 0.6;
-        if (isSelected) {
-            bgSprite.color = 0xFF5A5A5A;
-            alpha = 0.8;
-        } else {
-            bgSprite.color = 0xFF4A4A4A;
-        }
+        var alpha:Float = 0.6;
+        if (isSelected) alpha = 0.8;
+        else if (isHovered) alpha = 0.7;
+        bgSprite.color = (isSelected || isHovered) ? 0xFF5A5A5A : 0xFF4A4A4A;
         
         rhombusBg.color = coloring;
         
@@ -274,7 +377,17 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         textSprite.alpha = alpha;
         icon.alpha = alpha;
         rhombusBg.alpha = alpha;
-        ratingSprite.alpha = alpha;
+        // 徽章明暗与卡片 alpha 解耦（官方风格：选中全亮，未选中压暗）
+        if (isSelected)
+        {
+            ratingSprite.color = 0xFFFFFFFF;
+            ratingSprite.alpha = 1.0;
+        }
+        else
+        {
+            ratingSprite.color = 0xFFAAAAAA;
+            ratingSprite.alpha = 0.7 * alpha;
+        }
         bpmText.alpha = alpha;
         lengthText.alpha = alpha;
         keysText.alpha = alpha;
@@ -283,17 +396,5 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
     public function checkMouseOver():Bool
     {
         return FlxG.mouse.overlaps(bgSprite) || FlxG.mouse.overlaps(rhombusBg) || FlxG.mouse.overlaps(ratingSprite);
-    }
-
-    public function setAlpha(alphat:Float)
-    {
-        bgSprite.alpha = alphat;
-        textSprite.alpha = alphat;
-        icon.alpha = alphat;
-        rhombusBg.alpha = alphat;
-        ratingSprite.alpha = alphat;
-        bpmText.alpha = alphat;
-        lengthText.alpha = alphat;
-        keysText.alpha = alphat;
     }
 }

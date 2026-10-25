@@ -1,0 +1,26 @@
+{
+	"songs": [
+		[
+			"SPAGHETTI",
+			"face",
+			[
+				249,
+				207,
+				81
+			]
+		]
+	],
+	"weekCharacters": [
+		"dad",
+		"bf",
+		"gf"
+	],
+	"weekBackground": "stage",
+	"storyName": "LE SSERAFIM",
+	"weekBefore": "weekend1",
+	"weekName": "LE SSERAFIM",
+	"startUnlocked": true,
+	"difficulties": "Easy,Normal,Hard",
+	"hideStoryMode": false,
+	"hideFreeplay": false
+}

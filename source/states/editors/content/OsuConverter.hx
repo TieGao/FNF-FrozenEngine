@@ -69,10 +69,18 @@ class OsuConverter
 			lines.push('Countdown: 1');
 			lines.push('SampleSet: Normal');
 			lines.push('StackLeniency: 0.7');
-			lines.push('Mode: 3'); // Mania
+			lines.push('Mode:3'); // Mania（注意冒号后不要空格）
 			lines.push('LetterboxInBreaks: 0');
 			lines.push('SpecialStyle: 0');
 			lines.push('WidescreenStoryboard: 0');
+			lines.push("");
+
+			// [Editor]
+			lines.push("[Editor]");
+			lines.push('DistanceSpacing: 1');
+			lines.push('BeatDivisor: 4');
+			lines.push('GridSize: 4');
+			lines.push('TimelineZoom: 1');
 			lines.push("");
 
 			// [Metadata]
@@ -91,14 +99,13 @@ class OsuConverter
 			// [Difficulty]
 			var keys:Int = getKeyCount(song);
 			lines.push("[Difficulty]");
-			lines.push('HPDrainRate:0');
+			lines.push('HPDrainRate:8');
 			lines.push('CircleSize:$keys');
-			lines.push('OverallDifficulty:0');
-			lines.push('ApproachRate:0');
-			// SliderMultiplier 用于控制滚动速度，此处映射 Psych 的 scrollSpeed
+			lines.push('OverallDifficulty:10');
+			lines.push('ApproachRate:5');
 			var osuSpeed:Float = (song.speed ?? 1.0) * 0.45; // 经验系数
 			lines.push('SliderMultiplier:$osuSpeed');
-			lines.push('SliderTickRate:0');
+			lines.push('SliderTickRate:1');
 			lines.push("");
 
 			// [TimingPoints]

@@ -89,6 +89,8 @@ class Replay
 
     /** 自定义谱面 replay 的独立归档目录名 */
     public static inline var CUSTOM_REPLAY_BUCKET:String = 'custom';
+    /** 内容包（content/<大类>/<包>）回放的归档前缀：assets/replays/content/<包相对路径>/。 */
+    public static inline var CONTENT_REPLAY_BUCKET:String = 'content';
     
     // ========== 实例变量 ==========
     
@@ -440,9 +442,10 @@ class Replay
                 currentMod = CUSTOM_REPLAY_BUCKET;
             }
             else if (replay.chartContentRoot != null && replay.chartContentRoot.length > 0) {
-                // 内容包（VanillaSongs/*）不是 mod，归档到 base/ —— 与回放列表的读取口径一致
-                // （列表侧读 Freeplay 传进来的 songs[].folder，内容包为空 → base）。
-                currentMod = "";
+                // 内容包（content/VanillaSongs/*）不是 mod，但也不能丢进 base/：
+                // 每个包一个独立子目录（content/VanillaSongs/PicoMix），同名歌的回放不会串。
+                currentMod = getContentReplayBucket(replay.chartContentRoot);
+                if (currentMod == null) currentMod = "";
             }
             #if MODS_ALLOWED
             else if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0) {
@@ -814,6 +817,54 @@ class Replay
     {
         return "assets/replays/";
     }
+
+    /**
+     * 内容包回放的归档子目录（相对 assets/replays/），如 content/VanillaSongs/PicoMix。
+     *
+     * 内容包不是 mod，过去一律丢进 base/ —— 但 Bopeebo 这类同名歌在 base / Erect / PicoMix
+     * 各有一份，回放全靠 songName 匹配，混在一个目录里就会互相污染（列表串档、删错文件）。
+     * 现在每个内容包一个子目录，与 CustomCharts 的 custom/ 同级同思路。
+     */
+    public static function getContentReplayBucket(?contentRoot:String):String
+    {
+        if (contentRoot == null) return null;
+
+        var root:String = StringTools.trim(contentRoot);
+        root = root.split('\\').join('/');
+        while (root.length > 0 && root.charAt(root.length - 1) == '/')
+            root = root.substring(0, root.length - 1);
+        if (root.length == 0) return null;
+
+        // 存进来的是 content/VanillaSongs/PicoMix 这种仓库相对根，剥掉 content/ 前缀，
+        // 否则会拼出 assets/replays/content/content/...
+        var prefix:String = Paths.CONTENT_ROOT + '/';
+        if (root.indexOf(prefix) == 0)
+            root = root.substring(prefix.length);
+        else if (root == Paths.CONTENT_ROOT)
+            return null;
+        if (root.length == 0) return null;
+
+        return CONTENT_REPLAY_BUCKET + '/' + root;
+    }
+
+    /** 逐级建目录（FileSystem.createDirectory 不递归）。 */
+    public static function createReplayDirs(path:String):Void
+    {
+        #if sys
+        var normalized:String = path.split('\\').join('/');
+        var parts:Array<String> = normalized.split('/');
+        var current:String = '';
+        for (i in 0...parts.length)
+        {
+            var part:String = parts[i];
+            if (part.length == 0 && i > 0) continue;
+            current += (i == 0) ? part : '/' + part;
+            if (current.length == 0) continue;
+            if (!FileSystem.exists(current))
+                FileSystem.createDirectory(current);
+        }
+        #end
+    }
     
     public static function getReplayModDir(?modName:String = null):String
     {
@@ -855,7 +906,9 @@ class Replay
         #if sys
         var dir:String = getReplayModDir(modName);
         if (!FileSystem.exists(dir)) {
-            FileSystem.createDirectory(dir);
+            // 内容包的 bucket 是 content/VanillaSongs/PicoMix 这种多级路径，
+            // FileSystem.createDirectory 不递归，必须逐级建。
+            createReplayDirs(dir);
             trace('Created replay directory: $dir');
         }
         return dir;
@@ -868,31 +921,32 @@ class Replay
     {
         #if sys
         var allFiles:Array<String> = [];
-        var rootDir:String = getReplayRootDir();
-        
-        if (!FileSystem.exists(rootDir)) {
-            return allFiles;
-        }
-        
-        for (entry in FileSystem.readDirectory(rootDir)) {
-            var fullPath:String = rootDir + entry;
-            
-            if (FileSystem.isDirectory(fullPath)) {
-                for (file in FileSystem.readDirectory(fullPath)) {
-                    if (file.endsWith(".replay")) {
-                        allFiles.push(entry + "/" + file);
-                    }
-                }
-            } else if (entry.endsWith(".replay")) {
-                allFiles.push(entry);
-            }
-        }
-        
+        scanReplayDir(getReplayRootDir(), "", allFiles);
         return allFiles;
         #else
         return [];
         #end
     }
+
+    /** 递归扫回放目录（bucket 可能多级：content/VanillaSongs/PicoMix）。 */
+    #if sys
+    static function scanReplayDir(dir:String, prefix:String, out:Array<String>):Void
+    {
+        if (!FileSystem.exists(dir)) return;
+        for (entry in FileSystem.readDirectory(dir))
+        {
+            var fullPath:String = dir + (dir.endsWith('/') ? '' : '/') + entry;
+            if (FileSystem.isDirectory(fullPath))
+            {
+                scanReplayDir(fullPath, prefix + entry + '/', out);
+            }
+            else if (entry.endsWith(".replay"))
+            {
+                out.push(prefix + entry);
+            }
+        }
+    }
+    #end
     
     public static function getReplayFilesForMod(?modName:String = null):Array<String>
     {

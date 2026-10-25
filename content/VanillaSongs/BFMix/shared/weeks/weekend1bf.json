@@ -1,0 +1,37 @@
+{
+	"songs": [
+		[
+			"Darnell",
+			"darnell",
+			[
+				65,
+				60,
+				174
+			]
+		],
+		[
+			"Lit Up",
+			"darnell",
+			[
+				65,
+				60,
+				174
+			]
+		]
+	],
+	"weekCharacters": [
+		"darnell",
+		"pico-player",
+		"nene"
+	],
+	"weekBackground": "phillystreets",
+	"storyName": "BF Mix",
+	"weekBefore": "",
+	"weekName": "Weekend 1 BF Mix",
+	"startUnlocked": true,
+	"difficulties": "Easy,Normal,Hard",
+	"variant": "BF",
+	"variantLabel": "BF Mix",
+	"hideStoryMode": false,
+	"hideFreeplay": false
+}

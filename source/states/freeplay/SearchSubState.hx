@@ -54,6 +54,9 @@ class SearchSubState extends MusicBeatSubstate
     var scrollStartY:Float = 0;
     var scrollEndY:Float = 0;
 
+    /** 卡片左侧健康图标外伸到卡片矩形之外的宽度（SearchCard 里 icon.x = -50），裁剪视口要让出来。 */
+    static inline var ICON_OVERHANG:Int = 60;
+
     /** 按下时记录的卡片，松手时用来判定"是否同一张卡" */
     var pressedCard:SearchCard = null;
 
@@ -203,6 +206,7 @@ class SearchSubState extends MusicBeatSubstate
 
         filteredSongs = allSongs.filter(function(s) {
             return s.songName.toLowerCase().indexOf(lower) != -1
+                || (s.displayName != null && s.displayName.toLowerCase().indexOf(lower) != -1)
                 || s.folder.toLowerCase().indexOf(lower) != -1;
         });
 
@@ -225,6 +229,7 @@ class SearchSubState extends MusicBeatSubstate
         for (card in cardPool)
         {
             card.visible = false;
+            card.resetClip();
         }
     }
 
@@ -239,6 +244,12 @@ class SearchSubState extends MusicBeatSubstate
         var visibleEnd = Std.int(Math.ceil((scrollOffset + (scrollEndY - scrollStartY)) / (cardHeight + 10)));
         visibleEnd = Std.int(Math.min(visibleEnd, filteredSongs.length));
         visibleStart = Std.int(Math.max(0, visibleStart - 1));
+
+        // 卡片视口：只裁上下边界。左侧放宽出健康图标的外伸量（SearchCard 里 icon.x = -50），
+        // 右侧留一点给背景的柔光。
+        var cardX:Float = (FlxG.width - cardWidth) / 2;
+        var viewLeft:Float = cardX - ICON_OVERHANG;
+        var viewRight:Float = cardX + cardWidth + 8;
 
         for (card in cardPool) card.visible = false;
 
@@ -259,8 +270,9 @@ class SearchSubState extends MusicBeatSubstate
             if (card.songData != song)
                 card.setSong(song);
             var posY = scrollStartY + i * (cardHeight + 10) - scrollOffset;
-            card.updatePosition((FlxG.width - cardWidth) / 2, posY);
+            card.updatePosition(cardX, posY);
             card.visible = true;
+            card.clipToViewport(viewLeft, scrollStartY, viewRight, scrollEndY);
             poolIndex++;
         }
         if (pressedCard != null && !pressedCardAssigned)
@@ -557,7 +569,7 @@ class SearchCard extends FreeplayListItem
         icon.y = (_cardHeight - icon.height) / 2;
         content.add(icon);
 
-        songNameText = new FlxText(0, 0, 0, song.songName, 20);
+        songNameText = new FlxText(0, 0, 0, song.displayName, 20);
         songNameText.antialiasing = ClientPrefs.data.antialiasing;
         songNameText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT);
         songNameText.x = 90;
@@ -590,7 +602,7 @@ class SearchCard extends FreeplayListItem
         setPressed(false);
 
         if (songNameText != null) {
-            songNameText.text = song.songName;
+            songNameText.text = song.displayName;
             songNameText.color = FlxColor.WHITE;
         }
         if (modFolderText != null) modFolderText.text = "Mod: " + song.folder;

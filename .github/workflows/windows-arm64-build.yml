@@ -1,0 +1,53 @@
+name: Windows ARM64 Build
+
+# Windows on ARM64 原生构建（独立于 desktop-build.yml 的实验线）。
+#
+# lime 的双仓库分工：TieGao/lime = 库形态（setup/windows.bat 钉它，构建用；
+# 含 x64 与 WindowsArm64 预编译 ndll 及已带 arm64 支持的工具）；IceTheAxe/lime
+# = 开发形态（上游源码 + arm64 补丁 + openal 子模块改指 TieGao/openal-soft，
+# 重编 ndll / 改源码在那里做，产出再同步回 TieGao/lime 库形态）。
+# 本工作流不重建 ndll，直接消费库形态。
+#
+# 其余依赖全走 setup/windows.bat 的 pinned 清单（hxcpp 用 TieGao git fork，
+# 自带 WindowsArm64 工具链；hxvlc / linc_luajit 已带 arm64 二进制支持）。
+# windows-latest 的 VS2022 自带 MSVC ARM64 生成工具，无需额外安装。
+
+on:
+  workflow_dispatch:
+
+env:
+  HAXE_VERSION: 4.3.7
+  PROJECT_NAME: FrozenEngine
+
+jobs:
+  build:
+    name: Windows ARM64
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Setup Haxe
+        uses: krdlab/setup-haxe@master
+        with:
+          haxe-version: ${{ env.HAXE_VERSION }}
+
+      - name: Install Libraries
+        shell: cmd
+        run: |
+          haxelib setup C:/haxelib
+          call setup\windows.bat
+
+      - name: Skip SScript setup mode
+        shell: cmd
+        run: echo 'oy9:showMacroty8:loopCosti25y10:includeAllfg' >> %USERPROFILE%/settings.cocoa
+
+      - name: Compile
+        shell: pwsh
+        run: echo y & haxelib run lime build windows -arm64 -D officialBuild -always
+
+      - name: Publish Artifact
+        uses: actions/upload-artifact@v4.3.4
+        with:
+          name: windowsBuild-arm64
+          path: export/release/windows/bin

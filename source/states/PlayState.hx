@@ -15,6 +15,7 @@ import flixel.input.keyboard.FlxKey;
 import openfl.events.KeyboardEvent;
 
 import cutscenes.DialogueBoxPsych;
+import cutscenes.PixelDialogueBox;
 
 import states.StoryMenuState;
 import states.OldFreeplayState;
@@ -51,6 +52,7 @@ import crowplexus.hscript.Printer;
 #end
 
 import backend.Replay as FrameReplay;
+import backend.Bread;
 
 
 
@@ -576,6 +578,7 @@ class PlayState extends MusicBeatState
 
 	override public function create()
 	{
+		Bread.crumb('PS.create enter song=' + SONG.song + ' stage=' + SONG.stage + ' gf=' + SONG.gfVersion + ' p1=' + SONG.player1 + ' p2=' + SONG.player2);
 		// 谱面上下文一律以 Paths 为准：Freeplay / 编辑器 / 回放进入前都已显式写好，
 		// 普通歌与剧情模式写的是 null。不再从 static chartCategory 回填 ——
 		// 那是上一首歌的残留，会把普通歌误判成自定义谱面（套用自定义舞台 / 角色 / 分轨）。
@@ -730,6 +733,7 @@ class PlayState extends MusicBeatState
 		else
 			curStage = "";
 		var stageData:StageFile = StageData.getStageFile(curStage);
+		Bread.crumb('PS stage json ok objects=' + (stageData.objects == null ? -1 : stageData.objects.length));
 		defaultCamZoom = stageData.defaultZoom;
 
 		stageUI = "normal";
@@ -764,32 +768,7 @@ class PlayState extends MusicBeatState
 		dadGroup = new FlxSpriteGroup(DAD_X, DAD_Y);
 		gfGroup = new FlxSpriteGroup(GF_X, GF_Y);
 
-		switch (curStage)
-		{
-			case 'stage': new StageWeek1(); 			//Week 1
-			case 'spooky': new Spooky();				//Week 2
-			case 'philly': new Philly();				//Week 3
-			case 'limo': new Limo();					//Week 4
-			case 'mall': new Mall();					//Week 5 - Cocoa, Eggnog
-			case 'mallEvil': new MallEvil();			//Week 5 - Winter Horrorland
-			case 'school': new School();				//Week 6 - Senpai, Roses
-			case 'schoolEvil': new SchoolEvil();		//Week 6 - Thorns
-			case 'tank': new Tank();					//Week 7 - Ugh, Guns, Stress
-			case 'phillyStreets': new PhillyStreets(); 	//Weekend 1 - Darnell, Lit Up, 2Hot
-			case 'phillyBlazin': new PhillyBlazin();	//Weekend 1 - Blazin
-			#if BASE_GAME_ERECT
-			case 'stage-erect': new StageErect();	//Week 1 Erect
-			case 'spooky-erect': new SpookyErect();	//Week 2 Erect
-			case 'philly-erect': new PhillyErect();	//Week 3 Erect
-			case 'limo-erect': new LimoErect();		//Week 4 Erect
-			case 'mall-erect': new MallErect();		//Week 5 Erect
-			case 'school-erect': new SchoolErect();	//Week 6 Erect - Senpai, Roses
-			case 'schoolEvil-erect': new SchoolEvilErect();	//Week 6 Erect - Thorns
-			case 'tank-erect': new TankErect();		//Week 7 Erect - Ugh
-			case 'phillyStreets-erect': new PhillyStreetsErect();	//Weekend 1 Erect - Darnell
-			#end
-			case 'audiostage': new AudioStage();		
-		}
+		StageData.newStage(curStage);
 		if(isPixelStage) introSoundsSuffix = '-pixel';
 
 		#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
@@ -803,20 +782,27 @@ class PlayState extends MusicBeatState
 		if (!stageData.hide_girlfriend)
 		{
 			if(SONG.gfVersion == null || SONG.gfVersion.length < 1) SONG.gfVersion = 'gf'; //Fix for the Chart Editor
+			Bread.crumb('PS gf begin ' + SONG.gfVersion);
 			gf = new Character(0, 0, SONG.gfVersion);
+			Bread.crumb('PS gf done');
 			startCharacterPos(gf);
 			gfGroup.scrollFactor.set(0.95, 0.95);
 			if((ClientPrefs.data.customChartGirlfriend != "NONE" && pureChartMode) || !pureChartMode)gfGroup.add(gf);
 		}
 
+		Bread.crumb('PS dad begin ' + SONG.player2);
 		dad = new Character(0, 0, SONG.player2);
+		Bread.crumb('PS dad done');
 		startCharacterPos(dad, true);
 		if((ClientPrefs.data.customChartOpponent != "NONE" && pureChartMode) || !pureChartMode)dadGroup.add(dad);
 
+		Bread.crumb('PS bf begin ' + SONG.player1);
 		boyfriend = new Character(0, 0, SONG.player1, true);
+		Bread.crumb('PS bf done');
 		startCharacterPos(boyfriend);
 		if((ClientPrefs.data.customChartPlayer != "NONE" && pureChartMode) || !pureChartMode)boyfriendGroup.add(boyfriend);
-		
+
+		Bread.crumb('PS objects begin');
 		if(stageData.objects != null && stageData.objects.length > 0)
 		{
 			var list:Map<String, FlxSprite> = StageData.addObjectsToState(stageData.objects, !stageData.hide_girlfriend ? gfGroup : null, dadGroup, boyfriendGroup, this);
@@ -830,6 +816,7 @@ class PlayState extends MusicBeatState
 			add(dadGroup);
 			add(boyfriendGroup);
 		}
+		Bread.crumb('PS stage+chars added');
 		
 		#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
 		// "SCRIPTS FOLDER" SCRIPTS
@@ -846,6 +833,38 @@ class PlayState extends MusicBeatState
 					initHScript(folder + file);
 				#end
 			}
+
+		// 内容包自带脚本（content/<包>/scripts/** 含一级子目录；stages/ 为包根目录的舞台脚本，
+		// 对齐 PE 惯例 —— startHScriptsNamed 只查 mods/ 与 assets/shared/，内容包的 stages/ 走这里补扫）
+		if (Paths.currentContentRoot != null && Paths.currentContentRoot.length > 0)
+		{
+			var contentScriptsDir:String = Paths.currentContentRoot + '/scripts';
+			var scriptDirs:Array<String> = [];
+			if (FileSystem.exists(contentScriptsDir) && FileSystem.isDirectory(contentScriptsDir))
+			{
+				scriptDirs.push(contentScriptsDir);
+				for (sub in FileSystem.readDirectory(contentScriptsDir))
+				{
+					var subPath:String = contentScriptsDir + '/' + sub;
+					if (FileSystem.isDirectory(subPath)) scriptDirs.push(subPath);
+				}
+			}
+			var packStagesDir:String = Paths.currentContentRoot + '/stages';
+			if (FileSystem.exists(packStagesDir) && FileSystem.isDirectory(packStagesDir)) scriptDirs.push(packStagesDir);
+			for (scriptDir in scriptDirs)
+					for (file in FileSystem.readDirectory(scriptDir))
+					{
+						#if LUA_ALLOWED
+						if(file.toLowerCase().endsWith('.lua'))
+							new FunkinLua(scriptDir + '/' + file);
+						#end
+
+						#if HSCRIPT_ALLOWED
+						if(file.toLowerCase().endsWith('.hx'))
+							initHScript(scriptDir + '/' + file);
+						#end
+					}
+		}
 		#end
 			
 		var camPos:FlxPoint = FlxPoint.get(girlfriendCameraOffset[0], girlfriendCameraOffset[1]);
@@ -1113,6 +1132,29 @@ class PlayState extends MusicBeatState
 					initHScript(folder + file);
 				#end
 			}
+
+		// 内容包的 per-song 脚本（与 base 侧同构：content/<包>/shared/data/<歌>/ 下的 .lua/.hx）
+		#if sys
+		if (Paths.currentContentRoot != null && Paths.currentContentRoot.length > 0)
+		{
+			var packSongDirs:Array<String> = [Paths.currentContentRoot + '/shared/data/$songName'];
+			for (depRoot in Paths.currentContentDependencyRoots)
+				packSongDirs.push(depRoot + '/shared/data/$songName');
+			for (songDir in packSongDirs)
+				if (FileSystem.exists(songDir) && FileSystem.isDirectory(songDir))
+					for (file in FileSystem.readDirectory(songDir))
+					{
+						#if LUA_ALLOWED
+						if(file.toLowerCase().endsWith('.lua'))
+							new FunkinLua(songDir + '/' + file);
+						#end
+						#if HSCRIPT_ALLOWED
+						if(file.toLowerCase().endsWith('.hx'))
+							initHScript(songDir + '/' + file);
+						#end
+					}
+		}
+		#end
 		#end
 
 		// NMV 脚本 API：内容包模式下加载歌内脚本（谱面目录）与状态脚本（scripts/states/PlayState.hx）
@@ -1154,7 +1196,7 @@ class PlayState extends MusicBeatState
 
 		stagesFunc(function(stage:BaseStage) stage.createPost());
 		callOnScripts('onCreatePost');
-		
+
 		// 真正预热：每一列都 spawn 一次
 		var splashColumns:Int = Note.getColumnsPerPlayer(SONG);
 		if (isCoopMode()) splashColumns *= 2;
@@ -1199,7 +1241,9 @@ class PlayState extends MusicBeatState
 		// 使用新的 JudgementCounter 模块替代旧的 createCounterUI
 		if (judgementCounterObj == null && !isSplitCoopMode()) judgementCounterObj = new objects.JudgementCounter(this);
 
-		Paths.clearUnusedMemory();
+		// 不调 Paths.clearUnusedMemory()：它按 localTrackedAssets 判断存活，而该表跨歌只增不减、
+		// key 还带 contentRoot 后缀。同一进程第二次进歌时判定失准，会把角色分尸图集当成未使用
+		// 销毁掉，紧接着 cacheCountdown 重建同 key 图集时闪退。移动版同样去掉了这一步。
 
 		cacheCountdown();
 		cachePopUpScore();
@@ -1256,6 +1300,13 @@ class PlayState extends MusicBeatState
 
 	#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
 	public function addTextToDebug(text:String, color:FlxColor) {
+		Sys.println(text); // 命令行始终照旧
+
+		// 调试打印关掉时拦在入口：不 recycle FlxText、不做文字光栅化、不推挤已有行。
+		// 光靠 visible=false 只省了渲染，每次打印的排版 + 贴图重建照样发生。
+		luaDebugGroup.visible = ClientPrefs.data.luadebugPrint;
+		if(!ClientPrefs.data.luadebugPrint) return;
+
 		var newText:psychlua.DebugLuaText = luaDebugGroup.recycle(psychlua.DebugLuaText);
 		newText.text = text;
 		newText.color = color;
@@ -1267,8 +1318,6 @@ class PlayState extends MusicBeatState
 			spr.y += newText.height + 2;
 		});
 		luaDebugGroup.add(newText);
-
-		Sys.println(text);
 	}
 	#end
 
@@ -1522,14 +1571,38 @@ class PlayState extends MusicBeatState
 
 	var dialogueCount:Int = 0;
 	public var psychDialogue:DialogueBoxPsych;
+	public var pixelDialogue:PixelDialogueBox;
 	//You don't have to add a song, just saying. You can just do "startDialogue(DialogueBoxPsych.parseDialogue(Paths.json(songName + '/dialogue')))" and it should load dialogue.json
 	public function startDialogue(dialogueFile:DialogueFile, ?song:String = null):Void
 	{
 		// TO DO: Make this more flexible, maybe?
-		if(psychDialogue != null) return;
+		if(psychDialogue != null || pixelDialogue != null) return;
 
 		if(dialogueFile.dialogue.length > 0) {
 			inCutscene = true;
+
+			// Vanilla pixel covers (Pico Mix senpai/roses) use the Week 6 pixel box, not the speech bubble
+			if(dialogueFile.pixel == true) {
+				pixelDialogue = new PixelDialogueBox(dialogueFile, song);
+				pixelDialogue.scrollFactor.set();
+				if(endingSong) {
+					pixelDialogue.finishThing = function() {
+						pixelDialogue = null;
+						endSong();
+					}
+				} else {
+					pixelDialogue.finishThing = function() {
+						pixelDialogue = null;
+						startCountdown();
+					}
+				}
+				pixelDialogue.nextDialogueThing = startNextDialogue;
+				pixelDialogue.skipDialogueThing = skipDialogue;
+				pixelDialogue.cameras = [camHUD];
+				add(pixelDialogue);
+				return;
+			}
+
 			psychDialogue = new DialogueBoxPsych(dialogueFile, song);
 			psychDialogue.scrollFactor.set();
 			if(endingSong) {
@@ -1915,7 +1988,7 @@ public function reloadCounterColors()
 		@:privateAccess
 		FlxG.sound.playMusic(inst._sound, 1, false);
 		#if FLX_PITCH FlxG.sound.music.pitch = playbackRate; #end
-		if (finishSong != null) FlxG.sound.music.onComplete = finishSong.bind();
+		if (finishSong != null) FlxG.sound.music.onComplete = () -> finishSong();
 		vocals.play();
 		opponentVocals.play();
 
@@ -2037,7 +2110,9 @@ public function reloadCounterColors()
 			try { eventsChart = Song.getChart('events', songName); }
 			catch (e:Dynamic) {}
 		}
-		if(eventsChart != null)
+		// 编辑器保存的谱面会把事件内嵌进 chart json；内嵌非空时以谱面为准、跳过外置文件，
+		// 否则同一事件会在这里和下方 songData.events 各触发一次。
+		if(eventsChart != null && (PlayState.SONG.events == null || PlayState.SONG.events.length < 1))
 			for (event in eventsChart.events) //Event Notes
 				for (i in 0...event[1].length)
 					makeEvent(event, i);
@@ -3233,9 +3308,13 @@ public function reloadCounterColors()
 		var easing:Float->Float = cast getErectEase(easeName);
 		var duration:Float = Conductor.stepCrochet * steps / 1000 / Math.max(0.001, playbackRate);
 		FlxG.camera.target = null;
-		camFollow.setPosition(targetX - FlxG.width / 2, targetY - FlxG.height / 2);
-		// 直接 tween scroll，避免再叠一层 camera.follow 的平滑延迟。
-		erectCameraTargetTween = FlxTween.tween(FlxG.camera.scroll, {x: targetX - FlxG.width / 2, y: targetY - FlxG.height / 2}, duration, {ease: easing, onComplete: function(_) { erectCameraTargetTween = null; }});
+		// camFollow 保持"世界坐标"语义（与常规 follow 一致，scroll = camFollow - 半屏），
+		// 过渡期间先停 follow、直接 tween scroll；结束时恢复 follow，锚点已落在终点。
+		camFollow.setPosition(targetX, targetY);
+		erectCameraTargetTween = FlxTween.tween(FlxG.camera.scroll, {x: targetX - FlxG.width / 2, y: targetY - FlxG.height / 2}, duration, {ease: easing, onComplete: function(_) {
+			erectCameraTargetTween = null;
+			FlxG.camera.target = camFollow;
+		}});
 	}
 
 	private function setErectCameraZoom(value1:String, value2:String):Void
@@ -3422,7 +3501,34 @@ public function reloadCounterColors()
 			if (!loadRep && !inReplay)
 			{
 				var mode:String = opponentMode == 'player' ? null : opponentMode;
-					Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent, Mods.currentModDirectory, mode);
+
+				// saveScore 前抓旧档最佳 accuracy（跨难度，与 FreeplayCard 口径一致），供升档判定
+				var oldBest:Float = 0;
+				if (!isStoryMode && !practiceMode && !cpuControlled)
+				{
+					var songKey:String = Song.loadedSongName.toLowerCase().replace(" ", "-");
+					for (d in 0...Difficulty.list.length)
+					{
+						var r:Float = Highscore.getRating(songKey, d, Mods.currentModDirectory, mode);
+						if (r > oldBest) oldBest = r;
+					}
+				}
+
+				Highscore.saveScore(Song.loadedSongName, songScore, storyDifficulty, percent, Mods.currentModDirectory, mode, ratingFC);
+
+				// accuracy 更高但 score 没破纪录时 saveScore 不会写 rating，这里补齐，
+				// 否则应用动画播完徽章会被存档旧值顶回去
+				if (percent > Highscore.getRating(Song.loadedSongName, storyDifficulty, Mods.currentModDirectory, mode))
+				{
+					Highscore.setRating(Highscore.formatSong(Song.loadedSongName, storyDifficulty, Mods.currentModDirectory, mode), percent);
+					// FC 跟着这次刷新 accuracy 纪录的游玩一起落盘（空串由 setRatingFC 自行拦截）
+					Highscore.setRatingFC(Highscore.formatSong(Song.loadedSongName, storyDifficulty, Mods.currentModDirectory, mode), ratingFC);
+				}
+
+				// 升档才回 Freeplay 播评级应用动画（checkPendingRankAnim 内部判断 newRank > oldRank）
+				// oldFreeplay 回的是旧界面，挂起会残留到下次进新 Freeplay 时误触发，直接跳过
+				if (!isStoryMode && !practiceMode && !cpuControlled && !ClientPrefs.data.oldFreeplay)
+					FreeplayState.checkPendingRankAnim(Song.loadedSongName, oldBest * 100, percent * 100, Mods.currentModDirectory, mode);
 			}
 			#end
 			
@@ -4788,6 +4894,8 @@ public function reloadCounterColors()
 			else
 				animToPlay = singAnimations[idx] + postfix;
 
+			char.playAnim(animToPlay, true);
+
 			// Set character to gray color on miss
 			var originalColor:FlxColor = char.color;
 			if(!char.hasMissAnimations) char.color = FlxColor.GRAY;
@@ -5627,13 +5735,13 @@ public function reloadCounterColors()
 				dad.healthColorArray[1],
 				dad.healthColorArray[2]
 			);
-			trace('Using dad color: R=${dad.healthColorArray[0]}, G=${dad.healthColorArray[1]}, B=${dad.healthColorArray[2]}');
+			//trace('Using dad color: R=${dad.healthColorArray[0]}, G=${dad.healthColorArray[1]}, B=${dad.healthColorArray[2]}');
 		}
 		else
 		{
 			// 默认颜色
 			opponentColor = FlxColor.fromString('#7E1C4A');
-			trace('Using default color for info box');
+			//trace('Using default color for info box');
 		}
 		
 		// 创建 ModInfoBox
@@ -5644,12 +5752,12 @@ public function reloadCounterColors()
 		{
 			modInfoBox.cameras = [camOther];
 			add(modInfoBox);
-			trace('ModInfoBox created for song: ${SONG.song}');
+			//trace('ModInfoBox created for song: ${SONG.song}');
 		}
 		else
 		{
 			modInfoBox = null; // 如果不显示，设为 null
-			trace('No ModInfoBox for song: ${SONG.song}');
+			//trace('No ModInfoBox for song: ${SONG.song}');
 		}
 	}
 

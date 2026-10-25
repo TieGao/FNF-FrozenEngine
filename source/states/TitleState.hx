@@ -71,6 +71,8 @@ class TitleState extends MusicBeatState
 		{
 			ClientPrefs.loadPrefs();
 			Language.reloadPhrases();
+			// 会话日志要在存档读出来之后才开：开关在 ClientPrefs 里
+			debug.LogFile.start();
 		}
 
 		curWacky = FlxG.random.getObject(getIntroTextShit());
@@ -571,18 +573,19 @@ class TitleState extends MusicBeatState
 					FlxG.sound.playMusic(Paths.music('freakyMenu'), 0);
 					FlxG.sound.music.fadeIn(4, 0, 0.7);
 				case 2:
-					createCoolText(['Psych Engine by'], 40);
+					createCoolText(['Frozen Engine by'], 40);
 				case 4:
-					addMoreText('Shadow Mario', 40);
-					addMoreText('Riveren', 40);
+					addMoreText('Ice_Axe', 40);
 				case 5:
 					deleteCoolText();
 				case 6:
-					createCoolText(['Frozen Engine Modified ', 'By'], -40);
+					createCoolText(['Not associated', 'with'], -40);
 				case 8:
-					addMoreText('Ice_Axe', -40);
+					addMoreText('newgrounds', -40);
+					ngSpr.visible = true;
 				case 9:
 					deleteCoolText();
+					ngSpr.visible = false;
 				case 10:
 					createCoolText([curWacky[0]]);
 				case 12:

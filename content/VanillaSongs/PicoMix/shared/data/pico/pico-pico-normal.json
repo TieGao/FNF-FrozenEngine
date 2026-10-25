@@ -1028,7 +1028,7 @@
 						44400,
 						2,
 						0,
-						"censor"
+						"Censor"
 					],
 					[
 						44400,
@@ -1248,7 +1248,7 @@
 						50800,
 						2,
 						0,
-						"censor"
+						"Censor"
 					],
 					[
 						51000,
@@ -1448,7 +1448,7 @@
 						57200,
 						0,
 						0,
-						"censor"
+						"Censor"
 					],
 					[
 						57200,
@@ -1663,7 +1663,7 @@
 						63600,
 						3,
 						0,
-						"censor"
+						"Censor"
 					],
 					[
 						63800,
@@ -2162,6 +2162,9 @@
 		"format": "psych_v1_convert",
 		"artist": "Metaroom (ft. Saster)",
 		"charter": "fabs",
-		"generatedBy": "psych-vanilla-to-104 convert_vslice_chart.py"
+		"generatedBy": "psych-vanilla-to-104 convert_vslice_chart.py",
+		"album": "volume4",
+		"gameOverChar": "pico-playable",
+		"gameOverSound": "fnf_loss_sfx-pico"
 	}
 }

@@ -848,13 +848,13 @@
 						31333.3333333333,
 						2,
 						0,
-						"noanim"
+						"No Animation"
 					],
 					[
 						31666.6666666667,
 						2,
 						0,
-						"noanim"
+						"No Animation"
 					]
 				],
 				"sectionBeats": 4,
@@ -3023,6 +3023,9 @@
 		"format": "psych_v1_convert",
 		"artist": "TeraVex (ft. Saruky)",
 		"charter": "fabs + Spazkid",
-		"generatedBy": "psych-vanilla-to-104 convert_vslice_chart.py"
+		"generatedBy": "psych-vanilla-to-104 convert_vslice_chart.py",
+		"album": "volume4",
+		"gameOverChar": "pico-playable",
+		"gameOverSound": "fnf_loss_sfx-pico"
 	}
 }

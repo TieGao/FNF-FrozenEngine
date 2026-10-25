@@ -47,7 +47,8 @@ class Note extends FlxSprite
 		'Hey!',
 		'Hurt Note',
 		'GF Sing',
-		'No Animation'
+		'No Animation',
+		'Censor'
 	];
 
 	public var extraData:Map<String, Dynamic> = new Map<String, Dynamic>();
@@ -355,6 +356,8 @@ class Note extends FlxSprite
 				case 'No Animation':
 					noAnimation = true;
 					noMissAnimation = true;
+				case 'Censor': // V-Slice pico mix 的 censor kind：唱但不张嘴（singX-censor）
+					animSuffix = '-censor';
 				case 'GF Sing':
 					gfNote = true;
 			}

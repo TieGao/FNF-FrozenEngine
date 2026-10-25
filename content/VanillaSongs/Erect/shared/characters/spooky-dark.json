@@ -63,7 +63,16 @@
 			],
 			"fps": 24,
 			"anim": "danceLeft",
-			"indices": [0, 1, 2, 3, 4, 5, 6, 7],
+			"indices": [
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7
+			],
 			"name": "Idle"
 		},
 		{
@@ -74,8 +83,28 @@
 			],
 			"fps": 24,
 			"anim": "danceRight",
-			"indices": [8, 9, 10, 11, 12, 13, 14, 15],
+			"indices": [
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15
+			],
 			"name": "Idle"
+		},
+		{
+			"loop": false,
+			"offsets": [
+				50,
+				28
+			],
+			"anim": "cheer",
+			"fps": 24,
+			"name": "Spookiez YEAH cheer",
+			"indices": []
 		}
 	],
 	"no_antialiasing": false,

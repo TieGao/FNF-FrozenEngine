@@ -66,17 +66,28 @@ class TankErect extends BaseStage
 		// 边缘光朝上、强度 1、距离 15、阈值 0.1，颜色 #DFEF3C；dad 改成 135 度、阈值 0.3
 		attachShadow(boyfriend, -38, -20, -46, -25, 90, 15, 0.1);
 		attachShadow(dad, -38, -20, -46, -25, 135, 15, 0.3);
-		attachShadow(gf, -38, -20, -46, -25, 90, 15, 0.1);
+		var gfShadow:DropShadowShader = attachShadow(gf, -38, -20, -46, -25, 90, 15, 0.1);
+
+		// 官方 tankmanBattlefieldErect.hxc：gf-tankmen / nene-tankmen 进歌立即启用 rim 蒙版（threshold 0.4）
+		if (gf != null && gfShadow != null
+			&& (gf.curCharacter == 'gf-tankmen' || gf.curCharacter == 'nene-tankmen'))
+		{
+			var maskKey:String = (gf.curCharacter == 'gf-tankmen')
+				? 'erect/masks/gfTankmen_mask' : 'erect/masks/neneTankmen_mask';
+			var maskImg = Paths.image(maskKey);
+			if (maskImg != null && maskImg.bitmap != null)
+				gfShadow.setAltMask(maskImg.bitmap, 0.4);
+		}
 	}
 
 	static inline var RIM_COLOR:Int = 0xFFDFEF3C;
 
 	/** 原版 `dropShadow` 的边缘高光 + Adjust Color 合一，颜色固定为本舞台的 RIM_COLOR。 */
 	function attachShadow(char:FlxSprite, hue:Float, saturation:Float, brightness:Float, contrast:Float,
-		angle:Float, distance:Float, threshold:Float, strength:Float = 1):Void
+		angle:Float, distance:Float, threshold:Float, strength:Float = 1):DropShadowShader
 	{
-		if (char == null) return;
-		DropShadowShader.attach(char, {
+		if (char == null) return null;
+		return DropShadowShader.attach(char, {
 			hue: hue,
 			saturation: saturation,
 			brightness: brightness,

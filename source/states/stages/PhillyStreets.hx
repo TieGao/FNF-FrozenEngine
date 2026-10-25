@@ -140,9 +140,16 @@ class PhillyStreets extends BaseStage
 			darkenable.push(picoFade);
 		}
 
-		abot = new ABotSpeaker(gfGroup.x, gfGroup.y + 550);
-		updateABotEye(true);
-		add(abot);
+		// 原版 ABot 是 Nene 的专属道具（nene.hxc 的 setupAbot，zIndex = nene - 1，坐在音箱上）；
+		// girlfriend 不是 nene 的谱面（如 BF Mix 的 darnell / lit-up）官方没有音箱。
+		var gfChar:String = PlayState.SONG.gfVersion;
+		if (gfChar == null || gfChar.length < 1) gfChar = 'gf';
+		if (gfChar.toLowerCase().startsWith('nene'))
+		{
+			abot = new ABotSpeaker(gfGroup.x, gfGroup.y + 550);
+			updateABotEye(true);
+			add(abot);
+		}
 		
 		if(ClientPrefs.data.shaders)
 			setupRainShader();
@@ -399,6 +406,7 @@ class PhillyStreets extends BaseStage
 
 	function updateABotEye(finishInstantly:Bool = false)
 	{
+		if (abot == null) return; // gf 非 nene 时不创建音箱
 		if(PlayState.SONG.notes[Std.int(FlxMath.bound(curSection, 0, PlayState.SONG.notes.length - 1))].mustHitSection == true)
 			abot.lookRight();
 		else
@@ -409,7 +417,7 @@ class PhillyStreets extends BaseStage
 
 	override function startSong()
 	{
-		abot.snd = FlxG.sound.music;
+		if (abot != null) abot.snd = FlxG.sound.music;
 		gf.animation.finishCallback = onNeneAnimationFinished;
 	}
 	
