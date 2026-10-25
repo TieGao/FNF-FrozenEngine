@@ -26,14 +26,22 @@ typedef CreditSubSection = {
 	var people:Array<CreditPerson>;
 }
 
+/** 「完整名单」专用的一段纯文本（交互列表不显示，只有滚动页会用到）。 */
+typedef CreditRollGroup = {
+	var name:String;
+	var lines:Array<String>;
+}
+
 typedef CreditSection = {
 	var name:String;
 	var id:String;
-	var kind:String; // 'engine' | 'psych' | 'mod'
+	var kind:String; // 'engine' | 'psych' | 'funkin' | 'mod'
 	var mod:String; // 资源所属 mod 文件夹，'' = 本体
 	var color:String; // 该段默认背景色
 	/** 整组视频名（不含目录与扩展名），文件放 assets/videos/credits/<video>.mp4 */
 	var video:String;
+	/** 有值时，该组的「完整名单」用这份数据代替 subsections（官方式大名单挂这里） */
+	var roll:Array<CreditRollGroup>;
 	var subsections:Array<CreditSubSection>;
 }
 
@@ -196,11 +204,13 @@ class CreditsData
 			mod: folder,
 			color: DEFAULT_COLOR,
 			video: '',
+			roll: [],
 			subsections: []
 		};
 		for (s in sections)
 		{
 			if (out.video.length == 0 && s.video != null && s.video.length > 0) out.video = s.video;
+			if (s.roll != null) for (g in s.roll) out.roll.push(g);
 			for (sub in s.subsections) out.subsections.push(sub);
 		}
 		return out;
@@ -229,6 +239,7 @@ class CreditsData
 			mod: folder,
 			color: DEFAULT_COLOR,
 			video: '',
+			roll: [],
 			subsections: []
 		};
 
@@ -343,6 +354,7 @@ class CreditsData
 			mod: mod,
 			color: secColor,
 			video: str(src, 'video', ''),
+			roll: parseRollGroups(Reflect.field(src, 'roll')),
 			subsections: []
 		};
 
@@ -363,6 +375,36 @@ class CreditsData
 		if (flat.length > 0) sec.subsections.push({name: '', people: flat});
 
 		return sec;
+	}
+
+	/**
+	 * `"roll": [{ "name": "Programmers", "lines": ["a", "b"] }, ...]`
+	 * 只给「完整名单」用，不进交互列表。
+	 */
+	static function parseRollGroups(list:Dynamic):Array<CreditRollGroup>
+	{
+		var out:Array<CreditRollGroup> = [];
+		var arr:Array<Dynamic> = asArray(list);
+		if (arr == null) return out;
+
+		for (item in arr)
+		{
+			if (item == null) continue;
+
+			var lines:Array<String> = [];
+			var rawLines:Array<Dynamic> = asArray(Reflect.field(item, 'lines'));
+			if (rawLines != null)
+			{
+				for (l in rawLines)
+				{
+					if (l == null) continue;
+					var s:String = Std.string(l);
+					if (s.trim().length > 0) lines.push(s);
+				}
+			}
+			if (lines.length > 0) out.push({name: str(item, 'name', ''), lines: lines});
+		}
+		return out;
 	}
 
 	static function parsePeople(list:Dynamic, modFolder:String, secColor:String):Array<CreditPerson>
@@ -470,6 +512,60 @@ class CreditsData
 	public static inline var ROLL_STYLE_BODY:Int = 2;
 	public static inline var ROLL_STYLE_GAP:Int = 3;
 
+	/**
+	 * 只取「当前正在浏览的那一组」的全部成员。
+	 * `subIndex >= 0` = 只取该子分组（如 Funkin' Crew）；`subIndex < 0` = 整个 section。
+	 */
+	public static function collectGroupRollLines(b:CreditsBundle, sectionIndex:Int, subIndex:Int):Array<RollLine>
+	{
+		var out:Array<RollLine> = [];
+		if (b == null || b.sections == null) return out;
+		if (sectionIndex < 0 || sectionIndex >= b.sections.length) return out;
+
+		var sec:CreditSection = b.sections[sectionIndex];
+		if (sec == null) return out;
+
+		var secColor:String = (sec.color == null) ? '' : sec.color;
+
+		// 该组自带「完整名单」载荷（官方式大名单）时，滚动页只用它，不用交互列表里那几个人
+		if (sec.roll != null && sec.roll.length > 0)
+		{
+			pushRollGroups(out, sec.roll, secColor);
+			return out;
+		}
+
+		if (subIndex >= 0)
+		{
+			if (subIndex >= sec.subsections.length) return out;
+			pushPeople(out, sec.subsections[subIndex], secColor);
+			return out;
+		}
+
+		// 整个 section：子分组名不止一个时才补小标题，避免"一人一子段"的 mod 刷屏
+		var namedSubs:Int = 0;
+		for (sub in sec.subsections) if (sub.name != null && sub.name.length > 0) namedSubs++;
+		var showSub:Bool = namedSubs > 1;
+
+		for (sub in sec.subsections)
+		{
+			if (showSub && sub.name != null && sub.name.length > 0)
+			{
+				out.push({
+					text: sub.name,
+					second: '',
+					style: ROLL_STYLE_SUB,
+					gapAfter: 6,
+					color: secColor,
+					font: pickFont(sub.name)
+				});
+			}
+			pushPeople(out, sub, secColor);
+			if (showSub) out.push({text: '', second: '', style: ROLL_STYLE_GAP, gapAfter: 14, color: '', font: ''});
+		}
+
+		return out;
+	}
+
 	/** 把整个 bundle 摊成滚动名单的行序列（组标题 → 子分组 → 人名 | 职责）。 */
 	public static function collectRollLines(b:CreditsBundle):Array<RollLine>
 	{
@@ -491,6 +587,13 @@ class CreditsData
 				font: pickFont(sec.name)
 			});
 
+			if (sec.roll != null && sec.roll.length > 0)
+			{
+				pushRollGroups(out, sec.roll, secColor);
+				out.push({text: '', second: '', style: ROLL_STYLE_GAP, gapAfter: 52, color: '', font: ''});
+				continue;
+			}
+
 			// 只有当这一组有多个非空子标题时才显示子标题，避免"一人一子段"的 mod 刷屏
 			var namedSubs:Int = 0;
 			for (sub in sec.subsections) if (sub.name != null && sub.name.length > 0) namedSubs++;
@@ -510,23 +613,7 @@ class CreditsData
 					});
 				}
 
-				for (p in sub.people)
-				{
-					if (p.name == null || p.name.trim().length == 0) continue;
-
-					var role:String = p.role;
-					if (role == null || role.length == 0) role = firstLine(p.desc, 48);
-					if (role == null) role = '';
-
-					out.push({
-						text: p.name,
-						second: role,
-						style: ROLL_STYLE_BODY,
-						gapAfter: 2,
-						color: secColor,
-						font: pickFont(p.name + role)
-					});
-				}
+				pushPeople(out, sub, secColor);
 
 				if (showSub)
 				{
@@ -539,6 +626,60 @@ class CreditsData
 		}
 
 		return out;
+	}
+
+	static function pushPeople(out:Array<RollLine>, sub:CreditSubSection, secColor:String):Void
+	{
+		for (p in sub.people)
+		{
+			if (p.name == null || p.name.trim().length == 0) continue;
+
+			var role:String = p.role;
+			if (role == null || role.length == 0) role = firstLine(p.desc, 48);
+			if (role == null) role = '';
+
+			out.push({
+				text: p.name,
+				second: role,
+				style: ROLL_STYLE_BODY,
+				gapAfter: 2,
+				color: secColor,
+				font: pickFont(p.name + role)
+			});
+		}
+	}
+
+	/** 纯文本大名单：段名当小标题，每行一个人名/一句话。 */
+	static function pushRollGroups(out:Array<RollLine>, groups:Array<CreditRollGroup>, secColor:String):Void
+	{
+		for (g in groups)
+		{
+			if (g.name != null && g.name.length > 0)
+			{
+				out.push({
+					text: g.name,
+					second: '',
+					style: ROLL_STYLE_SUB,
+					gapAfter: 6,
+					color: secColor,
+					font: pickFont(g.name)
+				});
+			}
+
+			for (line in g.lines)
+			{
+				out.push({
+					text: line,
+					second: '',
+					style: ROLL_STYLE_BODY,
+					gapAfter: 2,
+					color: secColor,
+					font: pickFont(line)
+				});
+			}
+
+			out.push({text: '', second: '', style: ROLL_STYLE_GAP, gapAfter: 18, color: '', font: ''});
+		}
 	}
 
 	/** 含非 ASCII（中文/日文/带音标的名字）就换 CJK 字体，纯 ASCII 仍用全界面统一的 vcr。 */
@@ -655,6 +796,7 @@ class CreditsData
 				mod: '',
 				color: '87CEEB',
 				video: '',
+				roll: [],
 				subsections: [
 					{
 						name: 'Creator',
@@ -680,6 +822,7 @@ class CreditsData
 				mod: '',
 				color: '444444',
 				video: '',
+				roll: [],
 				subsections: [
 					{
 						name: 'Psych Engine Team',

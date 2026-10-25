@@ -67,6 +67,8 @@ class CreditsState extends MusicBeatState
 	static inline var CLICK_MAX_MOVE:Float = 8;
 	/** true = 回到旧手感（第一次点击只选中，第二次才开链接）。 */
 	static inline var CLICK_SELECT_ONLY:Bool = false;
+	/** 完整名单的范围：true = 只滚当前子分组；false = 整个分组（大标题那一组）。 */
+	static inline var ROLL_SCOPE_SUBSECTION:Bool = false;
 
 	var bundle:CreditsBundle;
 	var rows:Array<CreditRow> = [];
@@ -939,8 +941,15 @@ class CreditsState extends MusicBeatState
 	function openRoll():Void
 	{
 		if (inputLocked || subState != null) return;
+		if (rows.length == 0) return;
 
-		var lines:Array<RollLine> = CreditsData.collectRollLines(bundle);
+		var row:CreditRow = rows[curSelected];
+		if (row == null) return;
+
+		// 只滚当前正在浏览的那一组，而不是整份 credits
+		var subIdx:Int = ROLL_SCOPE_SUBSECTION ? row.sub : -1;
+		var lines:Array<RollLine> = CreditsData.collectGroupRollLines(bundle, row.section, subIdx);
+		if (lines.length == 0) lines = CreditsData.collectRollLines(bundle); // 兜底：整份
 		if (lines.length == 0) return;
 
 		inputLocked = true;
@@ -949,9 +958,20 @@ class CreditsState extends MusicBeatState
 
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 
-		var sub:CreditsRollSubState = new CreditsRollSubState(lines);
-		sub.closeCallback = onSubClosed;
-		openSubState(sub);
+		var rs:CreditsRollSubState = new CreditsRollSubState(lines, rollTitle(row, subIdx));
+		rs.closeCallback = onSubClosed;
+		openSubState(rs);
+	}
+
+	function rollTitle(row:CreditRow, subIdx:Int):String
+	{
+		if (subIdx >= 0 && row.subName != null && row.subName.length > 0) return row.subName.toUpperCase();
+		if (row.section >= 0 && row.section < sections.length)
+		{
+			var sec:CreditSection = sections[row.section];
+			if (sec != null && sec.name != null && sec.name.length > 0) return sec.name.toUpperCase();
+		}
+		return 'CREDITS';
 	}
 
 	function openSectionVideo():Void

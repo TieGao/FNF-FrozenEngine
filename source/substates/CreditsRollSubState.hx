@@ -16,11 +16,14 @@ class CreditsRollSubState extends MusicBeatSubstate
 	var roll:CreditsRoll;
 	var hint:FlxText;
 	var closing:Bool = false;
+	/** 顶栏标题（一般就是当前分组名，如 FUNKIN' CREW） */
+	var titleText:String;
 
-	public function new(lines:Array<RollLine>)
+	public function new(lines:Array<RollLine>, ?title:String = 'CREDITS')
 	{
 		super();
 		this.lines = lines;
+		this.titleText = (title == null || title.length == 0) ? 'CREDITS' : title;
 	}
 
 	override function create():Void
@@ -51,7 +54,7 @@ class CreditsRollSubState extends MusicBeatSubstate
 		bottomBar.scrollFactor.set();
 		add(bottomBar);
 
-		var title:FlxText = new FlxText(44, 24, 0, 'CREDITS', 40);
+		var title:FlxText = new FlxText(44, 24, 0, titleText, 40);
 		title.setFormat(Paths.font('vcr.ttf'), 40, FlxColor.WHITE, LEFT);
 		title.borderStyle = OUTLINE;
 		title.borderColor = FlxColor.BLACK;

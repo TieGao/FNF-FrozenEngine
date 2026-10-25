@@ -24,6 +24,7 @@ import substates.ResetScoreSubState;
 
 import flixel.math.FlxMath;
 import flixel.util.FlxDestroyUtil;
+import flixel.FlxBasic;
 
 import shaders.MosaicEffect;
 
@@ -79,6 +80,9 @@ class FreeplayState extends MusicBeatState
     public var cardScrollPos:Float = 0;
     var cardScroller:backend.MouseMove;
     inline static var CARD_SPACING:Int = 80;
+    // 右下角署名文字（曲师/谱师/游玩次数）的文本框宽度与右边距
+    inline static var SONG_META_FIELD_WIDTH:Float = 750;
+    inline static var SONG_META_RIGHT_MARGIN:Float = 20;
 	public var curDifficulty:Int = -1;
 	private static var lastDifficultyName:String = Difficulty.getDefault();
     
@@ -136,6 +140,12 @@ class FreeplayState extends MusicBeatState
     // ---- 评级应用动画运行时状态 ----
     var rankAnimActive:Bool = false;
     var rankAnimCard:FreeplayCard = null;
+    /**
+     * 评级动画专用前景层。黑幕 / 爆线 / 目标卡 / 火花 全在这里，组内 add 顺序 = 画序。
+     * 别改回"对 state 的 members 做 remove + add"那套 —— FlxGroup.add() 会优先填
+     * remove 挖出来的 null 槽，卡片会被塞回原位（黑幕之下），整段动画就全被压暗了。
+     */
+    var rankFx:FlxTypedGroup<FlxBasic>;
     var rankOverlay:FlxSprite;
     var rankSparks:FlxSprite;
     var rankSparksAdd:FlxSprite;
@@ -1312,6 +1322,8 @@ class FreeplayState extends MusicBeatState
         if (index < 0 || index >= cards.length) return;
         var card:FreeplayCard = cards[index];
         if (card == null) return;
+        // 评级动画期间卡片被搬到了前景层，这里销毁会让动画持着一张死卡
+        if (card == rankAnimCard) return;
         if (mouseOverCard == index) mouseOverCard = -1;
         if (cardPressedIndex == index) cardPressedIndex = -1;
         remove(card);
@@ -1344,6 +1356,9 @@ class FreeplayState extends MusicBeatState
     // 对照官方 rankAnimStart → rankDisplayNew → rankAnimSlam：
     // 黑幕渐入 + 相机推近 → 徽章从巨幅缩入爆点 + 火花 + rank-in 音效 → 相机脉冲/卡片歪头
     // → 黑幕退出 + per-rank 音效 + 卡片甩回原位 + 震屏 + zoom 弹回 + vignette 闪色。
+    //
+    // 画序一律交给 rankFx 组内部（从下到上：黑幕 → 爆线 → 目标卡 → 火花），
+    // state 这一层只用 insert 把组整体压到最顶层，不再逐个成员挪位置。
 
     function startRankAnimIfPending():Void
     {
@@ -1377,24 +1392,57 @@ class FreeplayState extends MusicBeatState
         lerpSelected = targetIndex;
         updateCardsPosition();
 
+        // ---- 前景层（画序全靠组内顺序）----
+        // 组整体插到 members 尾部 = 最顶层。这里必须用 insert 而不是 add：
+        // add 会去填空槽，位置不确定，可能被塞到 UI 下面。
+        rankFx = new FlxTypedGroup<FlxBasic>();
+        insert(members.length, rankFx);
+
+        // 黑幕（组内最底层）。2 倍屏：slam 阶段相机 zoom 会降到 0.8（视野超出屏幕），单屏尺寸会露边
+        rankOverlay = new FlxSprite().makeGraphic(FlxG.width * 2, FlxG.height * 2, FlxColor.BLACK);
+        rankOverlay.setPosition(-FlxG.width * 0.5, -FlxG.height * 0.5);
+        rankOverlay.scrollFactor.set();
+        rankOverlay.alpha = 0;
+        rankFx.add(rankOverlay);
+
+        // 爆线（官方 rankVignette：640×360 白色边缘渐变，靠 ADD + rank 色上色）。
+        // 提前建好压在卡片下面，slam 时只调 alpha —— 那会儿再算插入位置容易插错层。
+        rankVignette = new FlxSprite();
+        var vignetteGraphic = Paths.image('freeplay/rankVignette');
+        if (vignetteGraphic != null)
+        {
+            rankVignette.loadGraphic(vignetteGraphic);
+            // 素材只有 640×360；这一拍镜头正从 0.8 弹回 1，按 1.4 倍铺，缩到 0.8 那帧也不会露边
+            rankVignette.setGraphicSize(FlxG.width * 1.4, FlxG.height * 1.4);
+            rankVignette.updateHitbox();
+            rankVignette.screenCenter();
+            rankVignette.scrollFactor.set();
+            rankVignette.blend = BlendMode.ADD;
+            rankVignette.alpha = 0;
+            rankFx.add(rankVignette);
+        }
+        else
+        {
+            // 素材缺失不该连累整个 Freeplay（进不了界面比少一个特效严重得多）
+            rankVignette = null;
+        }
+
+        // 目标卡搬进前景层（在爆线之后 add → 画在爆线之上）。
+        // remove 用 splice，别留 null 槽给后面的 add 复用。
+        remove(card, true);
+        rankFx.add(card);
+
         // ---- 锁卡 + 记录原布局 ----
         card.animLock = true;
         rankAnimOrigPos = [];
         for (spr in card.members)
         {
+            if (spr == null) continue;
             FlxTween.cancelTweensOf(spr);
             rankAnimOrigPos.push({spr: spr, x: spr.x, y: spr.y});
+            // 列表里卡片是 0.6/0.8 的半透明；半透明卡片压在黑幕上看着就像"被压暗了"，动画期间拉满
+            spr.alpha = 1;
         }
-
-        // ---- 黑幕（最顶层），目标卡提到黑幕之上 ----
-        // 2 倍屏：slam 阶段相机 zoom 会降到 0.8（视野超出屏幕），单屏尺寸会露边
-        rankOverlay = new FlxSprite().makeGraphic(FlxG.width * 2, FlxG.height * 2, FlxColor.BLACK);
-        rankOverlay.setPosition(-FlxG.width * 0.5, -FlxG.height * 0.5);
-        rankOverlay.scrollFactor.set();
-        rankOverlay.alpha = 0;
-        add(rankOverlay);
-        remove(card);
-        add(card); // 目标卡移到成员表末尾 = 画在黑幕之上
 
         if (FlxG.sound.music != null)
             FlxTween.tween(FlxG.sound.music, {volume: 0}, 0.4);
@@ -1434,6 +1482,8 @@ class FreeplayState extends MusicBeatState
             {
                 // 官方徽章是非循环闪烁，播完停帧即可
             };
+            // 放大到 20 倍时故意不 updateHitbox：offset 留在 1 倍的值，视觉中心就钉在
+            // 卡片的徽章槽上，于是看起来是"从巨幅缩进槽里"；结尾补一次 updateHitbox 收正。
             card.ratingSprite.scale.set(20, 20);
             FlxTween.tween(card.ratingSprite.scale, {x: FreeplayCard.BADGE_SCALE, y: FreeplayCard.BADGE_SCALE}, 0.1, {ease: FlxEase.quadOut,
                 onComplete: function(_) card.ratingSprite.updateHitbox()});
@@ -1449,7 +1499,7 @@ class FreeplayState extends MusicBeatState
 
             card.setCardAngle(-3);
             for (spr in card.members)
-                FlxTween.tween(spr, {angle: 0}, 0.5, {ease: FlxEase.backOut});
+                if (spr != null) FlxTween.tween(spr, {angle: 0}, 0.5, {ease: FlxEase.backOut});
             FlxG.camera.shake(0.005, 0.15);
         });
 
@@ -1463,7 +1513,8 @@ class FreeplayState extends MusicBeatState
                 FlxTween.tween(rankOverlay, {alpha: 0}, 0.3, {ease: FlxEase.expoIn,
                     onComplete: function(_)
                     {
-                        remove(rankOverlay);
+                        // 回调里别再走 clearRankOverlay：那里会 cancelTweensOf，正在收尾的 tween 被就地处决容易踩迭代
+                        if (rankFx != null) rankFx.remove(rankOverlay, true);
                         rankOverlay.destroy();
                         rankOverlay = null;
                     }});
@@ -1481,27 +1532,19 @@ class FreeplayState extends MusicBeatState
             FlxTween.tween(FlxG.camera, {zoom: 1}, 0.8, {ease: FlxEase.elasticOut,
                 onComplete: function(_) FlxG.camera.zoom = 1});
 
-            // vignette 闪色（新 rank 色）
-            // 素材是 640×360（1280×720 的四分之一），不拉满就只是左上角孤零零一块爆线；
-            // 这一拍镜头正从 0.8 弹回 1，按 1.4 倍铺，缩到 0.8 那一帧也不会露边。
-            rankVignette = new FlxSprite();
-            rankVignette.loadGraphic(Paths.image('freeplay/rankVignette'));
-            rankVignette.setGraphicSize(FlxG.width * 1.4, FlxG.height * 1.4);
-            rankVignette.updateHitbox();
-            rankVignette.screenCenter();
-            rankVignette.scrollFactor.set();
-            rankVignette.color = pending.newRank.freeplayColor;
-            rankVignette.alpha = 1;
-            // 爆线属于背景层：插到卡片前面（下面），别压住徽章爆点
-            if (rankAnimCard != null) insert(members.indexOf(rankAnimCard), rankVignette);
-            else add(rankVignette);
-            FlxTween.tween(rankVignette, {alpha: 0}, 0.6, {ease: FlxEase.expoOut,
-                onComplete: function(_)
-                {
-                    remove(rankVignette);
-                    rankVignette.destroy();
-                    rankVignette = null;
-                }});
+            // 大边缘爆线（新 rank 色）：ADD 叠加，边缘亮、中心透明
+            if (rankVignette != null)
+            {
+                rankVignette.color = pending.newRank.freeplayColor;
+                rankVignette.alpha = 1;
+                FlxTween.tween(rankVignette, {alpha: 0}, 0.6, {ease: FlxEase.expoOut,
+                    onComplete: function(_)
+                    {
+                        if (rankFx != null) rankFx.remove(rankVignette, true);
+                        rankVignette.destroy();
+                        rankVignette = null;
+                    }});
+            }
         });
 
         // ---- 1.9s：收尾（等 zoom elastic 结束再还权给 update） ----
@@ -1513,6 +1556,8 @@ class FreeplayState extends MusicBeatState
 
     function spawnRankSparks(mid:FlxPoint, color:FlxColor):Void
     {
+        if (rankFx == null) return;
+
         rankSparks = new FlxSprite();
         rankSparks.frames = Paths.getSparrowAtlas('freeplay/sparks');
         rankSparks.animation.addByPrefix('sparks', 'sparks', 24, false);
@@ -1521,7 +1566,7 @@ class FreeplayState extends MusicBeatState
         rankSparks.updateHitbox();
         rankSparks.setPosition(mid.x - rankSparks.width / 2, mid.y - rankSparks.height / 2);
         rankSparks.color = color;
-        add(rankSparks);
+        rankFx.add(rankSparks); // 组内最后 add = 画在卡片之上
 
         rankSparksAdd = new FlxSprite();
         rankSparksAdd.frames = Paths.getSparrowAtlas('freeplay/sparksadd');
@@ -1531,7 +1576,7 @@ class FreeplayState extends MusicBeatState
         rankSparksAdd.updateHitbox();
         rankSparksAdd.setPosition(mid.x - rankSparksAdd.width / 2, mid.y - rankSparksAdd.height / 2);
         rankSparksAdd.color = color;
-        add(rankSparksAdd);
+        rankFx.add(rankSparksAdd);
 
         function hideWhenDone(spr:FlxSprite, anim:String):Void
         {
@@ -1547,20 +1592,36 @@ class FreeplayState extends MusicBeatState
         hideWhenDone(rankSparksAdd, 'sparks add');
     }
 
-    function clearRankSparks():Void
+    /** 从前景层摘掉再销毁（必须 splice：留 null 槽会让后面的 add 又把对象塞回原位置）。 */
+    function detachRankFx(spr:FlxSprite):Void
     {
-        if (rankSparks != null) { remove(rankSparks); rankSparks.destroy(); rankSparks = null; }
-        if (rankSparksAdd != null) { remove(rankSparksAdd); rankSparksAdd.destroy(); rankSparksAdd = null; }
+        if (spr == null) return;
+        if (rankFx != null) rankFx.remove(spr, true);
+        spr.destroy();
     }
 
-    /** 爆线平时靠 tween 的 onComplete 收尾；tween 被打断就会留在屏幕上，收尾时补一刀。 */
+    function clearRankSparks():Void
+    {
+        // 火花只藏不销毁（见 finishCallback 注释），统一在这里清理
+        if (rankSparks != null) { detachRankFx(rankSparks); rankSparks = null; }
+        if (rankSparksAdd != null) { detachRankFx(rankSparksAdd); rankSparksAdd = null; }
+    }
+
+    /** 爆线 / 黑幕平时靠 tween 的 onComplete 收尾；tween 被打断就会留在屏幕上，收尾时补一刀。 */
     function clearRankVignette():Void
     {
         if (rankVignette == null) return;
         FlxTween.cancelTweensOf(rankVignette);
-        remove(rankVignette);
-        rankVignette.destroy();
+        detachRankFx(rankVignette);
         rankVignette = null;
+    }
+
+    function clearRankOverlay():Void
+    {
+        if (rankOverlay == null) return;
+        FlxTween.cancelTweensOf(rankOverlay);
+        detachRankFx(rankOverlay);
+        rankOverlay = null;
     }
 
     function finishRankAnim():Void
@@ -1568,8 +1629,9 @@ class FreeplayState extends MusicBeatState
         var card:FreeplayCard = rankAnimCard;
         rankAnimCard = null;
         rankAnimActive = false;
-        clearRankSparks(); // 火花只藏不销毁（见 finishCallback 注释），统一在这里清理
+        clearRankSparks();
         clearRankVignette();
+        clearRankOverlay();
 
         if (card != null)
         {
@@ -1577,11 +1639,20 @@ class FreeplayState extends MusicBeatState
             card.setCardAngle(0);
             card.ratingSprite.scale.set(FreeplayCard.BADGE_SCALE, FreeplayCard.BADGE_SCALE);
             card.ratingSprite.updateHitbox();
-            // 恢复卡片层级（放回背景组之前）
-            remove(card);
+            // 卡片搬回状态层（背景组之前）；先从前景层摘掉，别让 rankFx.destroy 顺手销毁它
+            if (rankFx != null) rankFx.remove(card, true);
             if (cardLayer != null) insert(members.indexOf(cardLayer), card);
             else add(card);
         }
+
+        // 前景层成员已全部摘除；组本身也要从 members 里拿掉（destroy 不会自动脱父）
+        if (rankFx != null)
+        {
+            remove(rankFx, true);
+            rankFx.destroy();
+            rankFx = null;
+        }
+
         rankAnimOrigPos = [];
         updateCardsPosition();
         updateCardsRating();
@@ -1708,7 +1779,10 @@ class FreeplayState extends MusicBeatState
 
     function makeSongMetaText(y:Float):FlxText
     {
-        var t:FlxText = new FlxText(FlxG.width - 320, y, 750, "", 18);
+        // FlxText 固定字段宽 + RIGHT 对齐时，文本右边界 = x + 字段宽。
+        // 所以 x 必须由「屏宽 - 字段宽 - 右边距」推出来；若沿用 300 宽时代的
+        // x = FlxG.width - 320 再配 750 宽，整行会被推到屏幕右侧外面（看不见）。
+        var t:FlxText = new FlxText(FlxG.width - SONG_META_FIELD_WIDTH - SONG_META_RIGHT_MARGIN, y, SONG_META_FIELD_WIDTH, "", 18);
         t.setFormat(Paths.font("vcr.ttf"), 18, 0xFFAAAAAA, RIGHT, OUTLINE, FlxColor.BLACK);
         t.borderSize = 1;
         t.antialiasing = ClientPrefs.data.antialiasing;

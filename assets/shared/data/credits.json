@@ -194,7 +194,29 @@
           ]
         },
         {
-          "name": "Funkin' Crew",
+          "name": "Psych Engine Discord",
+          "people": [
+            {
+              "name": "Join the Psych Ward!",
+              "icon": "discord",
+              "role": "Community",
+              "desc": "",
+              "link": "https://discord.gg/2ka77eMXDv",
+              "color": "5165F6"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "funkin",
+      "name": "Funkin' Crew",
+      "kind": "funkin",
+      "color": "FADC45",
+      "video": "",
+      "subsections": [
+        {
+          "name": "Core Team",
           "people": [
             {
               "name": "ninjamuffin99",
@@ -229,18 +251,362 @@
               "color": "378FC7"
             }
           ]
+        }
+      ],
+      "roll": [
+        {
+          "name": "Friday Night Funkin'",
+          "lines": [
+            "A video game created by",
+            "The Funkin' Crew Inc."
+          ]
         },
         {
-          "name": "Psych Engine Discord",
-          "people": [
-            {
-              "name": "Join the Psych Ward!",
-              "icon": "discord",
-              "role": "Community",
-              "desc": "",
-              "link": "https://discord.gg/2ka77eMXDv",
-              "color": "5165F6"
-            }
+          "name": "The Funkin' Crew Inc. Shareholders",
+          "lines": [
+            "ninjamuffin99",
+            "PhantomArcade",
+            "Kawai Sprite",
+            "evilsk8r"
+          ]
+        },
+        {
+          "name": "Direction and Art Lead",
+          "lines": [
+            "PhantomArcade"
+          ]
+        },
+        {
+          "name": "Music Lead",
+          "lines": [
+            "Isaac “Kawai Sprite” Garcia"
+          ]
+        },
+        {
+          "name": "Co-Direction and Programming Lead",
+          "lines": [
+            "ninjamuffin99"
+          ]
+        },
+        {
+          "name": "Mobile Lead",
+          "lines": [
+            "MoonDroid (Zack)"
+          ]
+        },
+        {
+          "name": "Production Manager",
+          "lines": [
+            "Hundrec"
+          ]
+        },
+        {
+          "name": "Team Organizers",
+          "lines": [
+            "Hundrec",
+            "AbnormalPoof"
+          ]
+        },
+        {
+          "name": "Producer",
+          "lines": [
+            "Kawa Teaño"
+          ]
+        },
+        {
+          "name": "Artists",
+          "lines": [
+            "PhantomArcade",
+            "evilsk8r",
+            "beck"
+          ]
+        },
+        {
+          "name": "Pixel Art",
+          "lines": [
+            "moawling",
+            "IGJHSpritin"
+          ]
+        },
+        {
+          "name": "Cutscene Storyboards & SFX",
+          "lines": [
+            "PhantomArcade"
+          ]
+        },
+        {
+          "name": "Additional Background Design",
+          "lines": [
+            "Red Minus"
+          ]
+        },
+        {
+          "name": "Cutscene Animation",
+          "lines": [
+            "Figburn",
+            "Sade",
+            "Topium",
+            "BlairTheUnseriousGuy"
+          ]
+        },
+        {
+          "name": "Cutscene Cleanup",
+          "lines": [
+            "PennilessRagamuffin",
+            "beck"
+          ]
+        },
+        {
+          "name": "Cutscene Background Art",
+          "lines": [
+            "beck"
+          ]
+        },
+        {
+          "name": "Additional Art",
+          "lines": [
+            "Jeff Bandelin",
+            "Mogy64",
+            "ChipsGoWoah",
+            "Min Ho Kim (Deegeemin)",
+            "PKettles",
+            "peepo173"
+          ]
+        },
+        {
+          "name": "Additional Character Design",
+          "lines": [
+            "Tom Fulp - Pico School Characters",
+            "JohnnyUtah - Tankman",
+            "SrPelo - Skid and Pump",
+            "Magna - Otis",
+            "gacktenzo - Preppy Otis"
+          ]
+        },
+        {
+          "name": "Music Production",
+          "lines": [
+            "Saruky",
+            "crisp"
+          ]
+        },
+        {
+          "name": "Featured Guest Musicians (thus far)",
+          "lines": [
+            "Bassetfilms",
+            "Kohta Takahashi",
+            "Lotus Juice",
+            "METAROOM",
+            "nuphory",
+            "Saster",
+            "six impala",
+            "TeraVex",
+            "That Andy Guy",
+            "tsuyunoshi",
+            "Xploshi",
+            "Tee Lopes",
+            "RRThiel"
+          ]
+        },
+        {
+          "name": "Programming",
+          "lines": [
+            "Eric \"EliteMasterEric\" Myllyoja",
+            "fabs",
+            "KadeDev"
+          ]
+        },
+        {
+          "name": "Additional Programming",
+          "lines": [
+            "Jenny Crowe",
+            "ember ana",
+            "Mike Welsh",
+            "Saharan",
+            "Ian Harrigan",
+            "Osaka Red LLC: Thomas J Webb",
+            "Emma (MtH)",
+            "George Kurelic",
+            "Will Blanton",
+            "Victor - Cheemsandfriends",
+            "Hundrec",
+            "AbnormalPoof",
+            "MaybeMaru"
+          ]
+        },
+        {
+          "name": "Mobile Porting",
+          "lines": [
+            "MAJigsaw77",
+            "Luckydog7",
+            "Karim Akra",
+            "sector_5"
+          ]
+        },
+        {
+          "name": "Devops and Additional Internal Tooling",
+          "lines": [
+            "ember ana"
+          ]
+        },
+        {
+          "name": "Gameplay Design",
+          "lines": [
+            "PhantomArcade",
+            "Cameron Taylor",
+            "Jenny Crowe",
+            "Spazkid",
+            "fabs",
+            "Emma (MtH)"
+          ]
+        },
+        {
+          "name": "Kickstarter Backer Portal Programming",
+          "lines": [
+            "Shingai Shamu"
+          ]
+        },
+        {
+          "name": "Merchandise Partners and Designers",
+          "lines": [
+            "Needlejuice Records: Jace McLain",
+            "Needlejuice Records: Brandon Brown",
+            "Type-4: Coby Win",
+            "IvanAlmighty",
+            "Mogy64",
+            "ChipsGoWoah",
+            "Min Ho Kim",
+            "PKettles",
+            "Jeff Bandelin",
+            "PhantomArcade",
+            "evilsk8r",
+            "beck",
+            "Makeship: Seebs",
+            "Makeship: Anna N"
+          ]
+        },
+        {
+          "name": "Production and Business Development Partner - Windflower Games",
+          "lines": [
+            "Sunni Pavlovic",
+            "Kristen Lynch"
+          ]
+        },
+        {
+          "name": "Additional Administrative Assistance",
+          "lines": [
+            "moawling"
+          ]
+        },
+        {
+          "name": "Quality Assurance - Indium Play",
+          "lines": [
+            "Lead Tester: Mihajlo Vuković",
+            "Tester: Andrej Naumovski",
+            "Dajana Dimovska"
+          ]
+        },
+        {
+          "name": "Accounting: Molinari Oswald",
+          "lines": [
+            "Francis Molinari",
+            "Aaron Hofmann",
+            "Katherine Stauffer",
+            "Jane Haring"
+          ]
+        },
+        {
+          "name": "US Legal: Odin Law",
+          "lines": [
+            "Brandon Huffman",
+            "Michele Robichaux",
+            "Connor Richards",
+            "Pam Driver",
+            "Jacob Barefoot"
+          ]
+        },
+        {
+          "name": "CA Legal: DLA Piper",
+          "lines": [
+            "Ryan Black",
+            "Brian Wong"
+          ]
+        },
+        {
+          "name": "Special Thanks",
+          "lines": [
+            "Tom Fulp",
+            "Jeff Bandelin",
+            "The entire Molinari Oswald Crew",
+            "The entire Odin Law function",
+            "SrPelo"
+          ]
+        },
+        {
+          "name": "Cameron would like to specially thank",
+          "lines": [
+            "henry, snackers, digi, joemega, caddy, pewpew",
+            "milkhead jack",
+            "katt",
+            "arko, pepe, cashu, ookiyo",
+            "Krystin, Kaye-lyn, and Cassidy, Mack, Levi, and Jasmine.",
+            "Laurel",
+            "Clone Hero",
+            "Innersloth, Puffballs, Forest and Victoria",
+            "StuffedWombat",
+            "mmatt_ugh",
+            "lucas and jack taterguy and marty emrox",
+            "Luis",
+            "GeoKureli, Will Blanton, Austin East, Squidly",
+            "fizzd",
+            "bbpanzu",
+            "Etika",
+            "Foamymuffin (insert travis scott lyrics here)",
+            "SiIvaGunner",
+            "Freddie Dredd"
+          ]
+        },
+        {
+          "name": "Kawa would like to specially thank",
+          "lines": [
+            "Alexei Pepers",
+            "Xalavier Nelson Jr."
+          ]
+        },
+        {
+          "name": "Eric would like to specially thank",
+          "lines": [
+            "Rob and Jill Myllyoja",
+            "KadeDev",
+            "Shadow Mario"
+          ]
+        },
+        {
+          "name": "Hazel (Ravy) would like to specially thank",
+          "lines": [
+            "d1ggo"
+          ]
+        },
+        {
+          "name": "Mobile Team special thanks",
+          "lines": [
+            "cub, setai",
+            "GalacticBaguette, Yowze, Snovi",
+            "AguaCrunch, pb_lauro, Rulet, Rusron, Megalo_palewhite, Serizyu",
+            "8-bitryan",
+            "Stax, NoraYotsu, AndroidSharky, IdioticLuwuke",
+            "PeppyWall, Klavier, Roadr, Limon",
+            "Koniro, Key, Zuki, LunaMyria, Rattatuwu, ToffeeCaramel",
+            "Ninkey, Snak, Codist",
+            "ValenPratama",
+            "yetet (June), IDontCareAbtKaz",
+            "Schepka",
+            "Amari, DatRand (Vlad), Ressu2, Kekkra, CaptainRoku",
+            "cat (Ariel), deathgobrr",
+            "Mario Master (MasterX)",
+            "richTrash21, PurSnake, Naisonji, HopKa, Matr4ss",
+            "Redar13, Sirox, Shufa, D.Dregz, Sodaree",
+            "dUmer, G0lda, Voodoo, Vemer, Sadshrimp"
           ]
         }
       ]
