@@ -4,6 +4,7 @@ package objects;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxSpriteGroup;
+import flixel.math.FlxRect;
 import flixel.text.FlxText;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
@@ -22,11 +23,16 @@ class KeyboardViewer extends FlxSpriteGroup
 	public var keyAlphas:Array<KeyButtonAlpha> = [];
 	public var keyTexts:Array<FlxText> = [];
 
-	public var _x:Float;
-	public var _y:Float;
 	public var _width:Float;
 	public var _height:Float;
 	public var centerOffset:Float;
+
+	// 静态布局局部边界（相对组锚点）。成员 add() 时 group.x/y 会烘焙进其坐标，
+	// 组之后移动只改锚点 —— 命中判定按 锚点+局部边界 还原屏幕边界
+	var localMinX:Float = 0;
+	var localMinY:Float = 0;
+	var localMaxX:Float = 0;
+	var localMaxY:Float = 0;
 	public var kpsText:FlxText;
 	public var totalText:FlxText;
 
@@ -44,10 +50,8 @@ class KeyboardViewer extends FlxSpriteGroup
 
 	public function new(X:Float, Y:Float, ?keys:Int = 4)
 	{
-		super();
+		super(X, Y);
 		instance = this;
-		_x = X;
-		_y = Y;
 
 		// 设置键位数量
 		this.keys = keys;
@@ -69,7 +73,7 @@ class KeyboardViewer extends FlxSpriteGroup
 		for (i in 0...displayKeys)
 		{
 			var buttonX:Float = getButtonX(i);
-			var obj:KeyButton = new KeyButton(buttonX, Y, KeyButton.size, KeyButton.size);
+			var obj:KeyButton = new KeyButton(buttonX, 0, KeyButton.size, KeyButton.size);
 			add(obj);
 		}
 
@@ -77,7 +81,7 @@ class KeyboardViewer extends FlxSpriteGroup
 		for (i in 0...displayKeys)
 		{
 			var alphaX:Float = getButtonX(i);
-			var obj:KeyButtonAlpha = new KeyButtonAlpha(alphaX, Y);
+			var obj:KeyButtonAlpha = new KeyButtonAlpha(alphaX, 0);
 			keyAlphas.push(obj);
 			add(obj);
 		}
@@ -94,10 +98,10 @@ class KeyboardViewer extends FlxSpriteGroup
 		for (i in 0...displayKeys)
 		{
 			var textX:Float = getButtonX(i);
-			var obj:FlxText = new FlxText(textX, Y, KeyButton.size, textArray[i], 16);
+			var obj:FlxText = new FlxText(textX, 0, KeyButton.size, textArray[i], 16);
 			obj.setFormat(GameFont.resolve("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 			obj.x = textX + (KeyButton.size - obj.width) / 2;
-			obj.y = Y + (KeyButton.size - obj.height) / 2;
+			obj.y = (KeyButton.size - obj.height) / 2;
 			obj.color = ClientPrefs.data.keyboardTextColor;
 			obj.alpha = ClientPrefs.data.keyboardAlpha;
 			keyTexts.push(obj);
@@ -114,13 +118,13 @@ class KeyboardViewer extends FlxSpriteGroup
 			bigButtonWidth = Std.int((KeyButton.size * 2 + 4) * (displayKeys / 4));
 		}
 
-		var startX = _x + centerOffset + (_width - bigButtonWidth * 2 - 4) / 2 - 2;
+		var startX = centerOffset + (_width - bigButtonWidth * 2 - 4) / 2 - 2;
 		// ===== 移植结束 =====
 
 		// 创建KPS和Total背景按钮
 		for (i in 0...2)
 		{
-			var obj:KeyButton = new KeyButton(startX + (bigButtonWidth + 4) * i, Y + KeyButton.size + 4, bigButtonWidth, KeyButton.size);
+			var obj:KeyButton = new KeyButton(startX + (bigButtonWidth + 4) * i, KeyButton.size + 4, bigButtonWidth, KeyButton.size);
 			add(obj);
 		}
 
@@ -128,10 +132,10 @@ class KeyboardViewer extends FlxSpriteGroup
 		var textArray2:Array<String> = ['KPS', 'total'];
 		for (i in 0...2)
 		{
-			var obj:FlxText = new FlxText(startX + (bigButtonWidth + 4) * i, Y + KeyButton.size + 4, bigButtonWidth, textArray2[i], 16);
+			var obj:FlxText = new FlxText(startX + (bigButtonWidth + 4) * i, KeyButton.size + 4, bigButtonWidth, textArray2[i], 16);
 			obj.setFormat(GameFont.resolve("vcr.ttf"), 25, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 			obj.x = startX + (bigButtonWidth + 4) * i + (bigButtonWidth - obj.width) / 2;
-			obj.y = Y + KeyButton.size + 4 + (KeyButton.size - obj.height) / 4;
+			obj.y = KeyButton.size + 4 + (KeyButton.size - obj.height) / 4;
 			obj.color = ClientPrefs.data.keyboardTextColor;
 			obj.alpha = ClientPrefs.data.keyboardAlpha;
 			obj.antialiasing = ClientPrefs.data.antialiasing;
@@ -139,11 +143,11 @@ class KeyboardViewer extends FlxSpriteGroup
 		}
 
 		// 创建KPS数值文本
-		kpsText = new FlxText(startX, Y + KeyButton.size + 4, bigButtonWidth, '0', 16);
+		kpsText = new FlxText(startX, KeyButton.size + 4, bigButtonWidth, '0', 16);
 		kpsText.setFormat(GameFont.resolve("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		kpsText.borderSize = 1;
 		kpsText.x = startX + (bigButtonWidth - kpsText.width) / 2;
-		kpsText.y = Y + KeyButton.size + 4 + KeyButton.size / 5 * 3;
+		kpsText.y = KeyButton.size + 4 + KeyButton.size / 5 * 3;
 		kpsText.color = ClientPrefs.data.keyboardTextColor;
 		kpsText.alpha = ClientPrefs.data.keyboardAlpha;
 		kpsText.antialiasing = ClientPrefs.data.antialiasing;
@@ -153,11 +157,11 @@ class KeyboardViewer extends FlxSpriteGroup
 		if (FlxG.save.data.keyboardtotal != null)
 			total = FlxG.save.data.keyboardtotal;
 			
-		totalText = new FlxText(startX + bigButtonWidth + 4, Y + KeyButton.size + 4, bigButtonWidth, Std.string(total), 16);
+		totalText = new FlxText(startX + bigButtonWidth + 4, KeyButton.size + 4, bigButtonWidth, Std.string(total), 16);
 		totalText.setFormat(GameFont.resolve("vcr.ttf"), 16, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
 		totalText.borderSize = 1;
 		totalText.x = startX + bigButtonWidth + 4 + (bigButtonWidth - totalText.width) / 2;
-		totalText.y = Y + KeyButton.size + 4 + KeyButton.size / 5 * 3;
+		totalText.y = KeyButton.size + 4 + KeyButton.size / 5 * 3;
 		totalText.color = ClientPrefs.data.keyboardTextColor;
 		totalText.alpha = ClientPrefs.data.keyboardAlpha;
 		totalText.antialiasing = ClientPrefs.data.antialiasing;
@@ -165,6 +169,40 @@ class KeyboardViewer extends FlxSpriteGroup
 
 		// 初始化时间显示缓存
 		DisBitmap.addCache();
+
+		// 静态布局边界此刻才完整：TimeDis 是运行时动态成员，尚未生成
+		for (m in members)
+		{
+			if (m == null)
+				continue;
+			var lx:Float = m.x - x;
+			var ly:Float = m.y - y;
+			if (lx < localMinX) localMinX = lx;
+			if (ly < localMinY) localMinY = ly;
+			if (lx + m.width > localMaxX) localMaxX = lx + m.width;
+			if (ly + m.height > localMaxY) localMaxY = ly + m.height;
+		}
+	}
+
+	/**
+	 * 屏幕边界 = 组锚点 + 静态布局局部边界。
+	 * 基类实现按 锚点 + frame 宽高 计算，SpriteGroup 没有 frame，恒返回零矩形；
+	 * 且组锚点是布局原点而非左上角（局部坐标可为负），必须按成员布局边界还原。
+	 * 命中判定一律走这里，不要缓存构造坐标 —— 组移动后缓存会与画面脱节。
+	 */
+	override public function getScreenBounds(?newRect:FlxRect, ?camera:FlxCamera):FlxRect
+	{
+		if (newRect == null)
+			newRect = FlxRect.get();
+
+		if (camera == null)
+			camera = getDefaultCamera();
+
+		newRect.setPosition(x + localMinX, y + localMinY);
+		newRect.x -= Std.int(camera.scroll.x * scrollFactor.x);
+		newRect.y -= Std.int(camera.scroll.y * scrollFactor.y);
+		newRect.setSize(localMaxX - localMinX, localMaxY - localMinY);
+		return newRect;
 	}
 
 	/**
@@ -174,7 +212,7 @@ class KeyboardViewer extends FlxSpriteGroup
 	 */
 	private function getButtonX(index:Int):Float
 	{
-		return _x + centerOffset + (KeyButton.size + 4) * index;
+		return centerOffset + (KeyButton.size + 4) * index;
 	}
 
 	/**
@@ -237,8 +275,7 @@ class KeyboardViewer extends FlxSpriteGroup
 		if (!ClientPrefs.data.keyboardTimeDisplay)
 			return;
 
-		var buttonX:Float = getButtonX(displayIndex);
-		var obj:TimeDis = new TimeDis(displayIndex, Conductor.songPosition, buttonX, _y);
+		var obj:TimeDis = new TimeDis(displayIndex, Conductor.songPosition, getButtonX(displayIndex), -4 - DisBitmap.Height);
 		add(obj);
 		
 		// 存储TimeDis引用
@@ -512,7 +549,7 @@ class TimeDis extends FlxSprite
 	public function new(Line:Int, Time:Float, X:Float, Y:Float)
 	{
 		this.line = Line;
-		super(X, Y - 4 - DisBitmap.Height);
+		super(X, Y);
 		this.startTime = Time;
 		frames = Cache.getFrame('keyboardViewer');
 		_frame.frame.height = 1;

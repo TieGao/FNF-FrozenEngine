@@ -370,10 +370,7 @@ class NoteOffsetState extends MusicBeatState
 					startComboOffset.x = ClientPrefs.data.comboOffset[0];
 					startComboOffset.y = ClientPrefs.data.comboOffset[1];
 				}
-				else if (startMousePos.x - keyboardViewer._x >= 0
-					&& startMousePos.x - keyboardViewer._x <= keyboardViewer._width
-					&& startMousePos.y - keyboardViewer._y >= 0
-					&& startMousePos.y - keyboardViewer._y <= keyboardViewer._height)
+				else if (keyboardViewer.getScreenBounds().containsPoint(startMousePos))
 				{
 					draggingTarget = "keyboard";
 					startKbOffset.x = ClientPrefs.data.kbOffsetX;
@@ -561,13 +558,13 @@ class NoteOffsetState extends MusicBeatState
 		}
 	}
 
-	// 更新 KeyboardViewer 位置
+	// 更新 KeyboardViewer 位置（公式与 create() 创建处一致：锚点 + 偏移）
 	function updateKeyboardViewerPosition():Void
 	{
 		if (keyboardViewer != null)
 		{
-			keyboardViewer.x = ClientPrefs.data.kbOffsetX;
-			keyboardViewer.y = ClientPrefs.data.kbOffsetY;
+			keyboardViewer.x = FlxG.width / 2 + ClientPrefs.data.kbOffsetX;
+			keyboardViewer.y = FlxG.height - 150 + ClientPrefs.data.kbOffsetY;
 		}
 	}
 
