@@ -188,6 +188,13 @@ class Paths
 					contentCandidates.push('$dependencyRoot/shared/$file');
 				}
 			}
+			// NMV 包（content/NMVMODS/<mod>）是包根相对布局（images/ data/ stages/...），
+			// 没有 shared/ 前缀层 —— 追加 NMV 候选；FE 布局候选在前、保持优先
+			if (isNmvContentRoot(currentContentRoot))
+			{
+				contentCandidates.push('$currentContentRoot/data/$file');
+				contentCandidates.push('$currentContentRoot/$file');
+			}
 			for (candidate in contentCandidates)
 			{
 				#if sys
@@ -822,6 +829,15 @@ class Paths
 	 * 找不到再落回 assets/ —— 加性回退、不排他，所以舞台类里混用的 base 资源仍能命中。
 	 */
 	public static var currentContentRoot:String = null;
+	/**
+	 * NMV 包（content/NMVMODS/<mod>）的布局是包根相对的（images/ data/ stages/ songs/...），
+	 * 与 FE 内容包的 <root>/shared/ 同构布局不同 —— getPath 需要额外的 NMV 候选。
+	 * 按根路径判定，保证 ensureCard 等直接写 currentContentRoot 的调用方也判得准。
+	 */
+	public static function isNmvContentRoot(?root:String):Bool
+	{
+		return root != null && root.indexOf('/NMVMODS/') != -1;
+	}
 	/**
 	 * 当前内容包的变体标识（Pico / Erect…）；无变体为 null。
 	 * 变体包（如 PicoMix）的难度表是标准档位 Easy/Normal/Hard，变体只在这里表达：
