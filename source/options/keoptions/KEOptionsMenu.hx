@@ -1187,6 +1187,7 @@ function onScrollChange()
 		return [
 			KEOption.create("Downscroll", "Notes scroll downwards instead of upwards", "downScroll", "bool"),
 			KEOption.create("Middlescroll", "Put your lane in the center", "middleScroll", "bool"),
+			KEOption.create("Centered Multi-Key Scaling", "When centered, multi-key notes shrink by key count; turn off to keep the 4K note size", "centerMultiKeyScale", "bool"),
 			KEOption.create("Opponent Notes", "Show opponent's strumline", "opponentStrums", "bool"),
 			KEOption.create("Ghost Tapping", "Allow pressing keys without missing", "ghostTapping", "bool"),
 			KEOption.create("Auto Pause", "Pause when window loses focus", "autoPause", "bool"),

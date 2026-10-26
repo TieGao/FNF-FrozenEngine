@@ -43,3 +43,6 @@ moonchart_fromjson_defs.txt
 moonchart_libs.txt
 moonchart_matches.txt
 moonchart_versions.txt
+docs/openfl-dev-vs-9.6.0-dev.md
+.gitignore
+docs/engine-api-guide.md

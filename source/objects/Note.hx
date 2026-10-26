@@ -185,7 +185,27 @@ class Note extends FlxSprite
 	public static function getNoteSpacing(keys:Int):Float {
 		// 只根据键数调整间距，不额外乘以缩放系数
 		// 4K 保持原样，更多键数自动缩小
+		keys = getScaleKeys(keys);
 		return BASE_SWAG_WIDTH * (4 / keys);
+	}
+
+	/**
+	 * 多K(>4键)居中不缩放：用户关闭 centerMultiKeyScale 且 middlescroll 真正生效时，
+	 * 音符图形与轨道间距一律回退 4K 基准（整条音轨等比加宽，居中重排由 PlayState 处理）。
+	 * coop 两侧都由人类操作、middlescroll 恒不生效 → 维持按K缩放。
+	 * 非游戏内场景（编辑器试玩等，PlayState.instance 为 null）回退原始偏好值，
+	 * 与 initializeNote 里 middleActive 的判定口径一致。
+	 */
+	public static function getScaleKeys(?keys:Int):Int
+	{
+		if(keys == null) keys = getColumnsPerPlayer();
+		if(keys > 4 && !ClientPrefs.data.centerMultiKeyScale)
+		{
+			var middleActive:Bool = ClientPrefs.data.middleScroll;
+			if(PlayState.instance != null) middleActive = PlayState.instance.middleScrollActive();
+			if(middleActive) return 4;
+		}
+		return keys;
 	}
 
 	public static function getColumnsPerPlayer(?song:Dynamic):Int
@@ -791,10 +811,12 @@ class Note extends FlxSprite
 
 	public static function getNoteScaleForKeys(keys:Int):Float {
 		// 缩放表见 NOTE_SCALES（static final，只构建一次）→ 消除 per-spawn 的 Map 分配
+		keys = getScaleKeys(keys);
 		return NOTE_SCALES.exists(keys) ? NOTE_SCALES[keys] : 0.7;
 	}
 
 		public static function getPixelNoteScaleForKeys(keys:Int):Float {
+		keys = getScaleKeys(keys);
 		return NOTE_PIXEL_SCALES.exists(keys) ? NOTE_PIXEL_SCALES[keys] : 0.7;
 	}
 

@@ -455,6 +455,12 @@ class EditorPlayState extends MusicBeatSubstate
 		var strumLineX:Float = ClientPrefs.data.middleScroll ? PlayState.STRUM_X_MIDDLESCROLL : PlayState.STRUM_X;
 		var strumLineY:Float = ClientPrefs.data.downScroll ? (FlxG.height - 150) : 50;
 		var columns:Int = totalColumns > 0 ? totalColumns : Note.getColumnsPerPlayer(PlayState.SONG);
+		// 多K居中不缩放时音轨变宽 → 人类侧（player=1）重新居中，口径同 PlayState.generateStaticArrows
+		if(ClientPrefs.data.middleScroll && player == 1)
+		{
+			var laneWidth:Float = columns * Note.getNoteSpacing(columns);
+			strumLineX += (Note.BASE_SWAG_WIDTH * 4 - laneWidth) / 2;
+		}
 		for (i in 0...columns)
 		{
 			// FlxG.log.add(i);

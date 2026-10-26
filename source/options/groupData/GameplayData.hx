@@ -12,6 +12,7 @@ class GameplayData
         var sub = cat.section('Gameplay', 'Gameplay Settings');
         sub.add(new Option('Downscroll', 'Notes scroll downwards instead of upwards', 'downScroll', BOOL));
         sub.add(new Option('Middlescroll', 'Put your lane in the center', 'middleScroll', BOOL));
+        sub.add(new Option('Centered Multi-Key Scaling', 'When centered, multi-key notes shrink by key count; turn off to keep the 4K note size', 'centerMultiKeyScale', BOOL));
         sub.add(new Option('Opponent Notes', 'Show opponent\'s strumline', 'opponentStrums', BOOL));
         sub.add(new Option('Ghost Tapping', 'Allow pressing keys without missing', 'ghostTapping', BOOL));
         sub.add(new Option('Auto Pause', 'Pause when window loses focus', 'autoPause', BOOL));

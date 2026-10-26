@@ -2354,6 +2354,14 @@ public function reloadCounterColors()
 		var strumLineX:Float = middleActive ? STRUM_X_MIDDLESCROLL * screenWidthRatio : STRUM_X * screenWidthRatio * screenWidthRatio * screenWidthRatio * screenWidthRatio;
 		var strumLineY:Float = ClientPrefs.data.downScroll ? (FlxG.height - 150) : 50;
 		var columns:Int = totalColumns > 0 ? totalColumns : Note.getColumnsPerPlayer(SONG);
+		// 多K居中关闭按K缩放后音轨总宽不再是 4K 的 4*BASE_SWAG_WIDTH → 重解人类侧起点让整条轨道
+		// 仍以屏幕中线居中（终点 x0 = strumLineX + 50 + FlxG.width/2，两侧模式一致）。
+		// 按K缩放时 columns*spacing 恒为 4K 总宽，shift 为 0，原布局分毫不动；CPU 侧维持贴边布局不动。
+		if(middleActive && !cpuSide)
+		{
+			var laneWidth:Float = columns * Note.getNoteSpacing(columns);
+			strumLineX += (Note.BASE_SWAG_WIDTH * 4 - laneWidth) / 2;
+		}
 		for (i in 0...columns)
 		{
 			// FlxG.log.add(i);

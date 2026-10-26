@@ -242,7 +242,7 @@ sh.data.useMask.value = [1.0];   // 关掉写 [0.0]
 | 去评级弹窗 | 舞台脚本只写一次 `comboGroup.visible = false`；别改 PlayState、别每帧轮询 |
 | HScript 钩子报形参错 | 无参钩子就是无参，`?e` 可选形参可以 |
 | atlas 角色冻住 | 缺动画（见 1.3 铁律）；脚本里别摸 `animation.curAnim`，用 `getAnimationName()` |
-| 类型检查 | `HAXELIB_PATH="C:/HaxeToolkit/haxe/lib" haxe export/release/windows/haxe/release.hxml --no-output`（零输出=过） |
+| 类型检查 | `HAXELIB_PATH="E:/HaxeToolkit/haxe/lib" haxe export/release/windows/haxe/release.hxml --no-output`（零输出=过；HaxeToolkit 已迁 E 盘） |
 | lime build windows | 本机跑不通（沙箱黑名单 reg.exe → 探不到 SDK）；能用脚本/资源解决的别动 `source/` |
 | haxelib API 不匹配 | 优先升 `setup/*` 里的钉子，别在 source/ 写兼容 shim；CI 重装需 `dependencies_to_update: all` |
 | 转换器产物 | 转换器产的 events-\<变体\>.json 是空转垃圾，**整体重生成别叠加**；外部 events 齐全时谱面内嵌 events 清空 |

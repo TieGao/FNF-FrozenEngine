@@ -24,6 +24,8 @@ import states.TitleState;
 	//PE 1.0.4 OG
 	public var downScroll:Bool = false;
 	public var middleScroll:Bool = false;
+	// 多K(>4键)居中时是否仍按K数缩小音符；false = 保持 4K 尺寸、整条音轨等比加宽（仍居中）
+	public var centerMultiKeyScale:Bool = true;
 	public var opponentStrums:Bool = true;
 	public var showFPS:Bool = true;
 	public var flashing:Bool = true;

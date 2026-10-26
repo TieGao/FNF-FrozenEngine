@@ -53,6 +53,11 @@ env:
   PROJECT_NAME: FrozenEngine
   CACHE_PREFIX: fe-hxcpp
 
+# Prune superseded caches 那步要用 GITHUB_TOKEN 删缓存
+permissions:
+  actions: write
+  contents: read
+
   # 依赖目录钉到仓库内 .haxelib/（与 CNE 一致）。setup/unix.sh 见到 HAXELIB_REPO 就不
   # 再 setup 到 ~/haxelib 覆盖它；setup/windows.bat 本就不 setup，无需改。本地开发不设
   # 这个变量，行为不变。
@@ -125,7 +130,10 @@ jobs:
 
       # 依赖 + 编译产物一把 key 一起缓存（与 CNE 的缓存内容对齐）。每 OS 一把 key、
       # 不跨 OS，所以不需要 enableCrossOsArchive。
+      # 翻新库（dependencies_to_update 非空）时整份跳过：依赖与 .obj 缓存全部
+      # 重来，不让旧 hxcpp / 旧依赖编出的产物有被读回的机会。
       - name: Restore build cache (deps + hxcpp objects)
+        if: inputs.dependencies_to_update == ''
         uses: actions/cache/restore@v4
         with:
           key: ${{ env.CACHE_PREFIX }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.cache_target.outputs.slug }}-${{ github.run_id }}
@@ -199,6 +207,42 @@ jobs:
           path: |
             .haxelib/
             .hxcpp_cache
+
+      # 翻新库（dependencies_to_update 非空）刚存出一份全新缓存，同一条 target
+      # 滚动线上被取代的旧缓存在这里一并删掉 —— 它们是旧 hxcpp / 旧依赖编的，
+      # 不会再被命中，留着只会吃 10 GB 配额（日常的零散清理仍走 hxcpp-cache.yml）。
+      # 只在构建成功时清：失败的轮子旧缓存还在，下一轮翻新再收。
+      - name: Prune superseded caches (refresh builds)
+        if: inputs.dependencies_to_update != '' && success()
+        uses: actions/github-script@v9
+        env:
+          SLUG: ${{ steps.cache_target.outputs.slug }}
+        with:
+          script: |
+            const prefix = `${process.env.CACHE_PREFIX}-${process.env.RUNNER_OS}-${process.env.RUNNER_ARCH}-${process.env.SLUG}-`;
+            const runId = context.runId;
+
+            const { data } = await github.rest.actions.getActionsCacheList({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              key: prefix,
+              per_page: 100,
+            });
+
+            let deleted = 0;
+            let freed = 0;
+            for (const c of data.actions_caches) {
+              if (c.key.endsWith(`-${runId}`)) continue;
+              core.info(`删除 ${c.key}  ${(c.size_in_bytes / 1048576).toFixed(1)} MB`);
+              await github.rest.actions.deleteActionsCacheById({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                cache_id: c.id,
+              });
+              deleted++;
+              freed += c.size_in_bytes;
+            }
+            core.info(`清理完成：删除 ${deleted} 份，释放 ${(freed / 1048576).toFixed(1)} MB（本次刚存的 ${runId} 保留）`);
 
       - name: Make IPA
         if: inputs.name == 'iOS'
