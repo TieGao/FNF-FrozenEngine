@@ -105,6 +105,40 @@ class NMVSciptHolder implements IFlxDestroyable
 		}
 	}
 
+	/**
+	 * 加载 NMV 角色脚本 data/characters/<name>.hx 并注入 parent（NMV
+	 * PlayState.startCharacterScript 的对应物）：先设 parent 再 onLoad，
+	 * 与 holder.load 的"载完立即 onLoad"不同，不能走 load()。
+	 */
+	public function loadCharacterScript(characterName:String, char:Dynamic, modFolder:String = null):Bool
+	{
+		if (characterName == null || characterName.length == 0) return false;
+		final root = backend.Paths.currentContentRoot;
+		if (root == null || root.length == 0) return false;
+
+		final path = FunkinScript.getPath('$root/data/characters/$characterName');
+		if (!FileSystem.exists(path)) return false;
+
+		final script = FunkinScript.fromFile(path, path, true, group.scriptShareables, modFolder);
+		if (script.parsingFailed())
+		{
+			FlxDestroyUtil.destroy(script);
+			return false;
+		}
+
+		injectHostVars(script);
+		script.set('parent', char);
+
+		if (!group.addScript(script))
+		{
+			FlxDestroyUtil.destroy(script);
+			return false;
+		}
+
+		if (script.exists('onLoad')) script.call('onLoad');
+		return true;
+	}
+
 	public function call(event:String, ?args:Array<Dynamic>, ignoreStops:Bool = false, ?exclusions:Array<String>):Dynamic
 	{
 		return group.call(event, args, ignoreStops, exclusions);

@@ -42,6 +42,11 @@ class PresetStubs
 		missing(script, 'BackgroundDancer', 'NMV 舞台装饰角色，FE 未移植。');
 		missing(script, 'BackgroundGirls', 'NMV 舞台装饰角色，FE 未移植。');
 		missing(script, 'FunkinSound', 'FE 音频类是 flixel.FlxSound / flixel.sound.FlxSound。');
+		// 语料实测会撞到的 NMV 引擎类（路线 C 不搬引擎本体，明确报缺失）
+		// 注意：AmongWalker 已移植（nmv.objects.AmongWalker，PresetFnf 注册），此处桩若
+		// 留着会反覆盖真类——hscript new 走到函数桩会静默得到 null，报错面目全非。
+		missing(script, 'FinaleState', 'NMV 剧情地图专属 State（storyNodes 系统），未接入。');
+		missing(script, 'CameraUtil', 'NMV 相机工具类，仅 storyNodes 系统使用，未接入。');
 
 		// 脚本内再加载脚本：交给所属容器，宿主变量与事件广播沿用同一组
 		script.set('initScript', function(path:String):Bool {

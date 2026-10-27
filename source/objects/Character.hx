@@ -387,6 +387,12 @@ class Character extends FlxSprite
 
 	public var danced:Bool = false;
 
+	// NMV 兼容面（Bopper API）：字段/方法存在、语义降级为桩，避免角色脚本 onLoad 中断
+	public var useRenderTexture:Bool = false;
+
+	/** NMV 角色脚本直接调 char.onBeatHit(curBeat)；FE 的跳舞走 PlayState beatHit → dance()，这里不重复触发。 */
+	public function onBeatHit(curBeat:Int):Void {}
+
 	/**
 	 * FOR GF DANCING SHIT
 	 */

@@ -189,11 +189,18 @@ class Paths
 				}
 			}
 			// NMV 包（content/NMVMODS/<mod>）是包根相对布局（images/ data/ stages/...），
-			// 没有 shared/ 前缀层 —— 追加 NMV 候选；FE 布局候选在前、保持优先
+			// 没有 shared/ 前缀层 —— 追加 NMV 候选；FE 布局候选在前、保持优先。
+			// NMV 的 LOOSE 资源语义是"全部启用包"并集（securitydlc 的歌用 legacy 的
+			// lights.frag），当前包 miss 后继续探其余包，当前包仍最优先。
 			if (isNmvContentRoot(currentContentRoot))
 			{
 				contentCandidates.push('$currentContentRoot/data/$file');
 				contentCandidates.push('$currentContentRoot/$file');
+				for (siblingRoot in nmvSiblingRoots())
+				{
+					contentCandidates.push('$siblingRoot/data/$file');
+					contentCandidates.push('$siblingRoot/$file');
+				}
 			}
 			for (candidate in contentCandidates)
 			{
@@ -761,7 +768,6 @@ class Paths
 
 	inline static public function getSparrowAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
 	{
-		if(key.contains('psychic')) trace(key, parentFolder, allowGPU);
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
 		#if MODS_ALLOWED
 		var xmlExists:Bool = false;
@@ -769,10 +775,25 @@ class Paths
 		var xml:String = modsXml(key);
 		if(FileSystem.exists(xml)) xmlExists = true;
 
-		return FlxAtlasFrames.fromSparrow(imageLoaded, (xmlExists ? File.getContent(xml) : getPath(Language.getFileTranslation('images/$key') + '.xml', TEXT, parentFolder)));
+		return FlxAtlasFrames.fromSparrow(imageLoaded, (xmlExists ? File.getContent(xml) : readDiskAsset('images/$key.xml', parentFolder)));
 		#else
 		return FlxAtlasFrames.fromSparrow(imageLoaded, getPath(Language.getFileTranslation('images/$key') + '.xml', TEXT, parentFolder));
 		#end
+	}
+
+	/**
+	 * getPath 命中磁盘文件（content/ 包、NMVMODS 包、mods/）时，fromSparrow 等
+	 * 接收路径字符串的 API 内部只走 openfl Assets（只认嵌入资源），磁盘路径会被
+	 * 当作 XML 字符串去解析 → fromSparrow 内部裸 NPE（NMV 语料 16 个舞台脚本
+	 * 全栽在这）。磁盘命中时先读成内容再交出去。
+	 */
+	static function readDiskAsset(file:String, ?parentFolder:String):String
+	{
+		final path = getPath(file, TEXT, parentFolder);
+		#if sys
+		if (FileSystem.exists(path)) return File.getContent(path);
+		#end
+		return path;
 	}
 
 	inline static public function getPackerAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
@@ -784,9 +805,9 @@ class Paths
 		var txt:String = modsTxt(key);
 		if(FileSystem.exists(txt)) txtExists = true;
 
-		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, (txtExists ? File.getContent(txt) : getPath(Language.getFileTranslation('images/$key') + '.txt', TEXT, parentFolder)));
+		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, (txtExists ? File.getContent(txt) : readDiskAsset('images/$key.txt', parentFolder)));
 		#else
-		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, getPath(Language.getFileTranslation('images/$key') + '.txt', TEXT, parentFolder));
+		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, readDiskAsset('images/$key.txt', parentFolder));
 		#end
 	}
 
@@ -837,6 +858,25 @@ class Paths
 	public static function isNmvContentRoot(?root:String):Bool
 	{
 		return root != null && root.indexOf('/NMVMODS/') != -1;
+	}
+
+	static var nmvSiblingCache:String = null;
+	static var nmvSiblingList:Array<String> = [];
+
+	/** 其余 NMVMODS 包根（跨包 LOOSE 探测用）；按当前包根缓存，避免热路径反复扫目录。 */
+	public static function nmvSiblingRoots():Array<String>
+	{
+		if (nmvSiblingCache != currentContentRoot)
+		{
+			nmvSiblingCache = currentContentRoot;
+			nmvSiblingList = [];
+			for (mod in NMVContentData.listMods())
+			{
+				final root = 'content/NMVMODS/$mod';
+				if (root != currentContentRoot) nmvSiblingList.push(root);
+			}
+		}
+		return nmvSiblingList;
 	}
 	/**
 	 * 当前内容包的变体标识（Pico / Erect…）；无变体为 null。

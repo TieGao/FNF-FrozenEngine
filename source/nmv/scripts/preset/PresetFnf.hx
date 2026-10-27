@@ -51,10 +51,34 @@ class PresetFnf
 		script.set('DialogueBox', cutscenes.DialogueBox);
 		script.set("CutsceneHandler", cutscenes.CutsceneHandler);
 
+		// NMV 移植的对象类（Phase 5 按语料实测补）
+		script.set('SnowEmitter', nmv.objects.SnowEmitter);
+		script.set('CustomEmitter', nmv.objects.CustomEmitter);
+		script.set('AmongWalker', nmv.objects.AmongWalker);
+		script.set('Lang', nmv.data.Lang);
+		script.set('GameFlags', nmv.data.GameFlags);
+		script.set('ProgressionUtil', nmv.data.ProgressionUtil);
+		// NMV 的 flxanimate fork 内部元素类（charles.hx 置子件 active 用），壳见类注释
+		script.set('animate.internal.elements.FlxSpriteElement', nmv.objects.AnimateElementShim);
+		// flixel.text.FlxText.FlxTextAlign 是 enum abstract，注册名字→值映射
+		script.set('FlxTextAlign', {
+			LEFT: flixel.text.FlxText.FlxTextAlign.LEFT,
+			CENTER: flixel.text.FlxText.FlxTextAlign.CENTER,
+			RIGHT: flixel.text.FlxText.FlxTextAlign.RIGHT,
+			JUSTIFY: flixel.text.FlxText.FlxTextAlign.JUSTIFY
+		});
+
 		// NMV 的宠物光标（Pet 继承 Bopper，未随路线 C 移植）：舞台/歌曲脚本普遍引用
-		// pet.curPet / pet.loadPet，缺了会让脚本 onLoad 中断，后续定时器闭包裸抛崩游戏。
-		// 行为桩：逻辑放行，宠物本体不显示。
-		script.set('pet', {curPet: '', loadPet: function(?name:String = '', ?force:Bool = false):Dynamic return null});
+		// pet.curPet / pet.loadPet / pet.origin 等面，缺了会让脚本 onLoad 中断、后续
+		// 定时器闭包裸抛崩游戏。行为桩：FlxSprite 实例（不显示），逻辑放行。
+		script.set('pet', new nmv.objects.PetStub());
+
+		// 'stage'（NMV Stage 对象）：语料只用 stage.add / stage.insert / stage.members，
+		// 与 PlayState 的 flixel 容器面一致，直接映射到宿主 state
+		script.set('stage', FlxG.state);
+
+		// NMV 的 playHUD（BaseHUD/PsychHUD）：映射到 PlayState 自带的 HUD 元素（getter 逐次取）
+		script.set('playHUD', new nmv.objects.PlayHUDShim());
 
 		// 通用工具（Psych 系 preset 也有，脚本常直接调）
 		script.set('buildTarget', psychlua.LuaUtils.getBuildTarget());

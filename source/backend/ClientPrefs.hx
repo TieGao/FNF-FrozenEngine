@@ -312,6 +312,13 @@ class ClientPrefs {
 	public static var data:SaveVariables = {};
 	public static var defaultData:SaveVariables = {};
 
+	// NMV 脚本用 ClientPrefs.globalAntialiasing（hscript 静态面），等价 data.antialiasing 的别名
+	public static var globalAntialiasing(get, never):Bool;
+	static function get_globalAntialiasing():Bool
+	{
+		return data.antialiasing;
+	}
+
 	//Every key has two binds, add your key bind down here and then add your control on options/ControlsSubState.hx and Controls.hx
 	public static var keyBinds:Map<String, Array<FlxKey>> = [
 		//Key Bind, Name for ControlsSubState

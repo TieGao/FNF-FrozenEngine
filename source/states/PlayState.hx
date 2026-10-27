@@ -775,8 +775,19 @@ class PlayState extends MusicBeatState
 		{
 			nmvScripts = new nmv.scripts.NMVSciptHolder(this);
 			// NMV 包的舞台脚本（stages/<stage>.hx）；FE 内容包的 stages/ 归 psych 扫描管
-			if (backend.NMVContentData.currentMod != null && curStage != null && curStage.length > 0)
-				nmvScripts.load(Paths.currentContentRoot + '/stages/' + curStage + '.hx', null, Mods.currentModDirectory);
+			if (backend.NMVContentData.currentMod != null)
+			{
+				// 全局脚本（scripts/*.hx 扁平一层）：NMV PlayState addSongScripts('scripts')
+				// 的对应物。NMV 的 LOOSE 语义是"全部启用包"并集（securitydlc 的歌引用
+				// legacy dialogue.hx 的 videoCutscene），这里载全部 NMVMODS 包、当前包优先。
+				final nmvMods = backend.NMVContentData.listMods();
+				nmvMods.remove(backend.NMVContentData.currentMod);
+				for (mod in [backend.NMVContentData.currentMod].concat(nmvMods))
+					nmvScripts.loadDir('content/NMVMODS/$mod/scripts', mod);
+
+				if (curStage != null && curStage.length > 0)
+					nmvScripts.load(Paths.currentContentRoot + '/stages/' + curStage + '.hx', null, Mods.currentModDirectory);
+			}
 		}
 		#end
 
@@ -903,6 +914,17 @@ class PlayState extends MusicBeatState
 		if(gf != null) startCharacterScripts(gf.curCharacter);
 		startCharacterScripts(dad.curCharacter);
 		startCharacterScripts(boyfriend.curCharacter);
+
+		// NMV 角色脚本（data/characters/<名>.hx，先设 parent 再 onLoad）；
+		// NMV 的 Pet 脚本不接（Pet 未随路线 C 移植，pet 是行为桩）
+		#if HSCRIPT_ALLOWED
+		if (nmvScripts != null && backend.NMVContentData.currentMod != null)
+		{
+			if (gf != null) nmvScripts.loadCharacterScript(gf.curCharacter, gf, Mods.currentModDirectory);
+			if (dad != null) nmvScripts.loadCharacterScript(dad.curCharacter, dad, Mods.currentModDirectory);
+			if (boyfriend != null) nmvScripts.loadCharacterScript(boyfriend.curCharacter, boyfriend, Mods.currentModDirectory);
+		}
+		#end
 		#end
 
 		videoGroup = new FlxSpriteGroup();

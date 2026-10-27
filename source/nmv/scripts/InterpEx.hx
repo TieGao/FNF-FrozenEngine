@@ -378,6 +378,22 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 		return cont;
 	}
 	
+	/**
+	 * hxcpp 的 Type.createInstance 对非类对象(典型:PresetStubs.missing 注册的
+	 * 函数桩)静默返回 null——脚本里 `var x = new Stubbed(...)` 不报错、首次碰
+	 * 字段才 "Invalid access to field xxx"，定位成本极高。这里显式抛回。
+	 */
+	override function cnew(cl:String, args:Array<Dynamic>):Dynamic
+	{
+		var c = Type.resolveClass(cl);
+		if (c == null) c = resolve(cl);
+
+		if (Type.typeof(c) == ValueType.TFunction)
+			error(ECustom('new $cl(...): "$cl" 是补桩函数(PresetStubs.missing),不是可构造的类。'));
+
+		return super.cnew(cl, args);
+	}
+
 	public function destroy()
 	{
 		parent = null;
