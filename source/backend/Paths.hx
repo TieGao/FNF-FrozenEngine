@@ -277,6 +277,12 @@ class Paths
 		return 'assets/videos/$key.$VIDEO_EXT';
 	}
 
+	/** NMV Paths.sanitize 原样移植：非保留字符剔除、空格转 `-`、小写（脚本侧视频/歌名规整用）。 */
+	public static inline function sanitize(path:String):String
+	{
+		return ~/[^- a-zA-Z0-9..\/]+\//g.replace(path, '').replace(' ', '-').trim().toLowerCase();
+	}
+
 	// 新增缓存视频函数
 	static public function cachedVideo(key:String):String
 	{

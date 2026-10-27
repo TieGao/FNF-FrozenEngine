@@ -554,6 +554,18 @@ class PlayState extends MusicBeatState
 	public var startCallback:Void->Void = null;
 	public var endCallback:Void->Void = null;
 
+	// NMV 脚本面别名：语料脚本用 songStartCallback/songEndCallback 替换开唱/歌终钩子
+	// （legacy 的 videoCutscene 停开唱、meltdown 的 outro 等），落到这里等同改
+	// startCallback/endCallback；默认值与调用点语义与 NMV PlayState 同构
+	// （create 设默认、开唱点/歌终点调用、cutscene 跳过路径直调绕过回调）。
+	public var songStartCallback(get, set):Null<Void->Void>;
+	inline function get_songStartCallback():Null<Void->Void> return startCallback;
+	inline function set_songStartCallback(v:Null<Void->Void>):Null<Void->Void> return startCallback = v;
+
+	public var songEndCallback(get, set):Null<Void->Void>;
+	inline function get_songEndCallback():Null<Void->Void> return endCallback;
+	inline function set_songEndCallback(v:Null<Void->Void>):Null<Void->Void> return endCallback = v;
+
 	private static var _lastLoadedModDirectory:String = '';
 	public static var nextReloadAll:Bool = false;
 

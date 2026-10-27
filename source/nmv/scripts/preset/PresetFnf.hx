@@ -60,6 +60,10 @@ class PresetFnf
 		script.set('ProgressionUtil', nmv.data.ProgressionUtil);
 		// NMV 的 flxanimate fork 内部元素类（charles.hx 置子件 active 用），壳见类注释
 		script.set('animate.internal.elements.FlxSpriteElement', nmv.objects.AnimateElementShim);
+		#if VIDEOS_ALLOWED
+		// NMV 视频播放器薄适配（legacy 全部开场演出：videoCutscene/meltdown，hxvlc 直包）
+		script.set('FunkinVideoSprite', nmv.objects.FunkinVideoSprite);
+		#end
 		// flixel.text.FlxText.FlxTextAlign 是 enum abstract，注册名字→值映射
 		script.set('FlxTextAlign', {
 			LEFT: flixel.text.FlxText.FlxTextAlign.LEFT,
