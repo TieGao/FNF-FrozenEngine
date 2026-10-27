@@ -206,7 +206,13 @@ class Main extends Sprite
 		ClientPrefs.loadDefaultKeys();
 		#if ACHIEVEMENTS_ALLOWED Achievements.load(); #end
 
-		addChild(new FlxGame(game.width, game.height, game.initialState, #if (flixel < "5.0.0") game.zoom, #end game.framerate, game.framerate, game.skipSplash, game.startFullscreen));
+		// NMV 批量回归 harness（-D NMV_BATCH 构建 + -nmvbatch 参数触发，正常构建零残留）
+		#if NMV_BATCH
+		final initialState:Class<flixel.FlxState> = Sys.args().indexOf('-nmvbatch') != -1 ? nmv.test.NmvBatchState : game.initialState;
+		#else
+		final initialState:Class<flixel.FlxState> = game.initialState;
+		#end
+		addChild(new FlxGame(game.width, game.height, initialState, #if (flixel < "5.0.0") game.zoom, #end game.framerate, game.framerate, game.skipSplash, game.startFullscreen));
 
 		// 全局屏幕日志：挂在 FlxG.game 上，切换 state 不会跟着消失
 		debug.ScreenLog.attach();
