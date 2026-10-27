@@ -319,6 +319,21 @@ class ClientPrefs {
 		return data.antialiasing;
 	}
 
+	// NMV cosmetics（外观装备）兼容面：FE 无此系统，这里给 NMV 同构的会话内存版。
+	// legacy 包 utils.hx 的 onLoad 读 bfSkin/gfSkin/pet/colorText，缺了整个加载链就断。
+	public static var equipment:Map<String, Null<String>> = ['playerSkin' => null, 'speakerSkin' => null, 'pet' => null];
+	public static var bfSkin(get, set):String;
+	public static var gfSkin(get, set):String;
+	public static var pet(get, set):String;
+	public static var colorText:String = 'Enabled';
+
+	static function get_bfSkin():String return equipment.get('playerSkin') ?? 'default';
+	static function get_gfSkin():String return equipment.get('speakerSkin') ?? 'default';
+	static function get_pet():String return equipment.get('pet') ?? '';
+	static function set_bfSkin(v:String):String { equipment.set('playerSkin', v == 'default' ? null : v); return v; }
+	static function set_gfSkin(v:String):String { equipment.set('speakerSkin', v == 'default' ? null : v); return v; }
+	static function set_pet(v:String):String { equipment.set('pet', v == '' ? null : v); return v; }
+
 	//Every key has two binds, add your key bind down here and then add your control on options/ControlsSubState.hx and Controls.hx
 	public static var keyBinds:Map<String, Array<FlxKey>> = [
 		//Key Bind, Name for ControlsSubState

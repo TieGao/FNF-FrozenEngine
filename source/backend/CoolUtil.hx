@@ -223,7 +223,10 @@ class CoolUtil
 	inline public static function getSavePath():String {
 		final company:String = FlxG.stage.application.meta.get('company');
 		// #if (flixel < "5.0.0") return company; #else
-		return '${company}/${flixel.util.FlxSave.validate(FlxG.stage.application.meta.get('file'))}';
+		// NMV 移植工作区专用存档目录（-NMVPort 后缀）：本工作区构建只用于 NMV 移植
+		// 验证，Project.xml 的 company/file 与主版 J:\FNF-FrozenEngine 完全相同，不隔离
+		// 会直接覆盖用户主存档（2026-10-28 已发生一次）。
+		return '${company}/${flixel.util.FlxSave.validate(FlxG.stage.application.meta.get('file'))}-NMVPort';
 		// #end
 	}
 

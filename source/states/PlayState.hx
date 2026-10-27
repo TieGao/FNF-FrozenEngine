@@ -786,20 +786,12 @@ class PlayState extends MusicBeatState
 		if (Paths.isCustomChartCategory() || Paths.currentContentRoot != null)
 		{
 			nmvScripts = new nmv.scripts.NMVSciptHolder(this);
-			// NMV 包的舞台脚本（stages/<stage>.hx）；FE 内容包的 stages/ 归 psych 扫描管
-			if (backend.NMVContentData.currentMod != null)
-			{
-				// 全局脚本（scripts/*.hx 扁平一层）：NMV PlayState addSongScripts('scripts')
-				// 的对应物。NMV 的 LOOSE 语义是"全部启用包"并集（securitydlc 的歌引用
-				// legacy dialogue.hx 的 videoCutscene），这里载全部 NMVMODS 包、当前包优先。
-				final nmvMods = backend.NMVContentData.listMods();
-				nmvMods.remove(backend.NMVContentData.currentMod);
-				for (mod in [backend.NMVContentData.currentMod].concat(nmvMods))
-					nmvScripts.loadDir('content/NMVMODS/$mod/scripts', mod);
-
-				if (curStage != null && curStage.length > 0)
-					nmvScripts.load(Paths.currentContentRoot + '/stages/' + curStage + '.hx', null, Mods.currentModDirectory);
-			}
+			// NMV 包的舞台脚本（stages/<stage>.hx）；FE 内容包的 stages/ 归 psych 扫描管。
+			// 舞台脚本必须赶在角色创建之前跑 onLoad，否则脚本里 add 的背景会叠在角色上面
+			// （NMV 的 Stage.runScript 时序）。全局 scripts/*.hx 并集加载在 stage+chars
+			// 就位之后，见下方"NMV 全局脚本"块——NMV PlayState 的先后即如此。
+			if (backend.NMVContentData.currentMod != null && curStage != null && curStage.length > 0)
+				nmvScripts.load(Paths.currentContentRoot + '/stages/' + curStage + '.hx', null, Mods.currentModDirectory);
 		}
 		#end
 
@@ -852,7 +844,24 @@ class PlayState extends MusicBeatState
 			add(boyfriendGroup);
 		}
 		Bread.crumb('PS stage+chars added');
-		
+
+		#if HSCRIPT_ALLOWED
+		// NMV 全局脚本（scripts/*.hx 扁平一层）：NMV PlayState addSongScripts('scripts')
+		// 的对应物。NMV 的时序是"舞台 + gf/dad/bf 组 add 完"之后才 onLoad（NMV
+		// PlayState:706-723），此前误放在 create 极早期，脚本一碰 stage/gf/dad 就报错
+		// （2026-10-28 实测崩溃根因之一）。NMV 的 LOOSE 语义是"全部启用包"并集
+		// （securitydlc 的歌引用 legacy dialogue.hx 的 videoCutscene），
+		// 这里载全部 NMVMODS 包、当前包优先。
+		if (nmvScripts != null && backend.NMVContentData.currentMod != null)
+		{
+			final nmvMods = backend.NMVContentData.listMods();
+			nmvMods.remove(backend.NMVContentData.currentMod);
+			for (mod in [backend.NMVContentData.currentMod].concat(nmvMods))
+				nmvScripts.loadDir('content/NMVMODS/$mod/scripts', mod);
+			Bread.crumb('PS nmv global scripts done');
+		}
+		#end
+
 		#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
 		// "SCRIPTS FOLDER" SCRIPTS
 		for (folder in Mods.directoriesWithFile(Paths.getSharedPath(), 'scripts/'))
@@ -1350,10 +1359,16 @@ class PlayState extends MusicBeatState
 	public function addTextToDebug(text:String, color:FlxColor) {
 		Sys.println(text); // 命令行始终照旧
 
+		// 脚本报错要能落在文件里（crash/bread.log），控制台窗口关了就没了；
+		// 只记错误级别，普通 trace 不进（防刷屏）。
+		if (text.startsWith('ERROR:') || text.startsWith('WARNING:') || text.startsWith('FATAL:'))
+			Bread.crumb('script: ' + text);
+
 		// 调试打印关掉时拦在入口：不 recycle FlxText、不做文字光栅化、不推挤已有行。
 		// 光靠 visible=false 只省了渲染，每次打印的排版 + 贴图重建照样发生。
-		luaDebugGroup.visible = ClientPrefs.data.luadebugPrint;
-		if(!ClientPrefs.data.luadebugPrint) return;
+		// NMV 全局脚本可能在 luaDebugGroup 建立之前 onLoad（create 极早期），必须防 null，
+		// 否则"报错打印"本身把游戏炸了（2026-10-28 实测崩溃点）。
+		if (luaDebugGroup == null || !ClientPrefs.data.luadebugPrint) return;
 
 		var newText:psychlua.DebugLuaText = luaDebugGroup.recycle(psychlua.DebugLuaText);
 		newText.text = text;
