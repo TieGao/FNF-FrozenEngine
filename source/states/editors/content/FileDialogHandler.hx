@@ -202,7 +202,8 @@ class FileReferenceCustom extends FileReference
 				filters.push(StringTools.replace(StringTools.replace(type.extension, "*.", ""), ";", ","));
 			}
 
-			filter = filters.join(";");
+			// lime 的 filter 只认逗号分隔的扩展名
+			filter = filters.join(",");
 		}
 
 		var openFileDialog = new FileDialog();

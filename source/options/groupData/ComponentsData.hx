@@ -40,6 +40,7 @@ class ComponentsData
         sub1.add(hitErrorBarOffsetY);
 
         sub1.add(new Option('Hit Error Bar MS', 'Show MS on hit error bar rather than on ratings', 'msInErrorBar', BOOL));
+        sub1.add(new Option('Hit Error Bar Block Counter', 'Show hit counts under each hit error bar zone', 'hitBarBlockCounter', BOOL));
 
         var sub2 = cat.section('KeyboardDisplay', 'Keyboard Display');
         sub2.add(new Option('Show Keyboard', 'Display keyboard on screen', 'kb', BOOL));

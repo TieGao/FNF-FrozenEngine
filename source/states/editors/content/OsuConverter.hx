@@ -23,142 +23,16 @@ typedef OsuNote =
 }
 
 /**
- * 转换 Psych Engine 的 SwagSong 与 Osu! Mania (.osu) 文件。
+ * 读取 osu!mania (.osu) 谱面并转成 SwagSong。导出方向走 ChartConvertCore（moonchart）。
  */
 class OsuConverter
 {
-	// ============ Psych → OSU ============
-
-	/**
-	 * 将当前的 SwagSong 导出为 .osu 文件，返回是否成功。
-	 * @param song 当前编辑的歌曲数据
-	 * @param savePath 输出文件路径（含文件名）
-	 */
-	public static function convertPsychToOsu(song:SwagSong, savePath:String):Bool
-	{
-		if (song == null) return false;
-		try
-		{
-			//trace("========== Psych → OSU 转换开始 ==========");
-			
-			var lines:Array<String> = [];
-			var bpmChanges:Array<BpmChange> = extractBpmChanges(song);
-			var notes:Array<OsuNote> = extractNotes(song);
-
-			// 调试输出：转换前的数据统计
-			//trace('【转换前】歌曲名称: ${song.song}');
-			//trace('【转换前】BPM: ${song.bpm}');
-			//trace('【转换前】小节数: ${song.notes.length}');
-			
-			// 统计原始音符总数
-			var totalRawNotes:Int = 0;
-			for (section in song.notes)
-			{
-				totalRawNotes += section.sectionNotes.length;
-			}
-			//trace('【转换前】原始音符总数: $totalRawNotes');
-			
-			// 调试输出：提取后的音符
-			//trace('【提取后】提取到的 OsuNote 数量: ${notes.length}');
-			
-			// [General]
-			lines.push("[General]");
-			lines.push('AudioFilename: ${Paths.formatToSongPath(song.song)}.mp3');
-			lines.push('AudioLeadIn: ${Std.int(song.offset ?? 0)}');
-			lines.push('PreviewTime: -1');
-			lines.push('Countdown: 1');
-			lines.push('SampleSet: Normal');
-			lines.push('StackLeniency: 0.7');
-			lines.push('Mode:3'); // Mania（注意冒号后不要空格）
-			lines.push('LetterboxInBreaks: 0');
-			lines.push('SpecialStyle: 0');
-			lines.push('WidescreenStoryboard: 0');
-			lines.push("");
-
-			// [Editor]
-			lines.push("[Editor]");
-			lines.push('DistanceSpacing: 1');
-			lines.push('BeatDivisor: 4');
-			lines.push('GridSize: 4');
-			lines.push('TimelineZoom: 1');
-			lines.push("");
-
-			// [Metadata]
-			lines.push("[Metadata]");
-			lines.push('Title:${song.song}');
-			lines.push('TitleUnicode:${song.song}');
-			lines.push('Artist:Unknown');
-			lines.push('ArtistUnicode:');
-			lines.push('Creator:PsychChartEditor');
-			lines.push('Version:Normal');
-			lines.push('Source:');
-			lines.push('BeatmapID:0');
-			lines.push('BeatmapSetID:0');
-			lines.push("");
-
-			// [Difficulty]
-			var keys:Int = getKeyCount(song);
-			lines.push("[Difficulty]");
-			lines.push('HPDrainRate:8');
-			lines.push('CircleSize:$keys');
-			lines.push('OverallDifficulty:10');
-			lines.push('ApproachRate:5');
-			var osuSpeed:Float = (song.speed ?? 1.0) * 0.45; // 经验系数
-			lines.push('SliderMultiplier:$osuSpeed');
-			lines.push('SliderTickRate:1');
-			lines.push("");
-
-			// [TimingPoints]
-			lines.push("[TimingPoints]");
-			for (bpm in bpmChanges)
-			{
-				var beatLength:Float = 60000.0 / bpm.bpm;
-				var meter:Int = bpm.meter ?? 4;
-				lines.push('${bpm.time}, $beatLength, $meter, 1, 0, 100, 1, 0');
-			}
-			lines.push("");
-
-			// [HitObjects]
-			lines.push("[HitObjects]");
-			var circleSize:Int = keys;
-			var writtenNotes:Int = 0;
-			for (note in notes)
-			{
-				var x:Int = Std.int((note.lane / keys) * 512); // 0~511
-				var time:Int = Std.int(note.time);
-				var type:Int = (note.length > 0) ? 128 : 1; // 128 = hold, 1 = normal
-				var hitsound:Int = 0;
-				var objectParams:String = (type == 128) ? '${time + Std.int(note.length)}:0:0:0:0' : '0:0:0:0:0';
-				lines.push('$x, 0, $time, $type, $hitsound, $objectParams');
-				writtenNotes++;
-			}
-			//trace('【写入】实际写入 HitObjects 数量: $writtenNotes');
-
-			// 写入文件
-			File.saveContent(savePath, lines.join("\n"));
-			//trace('【完成】文件已保存到: $savePath');
-			//trace("========== Psych → OSU 转换完成 ==========");
-			return true;
-		}
-		catch (e:Dynamic)
-		{
-			trace('OSU export error: $e');
-			return false;
-		}
-	}
-
 	// ============ OSU → Psych ============
 
 	/**
 	 * 从 .osu 文件读取并转换为 SwagSong，返回解析后的歌曲数据。
 	 * @param filePath .osu 文件路径
 	 */
-	// ============ OSU → Psych ============
-
-    /**
-     * 从 .osu 文件读取并转换为 SwagSong，返回解析后的歌曲数据。
-     * @param filePath .osu 文件路径
-     */
 	public static function convertOsuToPsych(filePath:String, ?chartCategory:String, ?chartSongDir:String):SwagSong
     {
         //trace("========== OSU → Psych 转换开始 ==========");
@@ -392,84 +266,6 @@ class OsuConverter
 		var parts:Array<String> = normalized.substr(markerIndex + marker.length).split('/');
 		if (parts.length < 3) return [null, null];
 		return [parts[0], parts[1]];
-	}
-
-	// ============ 内部辅助函数 ============
-
-	private static function getKeyCount(song:SwagSong):Int
-	{
-		// 优先从 mania 字段读取，否则使用 GRID_COLUMNS_PER_PLAYER（默认 4）
-		if (Reflect.hasField(song, "mania")) return Reflect.field(song, "mania") + 1;
-		if (Reflect.hasField(song, "keyCount")) return Reflect.field(song, "keyCount");
-		if (Reflect.hasField(song, "keycount")) return Reflect.field(song, "keycount");
-		return 4;
-	}
-
-	private static function extractBpmChanges(song:SwagSong):Array<BpmChange>
-	{
-		var changes:Array<BpmChange> = [];
-		var time:Float = 0;
-		var currentBpm:Float = song.bpm;
-		var meter:Int = 4;
-		changes.push({ time: 0, bpm: currentBpm, meter: meter });
-
-		for (section in song.notes)
-		{
-			if (section.changeBPM)
-			{
-				currentBpm = section.bpm;
-			}
-			// 计算该小节时长（毫秒）
-			var beats = section.sectionBeats ?? 4;
-			var duration = beats * (60000 / currentBpm);
-			time += duration;
-		}
-		// 更准确：遍历 section，在 changeBPM 为 true 的 section 起始时间记录变化
-		time = 0;
-		changes = [];
-		currentBpm = song.bpm;
-		changes.push({ time: 0, bpm: currentBpm, meter: 4 });
-		for (section in song.notes)
-		{
-			var beats = section.sectionBeats ?? 4;
-			var duration = beats * (60000 / currentBpm);
-			if (section.changeBPM)
-			{
-				// 变化点在该 section 起始处（即 time 变量当前值）
-				changes.push({ time: time, bpm: section.bpm, meter: 4 });
-				currentBpm = section.bpm;
-			}
-			time += duration;
-		}
-		// 去重（时间相近的合并）
-		var unique:Array<BpmChange> = [];
-		for (c in changes)
-		{
-			if (unique.length == 0 || Math.abs(c.time - unique[unique.length - 1].time) > 0.1)
-				unique.push(c);
-			else
-				unique[unique.length - 1] = c; // 保留最新的
-		}
-		return unique;
-	}
-
-	private static function extractNotes(song:SwagSong):Array<OsuNote>
-	{
-		var result:Array<OsuNote> = [];
-		var keys = getKeyCount(song);
-		for (section in song.notes)
-		{
-			for (note in section.sectionNotes)
-			{
-				var time:Float = note[0];
-				var data:Int = Std.int(note[1]); // 全局列
-				var length:Float = note[2] ?? 0;
-				if (data >= keys) continue;
-				result.push({ time: time, lane: data, length: length });
-			}
-		}
-		result.sort((a, b) -> Std.int(a.time - b.time));
-		return result;
 	}
 
 	public static function parseOsuSections(content:String):Map<String, Array<String>>

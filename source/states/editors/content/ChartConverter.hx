@@ -2,20 +2,25 @@ package states.editors.content;
 
 import backend.Song;
 import states.editors.content.ChartConvertCore.ChartImportInfo;
-import sys.io.File;
 
 /**
- * FE 侧的统一谱面转换门面：其他游戏格式 → SwagSong，以及 SwagSong → StepMania。
+ * FE 侧的统一谱面转换门面：其他游戏格式 → SwagSong，以及 SwagSong → 其他游戏格式。
  * 纯转换逻辑在 ChartConvertCore（只依赖 moonchart，可脱离引擎独立测试），
- * 这里只做引擎类型封装与文件 IO。解析失败直接抛错，由调用方（ChartingState） catch 后展示。
+ * 这里只做引擎类型封装。解析/生成失败直接抛错，由调用方（ChartingState）catch 后展示。
  */
 class ChartConverter
 {
 	public static var FILE_FILTER(get, never):String;
+	public static var EXPORT_FORMATS(get, never):Array<String>;
 
 	static inline function get_FILE_FILTER():String
 	{
 		return ChartConvertCore.FILE_FILTER;
+	}
+
+	static inline function get_EXPORT_FORMATS():Array<String>
+	{
+		return ChartConvertCore.EXPORT_FORMATS;
 	}
 
 	/**
@@ -45,21 +50,11 @@ class ChartConverter
 	}
 
 	/**
-	 * SwagSong → .sm/.ssc 文本
+	 * 导出为外部格式文本（.sm / .ssc / .osu / .qua）
 	 * @param diffName 写入文件的难度名（如 Challenge）
 	 */
-	public static function convertPsychToStepMania(song:SwagSong, format:String = 'sm', diffName:String = 'Challenge'):String
+	public static function exportChart(song:SwagSong, format:String, diffName:String = 'Challenge'):String
 	{
-		return ChartConvertCore.stepManiaFromSong(song, format, diffName);
-	}
-
-	public static function savePsychToStepMania(song:SwagSong, path:String, format:String = 'sm', diffName:String = 'Challenge'):Bool
-	{
-		var content:String = convertPsychToStepMania(song, format, diffName);
-		if(content == null) return false;
-
-		if(!path.endsWith('.' + format)) path += '.' + format;
-		File.saveContent(path, content);
-		return true;
+		return ChartConvertCore.exportFromSong(song, format, diffName);
 	}
 }

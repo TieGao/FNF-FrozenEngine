@@ -1240,7 +1240,8 @@ function onScrollChange()
 				KEOption.create("Hit Bar Line Time", "Time (in seconds) each line represents", "hitBarLineTime", "float", 2.0, 0.1, 5.0, 0.1),
 				KEOption.create("Hit Error Bar Offset X", "Horizontal position of hit error bar", "hitErrorBarOffsetX", "int", 0, -500, 500, 1),
 				KEOption.create("Hit Error Bar Offset Y", "Vertical position of hit error bar", "hitErrorBarOffsetY", "int", 0, -300, 300, 1),
-				KEOption.create("Hit Error Bar MS", "Show MS on hit error bar rather than on ratings", "msInErrorBar", "bool")
+				KEOption.create("Hit Error Bar MS", "Show MS on hit error bar rather than on ratings", "msInErrorBar", "bool"),
+				KEOption.create("Hit Error Bar Block Counter", "Show hit counts under each hit error bar zone", "hitBarBlockCounter", "bool")
 			],
 			"",
 			"Hit Error Bar Settings"

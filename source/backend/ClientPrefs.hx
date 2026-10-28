@@ -167,6 +167,7 @@ import states.TitleState;
 	public var customChartSwapSides:Bool = false;
 
 	public var msInErrorBar:Bool = false; // 是否在误差条上显示ms文本
+	public var hitBarBlockCounter:Bool = false; // 是否在误差条每个评级色块下方显示命中计数
 	public var pointerType:String = "triangle"; // 误差条指针样式
 	
 	public var totalPlaytime:Float = 0;        // 累计总时长（秒）

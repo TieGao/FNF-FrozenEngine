@@ -8,15 +8,16 @@ import moonchart.formats.OsuMania;
 import moonchart.formats.Quaver;
 import moonchart.formats.Midi;
 import moonchart.backend.Timing;
+import moonchart.parsers.QuaverParser.QuaverHitObject;
 import moonchart.parsers._internal.ZipFile;
 
 using StringTools;
 
 /**
- * 统一谱面转换核心（其他游戏 → FE），只依赖 moonchart，不依赖引擎代码，便于独立测试。
+ * 统一谱面转换核心（其他游戏 ⇄ FE），只依赖 moonchart，不依赖引擎代码，便于独立测试。
  *
  * 支持导入：.sm / .ssc / .osu / .osz / .qua / .qp / .mid / .mc
- * 支持导出：.sm / .ssc
+ * 支持导出：.sm / .ssc / .osu / .qua（moonchart 的 Midi 只有解析没有 stringify，导不出）
  *
  * 与直接用 moonchart FNFPsych 中转的差异（都是实测踩过的坑）：
  *  - section 构建自己写：FNFLegacy 的 8 轨取模 lane 编码会把 >7K 谱面 lane 卷绕撞车，
@@ -32,6 +33,9 @@ class ChartConvertCore
 	public static inline var MALODY_MUSIC_OFFSET:String = 'FE_MALODY_MUSIC_OFFSET';
 
 	public static var FILE_FILTER:String = '*.sm;*.ssc;*.osu;*.osz;*.qua;*.qp;*.mid;*.midi;*.mc';
+
+	/** 可导出的格式（FE → 外部），顺序即导出对话框的展示顺序 */
+	public static var EXPORT_FORMATS:Array<String> = ['sm', 'ssc', 'osu', 'qua'];
 
 	public static var FORMAT_LABELS:Map<String, String> = [
 		'sm' => 'StepMania (.sm)', 'ssc' => 'StepMania (.ssc)',
@@ -76,6 +80,14 @@ class ChartConvertCore
 		return loaded.info;
 	}
 
+	/** 外部格式的字段值会带前导空格（'Title: xxx' 的冒号后），落地前统一裁掉 */
+	static function cleanName(value:Null<String>, fallback:String):String
+	{
+		if(value == null) return fallback;
+		var name:String = value.trim();
+		return (name.length > 0) ? name : fallback;
+	}
+
 	/**
 	 * 导入为 FE 谱面（SwagSong 结构的 Dynamic）。解析失败抛异常。
 	 * @param diff 源难度名（null = 第一个难度）
@@ -106,6 +118,21 @@ class ChartConvertCore
 	}
 
 	/**
+	 * 导出 FE 谱面为外部格式文本（.sm / .ssc / .osu / .qua）。不支持的格式抛异常。
+	 * @param diffName 写入文件的难度名（SM 的 #NOTES 名 / osu 的 Version / Quaver 的 DifficultyName）
+	 */
+	public static function exportFromSong(song:Dynamic, format:String, diffName:String = 'Challenge'):String
+	{
+		return switch(format)
+		{
+			case 'sm', 'ssc': stepManiaFromSong(song, format, diffName);
+			case 'osu': osuFromSong(song, diffName);
+			case 'qua': quaverFromSong(song, diffName);
+			default: throw 'Unsupported export format: $format';
+		}
+	}
+
+	/**
 	 * 导出 FE 谱面为 StepMania 文本（.sm / .ssc）。
 	 * @param diffName 写入文件的难度名（如 Challenge）
 	 */
@@ -128,6 +155,63 @@ class ChartConvertCore
 			renameSmDiff(fmt.data, diffName, false);
 			return fmt.stringify().data;
 		}
+	}
+
+	/** 导出 FE 谱面为 osu!mania 文本（.osu） */
+	static function osuFromSong(song:Dynamic, diffName:String):String
+	{
+		var keys:Int = songKeys(song);
+		var basic:BasicChart = songToBasic(song, keys, true);
+		var notes:Array<BasicNote> = firstDiffNotes(basic);
+
+		// moonchart 的 osu 导出只认 type 里的 osu 原始类型串（'__OSU-<type>-<hitsound>-<sampleset>'），不看 length：
+		// hold 必须标成 128，否则会被写成单点；mine 在 osu!mania 无对应，直接丢弃
+		if(notes != null)
+		{
+			var kept:Array<BasicNote> = [];
+			for(note in notes)
+			{
+				if(note.type == BasicNoteType.MINE) continue;
+				if(note.length > 0) note.type = '__OSU-128-0-0';
+				kept.push(note);
+			}
+			for(diffKey in [for(k in basic.data.diffs.keys()) k])
+				basic.data.diffs.set(diffKey, kept);
+			notes = kept;
+		}
+
+		var fmt:OsuMania = new OsuMania().fromBasicFormat(basic);
+
+		// moonchart 用 lane * 512 / keys 算列位置，非 4/8K 时整除误差会把相邻列并到同一列；改写成列中心
+		var hits:Array<Array<Int>> = fmt.data.HitObjects;
+		if(notes != null && hits.length == notes.length)
+		{
+			for(i in 0...hits.length)
+				hits[i][0] = Std.int((notes[i].lane + 0.5) * 512 / keys);
+		}
+
+		// fromBasicFormat 的 Version 取的是内部难度 key（恒为 default），这里换成用户选的名字
+		fmt.data.Metadata.Version = diffName;
+		return fmt.stringify().data;
+	}
+
+	/** 导出 FE 谱面为 Quaver 文本（.qua） */
+	static function quaverFromSong(song:Dynamic, diffName:String):String
+	{
+		var basic:BasicChart = songToBasic(song, songKeys(song), true);
+		var fmt:Quaver = new Quaver().fromBasicFormat(basic);
+
+		// moonchart 的 Quaver 导出把 EndTime 写成了 hold 时长（应为绝对结束时间），按源音符改回来
+		var notes:Array<BasicNote> = firstDiffNotes(basic);
+		var hits:Array<QuaverHitObject> = fmt.data.HitObjects;
+		if(notes != null && hits.length == notes.length)
+		{
+			for(i in 0...hits.length)
+				if(notes[i].length > 0) hits[i].EndTime = Std.int(notes[i].time + notes[i].length);
+		}
+
+		fmt.data.DifficultyName = diffName;
+		return fmt.stringify().data;
 	}
 
 	// moonchart 会把难度 key 规范化（小写/去空格），导出前改回用户选择的名字
@@ -202,7 +286,7 @@ class ChartConvertCore
 				formatLabel: FORMAT_LABELS.get(isSSC ? 'ssc' : 'sm'),
 				keys: keys,
 				diffs: diffs,
-				title: Std.string(Reflect.field(fmt.data, 'TITLE') ?? 'Unknown')
+				title: cleanName(Reflect.field(fmt.data, 'TITLE'), 'Unknown')
 			},
 			basic: fmt.toBasicFormat()
 		};
@@ -211,7 +295,7 @@ class ChartConvertCore
 	static function loadOsu(path:String, ?diff:String):{info:ChartImportInfo, basic:BasicChart}
 	{
 		var fmt:OsuMania = new OsuMania().fromFile(path, null, diff);
-		return finishOsu(fmt, 'osu', [Std.string(fmt.data.Metadata.Version)]);
+		return finishOsu(fmt, 'osu', [Std.string(fmt.data.Metadata.Version).trim()]);
 	}
 
 	static function finishOsu(fmt:OsuMania, format:String, diffs:Array<String>):{info:ChartImportInfo, basic:BasicChart}
@@ -227,7 +311,7 @@ class ChartConvertCore
 				formatLabel: FORMAT_LABELS.get(format),
 				keys: keys,
 				diffs: diffs,
-				title: Std.string(fmt.data.Metadata.Title ?? 'Unknown')
+				title: cleanName(fmt.data.Metadata.Title, 'Unknown')
 			},
 			basic: fmt.toBasicFormat()
 		};
@@ -255,13 +339,13 @@ class ChartConvertCore
 		if(parsed.length <= 0)
 			throw 'No osu!mania (Mode 3) charts inside the .osz';
 
-		var diffs:Array<String> = [for(fmt in parsed) Std.string(fmt.data.Metadata.Version)];
+		var diffs:Array<String> = [for(fmt in parsed) Std.string(fmt.data.Metadata.Version).trim()];
 		var selected:OsuMania = null;
 		if(diff != null)
 		{
 			for(fmt in parsed)
 			{
-				if(Std.string(fmt.data.Metadata.Version) == diff)
+				if(Std.string(fmt.data.Metadata.Version).trim() == diff)
 				{
 					selected = fmt;
 					break;
@@ -284,15 +368,23 @@ class ChartConvertCore
 	{
 		if(fmt == null || fmt.data == null)
 			throw 'Unable to parse Quaver file';
+
+		var basic:BasicChart = fmt.toBasicFormat();
+		// moonchart 的 Quaver 解析按 1 起算读 Lane（写入时却是 0 起），这里统一补回 0 起，
+		// 否则真实 .qua 的每一列都会左移一列、最左列还会变成 -1
+		for(k => notes in basic.data.diffs)
+			for(note in notes)
+				note.lane += 1;
+
 		return {
 			info: {
 				format: format,
 				formatLabel: FORMAT_LABELS.get(format),
 				keys: Std.string(fmt.data.Mode) == 'Keys4' ? 4 : 7,
 				diffs: diffs,
-				title: Std.string(fmt.data.Title ?? 'Unknown')
+				title: cleanName(fmt.data.Title, 'Unknown')
 			},
-			basic: fmt.toBasicFormat()
+			basic: basic
 		};
 	}
 
@@ -458,6 +550,24 @@ class ChartConvertCore
 			}
 		}
 
+		// divideNotesToMeasures 的小节区间是左闭右开：正好卡在最后一个 measure 结束点上的音符会掉出去，
+		// 这里按拍把漏掉的尾部音符补成追加 section
+		var tailStart:Float = measures[measures.length - 1].endTime;
+		var tail:Array<BasicNote> = [];
+		for(note in notes)
+			if(note.time >= tailStart) tail.push(note);
+
+		var tailBpm:Float = measures[measures.length - 1].bpm;
+		while(tail.length > 0)
+		{
+			var sectionEnd:Float = tailStart + 4 * Timing.crochet(tailBpm);
+			var chunk:Array<BasicNote> = [];
+			while(tail.length > 0 && tail[0].time < sectionEnd)
+				chunk.push(tail.shift());
+			sections.push(makeSection(chunk, 4, null, keys, bakeOffset));
+			tailStart = sectionEnd;
+		}
+
 		var speed:Float = 1.0;
 		for(k => v in meta.scrollSpeeds)
 		{
@@ -470,7 +580,7 @@ class ChartConvertCore
 		var malodyOffset:Float = meta.extraData.get(MALODY_MUSIC_OFFSET) ?? 0;
 
 		var song:Dynamic = {
-			song: meta.title,
+			song: cleanName(meta.title, 'Unknown'),
 			notes: sections,
 			events: [],
 			bpm: bpmChanges[0].bpm,
@@ -550,7 +660,7 @@ class ChartConvertCore
 	}
 
 	// ====================================================
-	//  FE 谱面 → BasicChart（SM 导出用）
+	//  FE 谱面 → BasicChart（导出用）
 	// ====================================================
 
 	static function songKeys(song:Dynamic):Int
@@ -564,7 +674,10 @@ class ChartConvertCore
 		return 4;
 	}
 
-	static function songToBasic(song:Dynamic, keys:Int):BasicChart
+	/**
+	 * @param singleSide osu / Quaver 是单人不分侧：只导玩家侧（lane < keys），对手侧丢弃
+	 */
+	static function songToBasic(song:Dynamic, keys:Int, singleSide:Bool = false):BasicChart
 	{
 		// BPM 时间线：与 Conductor.mapBPMChanges 同一套累计逻辑
 		var bpmChanges:Array<BasicBPMChange> = [];
@@ -589,7 +702,7 @@ class ChartConvertCore
 		}
 
 		// SM 单谱面最多 8 轨（dance-double），>4K 时把两侧各压回 4 轨
-		var compress:Bool = keys > 4;
+		var compress:Bool = !singleSide && keys > 4;
 		var colScale:Float = compress ? 3 / (keys - 1) : 1;
 
 		var notes:Array<BasicNote> = [];
@@ -599,6 +712,7 @@ class ChartConvertCore
 			{
 				if(noteData == null || noteData.length < 2) continue;
 				var lane:Int = Std.int(noteData[1]);
+				if(singleSide && lane >= keys) continue;
 				var type:Dynamic = (noteData.length >= 4) ? noteData[3] : null;
 				var basicType:String = "";
 				if(Std.isOfType(type, String))
@@ -640,6 +754,11 @@ class ChartConvertCore
 		if(artist != null) extra.set(BasicMetaValues.SONG_ARTIST, artist);
 		var charter:String = Reflect.field(song, 'charter');
 		if(charter != null) extra.set(BasicMetaValues.SONG_CHARTER, charter);
+		// osu / Quaver 的键数取 LANES_LENGTH，音频名取 AUDIO_FILE（引擎的歌曲目录惯例是 inst.ogg）
+		extra.set(BasicMetaValues.LANES_LENGTH, keys);
+		extra.set(BasicMetaValues.STRUMLINE_LANES, 1);
+		extra.set(BasicMetaValues.STRUMLINE_KEYS, keys);
+		extra.set(BasicMetaValues.AUDIO_FILE, 'inst.ogg');
 
 		return {
 			data: {diffs: diffs, events: []},

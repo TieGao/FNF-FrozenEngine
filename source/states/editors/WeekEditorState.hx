@@ -41,6 +41,7 @@ class WeekEditorState extends EditorMusicState implements PsychUIEventHandler.Ps
 	override function create() {
 		txtWeekTitle = new FlxText(FlxG.width * 0.7, 10, 0, "", 32);
 		txtWeekTitle.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT);
+		txtWeekTitle.antialiasing = ClientPrefs.data.antialiasing;
 		txtWeekTitle.alpha = 0.7;
 		
 		var ui_tex = Paths.getSparrowAtlas('campaign_menu_UI_assets');
@@ -67,6 +68,7 @@ class WeekEditorState extends EditorMusicState implements PsychUIEventHandler.Ps
 		
 		missingFileText = new FlxText(0, 0, FlxG.width, "");
 		missingFileText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		missingFileText.antialiasing = ClientPrefs.data.antialiasing;
 		missingFileText.borderSize = 2;
 		missingFileText.visible = false;
 		add(missingFileText); 
@@ -90,6 +92,7 @@ class WeekEditorState extends EditorMusicState implements PsychUIEventHandler.Ps
 		txtTracklist = new FlxText(FlxG.width * 0.05, tracksSprite.y + 60, 0, "", 32);
 		txtTracklist.alignment = CENTER;
 		txtTracklist.font = Paths.font("vcr.ttf");
+		txtTracklist.antialiasing = ClientPrefs.data.antialiasing;
 		txtTracklist.color = 0xFFe55777;
 		add(txtTracklist);
 		add(txtWeekTitle);

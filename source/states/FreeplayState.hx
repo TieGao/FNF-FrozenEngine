@@ -837,7 +837,9 @@ class FreeplayState extends MusicBeatState
         for (customSong in CustomChartData.load(category))
         {
             var displayName:String = (customSong.displayName != null && customSong.displayName.length > 0) ? customSong.displayName : customSong.name;
-            var chart:NewSongMetaData = new NewSongMetaData(displayName, -1, 'bf', FlxColor.fromRGB(146, 113, 253));
+            // 数据包 meta.json 自带配色时用它，否则沿用默认紫色
+            var chartColor:Int = (customSong.color != null) ? customSong.color : FlxColor.fromRGB(146, 113, 253);
+            var chart:NewSongMetaData = new NewSongMetaData(displayName, -1, 'bf', chartColor);
             chart.folder = '';
             chart.customChart = new CustomChartMetadata(customSong);
             chart.difficultyInfo = cast chart.customChart.difficultyInfo;

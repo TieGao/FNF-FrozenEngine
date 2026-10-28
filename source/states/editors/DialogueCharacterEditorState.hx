@@ -101,12 +101,14 @@ class DialogueCharacterEditorState extends EditorMusicState implements PsychUIEv
 
 		tipText = new FlxText(10, 10, FlxG.width - 20, TIP_TEXT_MAIN, 8);
 		tipText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT, OUTLINE, FlxColor.BLACK);
+		tipText.antialiasing = ClientPrefs.data.antialiasing;
 		tipText.cameras = [camHUD];
 		tipText.scrollFactor.set();
 		add(tipText);
 
 		offsetLoopText = new FlxText(10, 10, 0, '', 32);
 		offsetLoopText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+		offsetLoopText.antialiasing = ClientPrefs.data.antialiasing;
 		offsetLoopText.cameras = [camHUD];
 		offsetLoopText.scrollFactor.set();
 		add(offsetLoopText);
@@ -114,6 +116,7 @@ class DialogueCharacterEditorState extends EditorMusicState implements PsychUIEv
 
 		offsetIdleText = new FlxText(10, 46, 0, '', 32);
 		offsetIdleText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+		offsetIdleText.antialiasing = ClientPrefs.data.antialiasing;
 		offsetIdleText.cameras = [camHUD];
 		offsetIdleText.scrollFactor.set();
 		add(offsetIdleText);
@@ -121,6 +124,7 @@ class DialogueCharacterEditorState extends EditorMusicState implements PsychUIEv
 
 		animText = new FlxText(10, 22, FlxG.width - 20, '', 8);
 		animText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+		animText.antialiasing = ClientPrefs.data.antialiasing;
 		animText.scrollFactor.set();
 		animText.cameras = [camHUD];
 		add(animText);

@@ -21,6 +21,7 @@ class PsychUICheckBox extends FlxSpriteGroup
 		add(box);
 
 		text = new FlxText(box.width + 4, 0, textWid, label);
+		text.antialiasing = ClientPrefs.data.antialiasing;
 		text.y += box.height/2 - text.height/2;
 		add(text);
 

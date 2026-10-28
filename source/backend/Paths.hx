@@ -339,7 +339,9 @@ class Paths
 		candidates.push(getPath('data/$songPath/audio.ogg', SOUND, null, modsAllowed));
 
 		#if MODS_ALLOWED
-		if (chartCategory != null && chartCategory.length > 0)
+		// 只要有精确谱面目录就要走这段，分类名可以为空：编辑器从局内进来时只带目录不带分类，
+		// 少了这段就只能按歌名去猜路径，自定义谱面（歌名≠目录名）必然找不到音轨。
+		if ((chartCategory != null && chartCategory.length > 0) || (currentChartDirectory != null && currentChartDirectory.length > 0))
 		{
 			var chartDir:String = (currentChartDirectory != null && currentChartDirectory.length > 0)
 				? currentChartDirectory : '$CHART_ROOT/$chartCategory/$songPath';
@@ -357,6 +359,8 @@ class Paths
 				}
 			}
 			#end
+			// 数据包布局（charts/ + song/）：从 charts/ 里直接打开谱面时，音轨在上一级目录
+			if (chartDir.endsWith('/charts')) chartDir = chartDir.substr(0, chartDir.length - 7);
 			chartDir += '/';
 			if (currentChartHasVSliceMetadata && currentChartAudioSuffix != null && currentChartAudioSuffix.length > 0)
 			{
@@ -377,6 +381,11 @@ class Paths
 			candidates.push(chartDir + 'inst-erect.mp3');
 			candidates.push(chartDir + 'inst-pico.ogg');
 			candidates.push(chartDir + 'inst-pico.mp3');
+			// 数据包布局（charts/ + song/）：音轨在歌目录的 song/ 子目录里
+			candidates.push(chartDir + 'song/inst.ogg');
+			candidates.push(chartDir + 'song/inst.mp3');
+			candidates.push(chartDir + 'song/audio.ogg');
+			candidates.push(chartDir + 'song/audio.mp3');
 		}
 		#end
 
@@ -483,7 +492,8 @@ class Paths
 
 		#if MODS_ALLOWED
 		if (chartCategory == null) chartCategory = currentChartCategory;
-		if (chartCategory != null && chartCategory.length > 0)
+		// 与 inst() 同理：有精确目录就够了，分类名缺省时也要查谱面目录下的人声
+		if ((chartCategory != null && chartCategory.length > 0) || (currentChartDirectory != null && currentChartDirectory.length > 0))
 		{
 			var chartDir:String = (currentChartDirectory != null && currentChartDirectory.length > 0)
 				? currentChartDirectory : '$CHART_ROOT/$chartCategory/$songPath';
@@ -501,6 +511,8 @@ class Paths
 				}
 			}
 			#end
+			// 数据包布局（charts/ + song/）：从 charts/ 里直接打开谱面时，音轨在上一级目录
+			if (chartDir.endsWith('/charts')) chartDir = chartDir.substr(0, chartDir.length - 7);
 			chartDir += '/';
 			if (currentChartHasVSliceMetadata && currentChartAudioSuffix != null && currentChartAudioSuffix.length > 0)
 			{
@@ -520,6 +532,14 @@ class Paths
 			// 添加 vocals.ogg/mp3 回退（无后缀版本）
 			candidates.push(chartDir + 'vocals.ogg');
 			candidates.push(chartDir + 'vocals.mp3');
+
+			// 数据包布局（charts/ + song/）：人声在歌目录的 song/ 子目录里
+			candidates.push(chartDir + 'song/' + voiceName.toLowerCase() + '.ogg');
+			candidates.push(chartDir + 'song/' + voiceName.toLowerCase() + '.mp3');
+			candidates.push(chartDir + 'song/voices.ogg');
+			candidates.push(chartDir + 'song/voices.mp3');
+			candidates.push(chartDir + 'song/vocals.ogg');
+			candidates.push(chartDir + 'song/vocals.mp3');
 			// ==========================================
 		}
 		#end
