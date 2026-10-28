@@ -14,6 +14,7 @@ import backend.SongCredits;
 import backend.SongCredits.SongCreditsContext;
 
 import objects.HealthIcon;
+import objects.MessageBox;
 
 // Freeplay 专用组件全在 states.freeplay 下，一条通配导入省得逐个维护
 import states.freeplay.*;
@@ -180,6 +181,14 @@ class FreeplayState extends MusicBeatState
     var freeplayCacheDirty:Bool = false;
     var difficultyPreloadQueue:Array<Dynamic> = [];
     var menuBgGraphicCache:Map<String, Dynamic> = new Map<String, Dynamic>();
+
+    // ===================== 转换进度提示 =====================
+    /** 本轮待处理难度总数（内容包解析 / 谱面转换都算，按难度计） */
+    var convertTotal:Int = 0;
+    /** 已处理完的难度数 */
+    var convertDone:Int = 0;
+    /** 常驻提示（objects.MessageBox.showProgress），底部那根条就是进度 */
+    var convertToast:MessageBox = null;
         
     var updateTimer:Float = 0;
     var updateInterval:Float = 0.033; // 约 30fps 刷新卡片位置（视觉上足够平滑）
@@ -801,15 +810,28 @@ class FreeplayState extends MusicBeatState
             }
             var pendingDiffs:Array<String> = filterPendingDifficulties(songName, song.folder, weekData, missingDiffs);
             if (pendingDiffs.length > 0)
-                difficultyPreloadQueue.push({ song: song, songName: songName, folder: song.folder, difficulties: pendingDiffs, weekData: weekData, cacheKey: cacheKey });
+                enqueuePreload({ song: song, songName: songName, folder: song.folder, difficulties: pendingDiffs, weekData: weekData, cacheKey: cacheKey },
+                    pendingDiffs.length);
             songs.push(song);
             return;
         }
 
         var pendingDiffs:Array<String> = filterPendingDifficulties(songName, song.folder, weekData, difficulties);
         if (pendingDiffs.length > 0)
-            difficultyPreloadQueue.push({ song: song, songName: songName, folder: song.folder, difficulties: pendingDiffs, weekData: weekData, cacheKey: cacheKey });
+            enqueuePreload({ song: song, songName: songName, folder: song.folder, difficulties: pendingDiffs, weekData: weekData, cacheKey: cacheKey },
+                pendingDiffs.length);
         songs.push(song);
+    }
+
+    /**
+     * 入队一个预加载任务，并把它的「进度权重」累进总量。
+     * units 按难度算：转化一首 3 难度的歌，进度条走 3 格。
+     */
+    private function enqueuePreload(item:Dynamic, units:Int):Void
+    {
+        item.units = units;
+        convertTotal += units;
+        difficultyPreloadQueue.push(item);
     }
 
     /**
@@ -854,7 +876,10 @@ class FreeplayState extends MusicBeatState
                     missingInfo.push(difficulty);
             }
             if (missingInfo.length > 0)
-                difficultyPreloadQueue.push({customChart: chart.customChart});
+            {
+                // 进度按难度计：一首 3 档的歌走 3 格，条动得更细
+                enqueuePreload({customChart: chart.customChart}, missingInfo.length);
+            }
         }
     }
 
@@ -2155,11 +2180,31 @@ class FreeplayState extends MusicBeatState
     {
         if (difficultyPreloadQueue.length == 0)
         {
+            finishConvertToast();
             if (freeplayCacheDirty) saveFreeplaySongCache();
             return;
         }
 
-        var item = difficultyPreloadQueue.shift();
+        // 提示单独占一帧：转换是同步阻塞的，同帧创建的话要等它跑完才画得出来
+        if (convertToast == null)
+        {
+            beginConvertToast();
+            return;
+        }
+
+        var item:Dynamic = difficultyPreloadQueue.shift();
+        runPreloadItem(item);
+        convertDone = Std.int(Math.min(convertTotal, convertDone + unitsOf(item)));
+        convertToast.setProgress(convertProgress());
+    }
+
+    /** 队列项的进度权重（按难度算）。 */
+    private inline function unitsOf(item:Dynamic):Int
+        return (item.units == null) ? 0 : item.units;
+
+    /** 单个预加载任务的实际工作。 */
+    private function runPreloadItem(item:Dynamic):Void
+    {
         try
         {
             #if sys
@@ -2231,6 +2276,42 @@ class FreeplayState extends MusicBeatState
             trace('Failed to preload song info: $e');
         }
     }
+
+    // ========================= 转换进度提示 =========================
+
+    /** 挂出常驻提示：标题 + 说明，底部那根条就是进度。 */
+    private function beginConvertToast():Void
+    {
+        convertToast = MessageBox.showProgress(
+            Language.getPhrase('freeplay_converter_title', 'Song Converter'),
+            Language.getPhrase('freeplay_converter_body', 'Please wait while converting songs...'));
+        convertToast.setProgress(convertProgress());
+    }
+
+    /** 队列清空：条拉满，稍停一下自己缩回去。 */
+    private function finishConvertToast():Void
+    {
+        if (convertToast == null) return;
+        convertDone = convertTotal;
+        convertToast.setProgress(1);
+        convertToast.closeIn(1.2);
+        convertToast = null; // 之后交给 MessageBox 自己滑出销毁
+    }
+
+    /** 丢弃进度并立刻收起（切换来源 / 离开 Freeplay 时）。 */
+    private function resetConvertProgress():Void
+    {
+        convertTotal = 0;
+        convertDone = 0;
+        if (convertToast != null)
+        {
+            convertToast.close();
+            convertToast = null;
+        }
+    }
+
+    private inline function convertProgress():Float
+        return convertTotal > 0 ? Math.min(1, convertDone / convertTotal) : 0;
 
     /** 鼠标：卡片命中 / 卡片点击 / Replay / 搜索 / 来源标签 / 难度方块。 */
     private function handleMouseInput():Void
@@ -3092,6 +3173,8 @@ class FreeplayState extends MusicBeatState
     {
         // 队列项持有旧歌曲元数据；筛选变化后必须丢弃，不能让旧任务继续占内存。
         difficultyPreloadQueue = [];
+        // 换分类后进度条的前提（总数）也作废，连同提示一起清掉
+        resetConvertProgress();
         if (isContentMode())
         {
             songs = [];
@@ -3256,6 +3339,8 @@ class FreeplayState extends MusicBeatState
 
         releasePreviewAudio();
         difficultyPreloadQueue = [];
+        // 提示条挂在 FlxG.game 上，不随 state 自动消失，离开界面时主动收掉
+        resetConvertProgress();
         if (cardScroller != null)
         {
             remove(cardScroller);

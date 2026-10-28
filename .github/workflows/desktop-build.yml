@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       dependencies_to_update:
-        description: '填 all = 重新校验 / 安装全部 haxelib；留空（默认）= 直接用缓存里的 .haxelib/，跳过安装'
+        description: '填 all = 重装全部 haxelib 且跳过恢复缓存（依赖炸了用这个）；留空（默认）= 直接用缓存里的 .haxelib/，跳过安装'
         required: false
         type: string
         default: ''

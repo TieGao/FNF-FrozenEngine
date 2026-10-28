@@ -42,6 +42,8 @@ on:
       # 依赖策略（参考 NovaFlare 的 dependencies_to_update，语义按本仓的固定依赖清单收敛成两态）：
       #   留空  → 直接用 restore 回来的 .haxelib/，跳过整个依赖安装步骤（不联网，最快）
       #   非空  → 跑 setup 清单，重新校验 / 拉取全部依赖（等价于改动前的默认行为）
+      #           同时**跳过恢复缓存**、成功后清掉被取代的旧缓存 —— 这就是"依赖炸了重来一遍"的开关。
+      #           依赖装挂了（缺库、Type not found）时填 all 重跑一次即可。
       # 本仓的 setup 是写死的 pinned 清单（不是 hmm.json），所以没有 NF 那种"只更新某几个库"的粒度。
       dependencies_to_update:
         required: false
@@ -147,26 +149,41 @@ jobs:
       # 留空且缓存可用 → cached：跳过安装。
       # 留空但缓存是冷的（或明显残缺）→ install：回退到完整安装，别让构建裸奔。
       # 显式传了值 → install：重新校验 / 拉取全部依赖。
-      # 哨兵检查 lime + hxcpp：缓存 save 是 if: always() 的，失败轮也可能写进一份残缺的
-      # .haxelib/；只判"目录非空"挡不住这种，缺了这两个必备库就老实重装。
+      #
+      # 哨兵不能只看目录在不在：缓存 save 是 if: always() 的，失败轮会把"装了一半"的库
+      # 一起存进去 —— luahscript 就出现过只剩一个空目录，之后每轮都命中这份坏缓存，
+      # 编译期直接 `Type not found : luahscript.LuaParser`。这里改成让 haxelib 自己报
+      # classpath，再核那个目录真实存在，任一个缺失就老实重装。
       - name: Resolve haxelib strategy
         id: haxelib
         shell: bash
         run: |
           want='${{ inputs.dependencies_to_update }}'
-          if [ -z "$want" ] && [ -d .haxelib/lime ] && [ -d .haxelib/hxcpp ]; then
-            mode=cached
-            echo "dependencies_to_update 留空且缓存可用 → 跳过依赖安装，直接用 .haxelib/"
-          elif [ -z "$want" ]; then
-            mode=install
-            echo "dependencies_to_update 留空，但 .haxelib/ 里没有 lime / hxcpp（冷缓存或缓存残缺）→ 回退完整安装"
-          else
+          broken=''
+          if [ -z "$want" ]; then
+            for lib in lime hxcpp openfl flixel flixel-addons flxanimate luahscript linc_luajit hxvlc hscript-iris moonchart tjson hxdiscord_rpc; do
+              p=$(haxelib path "$lib" 2>/dev/null | head -n 1 | tr -d '\r' | tr '\\' '/')
+              if [ -z "$p" ] || [ ! -d "$p" ]; then broken="$broken $lib"; fi
+            done
+          fi
+
+          if [ -n "$want" ]; then
             mode=install
             echo "dependencies_to_update=$want → 重新校验 / 安装全部依赖"
+          elif [ -z "$broken" ]; then
+            mode=cached
+            echo "缓存里的依赖 classpath 全部命中 → 跳过依赖安装，直接用 .haxelib/"
+          else
+            mode=install
+            echo "缓存里的库残缺:$broken → 回退完整安装"
           fi
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
+      # 装依赖这一步给个 id：装挂了就不能再存缓存 —— 否则一份"半装"的 .haxelib/
+      # 会被 if: always() 的 save 收进去，之后每轮 restore 都命中它（luahscript 空壳
+      # 就是这么被固化的）。
       - name: Install Libraries
+        id: install
         if: steps.haxelib.outputs.mode == 'install'
         run: ${{ inputs.setupCommand }}
 
@@ -195,11 +212,14 @@ jobs:
       # 那些产物下次照样命中。失败的那个文件不会留在缓存里
       # （Compiler.compile() 在编译器返回非 0 时会把自己产出的 obj 删掉）。
       #
+      # 但依赖安装失败的那一轮不存：那时 .haxelib/ 是残缺的，存进去等于把坏状态
+      # 固化成下一轮的起点（有 restore-keys 前缀匹配，坏缓存会被一直命中）。
+      #
       # save 的 key 必须和上面 restore 的 key **同形**，只差末尾的 run_id。
       # restore 命中靠的是 restore-keys 前缀匹配：save 这边少一段（比如漏掉 target），
       # 写进去的那份就永远匹配不上自己的 restore —— 缓存存了，但没人读得到。
       - name: Save build cache (deps + hxcpp objects)
-        if: always()
+        if: always() && steps.install.outcome != 'failure'
         continue-on-error: true
         uses: actions/cache/save@v4
         with:
