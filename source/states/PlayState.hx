@@ -1723,6 +1723,15 @@ class PlayState extends MusicBeatState
 			return false;
 		}
 
+		// 角色位置诊断（排查 NMV 包"对手跑到右下角"类偏移）：倒计时起点一次，
+		// 记录角色世界坐标、相机跟随点与首段 mustHitSection。
+		Bread.crumb('PS countdown pos dad=(' + (dad == null ? 'null' : Std.int(dad.x) + ',' + Std.int(dad.y))
+			+ ') bf=(' + (boyfriend == null ? 'null' : Std.int(boyfriend.x) + ',' + Std.int(boyfriend.y))
+			+ ') gf=(' + (gf == null ? 'null' : Std.int(gf.x) + ',' + Std.int(gf.y))
+			+ ') camFollow=(' + Std.int(camFollow.x) + ',' + Std.int(camFollow.y)
+			+ ') DAD_X=' + Std.int(DAD_X) + ' BF_X=' + Std.int(BF_X)
+			+ ' firstMustHit=' + (SONG.notes != null && SONG.notes.length > 0 ? Std.string(SONG.notes[0].mustHitSection) : '?'));
+
 		seenCutscene = true;
 		inCutscene = false;
 		var ret:Dynamic = callOnScripts('onStartCountdown', null, true);

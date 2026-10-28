@@ -69,8 +69,11 @@ class NMVSciptHolder implements IFlxDestroyable
 			return null;
 		}
 
-		// 与 NMV Stage/ScriptedState 同一时机：加载完立即回调 onLoad
-		script.call('onLoad');
+		// 与 NMV Stage/ScriptedState 同一时机：加载完立即回调 onLoad。
+		// 大量 NMV 全局脚本（camTweenEvent/cheatMenu/dialogue 等）没有 onLoad——
+		// iris 对缺失函数 call 会报 "Tried to call a non-function"，必须先判存在。
+		if (script.exists('onLoad'))
+			script.call('onLoad');
 		return script;
 	}
 

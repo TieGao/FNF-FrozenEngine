@@ -213,6 +213,13 @@ class Note extends FlxSprite
 					// trace('[Note] keycount field: $value');
 					if(Std.isOfType(value, Int))
 						columns = Std.int(value);
+					else
+					{
+						// NMV 格式用 keys 表示每侧列数；与 Song.getKeyCount 的读取优先级保持一致
+						value = Reflect.field(targetSong, 'keys');
+						if(Std.isOfType(value, Int))
+							columns = Std.int(value);
+					}
 				}
 			}
 		}

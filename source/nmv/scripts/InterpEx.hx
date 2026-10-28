@@ -230,11 +230,34 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 
 				error(EInvalidAccess(f)); */
 		}
-		
+
 		return super.get(o, f);
 	}
 	#end
-	
+
+	/**
+	 * NMV 兼容：pin 的 flixel fork 的 FlxSprite 没有 zIndex 字段（用户否决为脚本动共享库），
+	 * 而 NMV 脚本对原生 flixel 对象写 zIndex 是常规分层操作（dialogue.hx skipText 等）。
+	 * hxcpp 的 Reflect.setProperty 对缺失字段抛 "Invalid field:zIndex"，并中断脚本函数
+	 * 的后续行。这里对 zIndex 写入做定向吸收：带 zIndex 的移植类（NmvSprite 等）走
+	 * super 正常写入，原生 flixel 对象静默忽略（无渲染语义，同 NmvSprite shim 先例）。
+	 */
+	override function set(o:Dynamic, f:String, v:Dynamic):Dynamic
+	{
+		if (f == 'zIndex' && o != null)
+		{
+			try
+			{
+				return super.set(o, f, v);
+			}
+			catch (e:Dynamic)
+			{
+				return v;
+			}
+		}
+		return super.set(o, f, v);
+	}
+
 	override public function expr(e:Expr):Dynamic
 	{
 		#if hscriptPos

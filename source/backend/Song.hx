@@ -101,6 +101,13 @@ class Song
 				value = Reflect.field(songJson, 'keycount');
 				if(Std.isOfType(value, Int))
 					columns = Std.int(value);
+				else
+				{
+					// NMV 格式用 keys 表示每侧列数（NMV Chart.correctFormat: keys ??= 4）
+					value = Reflect.field(songJson, 'keys');
+					if(Std.isOfType(value, Int))
+						columns = Std.int(value);
+				}
 			}
 		}
 		return Std.int(Math.max(4, columns));
@@ -129,7 +136,7 @@ class Song
 		return rawLane >= boundary;
 	}
 
-	public static function convert(songJson:Dynamic) // Convert old charts to psych_v1 format
+	public static function convert(songJson:Dynamic, ?sourceFormat:String) // Convert old charts to psych_v1 format
 	{
 		if(songJson.gfVersion == null)
 		{
@@ -171,9 +178,16 @@ class Song
 
 		// 归一化要按"每侧列数"来算，而不是写死 4。原实现 %4 / +4 只对 4K 成立，
 		// 任何多 k 谱（8K 等）都会被压扁、丢掉轨道身份。
-		// 读取优先级刻意与 Note.getColumnsPerPlayer 一致（mania -> keyCount -> keycount），
+		// 读取优先级刻意与 Note.getColumnsPerPlayer 一致（mania -> keyCount -> keycount -> keys），
 		// 保证对真实多 k 谱两者结果相同。
 		var columns:Int = getKeyCount(songJson);
+
+		// nmv2（NMV 引擎原生格式）的车道本来就是绝对值：0..keys-1 = 玩家侧，
+		// keys..2keys-1 = 对手侧，与 FE psych_v1 运行时同构；时间/延音同为毫秒。
+		// 硬套旧格式的 mustHitSection XOR 翻转会把对手 note 全翻到玩家侧
+		// （2026-10-28 实测：整首谱 note 全归 player）。只跳过车道翻转，
+		// 保留 sectionBeats 修正与事件提取。
+		final skipLaneFlip:Bool = (sourceFormat == 'nmv2');
 
 		for (section in sectionsData)
 		{
@@ -183,6 +197,8 @@ class Song
 				section.sectionBeats = 4;
 				if(Reflect.hasField(section, 'lengthInSteps')) Reflect.deleteField(section, 'lengthInSteps');
 			}
+
+			if (skipLaneFlip) continue;
 
 			for (note in section.sectionNotes)
 			{
@@ -320,8 +336,9 @@ class Song
 					if(!fmt.startsWith('psych_v1')) //Convert to Psych 1.0 format
 					{
 						trace('converting chart $nameForError with format $fmt to psych_v1 format...');
+						var sourceFormat = fmt;
 						songJson.format = 'psych_v1_convert';
-						convert(songJson);
+						convert(songJson, sourceFormat);
 					}
 			}
 		}

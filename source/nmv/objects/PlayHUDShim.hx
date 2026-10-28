@@ -12,6 +12,15 @@ class PlayHUDShim
 {
 	public function new() {}
 
+	// NMV PsychHUD 的脚本可调面（legacy 包 utils.hx onCreatePost 会写这些）。
+	// FE 无此 HUD 系统，给 NMV 同款默认值的会话内存版：ratingScale/combosScale
+	// 参与 FE 侧无实际渲染语义，但缺了字段 hscript 会抛 Invalid field 并中断脚本函数。
+	public var ratingPop:Float = (.785 / .7);
+	public var combosPop:Float = (.6 / .5);
+	public var ratingScale:Float = .7;
+	public var combosScale:Float = .5;
+	public var ratingSuffix:String = '';
+
 	public var iconP1(get, never):Dynamic;
 	public var iconP2(get, never):Dynamic;
 	public var healthBar(get, never):Dynamic;
