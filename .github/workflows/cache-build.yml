@@ -55,11 +55,6 @@ env:
   PROJECT_NAME: FrozenEngine
   CACHE_PREFIX: fe-hxcpp
 
-# Prune superseded caches 那步要用 GITHUB_TOKEN 删缓存
-permissions:
-  actions: write
-  contents: read
-
   # 依赖目录钉到仓库内 .haxelib/（与 CNE 一致）。setup/unix.sh 见到 HAXELIB_REPO 就不
   # 再 setup 到 ~/haxelib 覆盖它；setup/windows.bat 本就不 setup，无需改。本地开发不设
   # 这个变量，行为不变。
@@ -74,6 +69,11 @@ permissions:
   # 本身就够；-D 那条在 Windows 上会被上游拼坏：hxcpp 收到的值成了 "<路径>=<路径>"、
   # 反斜杠还翻了一倍，CompileCache.init() 拿它建目录直接失败，缓存静默失效。
   HXCPP_COMPILE_CACHE: ${{ github.workspace }}/.hxcpp_cache
+
+# Prune superseded caches 那步要用 GITHUB_TOKEN 删缓存
+permissions:
+  actions: write
+  contents: read
 
 jobs:
   build:
