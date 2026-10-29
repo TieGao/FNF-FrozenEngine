@@ -3,6 +3,7 @@ package nmv.objects;
 import flixel.FlxSprite;
 import flixel.math.FlxPoint;
 import flixel.system.FlxAssets.FlxGraphicAsset;
+import flixel.util.FlxColor;
 
 /**
  * 注册给脚本的 'FlxSprite'：NMV 的 flixel fork 在 FlxBasic 上有 zIndex / skew，
@@ -16,6 +17,16 @@ class NmvSprite extends FlxSprite
 {
 	public var zIndex:Int = 0;
 	public var skew:FlxPoint = FlxPoint.get();
+
+	/**
+	 * NMV 1.1.x 的便捷建图（黑幕等）：按给定尺寸画纯色图并返回自身。
+	 * 脚本写成 `new FlxSprite().makeScaledGraphic(w, h, color)`，缺了会在调用处报 Null Function Pointer。
+	 */
+	public function makeScaledGraphic(width:Float, height:Float, color:FlxColor = FlxColor.WHITE):NmvSprite
+	{
+		makeGraphic(Std.int(width), Std.int(height), color);
+		return this;
+	}
 
 	public function new(?X:Float = 0, ?Y:Float = 0, ?SimpleGraphic:FlxGraphicAsset)
 	{

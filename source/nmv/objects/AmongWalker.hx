@@ -140,18 +140,19 @@ class AmongWalker extends FunkinSprite
 	// ---- Bopper 表面（flxanimate 版实现）----
 
 	/** Bopper 的 addAnimByPrefix：flxanimate 按动画名播放，登记 name→prefix 映射即可。 */
-	public function addAnimByPrefix(name:String, prefix:String, fps:Float = 24, looped:Bool = false):Void
+	override public function addAnimByPrefix(name:String, prefix:String, fps:Int = 24, looping:Bool = true, flipX:Bool = false,
+			flipY:Bool = false):Void
 	{
 		animMap.set(name, prefix);
 	}
 
-	public function hasAnim(name:String):Bool
+	override public function hasAnim(name:String):Bool
 	{
 		return animMap.exists(name) || anim.getByName(name) != null;
 	}
 
 	/** flxanimate 没有按名移除动画的概念；映射清掉即等效（重载图集时会整体重建）。 */
-	public function removeAnim(name:String):Void
+	override public function removeAnim(name:String):Void
 	{
 		animMap.remove(name);
 	}
@@ -161,19 +162,15 @@ class AmongWalker extends FunkinSprite
 		anim.stop();
 	}
 
-	function get_animCurFrame():Int
-	{
-		return anim.curFrame;
-	}
-
-	public var animCurFrame(get, never):Int;
-
 	override public function playAnim(name:String, force:Bool = false, reversed:Bool = false, ?frame:Int = 0):Void
 	{
 		// 图集未加载/无该动画时跳过：flxanimate 对空控制器 play 会裸 NPE
 		final actual = animMap.exists(name) ? animMap[name] : name;
 		if (anim == null || anim.getByName(actual) == null) return;
 		anim.play(actual, force, reversed, frame ?? 0);
+
+		final off = animOffsets.get(name);
+		if (off != null) offset.set(off[0], off[1]);
 	}
 
 	// ---- NMV 原版行为 ----

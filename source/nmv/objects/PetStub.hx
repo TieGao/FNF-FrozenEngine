@@ -12,6 +12,17 @@ class PetStub extends FlxSprite
 {
 	public var curPet:String = '';
 
+	/** NMV 宠物旗标（rgb / 皮肤变体等），脚本用 pet.getFlag('rgb') 判分支 */
+	public var flags:Map<String, Dynamic> = [];
+
+	/** NMV 1.1.1 起的宠物变更信号（脚本 pet.onChange.add(fn)） */
+	public var onChange:flixel.util.FlxSignal.FlxTypedSignal<Dynamic->Void> = new flixel.util.FlxSignal.FlxTypedSignal();
+
+	public function getFlag(flag:String):Dynamic
+	{
+		return flags.get(flag);
+	}
+
 	public var loadPet:(?name:String, ?force:Bool) -> Dynamic = function(?name:String = '', ?force:Bool = false):Dynamic return null;
 
 	// NMV flixel fork 的 FlxBasic 面（zIndex/skew）与 FlxSprite 的

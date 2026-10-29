@@ -7,6 +7,7 @@ import flixel.util.FlxDestroyUtil;
 
 import openfl.utils.Assets;
 import haxe.Json;
+import haxe.DynamicAccess;
 
 import backend.Song;
 import states.stages.objects.TankmenBG;
@@ -25,6 +26,11 @@ typedef CharacterFile = {
 	var no_antialiasing:Bool;
 	var healthbar_colors:Array<Int>;
 	var vocals_file:String;
+	@:optional var flags:Dynamic;
+	@:optional var scalableOffsets:Null<Bool>;
+	@:optional var healthbar_colour:Null<Int>;
+	@:optional var gameover_character:String;
+	@:optional var afterimages:Null<Bool>;
 	@:optional var _editor_isPlayer:Null<Bool>;
 }
 
@@ -74,6 +80,31 @@ class Character extends FlxSprite
 	public var hasMissAnimations:Bool = false;
 	public var vocalsFile:String = '';
 
+	/** 角色 json 的 `flags`（NMV 的 isPixel / variants / backlit 等），脚本用 `getFlag` 读。 */
+	public var flags:DynamicAccess<Dynamic> = {};
+
+	/** NMV：偏移随角色缩放。FE 的 offset 不参与缩放，字段只为脚本读写保留。 */
+	public var scalableOffsets:Bool = true;
+
+	/**
+	 * NMV：true 时 `updateHitbox()` 会把 offset 清零（NMV 的动画偏移在绘制期叠加，
+	 * offset 另有用途）。FE 的动画偏移就存在 offset 上，清零会丢偏移，所以这里只保留
+	 * 字段、不实现清零行为；脚本用 `legacyOffset = false` 表达的"别动我的偏移"正好成立。
+	 */
+	public var legacyOffset:Bool = true;
+
+	/** NMV：false 时不再自动跳舞（语料在剧情段临时关掉）。 */
+	public var canDance:Bool = true;
+
+	/** 血量条颜色（NMV 用单个整数，json 键 `healthbar_colour`）。 */
+	public var healthColour:Int = 0xFFA1A1A1;
+
+	/** 死亡角色名（json 键 `gameover_character`）；FE 的死亡演出不读这个字段，仅脚本读写。 */
+	public var gameoverCharacter:String = '';
+
+	/** 残影开关（NMV 的 afterimages）；FE 未移植残影系统，字段仅供脚本读写。 */
+	public var ghostsEnabled:Bool = false;
+
 	//Used on Character Editor
 	public var imageFile:String = '';
 	public var jsonScale:Float = 1;
@@ -110,6 +141,9 @@ class Character extends FlxSprite
 	{
 		animationsArray = [];
 		animOffsets = [];
+		#if flxanimate
+		nmvAnchorReady = false;
+		#end
 		curCharacter = character;
 		var characterPath:String = 'characters/$character.json';
 
@@ -151,9 +185,14 @@ class Character extends FlxSprite
 		isAnimateAtlas = false;
 
 		#if flxanimate
+		nmvAtlasAnchorFix = false;
 		var animToFind:String = Paths.getPath('images/' + json.image + '/Animation.json', TEXT);
 		if (#if MODS_ALLOWED FileSystem.exists(animToFind) || #end Assets.exists(animToFind))
 			isAnimateAtlas = true;
+
+		// 锚点补偿默认关闭：首帧采样不准，先按角色 json 显式开启（"atlas_anchor": "nmv"）
+		var anchorMode:String = json.atlas_anchor;
+		nmvAtlasAnchorFix = (anchorMode == 'nmv');
 		#end
 
 		scale.set(1, 1);
@@ -223,6 +262,12 @@ class Character extends FlxSprite
 		vocalsFile = json.vocals_file != null ? json.vocals_file : '';
 		originalFlipX = (json.flip_x == true);
 		editorIsPlayer = json._editor_isPlayer;
+		flags = (json.flags != null) ? json.flags : {};
+		scalableOffsets = (json.scalableOffsets != null) ? json.scalableOffsets : true;
+		healthColour = (json.healthbar_colour != null) ? json.healthbar_colour : FlxColor.fromRGB(healthColorArray[0], healthColorArray[1],
+			healthColorArray[2]);
+		gameoverCharacter = (json.gameover_character != null) ? json.gameover_character : '';
+		ghostsEnabled = (json.afterimages == true);
 
 		// antialiasing
 		noAntialiasing = (json.no_antialiasing == true);
@@ -248,9 +293,19 @@ class Character extends FlxSprite
 				#if flxanimate
 				else
 				{
+					// 旧库 addBySymbol 是"前缀匹配 + 字典顺序取第一个"："black left" 会撞上
+					// "black left alt"、"black" 会撞上 "black up" → 动画内容串台、长符号一直循环。
+					// 与 NMV 的 addAnimByPrefix 同序：帧标签 → 符号（精确）→ 前缀。
+					var hasFrameLabel:Bool = false;
+					try hasFrameLabel = atlas.anim.getFrameLabel(animName) != null catch(e:Dynamic) {}
+
+					if(hasFrameLabel)
+						atlas.anim.addByFrameLabel(animAnim, animName, animFps, animLoop);
+					else if(atlas.anim.symbolDictionary != null && atlas.anim.symbolDictionary.exists(animName))
+						atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
 					// 防环版：图集里可能有与动画名同名的子符号（kazuha 的 idle），
 					// 原版 addBySymbolIndices 会覆盖它造成渲染期无限递归 → 栈溢出闪退
-					if(animIndices != null && animIndices.length > 0)
+					else if(animIndices != null && animIndices.length > 0)
 						atlas.safeAddBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
 					else
 						atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
@@ -398,7 +453,7 @@ class Character extends FlxSprite
 	 */
 	public function dance()
 	{
-		if (!debugMode && !skipDance && !specialAnim)
+		if (!debugMode && !skipDance && !specialAnim && canDance)
 		{
 			if(danceIdle)
 			{
@@ -435,6 +490,15 @@ class Character extends FlxSprite
 			offset.set(daOffset[0], daOffset[1]);
 		}
 		//else offset.set(0, 0);
+
+		#if flxanimate
+		// Animate 图集的锚点补偿对所有动画一致，切动画时重新叠加，避免被 animOffsets 覆盖掉
+		if(nmvAtlasAnchorFix && nmvAnchorReady)
+		{
+			offset.x += nmvAnchorDx;
+			offset.y += nmvAnchorDy;
+		}
+		#end
 
 		if (curCharacter.startsWith('gf-') || curCharacter == 'gf')
 		{
@@ -503,12 +567,59 @@ class Character extends FlxSprite
 		animation.addByPrefix(name, anim, 24, false);
 	}
 
+	public function hasFlag(flag:String):Bool
+	{
+		return flags != null && flags.exists(flag);
+	}
+
+	/** NMV 的角色 flag 读取；没有该 flag 时返回 null（脚本常写 `getFlag('x') != true`）。 */
+	public function getFlag(flag:String):Dynamic
+	{
+		return (flags == null) ? null : flags.get(flag);
+	}
+
+	/** NMV 名（`getAnimationName` 的别名）。 */
+	inline public function getAnimName():String
+		return getAnimationName();
+
+	/** NMV 名（`hasAnimation` 的别名）。 */
+	inline public function hasAnim(name:String):Bool
+		return hasAnimation(name);
+
+	/** 改名一个已注册的动画（NMV 的 turbulence 舞台用临时名做动画替换）。 */
+	public function renameAnim(oldName:String, newName:String):Void
+	{
+		final off = animOffsets.get(oldName);
+		animation.rename(oldName, newName);
+		if (off != null)
+		{
+			animOffsets.set(newName, off);
+			animOffsets.remove(oldName);
+		}
+	}
+
 	// Atlas support
 	// special thanks ne_eo for the references, you're the goat!!
 	@:allow(states.editors.CharacterEditorState)
 	public var isAnimateAtlas(default, null):Bool = false;
 	#if flxanimate
 	public var atlas:FlxAnimate;
+
+	/**
+	 * NMV 内容包的 Animate 图集锚点补偿开关。
+	 * 旧 flxanimate 以 Animate 舞台原点定锚，NMV 用的 flixel-animate 以时间轴包围盒左上角定锚，
+	 * 同一份 Animation.json 在两边会整体错开包围盒的 (x, y)。
+	 */
+	public var nmvAtlasAnchorFix:Bool = false;
+	/**
+	 * 锚点补偿量（舞台坐标 → 包围盒锚点），首次绘制时采样一次后全局固定。
+	 * 必须所有动画共用同一个值：flixel-animate 用的是整条时间轴的包围盒，
+	 * 逐动画各算一个会让切换动画时角色跳位。
+	 */
+	var nmvAnchorDx:Float = 0;
+	var nmvAnchorDy:Float = 0;
+	var nmvAnchorReady:Bool = false;
+
 	public override function draw()
 	{
 		var lastAlpha:Float = alpha;
@@ -525,6 +636,7 @@ class Character extends FlxSprite
 			{
 				copyAtlasValues();
 				atlas.draw();
+				if(nmvAtlasAnchorFix) captureNmvAnchor();
 				alpha = lastAlpha;
 				color = lastColor;
 				if(missingCharacter && visible)
@@ -568,6 +680,27 @@ class Character extends FlxSprite
 			atlas.colorTransform = colorTransform;
 			atlas.color = color;
 		}
+	}
+
+	/**
+	 * 首帧绘制后采样一次锚点偏移，全局固定。
+	 * 不预遍历所有动画：那需要额外 atlas.draw()，部分角色在相机/图集未就绪时段错误闪退；
+	 * relativeX/Y 是屏幕空间值，加回相机滚动和 offset 才是舞台坐标下的内容位置。
+	 */
+	function captureNmvAnchor():Void
+	{
+		if(nmvAnchorReady) return;
+		if(atlas.frameWidth <= 0 || atlas.frameHeight <= 0) return;
+
+		var cam = atlas.camera;
+		var sf = atlas.scrollFactor;
+		nmvAnchorDx = atlas.relativeX + (cam != null ? cam.scroll.x * sf.x : 0) + atlas.offset.x;
+		nmvAnchorDy = atlas.relativeY + (cam != null ? cam.scroll.y * sf.y : 0) + atlas.offset.y;
+		nmvAnchorReady = true;
+
+		offset.x += nmvAnchorDx;
+		offset.y += nmvAnchorDy;
+		backend.Bread.crumb('nmv anchor ' + curCharacter + ' dx=' + Std.int(nmvAnchorDx) + ' dy=' + Std.int(nmvAnchorDy));
 	}
 
 	public override function destroy()

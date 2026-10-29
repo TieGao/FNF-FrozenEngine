@@ -243,20 +243,30 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 		super.draw();
 	}
 
+	/**
+	 * 旧库 `FlxAnim.destroy()` 会先把 metadata / curInstance 置空再遍历符号表，
+	 * 符号表被提前清空或某个 symbol 销毁失败时中途抛异常。原来在 catch 里继续
+	 * 解引用 `anim.metadata`（已被置空）会二次抛 Null Object Reference，异常从
+	 * `FlxGroup.destroy` 冒出去打断整局清理（退歌崩溃）。
+	 *
+	 * 这里先把 anim 摘下来单独兜住销毁，再走正常的 sprite 销毁路径。
+	 */
 	override function destroy()
 	{
-		try
+		final oldAnim = anim;
+		anim = null;
+		if (oldAnim != null)
 		{
-			super.destroy();
+			try
+			{
+				oldAnim.destroy();
+			}
+			catch (e:Dynamic)
+			{
+				FlxG.log.warn('PsychFlxAnimate.destroy: anim teardown failed ($e)');
+			}
 		}
-		catch(e:haxe.Exception)
-		{
-			anim.curInstance = FlxDestroyUtil.destroy(anim.curInstance);
-			anim.stageInstance = FlxDestroyUtil.destroy(anim.stageInstance);
-			//anim.metadata = FlxDestroyUtil.destroy(anim.metadata);
-			anim.metadata.destroy();
-			anim.symbolDictionary = null;
-		}
+		super.destroy();
 	}
 
 	function _removeBOM(str:String) //Removes BOM byte order indicator

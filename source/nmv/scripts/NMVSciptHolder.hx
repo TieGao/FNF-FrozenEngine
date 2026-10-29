@@ -69,12 +69,45 @@ class NMVSciptHolder implements IFlxDestroyable
 			return null;
 		}
 
+		sharePublicVars(script, file);
+
 		// 与 NMV Stage/ScriptedState 同一时机：加载完立即回调 onLoad。
 		// 大量 NMV 全局脚本（camTweenEvent/cheatMenu/dialogue 等）没有 onLoad——
 		// iris 对缺失函数 call 会报 "Tried to call a non-function"，必须先判存在。
 		if (script.exists('onLoad'))
 			script.call('onLoad');
 		return script;
+	}
+
+	/**
+	 * NMV 的 `public var` 是跨脚本共享的，而 hscript 的 Parser 把 public 当修饰符丢掉
+	 * （顶层 var 只进脚本自己的 locals）。这里按源码里的 public var 名单把值同步进
+	 * Sharables —— 否则 videoCheckStory 这类开关在别的脚本里读到 null，
+	 * `if (videoCheckStory && !isStoryMode)` 整段判断失效，过场就会在 Freeplay 里误触发。
+	 */
+	function sharePublicVars(script:FunkinScript, file:String):Void
+	{
+		var src:String = null;
+		try src = sys.io.File.getContent(file) catch (e:Dynamic) {}
+		if (src == null) return;
+
+		for (line in src.split('\n'))
+		{
+			final t:String = StringTools.trim(line);
+			if (!StringTools.startsWith(t, 'public var ')) continue;
+
+			final rest:String = t.substr('public var '.length);
+			final id:String = StringTools.trim(rest.split(':')[0].split('=')[0]);
+			if (id.length == 0) continue;
+
+			// 顶层变量在 execute 结束时被 restore 清出 locals，只能走 Iris 的变量查找
+			try
+			{
+				final v:Dynamic = script.get(id);
+				if (v != null) group.scriptShareables.set(id, v);
+			}
+			catch (e:Dynamic) {}
+		}
 	}
 
 	/**

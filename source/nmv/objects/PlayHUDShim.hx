@@ -10,6 +10,12 @@ package nmv.objects;
  */
 class PlayHUDShim
 {
+	/** NMV PsychHUD 的静态排版工具（victory 舞台脚本用） */
+	public static inline function formatScoreField(label:String, value:String):String
+	{
+		return nmv.data.Lang.hasSpecial('rightToLeft') ? '$value :$label' : '$label: $value';
+	}
+
 	public function new() {}
 
 	// NMV PsychHUD 的脚本可调面（legacy 包 utils.hx onCreatePost 会写这些）。

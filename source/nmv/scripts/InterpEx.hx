@@ -194,6 +194,16 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 	
 	override function fcall(o:Dynamic, f:String, args:Array<Dynamic>):Dynamic
 	{
+		// hscript 不认 Haxe 4 的 Array.contains，NMV 脚本大量拿它做成员判断
+		// （bf-running.hx 每帧调，报 Unknown function 会中断 onUpdate 后续行）
+		if (f == 'contains' && Std.isOfType(o, Array))
+			return args.length > 0 && (cast o : Array<Dynamic>).indexOf(args[0]) != -1;
+
+		// NMV 的 getPath 是 (file, ?parentFolder, mode)，FE 是 (file, ?type, ?parentFolder, ?modsAllowed)。
+		// 第二个参数为 null 或 String 时按 NMV 签名重排，否则原样交给 FE。
+		if (f == 'getPath' && o == backend.Paths && args.length >= 2 && (args[1] == null || Std.isOfType(args[1], String)))
+			return backend.Paths.getPath(cast args[0], openfl.utils.AssetType.TEXT, cast args[1], true);
+
 		// NMV 的链式 loadAtlas：flxanimate 库自带的 loadAtlas 是 Adobe Animate 布局、
 		// 返回 Void，与 NMV 的 spritemap 布局 + 返回自身不符，对 FunkinSprite 特判
 		if (f == 'loadAtlas' && Std.isOfType(o, FunkinSprite))

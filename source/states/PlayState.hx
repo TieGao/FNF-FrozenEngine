@@ -791,7 +791,20 @@ class PlayState extends MusicBeatState
 			// （NMV 的 Stage.runScript 时序）。全局 scripts/*.hx 并集加载在 stage+chars
 			// 就位之后，见下方"NMV 全局脚本"块——NMV PlayState 的先后即如此。
 			if (backend.NMVContentData.currentMod != null && curStage != null && curStage.length > 0)
-				nmvScripts.load(Paths.currentContentRoot + '/stages/' + curStage + '.hx', null, Mods.currentModDirectory);
+			{
+				// 两套布局都试：1.0.3b 是 <包根>/stages/，1.1.x 移到了 <包根>/data/stages/
+				var root:String = Paths.currentContentRoot;
+				var loaded:Bool = false;
+				for (rel in ['/stages/', '/data/stages/'])
+				{
+					var path:String = root + rel + curStage + '.hx';
+					if (!FileSystem.exists(path)) continue;
+					nmvScripts.load(path, null, Mods.currentModDirectory);
+					loaded = true;
+					break;
+				}
+				Bread.crumb('PS stage script ' + curStage + (loaded ? ' loaded' : ' missing'));
+			}
 		}
 		#end
 

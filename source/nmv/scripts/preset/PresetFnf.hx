@@ -18,7 +18,11 @@ class PresetFnf
 {
 	public static function register(script:FunkinScript):Void
 	{
+		registerImportAliases();
+
 		script.set("Paths", backend.Paths);
+		// NMV 的 Paths.getPath 第三个参数是查找范围枚举，FE 不区分 —— 给个纯值对象即可
+		script.set('PathsTestMode', {NORMAL: 'NORMAL', STRICT: 'STRICT', LOOSE: 'LOOSE', NONE: 'NONE'});
 		script.set("Conductor", backend.Conductor);
 		script.set("ClientPrefs", ClientPrefs);
 		script.set("CoolUtil", CoolUtil);
@@ -36,6 +40,8 @@ class PresetFnf
 		script.set('ScriptedState', ScriptedState);
 		script.set('ScriptedSubstate', ScriptedSubstate);
 		script.set("GameOverSubstate", substates.GameOverSubstate);
+		script.set('FunkinCaption', nmv.objects.FunkinCaption);
+		script.set('FunkinCaptionGroup', nmv.objects.FunkinCaptionGroup);
 		script.set('CustomSubstate', psychlua.CustomSubstate);
 
 		// objects
@@ -58,6 +64,10 @@ class PresetFnf
 		script.set('Lang', nmv.data.Lang);
 		script.set('GameFlags', nmv.data.GameFlags);
 		script.set('ProgressionUtil', nmv.data.ProgressionUtil);
+		script.set('FunkinAssets', nmv.FunkinAssets);
+		script.set('DebugDisplay', nmv.backend.DebugDisplay);
+		script.set('Vector3', nmv.backend.math.Vector3);
+		script.set('CosmicubeData', nmv.data.CosmicubeData);
 		// NMV 的 flxanimate fork 内部元素类（charles.hx 置子件 active 用），壳见类注释
 		script.set('animate.internal.elements.FlxSpriteElement', nmv.objects.AnimateElementShim);
 		#if VIDEOS_ALLOWED
@@ -125,6 +135,49 @@ class PresetFnf
 	}
 
 	/** PlayState 内的歌上下文变量（NMV 同名段；字段取不到的一律不注册）。 */
+	static var aliasesRegistered:Bool = false;
+
+	/**
+	 * NMV 的脚本按自己的包名 import（`funkin.xxx`），FE 没有这个命名空间，
+	 * 不接上的话 import 全部报 "could not be added"、后续变量解析成 null。
+	 * 这里只映射有对应物（或已补桩）的类。
+	 */
+	static function registerImportAliases():Void
+	{
+		if (aliasesRegistered) return;
+		aliasesRegistered = true;
+
+		Iris.addProxyImport('funkin.utils.CoolUtil', backend.CoolUtil);
+		Iris.addProxyImport('funkin.data.ClientPrefs', backend.ClientPrefs);
+		Iris.addProxyImport('funkin.data.GameFlags', nmv.data.GameFlags);
+		Iris.addProxyImport('funkin.utils.ProgressionUtil', nmv.data.ProgressionUtil);
+
+		// 引擎侧同名/同义类
+		Iris.addProxyImport('funkin.states.substates.PauseSubState', substates.PauseSubState);
+		Iris.addProxyImport('funkin.states.substates.GameOverSubstate', substates.GameOverSubstate);
+		Iris.addProxyImport('funkin.states.TitleState', states.TitleState);
+		Iris.addProxyImport('funkin.data.WeekData', backend.WeekData);
+		Iris.addProxyImport('funkin.Mods', backend.Mods);
+
+		// 已移植的 nmv/ 类
+		Iris.addProxyImport('funkin.objects.SnowEmitter', nmv.objects.SnowEmitter);
+		Iris.addProxyImport('funkin.objects.FunkinCaption', nmv.objects.FunkinCaption);
+		Iris.addProxyImport('funkin.objects.FunkinCaptionGroup', nmv.objects.FunkinCaptionGroup);
+		Iris.addProxyImport('funkin.objects.stageobjects.AmongWalker', nmv.objects.AmongWalker);
+		Iris.addProxyImport('funkin.game.huds.PsychHUD', nmv.objects.PlayHUDShim);
+		Iris.addProxyImport('funkin.game.shaders.DropShadowShader', nmv.shaders.DropShadowShader);
+		Iris.addProxyImport('funkin.game.shaders.ColorSwap', nmv.shaders.ColorSwap);
+		Iris.addProxyImport('funkin.game.shaders.ChromaticAbberation', nmv.shaders.ChromaticAbberation);
+		Iris.addProxyImport('funkin.game.shaders.HeatwaveShader', nmv.shaders.HeatwaveShader);
+		Iris.addProxyImport('funkin.game.shaders.RGBPalette', nmv.shaders.RGBPalette);
+
+		// 1.1.2 脚本新增的 funkin.* 依赖（工具类 / 数据桩）
+		Iris.addProxyImport('funkin.FunkinAssets', nmv.FunkinAssets);
+		Iris.addProxyImport('funkin.backend.DebugDisplay', nmv.backend.DebugDisplay);
+		Iris.addProxyImport('funkin.backend.math.Vector3', nmv.backend.math.Vector3);
+		Iris.addProxyImport('funkin.data.CosmicubeData', nmv.data.CosmicubeData);
+	}
+
 	static function registerPlayStateContext(script:FunkinScript):Void
 	{
 		if (!(FlxG.state is PlayState)) return;
