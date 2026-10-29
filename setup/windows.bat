@@ -16,7 +16,7 @@ haxelib install hxdiscord_rpc 1.2.4 --skip-dependencies || exit /b 1
 haxelib git hxvlc https://github.com/IceTheAxe/hxvlc --skip-dependencies --always || exit /b 1
 haxelib git lime https://github.com/TieGao/lime --always || exit /b 1
 haxelib git openfl https://github.com/TieGao/openfl --skip-dependencies --always || exit /b 1
-haxelib install moonchart --skip-dependencies || exit /b 1
+haxelib git moonchart https://github.com/MaybeMaru/moonchart --skip-dependencies || exit /b 1
 haxelib install format --skip-dependencies || exit /b 1
 haxelib install hxp --skip-dependencies || exit /b 1
 haxelib git hxcpp https://github.com/TieGao/hxcpp.git || exit /b 1
