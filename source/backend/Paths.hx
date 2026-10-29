@@ -1140,7 +1140,7 @@ class Paths
 			{
 				//trace('found Animation Json');
 				changedAnimJson = true;
-				animationJson = getTextFromFile('images/$originalPath/Animation.json');
+				animationJson = patchBtaVersion(getTextFromFile('images/$originalPath/Animation.json'));
 			}
 		}
 
@@ -1148,6 +1148,45 @@ class Paths
 		//trace(spriteJson);
 		//trace(animationJson);
 		spr.loadAtlasEx(folderOrImg, spriteJson, animationJson);
+	}
+
+	/**
+	 * 新版 BTA 矩阵格式（元素带 MX）但 MD.V 缺失的 Animate 导出（legacy 1.1.2 的 yellow）：
+	 * 旧库按 `MD.V != null` 判定走 fromJSONEx/fromJSON —— fromJSON 只认 M3D、完全忽略 MX，
+	 * 所有部件矩阵变单位阵，内容整团堆在原点（表现为角色播"一堆碎零件"）。
+	 * 检测到 MX 就补上 V 标记，让 PsychFlxAnimate.loadAtlasEx 走 fromJSONEx（MX/M3D 都认）。
+	 * 返回解析后的对象（loadAtlasEx 的 myJson 参数直接收 Dynamic）。
+	 */
+	public static function patchBtaVersion(animText:String):Dynamic
+	{
+		if (animText == null) return null;
+		if (animText.charCodeAt(0) == 0xFEFF) animText = animText.substr(1);
+		var data:Dynamic = haxe.Json.parse(animText);
+		var md:Dynamic = Reflect.field(data, 'MD');
+		if (md == null || Reflect.field(md, 'V') != null) return data;
+		if (jsonTreeHasMx(Reflect.field(data, 'AN')) || jsonTreeHasMx(Reflect.field(data, 'SD')))
+			Reflect.setField(md, 'V', 'BTA 1.2.0');
+		return data;
+	}
+
+	/** 递归找任一元素的 MX 字段（M3D 老格式没有它，BTA 新格式必有）。 */
+	static function jsonTreeHasMx(node:Dynamic):Bool
+	{
+		if (node == null) return false;
+		if (Std.isOfType(node, Array))
+		{
+			for (item in cast(node, Array<Dynamic>))
+				if (jsonTreeHasMx(item)) return true;
+			return false;
+		}
+		if (!Reflect.isObject(node)) return false;
+		if (Reflect.field(node, 'MX') != null) return true;
+		for (field in Reflect.fields(node))
+		{
+			if (field == 'M3D' || field == 'MX') continue;
+			if (jsonTreeHasMx(Reflect.field(node, field))) return true;
+		}
+		return false;
 	}
 	#end
 }

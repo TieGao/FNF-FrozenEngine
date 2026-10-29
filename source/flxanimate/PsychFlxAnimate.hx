@@ -137,7 +137,7 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 			frames = mainFrames;
 		}
 
-		var extra:AnimAtlas = cast haxe.Json.parse(_removeBOM(animText));
+		var extra:AnimAtlas = cast Paths.patchBtaVersion(animText);
 		var renamed:Map<String, String> = namespaceExtraSymbols(extra, folderOrImg);
 
 		// 子图集的主时间轴也要注册 —— 逐动画的 `name` 写的就是它的主符号名
