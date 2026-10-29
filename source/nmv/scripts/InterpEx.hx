@@ -116,17 +116,21 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 	override function resolve(id:String):Dynamic
 	{
 		if (locals.exists(id)) return locals.get(id).r;
-		
+
 		if (variables.exists(id)) return variables.get(id);
-		
+
 		if (imports.exists(id)) return imports.get(id);
-		
+
 		if (parentFields.contains(id) || parentFields.contains('get_$id')) return Reflect.getProperty(parent, id);
-		
+
 		if (sharedFields?.exists(id)) return sharedFields.get(id);
-		
+
+		// 最后一道兜底：报错前查 proxyImports。iris 各处（cnew/表达式求值）都可能拿着
+		// 整条 FQ 路径调 resolve，这层接住 `new funkin.xxx.Yyy()` 和 FQ 静态引用。
+		if (Iris.proxyImports.exists(id)) return Iris.proxyImports.get(id);
+
 		error(EUnknownVariable(id));
-		
+
 		return null;
 	}
 	
@@ -194,10 +198,15 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 	
 	override function fcall(o:Dynamic, f:String, args:Array<Dynamic>):Dynamic
 	{
-		// hscript 不认 Haxe 4 的 Array.contains，NMV 脚本大量拿它做成员判断
-		// （bf-running.hx 每帧调，报 Unknown function 会中断 onUpdate 后续行）
-		if (f == 'contains' && Std.isOfType(o, Array))
-			return args.length > 0 && (cast o : Array<Dynamic>).indexOf(args[0]) != -1;
+		// hscript 不认 Haxe 4 的 contains 扩展方法，NMV 脚本对 String/Array 大量拿它
+		// 做成员判断（bf-running.hx 每帧调，报错会中断 onUpdate 后续行）
+		if (f == 'contains')
+		{
+			if (Std.isOfType(o, String))
+				return args.length > 0 && StringTools.contains(cast o, Std.string(args[0]));
+			if (Std.isOfType(o, Array))
+				return args.length > 0 && (cast o : Array<Dynamic>).indexOf(args[0]) != -1;
+		}
 
 		// NMV 的 getPath 是 (file, ?parentFolder, mode)，FE 是 (file, ?type, ?parentFolder, ?modsAllowed)。
 		// 第二个参数为 null 或 String 时按 NMV 签名重排，否则原样交给 FE。
@@ -236,9 +245,38 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 		if (o is Enum)
 		{
 			return Type.createEnum(o, f);
-			/* if (e != null) return e;
+		}
 
-				error(EInvalidAccess(f)); */
+		return super.get(o, f);
+	}
+	#end
+
+	#if (hxcpp && !hl)
+	/**
+	 * hxcpp 目标的 get() 覆写（hl 分支另有一份）。`f(x).contains(y)` 这类"调用结果上
+	 * 取字段"走 get() 不走 fcall（bf-running.hx:26）；而 hxcpp 的 Reflect.field 对
+	 * String/Array 的缺失字段会原生抛 "Invalid access to field contains"，必须赶在
+	 * super 之前截下，返回可调用包装。
+	 */
+	override public function get(o:Dynamic, f:String):Dynamic
+	{
+		// NMV 的 FlxCamera.scrollAngle（相机旋转）：FE fork 的 FlxCamera 有 angle，
+		// 映射过去让 camHUD 摇摆真实生效（ejected/danger/turbulence 的运镜）。
+		if (f == 'scrollAngle' && Std.isOfType(o, flixel.FlxCamera))
+			return o.angle;
+
+		if (f == 'contains')
+		{
+			if (Std.isOfType(o, String))
+				return Reflect.makeVarArgs(function(a:Array<Dynamic>):Dynamic
+				{
+					return a.length > 0 && StringTools.contains(cast o, Std.string(a[0]));
+				});
+			if (Std.isOfType(o, Array))
+				return Reflect.makeVarArgs(function(a:Array<Dynamic>):Dynamic
+				{
+					return a.length > 0 && (cast o : Array<Dynamic>).indexOf(a[0]) != -1;
+				});
 		}
 
 		return super.get(o, f);
@@ -254,6 +292,13 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 	 */
 	override function set(o:Dynamic, f:String, v:Dynamic):Dynamic
 	{
+		// FlxCamera.scrollAngle → angle（真实旋转，ejected/danger/turbulence 运镜在用）
+		if (f == 'scrollAngle' && o is flixel.FlxCamera)
+		{
+			o.angle = v;
+			return v;
+		}
+
 		if (f == 'zIndex' && o != null)
 		{
 			try
@@ -416,15 +461,30 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 	 * 函数桩)静默返回 null——脚本里 `var x = new Stubbed(...)` 不报错、首次碰
 	 * 字段才 "Invalid access to field xxx"，定位成本极高。这里显式抛回。
 	 */
+	/**
+	 * 覆写：先直查 Iris.proxyImports 再走基类。基类同名方法在 hxcpp 目标上对
+	 * "调用即抛"函数桩返回 null（探针实测：同一次调用里 exists(key)==true 而基类
+	 * 读不到——根因未明，用直查绕开），FQ 名的 `new funkin.xxx.Yyy()` 全靠这张表。
+	 */
+	override function getOrImportClass(name:String):Dynamic
+	{
+		final v:Dynamic = Iris.proxyImports.get(name);
+		if (v != null) return v;
+		return super.getOrImportClass(name);
+	}
+
 	override function cnew(cl:String, args:Array<Dynamic>):Dynamic
 	{
+		// 解析顺序：真类 → proxyImports（FQ 名在 new 表达式里不经 import 语句）→
+		// 脚本变量/函数桩；全空时 resolve 原样抛 EUnknownVariable（保留原报错路径）。
 		var c = Type.resolveClass(cl);
+		if (c == null) c = getOrImportClass(cl);
 		if (c == null) c = resolve(cl);
 
 		if (Type.typeof(c) == ValueType.TFunction)
 			error(ECustom('new $cl(...): "$cl" 是补桩函数(PresetStubs.missing),不是可构造的类。'));
 
-		return super.cnew(cl, args);
+		return Type.createInstance(c, args);
 	}
 
 	public function destroy()

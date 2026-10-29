@@ -96,6 +96,17 @@ class Character extends FlxSprite
 	/** NMV：false 时不再自动跳舞（语料在剧情段临时关掉）。 */
 	public var canDance:Bool = true;
 
+	/** NMV：允许嘲讽（按嘲讽键播 'hey'）；语料只写这个开关（d'low.hx），按键玩法未移植。 */
+	public var canTaunt:Bool = true;
+
+	/** NMV 兼容（bf-running 写 parent.baseFlipX）：偏移翻转修正的基准朝向 = 出生时的 flipX（NMV Character 同公式）。 */
+	public var baseFlipX:Null<Bool> = null;
+	public var baseFlipY:Null<Bool> = null;
+
+	/** NMV setAnimOffset 翻转修正的基准帧宽（首次施加偏移且图集就绪时采样）。 */
+	public var baseFrameWidth:Float = -1;
+	public var baseFrameHeight:Float = -1;
+
 	/** 血量条颜色（NMV 用单个整数，json 键 `healthbar_colour`）。 */
 	public var healthColour:Int = 0xFFA1A1A1;
 
@@ -258,6 +269,8 @@ class Character extends FlxSprite
 		healthIcon = json.healthicon;
 		singDuration = json.sing_duration;
 		flipX = (json.flip_x != isPlayer);
+		// NMV Character 同款基准：偏移翻转修正用它判断 flipX 是否偏离出生朝向
+		baseFlipX = flipX;
 		healthColorArray = (json.healthbar_colors != null && json.healthbar_colors.length > 2) ? json.healthbar_colors : [161, 161, 161];
 		vocalsFile = json.vocals_file != null ? json.vocals_file : '';
 		originalFlipX = (json.flip_x == true);
@@ -299,14 +312,19 @@ class Character extends FlxSprite
 					var hasFrameLabel:Bool = false;
 					try hasFrameLabel = atlas.anim.getFrameLabel(animName) != null catch(e:Dynamic) {}
 
-					if(hasFrameLabel)
+					// 优先级（实证校准）：带 indices 的动画必须走 indices——gf 的
+					// danceLeft/danceRight 是同一符号 'GF Dancing Beat' 靠 indices 分段，
+					// 若被精确符号/帧标签抢先注册成整段符号，GF 只会单向摆头。
+					// 其次帧标签，再次精确符号（防 addBySymbol 前缀匹配串台：
+					// 'black left' 撞 'black left alt'），最后才是前缀兜底。
+					if(animIndices != null && animIndices.length > 0)
+						atlas.safeAddBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
+					else if(hasFrameLabel)
 						atlas.anim.addByFrameLabel(animAnim, animName, animFps, animLoop);
 					else if(atlas.anim.symbolDictionary != null && atlas.anim.symbolDictionary.exists(animName))
 						atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
 					// 防环版：图集里可能有与动画名同名的子符号（kazuha 的 idle），
 					// 原版 addBySymbolIndices 会覆盖它造成渲染期无限递归 → 栈溢出闪退
-					else if(animIndices != null && animIndices.length > 0)
-						atlas.safeAddBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
 					else
 						atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
 					// 逐动画翻转（tankman 的 basic 包 idle/sing 与 extra 包美术朝向不一致）
@@ -487,7 +505,25 @@ class Character extends FlxSprite
 		if (hasAnimation(AnimName))
 		{
 			var daOffset = animOffsets.get(AnimName);
-			offset.set(daOffset[0], daOffset[1]);
+			#if flxanimate
+			// NMV setAnimOffset 的翻转修正：翻转态下 X 偏移按帧宽镜像
+			// （red 作为玩家侧被翻转后裸用 json 偏移，每个唱击动作横向甩 500px+ = "漂移"）。
+			// 基准帧宽首次就绪时采样；图集未就绪（-1）先按裸值。
+			if (isAnimateAtlas && baseFrameWidth < 0 && frameWidth > 0)
+			{
+				baseFrameWidth = frameWidth;
+				baseFrameHeight = frameHeight;
+			}
+			if (isAnimateAtlas && baseFrameWidth >= 0)
+			{
+				offset.set(
+					(baseFlipX != null && flipX != baseFlipX) ? (frameWidth - baseFrameWidth - daOffset[0]) : daOffset[0],
+					(baseFlipY != null && flipY != baseFlipY) ? (frameHeight - baseFrameHeight - daOffset[1]) : daOffset[1]
+				);
+			}
+			else
+			#end
+				offset.set(daOffset[0], daOffset[1]);
 		}
 		//else offset.set(0, 0);
 
@@ -570,6 +606,23 @@ class Character extends FlxSprite
 	public function hasFlag(flag:String):Bool
 	{
 		return flags != null && flags.exists(flag);
+	}
+
+	/**
+	 * NMV：当前帧的读写口（bf-running 用 legs.animCurFrame 对齐两套动画的帧）。
+	 * 语义与 NMV FunkinSprite 一致：无动画时读 0、写丢弃。
+	 */
+	public var animCurFrame(get, set):Int;
+
+	inline function get_animCurFrame():Int
+	{
+		return (animation == null || animation.curAnim == null) ? 0 : animation.curAnim.curFrame;
+	}
+
+	inline function set_animCurFrame(value:Int):Int
+	{
+		if (animation != null && animation.curAnim != null) animation.curAnim.curFrame = value;
+		return value;
 	}
 
 	/** NMV 的角色 flag 读取；没有该 flag 时返回 null（脚本常写 `getFlag('x') != true`）。 */

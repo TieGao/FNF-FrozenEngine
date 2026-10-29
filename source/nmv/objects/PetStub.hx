@@ -23,7 +23,10 @@ class PetStub extends FlxSprite
 		return flags.get(flag);
 	}
 
-	public var loadPet:(?name:String, ?force:Bool) -> Dynamic = function(?name:String = '', ?force:Bool = false):Dynamic return null;
+	// monotone.hx 的 `new funkin.objects.Pet().loadPet(custom).destroy()` 链式刷新：
+	// 返回 this 让临时实例链走通（构造的PetStub就是一次性对象，destroy 无副作用）。
+	// 闭包在构造函数里赋值——字段初始化表达式里不能引用 this。
+	public var loadPet:(?name:String, ?force:Bool) -> Dynamic;
 
 	// NMV flixel fork 的 FlxBasic 面（zIndex/skew）与 FlxSprite 的
 	// useRenderTexture：FE 没有，脚本直接赋值会炸，这里按 API 兼容补字段（无渲染语义）
@@ -31,9 +34,31 @@ class PetStub extends FlxSprite
 	public var skew:flixel.math.FlxPoint = flixel.math.FlxPoint.get();
 	public var useRenderTexture:Bool = false;
 
+	// 角色脚本把 parent 当 Bopper 写 parent.animCurFrame（bf-running），补 NMV 同名读写口
+	public var animCurFrame(get, set):Int;
+
+	inline function get_animCurFrame():Int
+	{
+		return (animation == null || animation.curAnim == null) ? 0 : animation.curAnim.curFrame;
+	}
+
+	inline function set_animCurFrame(value:Int):Int
+	{
+		if (animation != null && animation.curAnim != null) animation.curAnim.curFrame = value;
+		return value;
+	}
+
+	// 角色脚本 parent 面（bf-running 读 parent.getAnimName().contains(...)）；
+	// 缺了会经 fcall 的 null 级联报成误导性的 "Invalid access to field contains"
+	public function getAnimName():String
+	{
+		return (animation != null && animation.curAnim != null) ? animation.curAnim.name : '';
+	}
+
 	public function new()
 	{
 		super();
 		visible = false;
+		loadPet = function(?name:String = '', ?force:Bool = false):Dynamic return this;
 	}
 }

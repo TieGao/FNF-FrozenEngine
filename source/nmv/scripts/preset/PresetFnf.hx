@@ -68,6 +68,13 @@ class PresetFnf
 		script.set('DebugDisplay', nmv.backend.DebugDisplay);
 		script.set('Vector3', nmv.backend.math.Vector3);
 		script.set('CosmicubeData', nmv.data.CosmicubeData);
+		// 1.1.2 批：工具类 + 演出 shader（注册点见类注释）
+		script.set('MathUtil', nmv.utils.MathUtil);
+		script.set('SortUtil', nmv.utils.SortUtil);
+		script.set('CameraUtil', nmv.utils.CameraUtil);
+		script.set('ExtraDropShadowShader', nmv.shaders.ExtraDropShadowShader);
+		script.set('FunkinRuntimeShader', nmv.shaders.FunkinRuntimeShader);
+		script.set('HSLColorSwap', nmv.shaders.HSLColorSwap);
 		// NMV 的 flxanimate fork 内部元素类（charles.hx 置子件 active 用），壳见类注释
 		script.set('animate.internal.elements.FlxSpriteElement', nmv.objects.AnimateElementShim);
 		#if VIDEOS_ALLOWED
@@ -176,6 +183,35 @@ class PresetFnf
 		Iris.addProxyImport('funkin.backend.DebugDisplay', nmv.backend.DebugDisplay);
 		Iris.addProxyImport('funkin.backend.math.Vector3', nmv.backend.math.Vector3);
 		Iris.addProxyImport('funkin.data.CosmicubeData', nmv.data.CosmicubeData);
+		Iris.addProxyImport('funkin.utils.MathUtil', nmv.utils.MathUtil);
+		Iris.addProxyImport('funkin.utils.SortUtil', nmv.utils.SortUtil);
+		Iris.addProxyImport('funkin.utils.CameraUtil', nmv.utils.CameraUtil);
+		Iris.addProxyImport('funkin.game.shaders.ExtraDropShadowShader', nmv.shaders.ExtraDropShadowShader);
+		Iris.addProxyImport('funkin.game.shaders.HSLColorSwap', nmv.shaders.HSLColorSwap);
+		Iris.addProxyImport('funkin.game.shaders.ColorMatrixShader', nmv.shaders.ColorMatrixShader);
+		Iris.addProxyImport('funkin.game.shaders.OverlayShader', nmv.shaders.OverlayShader);
+		Iris.addProxyImport('funkin.backend.FunkinShader.FunkinRuntimeShader', nmv.shaders.FunkinRuntimeShader);
+		// 保险：脚本直接 `import flixel.addons.display.FlxRuntimeShader`（rgbPetColors.hx）
+		Iris.addProxyImport('flixel.addons.display.FlxRuntimeShader', flixel.addons.display.FlxRuntimeShader);
+
+		// FQ 名映射：`new funkin.objects.Pet()` 等全限定 new 不走 import 语句，
+		// 走 InterpEx.cnew 的 proxyImports 查找。未移植类给"调用即抛"桩，
+		// 撞上 cnew 的 TFunction 守卫 → 带原因的异常（而不是 Unknown variable）。
+		Iris.addProxyImport('funkin.objects.Pet', nmv.objects.PetStub);
+		missingProxyImport('funkin.data.FinaleState', 'finale 周剧情收尾，未移植。');
+		missingProxyImport('funkin.states.substates.CreditsRollSubState', '制作人员滚动（剧情系统），未移植。');
+		missingProxyImport('funkin.states.HenryState', '剧情状态机，未移植。');
+		missingProxyImport('funkin.states.substates.MissCounterSubstate', 'NMV 特有 substate，未移植。');
+		missingProxyImport('funkin.objects.RGBSprite', '依赖 NMV RGBGraphics 渲染管线，未移植。');
+		missingProxyImport('funkin.game.modchart.ModManager', 'NMV modchart 未移植（FE 无 modchart 体系）。');
+	}
+
+	/** FQ 类名 → "调用即抛"桩：全限定 new/静态访问撞桩时给带原因的异常。 */
+	static function missingProxyImport(name:String, reason:String):Void
+	{
+		Iris.addProxyImport(name, Reflect.makeVarArgs(function(args:Array<Dynamic>):Dynamic {
+			throw 'NMV API "$name" is not implemented in this port. $reason';
+		}));
 	}
 
 	static function registerPlayStateContext(script:FunkinScript):Void

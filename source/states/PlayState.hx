@@ -3514,6 +3514,18 @@ public function reloadCounterColors()
 		}
 	}
 
+	/**
+	 * NMV：把相机立即对齐到指定坐标（语料 30 个舞台脚本演出链路在用，经
+	 * parentFields 解析命中）。isCameraOnForcedPos 是 NMV 同名字段。
+	 * @param lockPosition 为 true 时锁定相机位置，直到外部解锁。
+	 */
+	public function snapCamToPos(x:Float = 0, y:Float = 0, lockPosition:Bool = false):Void
+	{
+		camFollow.setPosition(x, y);
+		FlxG.camera.snapToTarget();
+		if (lockPosition) isCameraOnForcedPos = true;
+	}
+
 	public function finishSong(?ignoreNoteOffset:Bool = false):Void
 	{
 		updateTime = false;

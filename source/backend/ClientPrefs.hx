@@ -319,6 +319,13 @@ class ClientPrefs {
 		return data.antialiasing;
 	}
 
+	// NMV 脚本面同理（语料 34 处，CameraUtil 也读）：等价 data.shaders 的别名
+	public static var shaders(get, never):Bool;
+	static function get_shaders():Bool
+	{
+		return data.shaders;
+	}
+
 	// NMV cosmetics（外观装备）兼容面：FE 无此系统，这里给 NMV 同构的会话内存版。
 	// legacy 包 utils.hx 的 onLoad 读 bfSkin/gfSkin/pet/colorText，缺了整个加载链就断。
 	public static var equipment:Map<String, Null<String>> = ['playerSkin' => null, 'speakerSkin' => null, 'pet' => null];

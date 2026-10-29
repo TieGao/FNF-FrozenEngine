@@ -63,4 +63,12 @@ class ColorMatrixShader extends flixel.system.FlxAssets.FlxShader
 		uMultipliers.value = multipliers;
 		uOffsets.value = offsets;
 	}
+
+	/**
+	 * NMV 同款（ejected.hx:22 调用，缺了整个舞台脚本 onLoad 中断、背景大楼不建）。
+	 */
+	public function setAdjustColor(brightness:Float = 0, hue:Float = 0, contrast:Float = 0, saturation:Float = 0):Void
+	{
+		setMatrix(AdjustColorMatrix.getColorMatrix(brightness, hue, contrast, saturation));
+	}
 }
