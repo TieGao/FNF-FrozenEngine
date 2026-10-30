@@ -109,6 +109,44 @@ class PlayState extends MusicBeatState
 	public var hscriptArray:Array<HScript> = [];
 	#end
 
+	#if HSCRIPT_ALLOWED
+	/**
+	 * NMV 脚本容器的 note 回调派发。Psych 的 note 路径（opponentNoteHit 等）只打
+	 * callOnLuas + callOnHScript，nmvScripts 收不到 —— doubletrouble.hx 的
+	 * opponentNoteHitPre（red 演唱路由）、attack.hx 的 onSpawnNotePost 全靠它。
+	 * 返回 true = 有脚本要求停止（STOP/HALT）。
+	 */
+	function nmvNoteCall(func:String, args:Array<Dynamic>):Bool
+	{
+		if (nmvScripts == null) return false;
+		final r:Dynamic = nmvScripts.call(func, args, true);
+		return (r is Int) && (r == nmv.scripting.ScriptConstants.STOP_FUNC || r == nmv.scripting.ScriptConstants.HALT_FUNC);
+	}
+
+	/**
+	 * NMV 兼容（PlayField.characterSing）：让指定角色按 note 播演唱动画。
+	 * NMV 的 Hey!/ghost/holding 细节未移植，主干 = sing 动画 + holdTimer 清零。
+	 */
+	public function characterSing(char:Character, note:Note, hold:Bool = false):Void
+	{
+		if (char == null || note.noAnimation) return;
+
+		var animToPlay:String = singAnimations[Note.getNoteDirectionIndex(Note.getColumnsPerPlayer(), note.noteData)] + note.animSuffix;
+		if (note.isSustainNote)
+		{
+			var holdAnim:String = animToPlay + '-hold';
+			if (char.animation.exists(holdAnim)) animToPlay = holdAnim;
+			if (char.getAnimationName() == holdAnim || char.getAnimationName() == holdAnim + '-loop') return;
+		}
+
+		char.playAnim(animToPlay, true);
+		char.holdTimer = 0;
+	}
+	#end
+
+	/** NMV 兼容（PlayState.attackCharacter）：monotone attack 里玩家扮演的车道号（0..3），脚本读写。 */
+	public static var attackCharacter:Int = 0;
+
 	public var BF_X:Float = 770;
 	public var BF_Y:Float = 100;
 	public var DAD_X:Float = 100;
@@ -2822,8 +2860,15 @@ public function reloadCounterColors()
 				notes.insert(0, dunceNote);
 				dunceNote.spawned = true;
 
+				// NMV 兼容：Note.player = 车道号（FE 语义 0=对手/1=玩家；NMV 0..3）
+				dunceNote.player = dunceNote.mustPress ? 1 : 0;
+
 				callOnLuas('onSpawnNote', [notes.members.indexOf(dunceNote), dunceNote.noteData, dunceNote.noteType, dunceNote.isSustainNote, dunceNote.strumTime]);
 				callOnHScript('onSpawnNote', [dunceNote]);
+				#if HSCRIPT_ALLOWED
+				nmvNoteCall('onSpawnNote', [dunceNote]);
+				nmvNoteCall('onSpawnNotePost', [dunceNote]);
+				#end
 
 				var index:Int = unspawnNotes.indexOf(dunceNote);
 				unspawnNotes.splice(index, 1);
@@ -5146,6 +5191,9 @@ public function reloadCounterColors()
 	{
 		var result:Dynamic = callOnLuas('opponentNoteHitPre', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) result = callOnHScript('opponentNoteHitPre', [note]);
+		#if HSCRIPT_ALLOWED
+		if (nmvNoteCall('opponentNoteHitPre', [note])) result = LuaUtils.Function_Stop;
+		#end
 
 		if(result == LuaUtils.Function_Stop) return;
 
@@ -5165,9 +5213,12 @@ public function reloadCounterColors()
 		}
 		else if(!note.noAnimation)
 		{
+			// NMV 兼容：opponentNoteHitPre 里脚本可设 note.owner（如 doubletrouble 的 red），
+			// 演唱动画跟随 owner 而不是固定 dad/gf（NMV opponentNoteHit → characterSing(owner ?? 常规)）
 			var char:Character = (opponentMode == "opponent") ? boyfriend : dad;
+			if (note.owner != null && Std.isOfType(note.owner, Character)) char = note.owner;
 			var animToPlay:String = singAnimations[Note.getNoteDirectionIndex(Note.getColumnsPerPlayer(), note.noteData)] + note.animSuffix;
-			if(note.gfNote) char = gf;
+			if(note.gfNote && note.owner == null) char = gf;
 
 			if(char != null)
 			{
@@ -5194,6 +5245,9 @@ public function reloadCounterColors()
 		stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
 		var result:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('opponentNoteHit', [note]);
+		#if HSCRIPT_ALLOWED
+		nmvNoteCall('opponentNoteHit', [note]);
+		#end
 
 		if (note.isSustainNote && noteHoldCover != null)
 		{
@@ -5218,6 +5272,9 @@ public function reloadCounterColors()
 
 		var result:Dynamic = callOnLuas('goodNoteHitPre', [notes.members.indexOf(note), leData, leType, isSus]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) result = callOnHScript('goodNoteHitPre', [note]);
+		#if HSCRIPT_ALLOWED
+		if (nmvNoteCall('goodNoteHitPre', [note])) result = LuaUtils.Function_Stop;
+		#end
 
 		if(result == LuaUtils.Function_Stop) return;
 
@@ -5355,6 +5412,9 @@ public function reloadCounterColors()
 		stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
 		var result:Dynamic = callOnLuas('goodNoteHit', [notes.members.indexOf(note), leData, leType, isSus]);
 		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('goodNoteHit', [note]);
+		#if HSCRIPT_ALLOWED
+		nmvNoteCall('goodNoteHit', [note]);
+		#end
 
 		if (shouldFireOpponentEvents(note))
 			triggerOpponentEventsForHumanHit(note);

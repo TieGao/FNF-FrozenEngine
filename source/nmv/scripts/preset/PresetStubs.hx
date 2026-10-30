@@ -28,8 +28,9 @@ class PresetStubs
 			return new shaders.ErrorHandledShader.ErrorHandledRuntimeShader(name, source);
 		});
 
-		// modchart 族：FE 没有等价体系，统一显式失败（样本仅 CreditsRollSubState.hx 用到）
-		for (name in ['ModManager', 'SubModifier', 'NoteModifier', 'ScriptedModifier', 'EventTimeline', 'Modifier',
+		// modchart 族：ModManager 已换记录式兼容面（nmv.utils.ModManagerCompat，PresetFnf 注册）；
+		// 其余子件仍显式失败
+		for (name in ['SubModifier', 'NoteModifier', 'ScriptedModifier', 'EventTimeline', 'Modifier',
 			'StepCallbackEvent', 'CallbackEvent', 'ModEvent', 'EaseEvent', 'SetEvent'])
 		{
 			missing(script, name, 'NMV modchart 未移植（FE 无 modchart 体系）。');

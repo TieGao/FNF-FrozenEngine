@@ -7,6 +7,7 @@ import nmv.scripting.ScriptConstants;
 import nmv.scripting.ScriptedState;
 import nmv.scripting.ScriptedSubstate;
 import nmv.scripts.FunkinScript;
+import nmv.utils.ModManagerCompat;
 
 /**
  * NMV preset 的 FNF 段：引擎类引用 + 歌内上下文变量。
@@ -101,6 +102,11 @@ class PresetFnf
 		// NMV 的 playHUD（BaseHUD/PsychHUD）：映射到 PlayState 自带的 HUD 元素（getter 逐次取）
 		script.set('playHUD', new nmv.objects.PlayHUDShim());
 
+		// NMV 的 modManager（modchart 引擎）：完整体系未移植，用记录式兼容面
+		// （setValue/getValue 真存值，时间线/定位 API 记录式 no-op + 一次性面包屑），
+		// 否则 attack/defeat/sigh 的 onCreatePost 撞"调用即抛"桩直接断链
+		script.set('modManager', sharedModManager);
+
 		// 通用工具（Psych 系 preset 也有，脚本常直接调）
 		script.set('buildTarget', psychlua.LuaUtils.getBuildTarget());
 		script.set('Function_Stop', psychlua.LuaUtils.Function_Stop);
@@ -143,6 +149,9 @@ class PresetFnf
 
 	/** PlayState 内的歌上下文变量（NMV 同名段；字段取不到的一律不注册）。 */
 	static var aliasesRegistered:Bool = false;
+
+	/** modManager 共享实例（NMV 语义 = PlayState 级单例，所有脚本看到同一个）。 */
+	static var sharedModManager:ModManagerCompat = new ModManagerCompat();
 
 	/**
 	 * NMV 的脚本按自己的包名 import（`funkin.xxx`），FE 没有这个命名空间，
@@ -198,12 +207,13 @@ class PresetFnf
 		// 走 InterpEx.cnew 的 proxyImports 查找。未移植类给"调用即抛"桩，
 		// 撞上 cnew 的 TFunction 守卫 → 带原因的异常（而不是 Unknown variable）。
 		Iris.addProxyImport('funkin.objects.Pet', nmv.objects.PetStub);
+		// modManager 的 FQ 名也接兼容面（`new funkin.game.modchart.ModManager()` 类引用）
+		Iris.addProxyImport('funkin.game.modchart.ModManager', ModManagerCompat);
 		missingProxyImport('funkin.data.FinaleState', 'finale 周剧情收尾，未移植。');
 		missingProxyImport('funkin.states.substates.CreditsRollSubState', '制作人员滚动（剧情系统），未移植。');
 		missingProxyImport('funkin.states.HenryState', '剧情状态机，未移植。');
 		missingProxyImport('funkin.states.substates.MissCounterSubstate', 'NMV 特有 substate，未移植。');
 		missingProxyImport('funkin.objects.RGBSprite', '依赖 NMV RGBGraphics 渲染管线，未移植。');
-		missingProxyImport('funkin.game.modchart.ModManager', 'NMV modchart 未移植（FE 无 modchart 体系）。');
 	}
 
 	/** FQ 类名 → "调用即抛"桩：全限定 new/静态访问撞桩时给带原因的异常。 */

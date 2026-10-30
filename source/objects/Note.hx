@@ -95,6 +95,29 @@ class Note extends FlxSprite
 	public var lateHitMult:Float = 1;
 	public var lowPriority:Bool = false;
 
+	// NMV 兼容面：
+	/** NMV 兼容面：演唱归属角色（opponentNoteHitPre 里脚本设 owner=red 路由演唱）；
+	 *  opponentNoteHit 的默认演唱动画读它，null 走常规 dad/gf。 */
+	public var owner:Dynamic = null;
+	/** NMV Note.player：note 属于哪条车道（0..3）。FE 只有 0=对手/1=玩家（onSpawnNote 时赋值）。 */
+	public var player:Int = 0;
+
+	/** NMV 兼容（NoteSkin 面板）：note.skin.singAnimations / note.skin.data.singAnimations
+	 *  取 PlayState 的演唱动画名数组（每列一名）；语料只用到这两处（doubletrouble:539、
+	 *  sussy 相关脚本）。PlayState.singAnimations 是私有字段，走 Reflect。 */
+	public var skin(get, never):Dynamic;
+
+	function get_skin():Dynamic
+	{
+		var anims:Array<String> = ['singLEFT', 'singDOWN', 'singUP', 'singRIGHT'];
+		if (PlayState.instance != null)
+		{
+			final fromGame:Dynamic = Reflect.getProperty(PlayState.instance, 'singAnimations');
+			if (fromGame != null) anims = fromGame;
+		}
+		return {singAnimations: anims, data: {singAnimations: anims}};
+	}
+
 	public static var SUSTAIN_SIZE:Int = 44;
 	public static var swagWidth:Float = 160 * 0.7;
 	public static var colArray:Array<String> = ['purple', 'blue', 'green', 'red'];
