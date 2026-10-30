@@ -758,7 +758,12 @@ class Character extends FlxSprite
 	var nmvAnchorDx:Float = 0;
 	var nmvAnchorDy:Float = 0;
 	var nmvAnchorReady:Bool = false;
-	/** 锚点缓存键：角色 json 的 image 路径（同图集跨实例复用，见 captureNmvAnchor）。 */
+	/** 锚点采样门控：等 idle@0 帧的最大绘制帧数（60fps 约 8 秒），超时退回首绘采样。 */
+	static inline var NMV_ANCHOR_MAX_DRAWS:Int = 480;
+	var nmvAnchorDrawCount:Int = 0;
+	/** 锚点采样缓存：键 = 图集路径（角色 json image 字段），同图集跨实例复用。 */
+	public static var nmvAnchorCache:Map<String, FlxPoint> = [];
+	/** 锚点缓存键：角色 json 的 image 路径（见 captureNmvAnchor）。 */
 	var nmvAtlasKey:String;
 
 	public override function draw()
@@ -824,56 +829,58 @@ class Character extends FlxSprite
 	}
 
 	/**
-	 * 首帧绘制后采样一次锚点偏移，全局固定。
-	 * 优先级（2026-10-30 起）：
-	 * 1. 同图集缓存（nmv.utils.NmvAtlasAnchor.cache，键 = image 路径）——
-	 *    Change Character 换实例后首绘动画可能不同，实测采样不稳定（danger 双值瞬移）；
-	 * 2. 确定性计算（NmvAtlasAnchor.computeAnchor：整条时间轴包围盒，NMV getWholeBounds
-	 *    同数学）——首帧实测对"首帧不碰包围盒角"的角色是错的（blackparasite 量出 -2074）；
-	 * 3. 退回首帧实测（atlas.relativeX 屏幕空间采样，zoom≠1/部件被裁剪时会畸变）。
+	 * 锚点采样（首帧内容 min 钉位）——同图集缓存 + idle 帧门控 + 超时兜底。
+	 *
+	 * 背景（2026-10-31 复盘）：NMV flixel-animate 的 applyStageMatrix 默认 false 且引擎
+	 * 从不开启 —— 两边渲染数学本就一致，补偿的意义是"把内容 bbox 左上角钉在逻辑位上"，
+	 * 旧实现采"首绘帧内容 min"经实测对 bf/gf/red/green/black 是正确值。
+	 * 旧实现三个缺陷与修法：
+	 * 1. 换实例（Change Character）重采样，首绘动画不同 → 同角色两值瞬移
+	 *    （danger 76,343 → -5,-190）→ **同图集静态缓存**（键 = image 路径，值与实例 offset 无关）；
+	 * 2. 首绘不是 idle 的角色采到离群帧（blackparasite -2074）→ **idle@0 帧门控**，
+	 *    超时（NMV_ANCHOR_MAX_DRAWS 帧）退回首绘采样；
+	 * 3. 旧公式漏 viewMargin（fork 的 worldToView = world - scroll - viewMargin，zoom 折进
+	 *    margin）→ zoom≠1 时被污染 → **补 viewMargin**。
 	 */
 	function captureNmvAnchor():Void
 	{
 		if(nmvAnchorReady) return;
 		if(atlas.frameWidth <= 0 || atlas.frameHeight <= 0) return;
 
-		if (nmvAtlasKey != null && nmvAtlasKey.length > 0)
+		if (nmvAtlasKey != null && nmvAtlasKey.length > 0 && nmvAnchorCache.exists(nmvAtlasKey))
 		{
-			if (nmv.utils.NmvAtlasAnchor.cache.exists(nmvAtlasKey))
-			{
-				var cached = nmv.utils.NmvAtlasAnchor.cache.get(nmvAtlasKey);
-				nmvAnchorDx = cached.x * scale.x;
-				nmvAnchorDy = cached.y * scale.y;
-				nmvAnchorReady = true;
-				offset.x += nmvAnchorDx;
-				offset.y += nmvAnchorDy;
-				return;
-			}
-
-			var computed = nmv.utils.NmvAtlasAnchor.computeAnchor(atlas);
-			if (computed != null)
-			{
-				nmvAnchorDx = computed.x * scale.x;
-				nmvAnchorDy = computed.y * scale.y;
-				nmvAnchorReady = true;
-				nmv.utils.NmvAtlasAnchor.cache.set(nmvAtlasKey, FlxPoint.get(computed.x, computed.y));
-				computed.put();
-				offset.x += nmvAnchorDx;
-				offset.y += nmvAnchorDy;
-				backend.Bread.crumb('nmv anchor calc ' + curCharacter + ' dx=' + Std.int(nmvAnchorDx) + ' dy=' + Std.int(nmvAnchorDy));
-				return;
-			}
+			final cached = nmvAnchorCache.get(nmvAtlasKey);
+			nmvAnchorDx = cached.x;
+			nmvAnchorDy = cached.y;
+			nmvAnchorReady = true;
+			offset.x += nmvAnchorDx;
+			offset.y += nmvAnchorDy;
+			return;
 		}
 
-		var cam = atlas.camera;
-		var sf = atlas.scrollFactor;
-		nmvAnchorDx = atlas.relativeX + (cam != null ? cam.scroll.x * sf.x : 0) + atlas.offset.x;
-		nmvAnchorDy = atlas.relativeY + (cam != null ? cam.scroll.y * sf.y : 0) + atlas.offset.y;
+		// 采样时机门：等 idle（idle/danceLeft/danceRight）动画第 0 帧
+		nmvAnchorDrawCount++;
+		final curAnim = (animation != null) ? animation.curAnim : null;
+		final animName:String = (curAnim != null) ? curAnim.name : null;
+		final idleHit:Bool = (animName != null && curAnim.curFrame == 0)
+			&& (animName == 'idle' + idleSuffix
+				|| animName == 'danceLeft' + idleSuffix
+				|| animName == 'danceRight' + idleSuffix);
+		if (!idleHit && nmvAnchorDrawCount < NMV_ANCHOR_MAX_DRAWS) return;
+
+		final cam = atlas.camera;
+		final sf = atlas.scrollFactor;
+		// fork 的 view→world：world = view + scroll*sf + viewMargin（zoom 已折进 margin）
+		nmvAnchorDx = atlas.relativeX + (cam != null ? cam.scroll.x * sf.x + cam.viewMarginX : 0) + atlas.offset.x;
+		nmvAnchorDy = atlas.relativeY + (cam != null ? cam.scroll.y * sf.y + cam.viewMarginY : 0) + atlas.offset.y;
 		nmvAnchorReady = true;
+
+		if (nmvAtlasKey != null && nmvAtlasKey.length > 0)
+			nmvAnchorCache.set(nmvAtlasKey, FlxPoint.get(nmvAnchorDx, nmvAnchorDy));
 
 		offset.x += nmvAnchorDx;
 		offset.y += nmvAnchorDy;
-		backend.Bread.crumb('nmv anchor ' + curCharacter + ' dx=' + Std.int(nmvAnchorDx) + ' dy=' + Std.int(nmvAnchorDy));
+		backend.Bread.crumb('nmv anchor ' + (idleHit ? 'idle' : 'timeout') + ' ' + curCharacter + ' dx=' + Std.int(nmvAnchorDx) + ' dy=' + Std.int(nmvAnchorDy));
 	}
 
 	public override function destroy()
