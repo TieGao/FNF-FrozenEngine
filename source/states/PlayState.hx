@@ -1342,7 +1342,22 @@ class PlayState extends MusicBeatState
 		// 探针：定位"舞台脚本 onCreatePost 是否被派发/何时派发"（doubletrouble red=null 之谜：
 		// bread.log 里 onUpdate 报错但无 onCreatePost 报错）。下次实测看本行与首个 onUpdate 错误的先后。
 		#if HSCRIPT_ALLOWED
-		if (nmvScripts != null) backend.Bread.crumb('PS onCreatePost dispatched');
+		if (nmvScripts != null)
+		{
+			backend.Bread.crumb('PS onCreatePost dispatched');
+			// NMV 同款（PlayState:913）：create 末尾按 zIndex 升序稳定排序整个 state。
+			// 脚本对原生 flixel 对象写的 zIndex 在 InterpEx.zIndexStore 旁表里
+			// （fork 无该字段），maroon 雪=13 排到最后=最上层等层级由此恢复。
+			final members:Array<FlxBasic> = cast FlxG.state.members;
+			final order:Array<Int> = [for (i in 0...members.length) i];
+			order.sort(function(a:Int, b:Int):Int
+			{
+				final d:Float = nmv.scripts.InterpEx.getZ(members[a]) - nmv.scripts.InterpEx.getZ(members[b]);
+				return d > 0 ? 1 : (d < 0 ? -1 : a - b); // 同 z 保插入序（稳定）
+			});
+			final sorted:Array<FlxBasic> = [for (i in order) members[i]];
+			for (i in 0...sorted.length) members[i] = sorted[i];
+		}
 		#end
 
 		// 真正预热：每一列都 spawn 一次
@@ -3611,17 +3626,21 @@ public function reloadCounterColors()
 	}
 	#end
 
-	// NMV 兼容（MusicBeatState.refreshZ）：按 zIndex 升序重排组，默认整个 state。
+	// NMV 兼容（MusicBeatState.refreshZ）：按 zIndex 升序**稳定**重排组，默认整个 state。
 	// 舞台脚本 armed/security2/medbay/attack/voting 在布置完物件后调用。
+	// fork 的 FlxBasic 无 zIndex 字段：有效值经 InterpEx.getZ（真字段 → 旁表 → 0）。
 	public function refreshZ(?group:FlxTypedGroup<FlxBasic>)
 	{
 		if (group == null) group = cast FlxG.state;
-		group.sort(function(order:Int, a:FlxBasic, b:FlxBasic):Int
+		final arr:Array<FlxBasic> = group.members;
+		final order:Array<Int> = [for (i in 0...arr.length) i];
+		order.sort(function(a:Int, b:Int):Int
 		{
-			var az:Float = Reflect.hasField(a, 'zIndex') || Reflect.getProperty(a, 'zIndex') != null ? Reflect.getProperty(a, 'zIndex') : 0;
-			var bz:Float = Reflect.hasField(b, 'zIndex') || Reflect.getProperty(b, 'zIndex') != null ? Reflect.getProperty(b, 'zIndex') : 0;
-			return Std.int(az - bz) * (order == FlxSort.ASCENDING ? 1 : -1);
-		}, FlxSort.ASCENDING);
+			final d:Float = nmv.scripts.InterpEx.getZ(arr[a]) - nmv.scripts.InterpEx.getZ(arr[b]);
+			return d > 0 ? 1 : (d < 0 ? -1 : a - b);
+		});
+		final sorted:Array<FlxBasic> = [for (i in order) arr[i]];
+		for (i in 0...sorted.length) arr[i] = sorted[i];
 	}
 
 	public function moveCameraSection(?sec:Null<Int>):Void {

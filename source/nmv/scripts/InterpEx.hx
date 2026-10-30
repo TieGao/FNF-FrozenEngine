@@ -299,6 +299,28 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 	 * 的后续行。这里对 zIndex 写入做定向吸收：带 zIndex 的移植类（NmvSprite 等）走
 	 * super 正常写入，原生 flixel 对象静默忽略（无渲染语义，同 NmvSprite shim 先例）。
 	 */
+	/**
+	 * zIndex 旁表：fork 的 FlxBasic/FlxSprite 没有 zIndex 字段，脚本对原生对象的
+	 * zIndex 写入（maroon 雪=13、danger 的 gf/bf/dad 层级等）此前被静默吸收成 no-op，
+	 * 层级完全失效（雪花被背景盖住的直接原因）。现在写入记进此表，
+	 * PlayState.create 末尾的 NMV 同款 refreshZ(state) 按它排序。
+	 * 带真 zIndex 字段的移植类（NmvSprite/PetStub/PlayFieldShim）仍走 super 正常写入。
+	 */
+	public static var zIndexStore:Map<{}, Float> = [];
+
+	/** 读对象的有效 zIndex：真字段优先，旁表兜底，都没有 = 0。 */
+	public static function getZ(obj:Dynamic):Float
+	{
+		if (obj == null) return 0;
+		try
+		{
+			final v:Dynamic = Reflect.getProperty(obj, 'zIndex');
+			if (v != null) return v;
+		}
+		catch (e:Dynamic) {}
+		return zIndexStore.exists(obj) ? zIndexStore.get(obj) : 0;
+	}
+
 	override function set(o:Dynamic, f:String, v:Dynamic):Dynamic
 	{
 		// FlxCamera.scrollAngle → angle（真实旋转，ejected/danger/turbulence 运镜在用）
@@ -316,6 +338,8 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 			}
 			catch (e:Dynamic)
 			{
+				// 原生 flixel 对象没有 zIndex 字段：记旁表供 create 末尾排序消费
+				zIndexStore.set(o, v);
 				return v;
 			}
 		}
