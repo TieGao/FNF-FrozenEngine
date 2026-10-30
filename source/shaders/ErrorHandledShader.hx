@@ -59,6 +59,20 @@ class ErrorHandledRuntimeShader extends FlxRuntimeShader implements IErrorHandle
 {
 	public var shaderName:String = '';
 	public dynamic function onError(error:Dynamic):Void {}
+
+	/** NMV flixel-addons fork 的 FlxRuntimeShader 面（FE pin 没有这组 API）：
+	 *  sampler2D 纹理上传，charles.hx 的云遮罩（charlesCloudMask）在用。 */
+	public function setBitmapData(name:String, value:openfl.display.BitmapData):Void
+	{
+		final p:Dynamic = Reflect.field(data, name);
+		if (p == null)
+		{
+			trace('[WARN] Shader sampler2D property ${name} not found.');
+			return;
+		}
+		p.input = value;
+	}
+
 	public function new(?shaderName:String, ?fragmentSource:String, ?vertexSource:String)
 	{
 		this.shaderName = shaderName;

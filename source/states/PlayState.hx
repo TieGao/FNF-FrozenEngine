@@ -147,6 +147,64 @@ class PlayState extends MusicBeatState
 	/** NMV 兼容（PlayState.attackCharacter）：monotone attack 里玩家扮演的车道号（0..3），脚本读写。 */
 	public static var attackCharacter:Int = 0;
 
+	/** NMV 兼容（PlayState.pauseOverwrite）：覆盖死亡演出角色名（greatest-plan/henry/monotone
+	 *  等按剧情段切换）。FE 的 GameOverSubstate 暂不消费它，字段保脚本链路与会话语义。 */
+	public var pauseOverwrite:String = '';
+
+	/** NMV 兼容（PlayState.triggerEventNote）：旧式事件重放器（triggerEventNote('Play Animation',
+	 *  'intro', 'bf') 之类）。NMV 原版对 Hey!/Camera Zoom 等有 playAnimForDuration 变体，
+	 *  这里委托 triggerEvent（ Psych 原生分支语义一致），不广播脚本 onEvent（NMV 同款）。 */
+	public function triggerEventNote(eventName:String, value1:String, value2:String):Void
+	{
+		var flValue1:Null<Float> = Std.parseFloat(value1);
+		var flValue2:Null<Float> = Std.parseFloat(value2);
+		if (Math.isNaN(flValue1)) flValue1 = null;
+		if (Math.isNaN(flValue2)) flValue2 = null;
+
+		switch (eventName)
+		{
+			case 'Hey!':
+				var value:Int = 2;
+				switch (value1.toLowerCase().trim())
+				{
+					case 'bf' | 'boyfriend' | '0': value = 0;
+					case 'gf' | 'girlfriend' | '1': value = 1;
+				}
+				var time:Float = Std.parseFloat(value2);
+				if (Math.isNaN(time) || time <= 0) time = 0.6;
+
+				if (value != 0)
+				{
+					if (dad.curCharacter.startsWith('gf'))
+					{
+						dad.playAnim('cheer', true);
+						dad.specialAnim = true;
+						dad.heyTimer = time;
+					}
+					else if (gf != null)
+					{
+						gf.playAnim('cheer', true);
+						gf.specialAnim = true;
+						gf.heyTimer = time;
+					}
+				}
+				if (value != 1)
+				{
+					boyfriend.playAnim('hey', true);
+					boyfriend.specialAnim = true;
+					boyfriend.heyTimer = time;
+				}
+
+			case 'Set GF Speed':
+				var value:Int = Std.parseInt(value1);
+				if (Math.isNaN(value) || value < 1) value = 1;
+				gfSpeed = value;
+
+			default:
+				triggerEvent(eventName, value1, value2, 0);
+		}
+	}
+
 	public var BF_X:Float = 770;
 	public var BF_Y:Float = 100;
 	public var DAD_X:Float = 100;
