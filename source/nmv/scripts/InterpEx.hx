@@ -9,6 +9,7 @@ import crowplexus.iris.Iris;
 import crowplexus.hscript.*;
 import crowplexus.hscript.Expr;
 import crowplexus.hscript.Tools;
+import flixel.graphics.frames.FlxFrame;
 
 import nmv.objects.FunkinSprite;
 
@@ -264,6 +265,14 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 		// 映射过去让 camHUD 摇摆真实生效（ejected/danger/turbulence 的运镜）。
 		if (f == 'scrollAngle' && Std.isOfType(o, flixel.FlxCamera))
 			return o.angle;
+
+		// NMV fork 的 FlxFrame.angle 是 Float 角度（FE pin 是 FlxFrameAngle 枚举）——
+		// beach.hx 的轮光 shader 用 frame.angle * Math.PI / 180 求弧度，枚举乘法会炸
+		if (f == 'angle' && Std.isOfType(o, flixel.graphics.frames.FlxFrame))
+		{
+			final fa:Int = o.angle; // FlxFrameAngle 是 Int 枚举抽象
+			return fa == 90 ? 90 : (fa == -90 ? -90 : 0);
+		}
 
 		if (f == 'contains')
 		{

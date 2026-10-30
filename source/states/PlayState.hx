@@ -11,6 +11,7 @@ import flixel.FlxObject;
 import flixel.FlxSubState;
 import flixel.util.FlxSort;
 import flixel.util.FlxStringUtil;
+import flixel.util.helpers.FlxBounds;
 import flixel.input.keyboard.FlxKey;
 import openfl.events.KeyboardEvent;
 
@@ -115,6 +116,14 @@ class PlayState extends MusicBeatState
 	public var GF_X:Float = 400;
 	public var GF_Y:Float = 130;
 
+	// NMV 兼容面（PlayState.PET_X/PET_Y）：宠物站位，create 里按 stage json pet[] 设定
+	public var PET_X:Float = 1140;
+	public var PET_Y:Float = 949;
+	// NMV 兼容面（PlayState.playFields）：NMV 的 PlayField 车道组。
+	// create 早期挂 4 个 PlayFieldShim（0/1=玩家/对手真实 strum 组的活引用，
+	// 2/3=2v2 "Opponent Two" 空位——脚本写 owner/isPlayer 不炸，无渲染/输入语义）。
+	public var playFields:FlxTypedGroup<nmv.objects.PlayFieldShim> = new FlxTypedGroup<nmv.objects.PlayFieldShim>();
+
 	public var songSpeedTween:FlxTween;
 	public var songSpeed(default, set):Float = 1;
 	public var songSpeedType:String = "multiplicative";
@@ -207,6 +216,9 @@ class PlayState extends MusicBeatState
 	public var playerDead:Bool = false;
 	public var opponentDead:Bool = false;
 	@:isVar public var health(get, set):Float;
+	// NMV 兼容面：血量边界（NMV PlayState 同名同值，finaleUI 等脚本读 game.healthBounds.min/max）。
+	// FE 运行时血量本就是 0..2，与默认值一致；字段仅供脚本读写，FE 内部逻辑不消费它。
+	public var healthBounds:FlxBounds<Float> = new FlxBounds(0.0, 2.0);
 	public var combo:Int = 0;
 	public var highestCombo:Int = 0;
 
@@ -761,6 +773,18 @@ class PlayState extends MusicBeatState
 		DAD_X = stageData.opponent[0];
 		DAD_Y = stageData.opponent[1];
 
+		// NMV 兼容（PlayState.PET_X/PET_Y）：宠物站位，stage json 无 pet 时用 NMV 同款默认
+		if (stageData.pet != null && stageData.pet.length >= 2)
+		{
+			PET_X = stageData.pet[0];
+			PET_Y = stageData.pet[1];
+		}
+		else
+		{
+			PET_X = BF_X + 370;
+			PET_Y = BF_Y + 849;
+		}
+
 		if(stageData.camera_speed != null)
 			cameraSpeed = stageData.camera_speed;
 
@@ -779,6 +803,17 @@ class PlayState extends MusicBeatState
 		boyfriendGroup = new FlxSpriteGroup(BF_X, BF_Y);
 		dadGroup = new FlxSpriteGroup(DAD_X, DAD_Y);
 		gfGroup = new FlxSpriteGroup(GF_X, GF_Y);
+
+		#if HSCRIPT_ALLOWED
+		// NMV 的 PlayField 车道组：onCreatePost 前就要可迭代（voting.hx/sigh.hx）。
+		// 0/1 号位包真实 strum 组（活引用，strums 在 startCountdown 才填充）；
+		// 2/3 号位为 Opponent Two 空位。
+		playFields.clear();
+		playFields.add(new nmv.objects.PlayFieldShim(0, true, cast playerStrums));
+		playFields.add(new nmv.objects.PlayFieldShim(1, false, cast opponentStrums));
+		playFields.add(new nmv.objects.PlayFieldShim(2, false));
+		playFields.add(new nmv.objects.PlayFieldShim(3, false));
+		#end
 
 		// NMV 脚本 API 容器。舞台脚本必须赶在角色创建之前跑 onLoad，
 		// 否则脚本里 add 的背景会叠在角色上面（NMV 的 Stage.runScript 时序）
@@ -1266,6 +1301,11 @@ class PlayState extends MusicBeatState
 
 		stagesFunc(function(stage:BaseStage) stage.createPost());
 		callOnScripts('onCreatePost');
+		// 探针：定位"舞台脚本 onCreatePost 是否被派发/何时派发"（doubletrouble red=null 之谜：
+		// bread.log 里 onUpdate 报错但无 onCreatePost 报错）。下次实测看本行与首个 onUpdate 错误的先后。
+		#if HSCRIPT_ALLOWED
+		if (nmvScripts != null) backend.Bread.crumb('PS onCreatePost dispatched');
+		#end
 
 		// 真正预热：每一列都 spawn 一次
 		var splashColumns:Int = Note.getColumnsPerPlayer(SONG);
@@ -2197,10 +2237,14 @@ public function reloadCounterColors()
 		}
 		// 编辑器保存的谱面会把事件内嵌进 chart json；内嵌非空时以谱面为准、跳过外置文件，
 		// 否则同一事件会在这里和下方 songData.events 各触发一次。
-		if(eventsChart != null && (PlayState.SONG.events == null || PlayState.SONG.events.length < 1))
+		// NMV 语料例外：NMV 原版 getEventsDirect 是"外置 events.json + SONG.events"两个来源
+		// 都读；实测这批包确实并存且内容完全相同（编辑器双导出，如 double-trouble/voting-time）。
+		// 对 NMV 按原版语义合并、再按 (时间,事件,值1,值2) 去重防重放 —— 双来源合一份。
+		if(eventsChart != null && (PlayState.SONG.events == null || PlayState.SONG.events.length < 1 || backend.NMVContentData.currentMod != null))
 			for (event in eventsChart.events) //Event Notes
 				for (i in 0...event[1].length)
-					makeEvent(event, i);
+					if (!eventDuplicatedInChart(event, i))
+						makeEvent(event, i);
 
 		var oldNote:Note = null;
 		// 幽灵音先记账、生成循环结束后再回池：当场回池会被同一轮的 obtainNote 立刻复用，
@@ -2444,6 +2488,33 @@ public function reloadCounterColors()
 		eventNotes.push(subEvent);
 		eventPushed(subEvent);
 		callOnScripts('onEventPushed', [subEvent.event, subEvent.value1 != null ? subEvent.value1 : '', subEvent.value2 != null ? subEvent.value2 : '', subEvent.strumTime]);
+	}
+
+	/** 外置事件与谱内嵌事件是否重复（NMV 双来源合并的去重判据）。 */
+	function eventDuplicatedInChart(event:Array<Dynamic>, i:Int):Bool
+	{
+		if (PlayState.SONG == null || PlayState.SONG.events == null || event == null || event[1] == null) return false;
+
+		final t:Float = event[0];
+		final evName:Dynamic = event[1][i][0];
+		final v1:String = event[1][i][1] == null ? '' : event[1][i][1];
+		final v2:String = event[1][i][2] == null ? '' : event[1][i][2];
+
+		for (emb in PlayState.SONG.events)
+		{
+			if (emb == null || emb[0] != t || emb[1] == null) continue;
+			final list:Array<Dynamic> = emb[1];
+			for (j in 0...list.length)
+			{
+				final e:Array<Dynamic> = list[j];
+				if (e == null) continue;
+				if (e[0] == evName
+					&& (e[1] == null ? '' : e[1]) == v1
+					&& (e[2] == null ? '' : e[2]) == v2)
+					return true;
+			}
+		}
+		return false;
 	}
 
 	public var skipArrowStartTween:Bool = false; //for lua
@@ -3310,6 +3381,56 @@ public function reloadCounterColors()
 			case 'Play Sound':
 				if(flValue2 == null) flValue2 = 1;
 				FlxG.sound.play(Paths.sound(value1), flValue2);
+
+			// ---- NMV 语料原生事件（NMV 引擎 triggerEvent 同名分支的移植）。
+			// 这些名字只出现在 NMVMODS 包的事件里，FE 谱面不会用到；
+			// 落进 switch 让末尾的 stagesFunc/onEvent 广播与 NMV 原版一致（原生处理后仍广播脚本）。
+			case 'Set Cam Zoom': // NMV：defaultCamZoom 绝对值直设（注意与 Psych 'Set Camera Zoom' 乘数语义不同）
+				if(!Math.isNaN(flValue1)) defaultCamZoom = flValue1;
+
+			case 'Camera Zoom': // NMV：defaultCamZoom 乘数 + 可选 '时长,ease' 补间（NMV 硬编码 circOut）
+				FlxTween.cancelTweensOf(FlxG.camera, ['zoom']);
+				var nmvMult:Float = flValue1 != null ? flValue1 : 1;
+				var nmvTargetZoom:Float = defaultCamZoom * nmvMult;
+				if (value2 != null && value2 != '')
+				{
+					var nmvSplit:Array<String> = value2.split(',');
+					var nmvDuration:Float = nmvSplit[0] != null ? Std.parseFloat(nmvSplit[0].trim()) : 0;
+					if (Math.isNaN(nmvDuration)) nmvDuration = 0;
+					if (nmvDuration > 0) FlxTween.tween(FlxG.camera, {zoom: nmvTargetZoom}, nmvDuration, {ease: FlxEase.circOut});
+					else FlxG.camera.zoom = nmvTargetZoom;
+				}
+				defaultCamZoom = nmvTargetZoom;
+
+			case 'Set Cam Pos': // NMV：改角色相机偏移（bf/gf/dad），value1 = 'x,y'
+				if (value1 != null)
+				{
+					var nmvPos:Array<String> = value1.split(',');
+					var nmvX:Float = nmvPos[0] != null ? Std.parseFloat(nmvPos[0].trim()) : 0;
+					var nmvY:Float = nmvPos[1] != null ? Std.parseFloat(nmvPos[1].trim()) : 0;
+					if (Math.isNaN(nmvX)) nmvX = 0;
+					if (Math.isNaN(nmvY)) nmvY = 0;
+					switch (value2)
+					{
+						case 'bf' | 'boyfriend':
+							boyfriendCameraOffset[0] = nmvX;
+							boyfriendCameraOffset[1] = nmvY;
+						case 'gf' | 'girlfriend':
+							girlfriendCameraOffset[0] = nmvX;
+							girlfriendCameraOffset[1] = nmvY;
+						case 'dad' | 'opponent':
+							opponentCameraOffset[0] = nmvX;
+							opponentCameraOffset[1] = nmvY;
+					}
+				}
+
+			case 'HUD Fade': // NMV：camHUD 透明度补间，value1 = 目标 alpha、value2 = 时长
+				FlxTween.cancelTweensOf(camHUD, ['alpha']);
+				var nmvAlpha:Float = flValue1 != null ? flValue1 : 1;
+				var nmvFade:Float = flValue2 != null ? flValue2 : 1;
+				if (Math.isNaN(nmvFade)) nmvFade = 1;
+				if (nmvFade > 0) FlxTween.tween(camHUD, {alpha: nmvAlpha}, nmvFade);
+				else camHUD.alpha = nmvAlpha;
 		}
 
 		stagesFunc(function(stage:BaseStage) stage.eventCalled(eventName, value1, value2, flValue1, flValue2, strumTime));
@@ -3445,9 +3566,21 @@ public function reloadCounterColors()
 	}
 	#end
 
+	// NMV 兼容（MusicBeatState.refreshZ）：按 zIndex 升序重排组，默认整个 state。
+	// 舞台脚本 armed/security2/medbay/attack/voting 在布置完物件后调用。
+	public function refreshZ(?group:FlxTypedGroup<FlxBasic>)
+	{
+		if (group == null) group = cast FlxG.state;
+		group.sort(function(order:Int, a:FlxBasic, b:FlxBasic):Int
+		{
+			var az:Float = Reflect.hasField(a, 'zIndex') || Reflect.getProperty(a, 'zIndex') != null ? Reflect.getProperty(a, 'zIndex') : 0;
+			var bz:Float = Reflect.hasField(b, 'zIndex') || Reflect.getProperty(b, 'zIndex') != null ? Reflect.getProperty(b, 'zIndex') : 0;
+			return Std.int(az - bz) * (order == FlxSort.ASCENDING ? 1 : -1);
+		}, FlxSort.ASCENDING);
+	}
+
 	public function moveCameraSection(?sec:Null<Int>):Void {
-		if(sec == null) sec = curSection;
-		if(sec < 0) sec = 0;
+		if(sec == null) sec = curSection;		if(sec < 0) sec = 0;
 
 		if(SONG.notes[sec] == null) return;
 

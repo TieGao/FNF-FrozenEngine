@@ -225,8 +225,14 @@ class CoolUtil
 		// #if (flixel < "5.0.0") return company; #else
 		// NMV 移植工作区专用存档目录（-NMVPort 后缀）：本工作区构建只用于 NMV 移植
 		// 验证，Project.xml 的 company/file 与主版 J:\FNF-FrozenEngine 完全相同，不隔离
-		// 会直接覆盖用户主存档（2026-10-28 已发生一次）。
+		// 会直接覆盖用户主存档（2026-10-28 已发生一次，当时 funkin.sol 无备份可还原）。
+		// 后缀挂在编译期 flag（Project.xml 的 NMV_PORT_SAVE）上：源码同步到主版时
+		// 不会把主版存档也改道到 -NMVPort 目录 —— 那样主版看自己的旧档就像"被清空"。
+		#if NMV_PORT_SAVE
 		return '${company}/${flixel.util.FlxSave.validate(FlxG.stage.application.meta.get('file'))}-NMVPort';
+		#else
+		return '${company}/${flixel.util.FlxSave.validate(FlxG.stage.application.meta.get('file'))}';
+		#end
 		// #end
 	}
 

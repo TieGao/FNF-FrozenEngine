@@ -26,6 +26,8 @@ typedef StageFile = {
 	@:optional var preload:Dynamic;
 	@:optional var objects:Array<Dynamic>;
 	@:optional var _editorMeta:Dynamic;
+	// NMV 语料舞台的宠物站位（danger 等 json 带 "pet":[x,y]；NMV PlayState PET_X/PET_Y 消费）
+	@:optional var pet:Array<Dynamic>;
 }
 
 enum abstract LoadFilters(Int) from Int from UInt to Int to UInt

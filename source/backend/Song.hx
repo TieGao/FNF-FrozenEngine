@@ -301,12 +301,32 @@ class Song
 		if (dash >= 0 && dash < song.length - 1) difficulty = song.substr(dash + 1);
 
 		var root:String = '${NMVContentData.ROOT}/$mod';
-		for (candidate in [
-			'$root/songs/$folder/data/$difficulty.json',
-			'$root/songs/$folder/$difficulty.json',
-			'$root/songs/$folder/data/normal.json',
-			'$root/songs/$folder/song.json'
-		])
+
+		// 事件图表特判：NMV 的事件在 songs/<歌>/data/events.json（vanilla 旧事件格式）。
+		// 不特判的话 'events' 会被当难度名、difficulty 落回 'normal'，
+		// 第一候选直接命中 normal.json —— 事件图表加载成 note 谱，全部事件丢失
+		// （2026-10-30 实测：日志 "converting chart events with format nmv2" 即此假命中）。
+		// 变体（events-erect 等）优先探变体文件，探不到再落基础 events.json。
+		var candidates:Array<String>;
+		if (song == 'events' || StringTools.startsWith(song, 'events-'))
+		{
+			candidates = [];
+			if (difficulty != 'normal' && dash >= 0 && song.substr(0, dash) == 'events')
+				candidates.push('$root/songs/$folder/data/events-$difficulty.json');
+			candidates.push('$root/songs/$folder/data/events.json');
+			candidates.push('$root/songs/$folder/events.json');
+		}
+		else
+		{
+			candidates = [
+				'$root/songs/$folder/data/$difficulty.json',
+				'$root/songs/$folder/$difficulty.json',
+				'$root/songs/$folder/data/normal.json',
+				'$root/songs/$folder/song.json'
+			];
+		}
+
+		for (candidate in candidates)
 		{
 			if (FileSystem.exists(candidate)) return candidate;
 		}

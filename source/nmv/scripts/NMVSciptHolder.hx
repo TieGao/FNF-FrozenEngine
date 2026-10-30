@@ -84,6 +84,11 @@ class NMVSciptHolder implements IFlxDestroyable
 	 * （顶层 var 只进脚本自己的 locals）。这里按源码里的 public var 名单把值同步进
 	 * Sharables —— 否则 videoCheckStory 这类开关在别的脚本里读到 null，
 	 * `if (videoCheckStory && !isStoryMode)` 整段判断失效，过场就会在 Freeplay 里误触发。
+	 *
+	 * 顶层函数同理共享（NMV LOOSE 语义 = 全部脚本一个作用域）：dialogue.hx 的
+	 * videoCutscene、refreshZ 等被 mando/oversight/danger/49 的 onLoad 直接调用，
+	 * 不共享则 "Null Function Pointer"（2026-10-30 bread.log 实证）。
+	 * iris 的 exists() 只查脚本自身 variables，共享回调函数不会干扰 group.call 的逐脚本派发。
 	 */
 	function sharePublicVars(script:FunkinScript, file:String):Void
 	{
@@ -94,10 +99,23 @@ class NMVSciptHolder implements IFlxDestroyable
 		for (line in src.split('\n'))
 		{
 			final t:String = StringTools.trim(line);
-			if (!StringTools.startsWith(t, 'public var ')) continue;
+			final isPublicVar:Bool = StringTools.startsWith(t, 'public var ');
+			final isTopFunc:Bool = (StringTools.startsWith(t, 'function ') || StringTools.startsWith(t, 'public function '));
+			if (!isPublicVar && !isTopFunc) continue;
 
-			final rest:String = t.substr('public var '.length);
-			final id:String = StringTools.trim(rest.split(':')[0].split('=')[0]);
+			var id:String;
+			if (isPublicVar)
+			{
+				final rest:String = t.substr('public var '.length);
+				id = StringTools.trim(rest.split(':')[0].split('=')[0]);
+			}
+			else
+			{
+				// 函数名 = 'function'/'public function' 之后到 '(' 之前的标识符
+				final kw:String = t.startsWith('public ') ? 'public function' : 'function';
+				final rest:String = t.substr(kw.length);
+				id = StringTools.trim(rest.split('(')[0]);
+			}
 			if (id.length == 0) continue;
 
 			// 顶层变量在 execute 结束时被 restore 清出 locals，只能走 Iris 的变量查找

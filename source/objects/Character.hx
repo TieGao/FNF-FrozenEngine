@@ -4,6 +4,9 @@ import backend.animation.PsychAnimationController;
 
 import flixel.util.FlxSort;
 import flixel.util.FlxDestroyUtil;
+import flixel.graphics.FlxGraphic;
+import flixel.graphics.frames.FlxFrame;
+import flixel.math.FlxRect;
 
 import openfl.utils.Assets;
 import haxe.Json;
@@ -30,6 +33,7 @@ typedef CharacterFile = {
 	@:optional var scalableOffsets:Null<Bool>;
 	@:optional var healthbar_colour:Null<Int>;
 	@:optional var gameover_character:String;
+	@:optional var gameover_loop_sound:String;
 	@:optional var afterimages:Null<Bool>;
 	@:optional var _editor_isPlayer:Null<Bool>;
 }
@@ -112,6 +116,10 @@ class Character extends FlxSprite
 
 	/** 死亡角色名（json 键 `gameover_character`）；FE 的死亡演出不读这个字段，仅脚本读写。 */
 	public var gameoverCharacter:String = '';
+
+	/** NMV 兼容：死亡循环音名（json 键 `gameover_loop_sound`；lounge/voting 舞台会写）。
+	 *  FE 的 GameOverSubstate 不消费它，字段保脚本链路 + 会话语义。 */
+	public var gameoverLoopDeathSound:Null<String> = null;
 
 	/** 残影开关（NMV 的 afterimages）；FE 未移植残影系统，字段仅供脚本读写。 */
 	public var ghostsEnabled:Bool = false;
@@ -215,6 +223,8 @@ class Character extends FlxSprite
 		var anchorMode:String = json.atlas_anchor;
 		nmvAtlasAnchorFix = isAnimateAtlas
 			&& (anchorMode == 'nmv' || (nmvContentChar && anchorMode != 'fe' && anchorMode != 'none'));
+		if (nmvAtlasAnchorFix) nmvAtlasKey = json.image;
+		else nmvAtlasKey = null;
 		#end
 
 		scale.set(1, 1);
@@ -256,6 +266,19 @@ class Character extends FlxSprite
 					backend.Bread.crumb('char[' + curCharacter + '] extra atlas done');
 				}
 				backend.Bread.crumb('char[' + curCharacter + '] atlas ok');
+
+				// NMV 兼容：atlas 角色没有 FlxSprite 意义上的 frame，而 beach.hx 的轮光
+				// shader 读 character.frame.uv / frame.angle（每帧）。用 1x1 白图造一个
+				// uv 全域(0..1)的合成帧 —— NMV useRenderTexture 语义下 frame 即整张贴图。
+				if (this.frame == null)
+				{
+					var dummyG:FlxGraphic = FlxG.bitmap.create(1, 1, FlxColor.WHITE, false, 'nmv_dummy_frame');
+					var dummyF:FlxFrame = new FlxFrame(dummyG);
+					dummyF.frame = FlxRect.get(0, 0, 1, 1);
+					dummyF.uv = FlxRect.get(0, 0, 1, 1);
+					dummyF.angle = FlxFrameAngle.ANGLE_0;
+					this.frame = dummyF;
+				}
 			}
 			catch(e:haxe.Exception)
 			{
@@ -291,6 +314,7 @@ class Character extends FlxSprite
 		healthColour = (json.healthbar_colour != null) ? json.healthbar_colour : FlxColor.fromRGB(healthColorArray[0], healthColorArray[1],
 			healthColorArray[2]);
 		gameoverCharacter = (json.gameover_character != null) ? json.gameover_character : '';
+		gameoverLoopDeathSound = json.gameover_loop_sound;
 		ghostsEnabled = (json.afterimages == true);
 
 		// antialiasing
@@ -734,6 +758,8 @@ class Character extends FlxSprite
 	var nmvAnchorDx:Float = 0;
 	var nmvAnchorDy:Float = 0;
 	var nmvAnchorReady:Bool = false;
+	/** 锚点缓存键：角色 json 的 image 路径（同图集跨实例复用，见 captureNmvAnchor）。 */
+	var nmvAtlasKey:String;
 
 	public override function draw()
 	{
@@ -799,13 +825,45 @@ class Character extends FlxSprite
 
 	/**
 	 * 首帧绘制后采样一次锚点偏移，全局固定。
-	 * 不预遍历所有动画：那需要额外 atlas.draw()，部分角色在相机/图集未就绪时段错误闪退；
-	 * relativeX/Y 是屏幕空间值，加回相机滚动和 offset 才是舞台坐标下的内容位置。
+	 * 优先级（2026-10-30 起）：
+	 * 1. 同图集缓存（nmv.utils.NmvAtlasAnchor.cache，键 = image 路径）——
+	 *    Change Character 换实例后首绘动画可能不同，实测采样不稳定（danger 双值瞬移）；
+	 * 2. 确定性计算（NmvAtlasAnchor.computeAnchor：整条时间轴包围盒，NMV getWholeBounds
+	 *    同数学）——首帧实测对"首帧不碰包围盒角"的角色是错的（blackparasite 量出 -2074）；
+	 * 3. 退回首帧实测（atlas.relativeX 屏幕空间采样，zoom≠1/部件被裁剪时会畸变）。
 	 */
 	function captureNmvAnchor():Void
 	{
 		if(nmvAnchorReady) return;
 		if(atlas.frameWidth <= 0 || atlas.frameHeight <= 0) return;
+
+		if (nmvAtlasKey != null && nmvAtlasKey.length > 0)
+		{
+			if (nmv.utils.NmvAtlasAnchor.cache.exists(nmvAtlasKey))
+			{
+				var cached = nmv.utils.NmvAtlasAnchor.cache.get(nmvAtlasKey);
+				nmvAnchorDx = cached.x * scale.x;
+				nmvAnchorDy = cached.y * scale.y;
+				nmvAnchorReady = true;
+				offset.x += nmvAnchorDx;
+				offset.y += nmvAnchorDy;
+				return;
+			}
+
+			var computed = nmv.utils.NmvAtlasAnchor.computeAnchor(atlas);
+			if (computed != null)
+			{
+				nmvAnchorDx = computed.x * scale.x;
+				nmvAnchorDy = computed.y * scale.y;
+				nmvAnchorReady = true;
+				nmv.utils.NmvAtlasAnchor.cache.set(nmvAtlasKey, FlxPoint.get(computed.x, computed.y));
+				computed.put();
+				offset.x += nmvAnchorDx;
+				offset.y += nmvAnchorDy;
+				backend.Bread.crumb('nmv anchor calc ' + curCharacter + ' dx=' + Std.int(nmvAnchorDx) + ' dy=' + Std.int(nmvAnchorDy));
+				return;
+			}
+		}
 
 		var cam = atlas.camera;
 		var sf = atlas.scrollFactor;

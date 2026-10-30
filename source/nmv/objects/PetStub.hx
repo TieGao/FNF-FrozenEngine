@@ -55,10 +55,16 @@ class PetStub extends FlxSprite
 		return (animation != null && animation.curAnim != null) ? animation.curAnim.name : '';
 	}
 
-	public function new()
+	// NMV Pet 的宠物贴图偏移（monotone.hx 读 copyPet._petOffset.x 参与站位计算）
+	public var _petOffset:flixel.math.FlxPoint = flixel.math.FlxPoint.get();
+
+	public function new(?x:Float = 0, ?y:Float = 0)
 	{
-		super();
+		super(x, y);
 		visible = false;
 		loadPet = function(?name:String = '', ?force:Bool = false):Dynamic return this;
 	}
+
+	/** NMV Bopper.dance()：桩无动画，空实现保脚本链路不断（monotone.hx onBeatHit 调用）。 */
+	public function dance(?forced:Bool = false):Void {}
 }

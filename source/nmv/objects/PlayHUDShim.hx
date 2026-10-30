@@ -1,12 +1,18 @@
 package nmv.objects;
 
+import flixel.math.FlxMath;
+
 /**
  * NMV PlayState.playHUD（BaseHUD/PsychHUD）的 FE 映射。
  *
- * FE 的 HUD 元素（iconP1/iconP2/healthBar/scoreTxt...）直接挂在 PlayState 上，
- * NMV 脚本走 playHUD.iconP2 这一层 —— 垫片用 getter 逐次取当前 PlayState 的
+ * FE 的 HUD 元素（iconP1/iconP2/healthBar/scoreTxt/timeBar/timeTxt...）直接挂在 PlayState 上，
+ * NMV 脚本走 playHUD.<字段> 这一层 —— 垫片用 getter 逐次取当前 PlayState 的
  * 同名字段（不能用构造期快照，脚本建卡时那些字段可能还没建）。
- * NMV BaseHUD 的专有面（updateHUD/重排等）未映射，语料只用到图标与血条。
+ *
+ * 语料实测用面（2026-10-30 全包扫描）：iconP1/iconP2/healthBar/scoreTxt/timeBar/timeTxt/
+ * healthLerp/members/add/insert + PsychHUD 专有开关（updateIconPos 等，只写不读）。
+ * finalem.hx onCreatePost 写 playHUD.timeBar.visible 时缺 timeBar 曾让 onCreatePost
+ * 半途而废（finaleDarkFG 没建 → onSongStart 对 null tween alpha → VarTween 崩溃）。
  */
 class PlayHUDShim
 {
@@ -18,7 +24,7 @@ class PlayHUDShim
 
 	public function new() {}
 
-	// NMV PsychHUD 的脚本可调面（legacy 包 utils.hx onCreatePost 会写这些）。
+	// ---- NMV PsychHUD 的脚本可调面（legacy 包 utils.hx onCreatePost 会写这些）。
 	// FE 无此 HUD 系统，给 NMV 同款默认值的会话内存版：ratingScale/combosScale
 	// 参与 FE 侧无实际渲染语义，但缺了字段 hscript 会抛 Invalid field 并中断脚本函数。
 	public var ratingPop:Float = (.785 / .7);
@@ -26,11 +32,41 @@ class PlayHUDShim
 	public var ratingScale:Float = .7;
 	public var combosScale:Float = .5;
 	public var ratingSuffix:String = '';
+	public var ratingPrefix:String = '';
 
+	/** NMV PsychHUD 的图标更新开关：脚本置 false 关掉 NMV 侧图标跟随，FE 侧无对应行为，仅为可写字段。 */
+	public var updateIconPos:Bool = true;
+	public var updateIconScale:Bool = true;
+	public var updateIconAnimation:Bool = true;
+
+	/** NMV PsychHUD 每帧向 parent.health 收敛的血量显示值（0..2）。 */
+	var _healthLerp:Float = 1;
+	var _healthLerpTouched:Bool = false;
+
+	public var healthLerp(get, set):Float;
+
+	function get_healthLerp():Float
+	{
+		// 无 override 时向真实血量收敛（NMV PsychHUD.update 同参数 0.15）；
+		// Bar 的取值回调每帧来读，等效于 NMV 的逐帧 lerp。
+		if (!_healthLerpTouched && PlayState.instance != null)
+			_healthLerp = FlxMath.lerp(_healthLerp, PlayState.instance.health, 0.15);
+		return _healthLerp;
+	}
+
+	function set_healthLerp(v:Float):Float
+	{
+		_healthLerpTouched = true;
+		return _healthLerp = v;
+	}
+
+	// ---- 图标/条/字：逐次取 PlayState 同名字段
 	public var iconP1(get, never):Dynamic;
 	public var iconP2(get, never):Dynamic;
 	public var healthBar(get, never):Dynamic;
 	public var scoreTxt(get, never):Dynamic;
+	public var timeBar(get, never):Dynamic;
+	public var timeTxt(get, never):Dynamic;
 
 	function get_iconP1():Dynamic
 	{
@@ -51,4 +87,41 @@ class PlayHUDShim
 	{
 		return PlayState.instance == null ? null : PlayState.instance.scoreTxt;
 	}
+
+	function get_timeBar():Dynamic
+	{
+		return PlayState.instance == null ? null : PlayState.instance.timeBar;
+	}
+
+	function get_timeTxt():Dynamic
+	{
+		// PlayState.timeTxt 是私有字段，走 Reflect 绕过访问控制
+		return PlayState.instance == null ? null : Reflect.getProperty(PlayState.instance, 'timeTxt');
+	}
+
+	// ---- 组容器面：PsychHUD 是 FlxSpriteGroup，脚本往 HUD 层 add/insert。
+	// FE 的 HUD 元素全在 uiGroup，直接转发。
+	public var members(get, never):Array<Dynamic>;
+
+	function get_members():Array<Dynamic>
+	{
+		return PlayState.instance == null ? [] : cast PlayState.instance.uiGroup.members;
+	}
+
+	public function add(obj:Dynamic):Dynamic
+	{
+		if (PlayState.instance != null && obj != null)
+			PlayState.instance.uiGroup.add(obj);
+		return obj;
+	}
+
+	public function insert(index:Int, obj:Dynamic):Dynamic
+	{
+		if (PlayState.instance != null && obj != null)
+			PlayState.instance.uiGroup.insert(index, obj);
+		return obj;
+	}
+
+	/** defeat/script.hx 调用；NMV 里重排图标位置，FE 侧无对应行为，空实现保链路不断。 */
+	public function updateIconsPosition():Void {}
 }
