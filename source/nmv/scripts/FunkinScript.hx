@@ -3,6 +3,7 @@ package nmv.scripts;
 import crowplexus.iris.Iris;
 
 import backend.Paths;
+import backend.HsLog;
 import flixel.FlxG;
 import flixel.util.FlxDestroyUtil;
 import sys.FileSystem;
@@ -141,9 +142,12 @@ class FunkinScript extends IrisEx implements IFlxDestroyable
 				}
 				catch (e)
 				{
+					final msg:String = Std.string(e);
 					#if sys
-					Sys.println(e.message);
+					Sys.println(msg);
 					#end
+					// 此前只 println（GUI 下不可见、不落盘），turbulence/double-trouble 刷屏无从排查
+					HsLog.record('ERROR', '$name.$func: $msg');
 				}
 
 				for (key in defaultShit.keys())

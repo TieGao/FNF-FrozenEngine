@@ -326,6 +326,27 @@ class ClientPrefs {
 		return data.shaders;
 	}
 
+	// NMV 脚本面平铺静态（legacy 的 utils.hx 直接 ClientPrefs.downScroll/middleScroll/
+	// lowQuality 读，缺了在 hxcpp 上静默读成 null→false，downscroll 玩家的 combo 定位
+	// 等整段失效）。photosensitive 对应 NMV 的"减少闪光"开关 = !flashing——
+	// utils.hx 的 Reactor Beep 红闪/flash 事件按它走 camHUD 低强度分支。
+	public static var downScroll(get, never):Bool;
+	static function get_downScroll():Bool return data.downScroll;
+
+	public static var middleScroll(get, never):Bool;
+	static function get_middleScroll():Bool return data.middleScroll;
+
+	public static var lowQuality(get, never):Bool;
+	static function get_lowQuality():Bool return data.lowQuality;
+
+	public static var photosensitive(get, never):Bool;
+	static function get_photosensitive():Bool return !data.flashing;
+
+	// NMV ClientPrefs.camFollowsCharacters（默认 true）：legacy utils.hx 的 onMoveCamera
+	// 按 true/false 决定是否把镜头摇向击打方向；FE 无对应设置项，给会话静态默认 true
+	//（此前缺失 → hxcpp 静默读 null → false，camSpecialThing 运镜整段失效）
+	public static var camFollowsCharacters:Bool = true;
+
 	// NMV cosmetics（外观装备）兼容面：FE 无此系统，这里给 NMV 同构的会话内存版。
 	// legacy 包 utils.hx 的 onLoad 读 bfSkin/gfSkin/pet/colorText，缺了整个加载链就断。
 	public static var equipment:Map<String, Null<String>> = ['playerSkin' => null, 'speakerSkin' => null, 'pet' => null];
@@ -729,6 +750,13 @@ class ClientPrefs {
 		save.data.gamepad = gamepadBinds;
 		save.flush();
 		FlxG.log.add("Settings saved!");
+	}
+
+	/** NMV 兼容别名（ClientPrefs.flush，completion.hx 等歌终脚本在写档后调用）：
+	 *  NMV 的 flush = flushSave + flushControls，FE 的 saveSettings 两样都做。 */
+	public static function flush():Void
+	{
+		saveSettings();
 	}
 
 	public static function loadPrefs() {

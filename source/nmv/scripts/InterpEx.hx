@@ -122,9 +122,15 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 
 		if (imports.exists(id)) return imports.get(id);
 
-		if (parentFields.contains(id) || parentFields.contains('get_$id')) return Reflect.getProperty(parent, id);
-
+		// NMV LOOSE 共享域在读路径上必须先于宿主字段：全局脚本的顶层函数/公共变量与
+		// PlayState 同名字段撞名时（dialogue.hx 的 videoCutscene() 函数 vs 宿主的
+		// PlayState.videoCutscene:VideoSprite 字段），脚本语义永远指向共享域。
+		// 旧顺序下 song 脚本解析到宿主的 null 字段，调用即 "Null Function Pointer"
+		// （2026-10-31 bread.log 实证：meltdown:6 / danger script:3 每次进歌必炸）。
+		// 写路径（setTo）保持宿主字段优先，songStartCallback 等桥接语义依赖它。
 		if (sharedFields?.exists(id)) return sharedFields.get(id);
+
+		if (parentFields.contains(id) || parentFields.contains('get_$id')) return Reflect.getProperty(parent, id);
 
 		// 最后一道兜底：报错前查 proxyImports。iris 各处（cnew/表达式求值）都可能拿着
 		// 整条 FQ 路径调 resolve，这层接住 `new funkin.xxx.Yyy()` 和 FQ 静态引用。
@@ -209,6 +215,15 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 				return args.length > 0 && (cast o : Array<Dynamic>).indexOf(args[0]) != -1;
 		}
 
+		// FlxObject/FlxSprite 没有 .set(x, y)（那是 FlxPoint 的方法）；NMV 全局脚本
+		// camTweenEvent.hx 的瞬时分支用 game.camFollow.set(x, y) 直设镜头焦点，
+		// 同语义映射到 setPosition（FlxPoint 等自带 set 的类型不走这里）。
+		if (f == 'set' && args.length == 2 && Std.isOfType(o, flixel.FlxObject))
+		{
+			cast(o, flixel.FlxObject).setPosition(args[0], args[1]);
+			return null;
+		}
+
 		// NMV 的 getPath 是 (file, ?parentFolder, mode)，FE 是 (file, ?type, ?parentFolder, ?modsAllowed)。
 		// 第二个参数为 null 或 String 时按 NMV 签名重排，否则原样交给 FE。
 		if (f == 'getPath' && o == backend.Paths && args.length >= 2 && (args[1] == null || Std.isOfType(args[1], String)))
@@ -261,10 +276,22 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 	 */
 	override public function get(o:Dynamic, f:String):Dynamic
 	{
+		// zIndex 读旁表：写路径记 zIndexStore（19a40f87），但脚本读 boyfriendGroup.zIndex
+		// 这类组级值（danger.hx:98 `bfPlatform.zIndex = boyfriendGroup.zIndex - 1`）不走
+		// 旁表就得到 null → null-1=-1 → refreshZ 后被天空底图盖死（danger 车轮不可见的直接原因）
+		if (f == 'zIndex' && o != null)
+			return getZ(o);
+
 		// NMV 的 FlxCamera.scrollAngle（相机旋转）：FE fork 的 FlxCamera 有 angle，
 		// 映射过去让 camHUD 摇摆真实生效（ejected/danger/turbulence 的运镜）。
 		if (f == 'scrollAngle' && Std.isOfType(o, flixel.FlxCamera))
 			return o.angle;
+
+		// NMV 的 game.playHUD（finaleUI.hx:26 读 healthLerp）：PlayState 实例上没有该
+		// 字段，Reflect.field 得 null，下一级 null.healthLerp 报 "Invalid access to
+		// field healthLerp"（2026-10-31 崩溃实证，finale 进去即炸）。返回共享垫片
+		if (f == 'playHUD' && Std.isOfType(o, states.PlayState))
+			return nmv.objects.PlayHUDShim.instance;
 
 		// NMV fork 的 FlxFrame.angle 是 Float 角度（FE pin 是 FlxFrameAngle 枚举）——
 		// beach.hx 的轮光 shader 用 frame.angle * Math.PI / 180 求弧度，枚举乘法会炸
@@ -286,6 +313,26 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 				{
 					return a.length > 0 && (cast o : Array<Dynamic>).indexOf(a[0]) != -1;
 				});
+		}
+
+		// NMV 的 atlas 角色动画面（danger/bf-running 的每帧腿部帧同步）：FE 对 atlas
+		// 角色 animation.curAnim 恒 null（动画全走 atlas.anim.play，共享 flixel 不动），
+		// 语料读 curAnim.numFrames/curFrame/looped 每帧炸 "Invalid access to field"
+		// （2026-10-31 bread.log 实测各 ×573，onUpdate 整段中断）。借控制器私有 _sprite
+		// （hxcpp Reflect 可达私有字段）反查宿主，宿主是带 atlas 的 Character 时返回薄
+		// 适配（委托 atlas.anim 控制器）；Sparrow 路径 curAnim 正常，不进这里。
+		if (f == 'curAnim' && Std.isOfType(o, flixel.animation.FlxAnimationController))
+		{
+			final curAnim:Dynamic = super.get(o, f);
+			if (curAnim != null) return curAnim;
+
+			final owner:Dynamic = Reflect.field(o, '_sprite');
+			if (owner != null && Std.isOfType(owner, objects.Character))
+			{
+				final atlas:Dynamic = Reflect.field(owner, 'atlas');
+				if (atlas != null && Reflect.field(atlas, 'anim') != null)
+					return new nmv.objects.NmvAtlasCurAnimShim(Reflect.field(atlas, 'anim'));
+			}
 		}
 
 		return super.get(o, f);

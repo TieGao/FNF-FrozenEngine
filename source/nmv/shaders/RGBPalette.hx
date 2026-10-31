@@ -13,17 +13,22 @@ import flixel.util.FlxColor;
  */
 class RGBShader extends flixel.system.FlxAssets.FlxShader
 {
+	// NMV 原版这些是 attribute（由 flixel fork 的批渲染管线 RGBGraphics 填充顶点数据）；
+	// FE pin 的 flixel 6.2.0 没有该管线，attribute 无顶点缓冲 → 恒 0 → fragment 的
+	// 三色权重公式输出全黑（finale 血条 insideRGB 黑条的直接原因）。non-batched
+	// 语义下改 uniform：RGBPalette 的 setter 一直写的是 shader.data.<name>.value，
+	// 只对 uniform 生效；全图单色对血条/单精灵用途与 NMV 行为一致。
 	@:glVertexSource('
 		#pragma header
 
-		attribute vec3 r;
-		attribute vec3 g;
-		attribute vec3 b;
-		attribute float mult;
-		attribute float enabled;
+		uniform vec3 r;
+		uniform vec3 g;
+		uniform vec3 b;
+		uniform float mult;
+		uniform float enabled;
 
-		attribute float a_alpha;
-		attribute float a_flash;
+		uniform float a_alpha;
+		uniform float a_flash;
 
 		varying vec3 _r;
 		varying vec3 _g;

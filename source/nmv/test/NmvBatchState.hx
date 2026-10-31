@@ -52,6 +52,12 @@ class NmvBatchState extends FlxState
 	public var defaultCamZoom:Float = 1.05;
 	public var health:Float = 1;
 
+	// 复刻 PlayState 的会撞名宿主字段（dialogue.hx 的 videoCutscene() 共享函数 vs 宿主
+	// PlayState.videoCutscene:VideoSprite 字段）：没有它，"共享函数被宿主 null 字段
+	// 遮蔽 → song 脚本 onLoad 调用即 Null Function Pointer"（2026-10-31 meltdown:6 /
+	// danger script:3 实证）这类回归在 harness 上永远检不出。
+	public var videoCutscene:Dynamic = null;
+
 	var shared:Sharables;
 	var spawned:Array<Dynamic> = [];
 	var currentPkg:String = '';

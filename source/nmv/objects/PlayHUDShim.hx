@@ -16,6 +16,13 @@ import flixel.math.FlxMath;
  */
 class PlayHUDShim
 {
+	/**
+	 * 共享实例：preset 的全局 playHUD 与 InterpEx 的 game.playHUD 特判都返回它。
+	 * 垫片本体无状态（全部 getter 逐次取 PlayState.instance），单例只让
+	 * _healthLerp/_healthBarOverride 等会话内存不因脚本数分裂。
+	 */
+	public static var instance(default, null):PlayHUDShim = new PlayHUDShim();
+
 	/** NMV PsychHUD 的静态排版工具（victory 舞台脚本用） */
 	public static inline function formatScoreField(label:String, value:String):String
 	{
@@ -63,10 +70,26 @@ class PlayHUDShim
 	// ---- 图标/条/字：逐次取 PlayState 同名字段
 	public var iconP1(get, never):Dynamic;
 	public var iconP2(get, never):Dynamic;
-	public var healthBar(get, never):Dynamic;
 	public var scoreTxt(get, never):Dynamic;
 	public var timeBar(get, never):Dynamic;
 	public var timeTxt(get, never):Dynamic;
+
+	// healthBar 可写：finaleUI.hx:72 `playHUD.healthBar = newBar`（kill 旧条换终局条），
+	// getter 优先返回脚本设置的替换值，读不到再取 PlayState 的
+	var _healthBarOverride:Dynamic = null;
+
+	public var healthBar(get, set):Dynamic;
+
+	function get_healthBar():Dynamic
+	{
+		if (_healthBarOverride != null) return _healthBarOverride;
+		return PlayState.instance == null ? null : PlayState.instance.healthBar;
+	}
+
+	function set_healthBar(v:Dynamic):Dynamic
+	{
+		return _healthBarOverride = v;
+	}
 
 	function get_iconP1():Dynamic
 	{
@@ -76,11 +99,6 @@ class PlayHUDShim
 	function get_iconP2():Dynamic
 	{
 		return PlayState.instance == null ? null : PlayState.instance.iconP2;
-	}
-
-	function get_healthBar():Dynamic
-	{
-		return PlayState.instance == null ? null : PlayState.instance.healthBar;
 	}
 
 	function get_scoreTxt():Dynamic
@@ -124,4 +142,12 @@ class PlayHUDShim
 
 	/** defeat/script.hx 调用；NMV 里重排图标位置，FE 侧无对应行为，空实现保链路不断。 */
 	public function updateIconsPosition():Void {}
+
+	/** 换歌时清会话内存（单例被 NMVSciptHolder.destroy 调）。 */
+	public function resetSession():Void
+	{
+		_healthBarOverride = null;
+		_healthLerp = 1;
+		_healthLerpTouched = false;
+	}
 }

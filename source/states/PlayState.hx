@@ -93,6 +93,15 @@ class PlayState extends MusicBeatState
 
 	//event variables
 	private var isCameraOnForcedPos:Bool = false;
+
+	/** NMV 兼容（PlayState.camCurTarget，NMV:518）：脚本锁镜目标（triple-threat/double-kill/
+	 *  torture 的 forcecamtarget/聚焦演出），moveCamera 里优先跟随，置 null 恢复常规跟随。 */
+	public var camCurTarget:Character = null;
+
+	/** NMV 的"stage 组"等价边界（create 里舞台背景+舞台 objects+角色组 add 完时的
+	 *  members.length）：refreshZ 无参/create 末尾只重排边界内的成员，脚本 onCreatePost
+	 *  起 add 的对象（saxguy 演出精灵等）像 NMV 一样保持 state 尾部、永远画在舞台之上。 */
+	public var nmvStageZBound:Int = 0;
 	#if BASE_GAME_ERECT
 	private var erectCameraTargetTween:FlxTween;
 	private var erectCameraZoomTween:FlxTween;
@@ -147,9 +156,71 @@ class PlayState extends MusicBeatState
 	/** NMV 兼容（PlayState.attackCharacter）：monotone attack 里玩家扮演的车道号（0..3），脚本读写。 */
 	public static var attackCharacter:Int = 0;
 
+	/** NMV 兼容（PlayState.changeCharacter，NMV:2353）：monotone 等舞台脚本在演出中直接换角色
+	 *  （identity crisis 的 red/greenEjected/blackdk 变体切换）。语义同 'Change Character' 事件
+	 *  （charType: 0=bf, 1=dad, 2=gf），委托 triggerEventNote 走同一替换+图标刷新链。 */
+	public function changeCharacter(name:String, charType:Int):Void
+	{
+		final v1:String = switch (charType)
+		{
+			case 0: 'bf';
+			case 1: 'dad';
+			case 2: 'gf';
+			default: 'bf';
+		};
+		triggerEventNote('Change Character', v1, name);
+	}
+
+	/** NMV 兼容（PlayState.checkStageFlag，NMV:1015）：按角色 variants 旗标 + 舞台 json
+	 *  的 flags 字段重载角色变体（defeat 的 'Defeat Retro' case 1 切回 defeat 变体用）。
+	 *  此前缺失 → EUnknownVariable → case 1 中断、ghostsEnabled/pet/scoreTxt 全不恢复。
+	 *  FE 的 StageData 没有 flags typed 面，直接 Reflect 读 tjson 解析产物；SONG.flags
+	 *  FE 无 → 忽略（defeat.json 的 flags 就是舞台级）。Pet 未移植渲染，只处理 Character。 */
+	public function checkStageFlag(guy:Dynamic):Void
+	{
+		if (guy == null || !Std.isOfType(guy, objects.Character)) return;
+		final variants:Dynamic = guy.getFlag('variants');
+		if (variants == null) return;
+
+		final stageFlags:Dynamic = Reflect.field(StageData.getStageFile(curStage), 'flags');
+		for (flag in Reflect.fields(variants))
+		{
+			if (stageFlags == null || Reflect.field(stageFlags, flag) != true) continue;
+			(cast guy : objects.Character).changeCharacter(Reflect.field(variants, flag));
+			return;
+		}
+	}
+
+	/** NMV 兼容（PlayState.unlockAchievementPopup，NMV:3002）：completion.hx/attack.hx 的
+	 *  成就解锁提示（'finale'/'no_miss_finale'/'all_four' 等）。FE 成就表没有这些 NMV id
+	 *  ——Achievements.unlock 对未知 id 原生 throw，这里先查存在性、缺的静默跳过打点。
+	 *  practice/botplay 不解锁（NMV 同款）。 */
+	public function unlockAchievementPopup(id:String):Bool
+	{
+		if (ClientPrefs.getGameplaySetting('practice', false) || ClientPrefs.getGameplaySetting('botplay', false)) return false;
+		if (!Achievements.achievements.exists(id))
+		{
+			backend.Bread.crumb('HS ach skip: $id （FE 成就表无此 id）');
+			return false;
+		}
+		Achievements.unlock(id);
+		return true;
+	}
+
 	/** NMV 兼容（PlayState.pauseOverwrite）：覆盖死亡演出角色名（greatest-plan/henry/monotone
 	 *  等按剧情段切换）。FE 的 GameOverSubstate 暂不消费它，字段保脚本链路与会话语义。 */
 	public var pauseOverwrite:String = '';
+
+	/**
+	 * NMV 面（PlayState.getSongTime，turbulence/turbulence_1 的音乐同步闪光在用）：
+	 * 音乐实际播放位置——inst 在放时读 inst.time（比 Conductor.songPosition 抗重同步跳变），
+	 * 否则回落 Conductor。NMV 原版读的是它自家 audio 包装的 inst，FE 等价物是 FlxG.sound.music。
+	 */
+	public function getSongTime():Float
+	{
+		if (FlxG.sound.music != null && FlxG.sound.music.playing) return FlxG.sound.music.time;
+		return Conductor.songPosition;
+	}
 
 	/** NMV 兼容（PlayState.triggerEventNote）：旧式事件重放器（triggerEventNote('Play Animation',
 	 *  'intro', 'bf') 之类）。NMV 原版对 Hey!/Camera Zoom 等有 playAnimForDuration 变体，
@@ -320,6 +391,11 @@ class PlayState extends MusicBeatState
 
 	public var healthBar:Bar;
 	public var healthBarP1:Bar;
+	/** 血条颜色跟随检测：上次上色时的角色实例与名字（见 update 里的变更检测）。 */
+	var _barColorDadRef:Character;
+	var _barColorBfRef:Character;
+	var _barColorDadName:String;
+	var _barColorBfName:String;
 	public var healthBarP2:Bar;
 	public var timeBar:Bar;
 	var songPercent:Float = 0;
@@ -649,6 +725,11 @@ class PlayState extends MusicBeatState
 	// NMV 脚本 API 容器（内容包模式下挂歌内脚本与 scripts/states/PlayState.hx）
 	#if HSCRIPT_ALLOWED public var nmvScripts:nmv.scripts.NMVSciptHolder = null; #end
 
+	#if HSCRIPT_ALLOWED
+	// NMV 兼容：onFirstEventPush 的"每事件名只推一次"记录表（新 PlayState 实例 = 新一歌）
+	var nmvFirstEventFired:Map<String, Bool> = [];
+	#end
+
 	#if (LUA_ALLOWED || HSCRIPT_ALLOWED)
 	private var luaDebugGroup:FlxTypedGroup<psychlua.DebugLuaText>;
 	#end
@@ -901,6 +982,16 @@ class PlayState extends MusicBeatState
 		gfGroup = new FlxSpriteGroup(GF_X, GF_Y);
 
 		#if HSCRIPT_ALLOWED
+		// NMV 同款（NMV PlayState:607-610）：舞台 json 的角色组层级，记进 zIndex 旁表
+		// 供 create 末尾 refreshZ 排序（toogus：gf=15 压桌子 10 之上、bf/dad=20 在 gf 上；
+		// FE 自家 json 无这些字段 → null 跳过，行为不变；后续舞台脚本同名写入会覆盖此值，
+		// 与 NMV"先 json 后脚本"一致）。petZIndex 暂不接：移植端还没有 pet 对象。
+		if (stageData.gfZIndex != null) nmv.scripts.InterpEx.zIndexStore.set(gfGroup, stageData.gfZIndex);
+		if (stageData.dadZIndex != null) nmv.scripts.InterpEx.zIndexStore.set(dadGroup, stageData.dadZIndex);
+		if (stageData.bfZIndex != null) nmv.scripts.InterpEx.zIndexStore.set(boyfriendGroup, stageData.bfZIndex);
+		#end
+
+		#if HSCRIPT_ALLOWED
 		// NMV 的 PlayField 车道组：onCreatePost 前就要可迭代（voting.hx/sigh.hx）。
 		// 0/1 号位包真实 strum 组（活引用，strums 在 startCountdown 才填充）；
 		// 2/3 号位为 Opponent Two 空位。
@@ -987,6 +1078,12 @@ class PlayState extends MusicBeatState
 			add(dadGroup);
 			add(boyfriendGroup);
 		}
+		#if HSCRIPT_ALLOWED
+		// NMV 的"stage 组"等价边界：舞台背景（onLoad，早于角色组）+ 舞台 json objects +
+		// gf/dad/bf 组。NMV 里这些在 stage 组内被 refreshZ 排序，脚本 onCreatePost 起的
+		// add()（saxguy 等）在组外永不重排、永远画在舞台之上（NMV:913 refreshZ(stage)）。
+		nmvStageZBound = members.length;
+		#end
 		Bread.crumb('PS stage+chars added');
 
 		#if HSCRIPT_ALLOWED
@@ -1135,6 +1232,12 @@ class PlayState extends MusicBeatState
 			timeTxt.size = 24;
 			timeTxt.y += 3;
 		}
+
+		#if HSCRIPT_ALLOWED
+		// NMV 兼容（scripts.call('postModifierRegister')，NMV:1183）：strums/playFields 就绪后、
+		// 音符生成前的车道注册回调（monotone attack 的 2v2 owner 绑定与 per-lane modchart 在此）
+		if (nmvScripts != null) callOnScripts('postModifierRegister');
+		#end
 
 		generateSong();
 
@@ -1363,9 +1466,15 @@ class PlayState extends MusicBeatState
 		#if HSCRIPT_ALLOWED
 		if (nmvScripts != null)
 		{
+			// 歌曲脚本目录：SONG.song 是 json 里的显示名（'Sussus Toogus'），目录是
+			// formatToSongPath 形式（sussus-toogus）——原样拼接导致 sussus-toogus 等
+			// 大部分 NMV 歌曲脚本整个没加载（videoCutscene/saxguy/walkers 全缺，
+			// finalem 恰好 json 里就是小写才活着）。统一走 formatToSongPath。
 			var nmvScriptDir:String = (Paths.currentChartDirectory != null && Paths.currentChartDirectory.length > 0)
 				? Paths.currentChartDirectory
-				: (Paths.currentContentRoot != null ? Paths.currentContentRoot + '/songs/' + SONG.song : null);
+				: (Paths.currentContentRoot != null
+					? Paths.currentContentRoot + '/songs/' + Paths.formatToSongPath(SONG.song)
+					: null);
 			nmvScripts.loadDir(nmvScriptDir, Mods.currentModDirectory);
 			nmvScripts.loadStateScript('PlayState', Mods.currentModDirectory);
 		}
@@ -1403,18 +1512,12 @@ class PlayState extends MusicBeatState
 		if (nmvScripts != null)
 		{
 			backend.Bread.crumb('PS onCreatePost dispatched');
-			// NMV 同款（PlayState:913）：create 末尾按 zIndex 升序稳定排序整个 state。
+			// NMV 同款（PlayState:913 refreshZ(stage)）：按 zIndex 升序稳定排序"stage 区"。
 			// 脚本对原生 flixel 对象写的 zIndex 在 InterpEx.zIndexStore 旁表里
 			// （fork 无该字段），maroon 雪=13 排到最后=最上层等层级由此恢复。
-			final members:Array<FlxBasic> = cast FlxG.state.members;
-			final order:Array<Int> = [for (i in 0...members.length) i];
-			order.sort(function(a:Int, b:Int):Int
-			{
-				final d:Float = nmv.scripts.InterpEx.getZ(members[a]) - nmv.scripts.InterpEx.getZ(members[b]);
-				return d > 0 ? 1 : (d < 0 ? -1 : a - b); // 同 z 保插入序（稳定）
-			});
-			final sorted:Array<FlxBasic> = [for (i in order) members[i]];
-			for (i in 0...sorted.length) members[i] = sorted[i];
+			// 只排 nmvStageZBound 边界内（背景+舞台 objects+角色组）——脚本 onCreatePost
+			// 起 add 的对象（saxguy 等）像 NMV 一样保持在尾部、画在舞台之上。
+			sortStageZ();
 		}
 		#end
 
@@ -1549,6 +1652,10 @@ class PlayState extends MusicBeatState
 	#end
 
 	public function reloadHealthBarColors() {
+		if (dad != null && boyfriend != null)
+			backend.Bread.crumb('hud bar colors dad=' + dad.curCharacter + ':' + dad.healthColorArray[0] + ',' + dad.healthColorArray[1] + ','
+				+ dad.healthColorArray[2] + ' bf=' + boyfriend.curCharacter + ':' + boyfriend.healthColorArray[0] + ','
+				+ boyfriend.healthColorArray[1] + ',' + boyfriend.healthColorArray[2]);
 		if (isSplitCoopMode() && healthBarP1 != null && healthBarP2 != null) {
 			healthBarP1.setColors(FlxColor.WHITE , FlxColor.fromRGB(boyfriend.healthColorArray[0], boyfriend.healthColorArray[1], boyfriend.healthColorArray[2]));
 			healthBarP2.setColors(FlxColor.fromRGB(dad.healthColorArray[0], dad.healthColorArray[1], dad.healthColorArray[2]),FlxColor.WHITE);
@@ -2357,6 +2464,11 @@ public function reloadCounterColors()
 					if (!eventDuplicatedInChart(event, i))
 						makeEvent(event, i);
 
+		// NMV 事件装载面包屑：torture 全黑排查（其 intro cutscene 依赖 Legacy 事件点亮）——
+		// 没有 "queued>0" 这行 = 事件根本没进队列；有这行但没有逐事件触发行 = 派发/触发断了。
+		if (backend.NMVContentData.currentMod != null)
+			Bread.crumb('PS nmv events: embedded=${PlayState.SONG.events != null ? PlayState.SONG.events.length : 0} external=${eventsChart != null ? eventsChart.events.length : 0} queued=${eventNotes.length}');
+
 		var oldNote:Note = null;
 		// 幽灵音先记账、生成循环结束后再回池：当场回池会被同一轮的 obtainNote 立刻复用，
 		// 而它可能仍是别的 note 的 prevNote/oldNote，会把链搞乱。
@@ -2404,6 +2516,9 @@ public function reloadCounterColors()
 				if (swapPlayerOpponent)
 					noteData = noteData < totalColumns ? noteData + totalColumns : noteData - totalColumns;
 				var noteColumn: Int = Std.int(noteData % totalColumns);
+				// 原始绝对车道（NMV note.player 语义）：psych_v1 经 Song.convert 后、nmv2 原生
+				// 都是"0..cols-1 玩家侧 / cols.. 对手侧"，折到 noteColumn 前先留一份
+				final noteLane: Int = (totalColumns > 0) ? Std.int(noteData / totalColumns) : 0;
 				var holdLength: Float = songNotes[2];
 				var noteType: String = !Std.isOfType(songNotes[3], String) ? Note.defaultNoteTypes[songNotes[3]] : songNotes[3];
 				if (Math.isNaN(holdLength))
@@ -2437,6 +2552,7 @@ public function reloadCounterColors()
 				swagNote.gfNote = (section.gfSection && gottaHitNote == section.mustHitSection);
 				swagNote.animSuffix = isAlt ? "-alt" : "";
 				swagNote.mustPress = gottaHitNote;
+				swagNote.nmvLane = noteLane;
 				swagNote.sustainLength = holdLength;
 				swagNote.noteType = noteType;
 	
@@ -2454,6 +2570,7 @@ public function reloadCounterColors()
 						var sustainNote:Note = obtainNote(spawnTime + (curStepCrochet * susNote), noteColumn, oldNote, true);
 						sustainNote.animSuffix = swagNote.animSuffix;
 						sustainNote.mustPress = swagNote.mustPress;
+						sustainNote.nmvLane = swagNote.nmvLane;
 						sustainNote.gfNote = swagNote.gfNote;
 						sustainNote.noteType = swagNote.noteType;
 						sustainNote.scrollFactor.set();
@@ -2822,8 +2939,32 @@ public function reloadCounterColors()
 				boyfriendIdleTime = 0;
 			}
 		}
-		else FlxG.camera.followLerp = 0;
+		else
+		{
+			// NMV 语义（NMV PlayState:1915）：只在 cameraLerping && !inCutscene 时赋
+			// 0.04，**从不归零** —— 舞台脚本会在 cutscene 里自设 followLerp（1/20）并
+			// 补间 camFollow（doubletrouble intro 十几秒滑镜），每帧归零会把滑镜冻死
+			// 在原地、camTween 接力时从 stale 位置起滑（表现为"偏左上"）。
+			// NMV 内容按 NMV 行为不归零（暂停除外）；FE 自家内容维持原行为。
+			if (paused || backend.NMVContentData.currentMod == null)
+				FlxG.camera.followLerp = 0;
+		}
 		callOnScripts('onUpdate', [elapsed]);
+
+		// 血条颜色跟随"当前显示的角色"：脚本直接换 dad/boyfriend（setProperty 或 HUD shim
+		// 换整条）不走 'Change Character' 事件，只在事件里刷新会漏 → 血条停在旧颜色/默认色。
+		if (healthBar != null && dad != null && boyfriend != null)
+		{
+			if (dad != _barColorDadRef || boyfriend != _barColorBfRef
+				|| dad.curCharacter != _barColorDadName || boyfriend.curCharacter != _barColorBfName)
+			{
+				_barColorDadRef = dad;
+				_barColorBfRef = boyfriend;
+				_barColorDadName = dad.curCharacter;
+				_barColorBfName = boyfriend.curCharacter;
+				reloadHealthBarColors();
+			}
+		}
 
 		super.update(elapsed);
 
@@ -2933,8 +3074,13 @@ public function reloadCounterColors()
 				notes.insert(0, dunceNote);
 				dunceNote.spawned = true;
 
-				// NMV 兼容：Note.player = 车道号（FE 语义 0=对手/1=玩家；NMV 0..3）
-				dunceNote.player = dunceNote.mustPress ? 1 : 0;
+				// NMV 兼容：Note.player = 绝对车道（NMV 0..3，0 = 玩家侧）。
+				// attack.hx 的 orgID = 3 - note.player 依赖这个语义。
+				// **只在 NMV 内容里换语义**：FE 自家谱面/模组的 note.player 一直是
+				// "mustPress?1:0"，全局改会让读它的老脚本拿到反的值。
+				dunceNote.player = (backend.NMVContentData.currentMod != null && dunceNote.nmvLane >= 0)
+					? dunceNote.nmvLane
+					: (dunceNote.mustPress ? 1 : 0);
 
 				callOnLuas('onSpawnNote', [notes.members.indexOf(dunceNote), dunceNote.noteData, dunceNote.noteType, dunceNote.isSustainNote, dunceNote.strumTime]);
 				callOnHScript('onSpawnNote', [dunceNote]);
@@ -3248,6 +3394,23 @@ public function reloadCounterColors()
 		var flValue2:Null<Float> = Std.parseFloat(value2);
 		if(Math.isNaN(flValue1)) flValue1 = null;
 		if(Math.isNaN(flValue2)) flValue2 = null;
+
+		// NMV 逐事件触发面包屑（torture 全黑排查配对项，见 genNotes 同注释）
+		if (backend.NMVContentData.currentMod != null)
+			Bread.crumb('PS event <$eventName> "$value1" "$value2" @${Std.int(strumTime)}');
+
+		#if HSCRIPT_ALLOWED
+		// NMV 兼容（utils.hx 的 onFirstEventPush）：某事件名首次触发时、先于下方原生
+		// switch 与 onEvent 广播推一次，NMV 脚本在此惰性创建该事件所需对象——
+		// meltdown 的红闪（Reactor Beep 在这里建 flashSprite，onEvent 只改 alpha）
+		// 就靠它。NMV 同款语义：每事件名每歌一次，参数是 EventNote 形状
+		// （strumTime/event/value1/value2，语料只读 event 字段）。
+		if (nmvScripts != null && !nmvFirstEventFired.exists(eventName))
+		{
+			nmvFirstEventFired.set(eventName, true);
+			nmvScripts.call('onFirstEventPush', [{strumTime: strumTime, event: eventName, value1: value1, value2: value2}], true);
+		}
+		#end
 
 		switch(eventName) {
 			case 'Hey!':
@@ -3689,7 +3852,14 @@ public function reloadCounterColors()
 	// fork 的 FlxBasic 无 zIndex 字段：有效值经 InterpEx.getZ（真字段 → 旁表 → 0）。
 	public function refreshZ(?group:FlxTypedGroup<FlxBasic>)
 	{
-		if (group == null) group = cast FlxG.state;
+		// NMV 语义（PlayState:3300 override：group ??= stage）：无参只排"stage 组"。
+		// FE 平铺无 stage 组，用 nmvStageZBound 边界近似——脚本 onCreatePost 起 add 的
+		// 对象（saxguy 等）不参与重排、保持 state 尾部，永远画在舞台/角色之上。
+		if (group == null)
+		{
+			sortStageZ();
+			return;
+		}
 		final arr:Array<FlxBasic> = group.members;
 		final order:Array<Int> = [for (i in 0...arr.length) i];
 		order.sort(function(a:Int, b:Int):Int
@@ -3699,6 +3869,22 @@ public function reloadCounterColors()
 		});
 		final sorted:Array<FlxBasic> = [for (i in order) arr[i]];
 		for (i in 0...sorted.length) arr[i] = sorted[i];
+	}
+
+	/** 只重排"stage 区"（背景+舞台 objects+角色组）内的成员，同 zIndex 保插入序。 */
+	function sortStageZ():Void
+	{
+		final members:Array<FlxBasic> = cast FlxG.state.members;
+		final bound:Int = Std.int(Math.min(nmvStageZBound, members.length));
+		if (bound <= 1) return;
+		final order:Array<Int> = [for (i in 0...bound) i];
+		order.sort(function(a:Int, b:Int):Int
+		{
+			final d:Float = nmv.scripts.InterpEx.getZ(members[a]) - nmv.scripts.InterpEx.getZ(members[b]);
+			return d > 0 ? 1 : (d < 0 ? -1 : a - b);
+		});
+		final sorted:Array<FlxBasic> = [for (i in order) members[i]];
+		for (i in 0...sorted.length) members[i] = sorted[i];
 	}
 
 	public function moveCameraSection(?sec:Null<Int>):Void {
@@ -3732,6 +3918,21 @@ public function reloadCounterColors()
 	var cameraTwn:FlxTween;
 	public function moveCamera(isDad:Bool)
 	{
+		// NMV 兼容（PlayState.camCurTarget，NMV:518/2779）：脚本锁镜目标优先，
+		// 直到脚本置 null。triple-threat 'forcecamtarget'×22（beach.hx:214-218）、
+		// double-kill 'black'/'not black' 聚焦 gf（cargo.hx:86-88）、torture
+		// warehouse.hx:120 都在用；此前 FE 无此字段，写路径直接抛 Invalid field。
+		if (camCurTarget != null && camCurTarget != dad && camCurTarget != boyfriend)
+		{
+			camFollow.setPosition(camCurTarget.getMidpoint().x, camCurTarget.getMidpoint().y);
+			if (camCurTarget.cameraPosition != null && camCurTarget.cameraPosition.length >= 2)
+			{
+				camFollow.x += camCurTarget.cameraPosition[0];
+				camFollow.y += camCurTarget.cameraPosition[1];
+			}
+			return;
+		}
+
 		if(isDad)
 		{
 			if(dad == null) return;
@@ -5294,6 +5495,21 @@ public function reloadCounterColors()
 			// 演唱动画跟随 owner 而不是固定 dad/gf（NMV opponentNoteHit → characterSing(owner ?? 常规)）
 			var char:Character = (opponentMode == "opponent") ? boyfriend : dad;
 			if (note.owner != null && Std.isOfType(note.owner, Character)) char = note.owner;
+			else
+			{
+				// NMV 2v2：车道号在 note 生成时就折掉了（noteColumn = 原始 data % 每侧列数），
+				// 演唱要按生成时保留的绝对车道取 playFields.members[lane].owner
+				// （voting: [2]=gf [3]=redmungus；attack: [2]=gf [3]=biddle），
+				// 否则 redmungus/biddle 永远不唱。
+				#if HSCRIPT_ALLOWED
+				final lane:Int = (note.nmvLane >= 0) ? note.nmvLane : Std.int(Math.abs(note.noteData) / totalColumns);
+				if (lane >= 2 && playFields.members[lane] != null)
+				{
+					final laneOwner:Dynamic = playFields.members[lane].owner;
+					if (laneOwner != null && Std.isOfType(laneOwner, Character)) char = laneOwner;
+				}
+				#end
+			}
 			var animToPlay:String = singAnimations[Note.getNoteDirectionIndex(Note.getColumnsPerPlayer(), note.noteData)] + note.animSuffix;
 			if(note.gfNote && note.owner == null) char = gf;
 
@@ -5540,22 +5756,25 @@ public function reloadCounterColors()
 		}
 
 		#if LUA_ALLOWED
-		for (lua in luaArray)
-		{
-			lua.call('onDestroy', []);
-			lua.stop();
-		}
+		// create 半途抛异常进 destroy 时 luaArray 可能还没建（09:49:22 实测 Null Object Reference）
+		if (luaArray != null)
+			for (lua in luaArray)
+			{
+				lua.call('onDestroy', []);
+				lua.stop();
+			}
 		luaArray = null;
 		FunkinLua.customFunctions.clear();
 		#end
 
 		#if HSCRIPT_ALLOWED
-		for (script in hscriptArray)
-			if(script != null)
-			{
-				if(script.exists('onDestroy')) script.call('onDestroy');
-				script.destroy();
-			}
+		if (hscriptArray != null)
+			for (script in hscriptArray)
+				if(script != null)
+				{
+					if(script.exists('onDestroy')) script.call('onDestroy');
+					script.destroy();
+				}
 
 		hscriptArray = null;
 
@@ -5612,7 +5831,8 @@ public function reloadCounterColors()
 			strumGuideLine = null;
 		}
 
-		keyboardViewer.save();
+		// 同上：create 半途崩溃时 keyboardViewer 可能未建（09:49:22 实测第二崩点）
+		if (keyboardViewer != null) keyboardViewer.save();
 
 		// 回收仍在场/待场的 Note 进静态池（跨歌复用），必须在 super.destroy() 之前
 		reclaimAllNotes();

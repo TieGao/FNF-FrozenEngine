@@ -54,8 +54,6 @@ class AmongWalker extends FunkinSprite
 	];
 	public static final fallbackColor:AmongWalkerColorData = {name: 'blue', weight: 1};
 
-	var animMap:Map<String, String> = [];
-
 	public function new(range:Array<Float>, height:Float, thescale:Float, ?friends:Array<AmongWalker>, ?colors:Array<AmongWalkerColorData>)
 	{
 		super();
@@ -121,7 +119,6 @@ class AmongWalker extends FunkinSprite
 		stopAnim();
 		if (hasAnim('idle')) removeAnim('idle');
 		if (hasAnim('walk')) removeAnim('walk');
-		animMap = [];
 
 		loadNmvAtlas(currentColorData.atlas ?? 'stages/mira/cafeteria/walkers');
 
@@ -137,40 +134,52 @@ class AmongWalker extends FunkinSprite
 		playAnim(idle ? 'idle' : 'walk', true);
 	}
 
-	// ---- Bopper 表面（flxanimate 版实现）----
-
-	/** Bopper 的 addAnimByPrefix：flxanimate 按动画名播放，登记 name→prefix 映射即可。 */
-	override public function addAnimByPrefix(name:String, prefix:String, fps:Int = 24, looping:Bool = true, flipX:Bool = false,
-			flipY:Bool = false):Void
-	{
-		animMap.set(name, prefix);
-	}
-
-	override public function hasAnim(name:String):Bool
-	{
-		return animMap.exists(name) || anim.getByName(name) != null;
-	}
-
-	/** flxanimate 没有按名移除动画的概念；映射清掉即等效（重载图集时会整体重建）。 */
-	override public function removeAnim(name:String):Void
-	{
-		animMap.remove(name);
-	}
+	// ---- Bopper 表面 ----
+	// NMV 的 Bopper 是"标准 animation 控制器"语义：addAnimByPrefix(name, prefix) 按 prefix
+	// 解析帧、注册成名为 name 的动画，playAnim(name) 播它。FunkinSprite 的同名方法就是这样
+	// （走 flxanimate 侧的 addByFrameLabel/addBySymbol，同时注册标准控制器），所以这里
+	// 不再覆写 —— 曾经覆写成"只记 name→prefix 映射"的表，导致 anim 里根本没注册动画，
+	// playAnim 全部早退，walkers 只有位移、没有走路动画。
 
 	public function stopAnim():Void
 	{
 		anim.stop();
 	}
 
-	override public function playAnim(name:String, force:Bool = false, reversed:Bool = false, ?frame:Int = 0):Void
-	{
-		// 图集未加载/无该动画时跳过：flxanimate 对空控制器 play 会裸 NPE
-		final actual = animMap.exists(name) ? animMap[name] : name;
-		if (anim == null || anim.getByName(actual) == null) return;
-		anim.play(actual, force, reversed, frame ?? 0);
+	// ---- Bopper 节拍面（NMV Bopper 原样移植；chef.hx 的 walker.onBeatHit(curBeat)
+	// 手动驱动——walkers 不进引擎的 beat 派发，舞台脚本自己节拍时调）----
 
-		final off = animOffsets.get(name);
-		if (off != null) offset.set(off[0], off[1]);
+	public var danceEveryNumBeats:Int = 2;
+	public var danceSpeed:Int = 1;
+	public var idleSuffix:String = '';
+
+	var alternatingDance:Null<Bool> = null;
+	var danced:Bool = false;
+
+	public function recalculateDanceIdle():Void
+	{
+		alternatingDance = hasAnim('danceLeft' + idleSuffix) && hasAnim('danceRight' + idleSuffix);
+	}
+
+	public function dance(forced:Bool = false):Void
+	{
+		if (alternatingDance == null) recalculateDanceIdle();
+		if (!canDance) return;
+
+		if (alternatingDance)
+		{
+			danced = !danced;
+			playAnim(danced ? 'danceRight$idleSuffix' : 'danceLeft$idleSuffix', forced);
+		}
+		else
+		{
+			playAnim('idle$idleSuffix', forced);
+		}
+	}
+
+	public function onBeatHit(beat:Int):Void
+	{
+		if (!isAnimNull() && beat % (danceEveryNumBeats * danceSpeed) == 0) dance();
 	}
 
 	// ---- NMV 原版行为 ----

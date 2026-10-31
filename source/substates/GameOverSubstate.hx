@@ -56,6 +56,17 @@ class GameOverSubstate extends MusicBeatSubstate
 			if(_song.gameOverLoop != null && _song.gameOverLoop.trim().length > 0) loopSoundName = _song.gameOverLoop;
 			if(_song.gameOverEnd != null && _song.gameOverEnd.trim().length > 0) endSoundName = _song.gameOverEnd;
 		}
+
+		// NMV 角色脚本面：boyfriend.gameoverInitialDeathSound / gameoverLoopDeathSound /
+		// gameoverConfirmDeathSound（defeat 的击杀演出、turbulence 的 Jorsawsee_Loop/End）。
+		// Initial 此前在 FE 无字段，脚本写直接抛 Invalid field → onGameOver 脚本段中断。
+		if (PlayState.instance != null && PlayState.instance.boyfriend != null)
+		{
+			final bfChar:Character = PlayState.instance.boyfriend;
+			if (bfChar.gameoverInitialDeathSound != null) deathSoundName = bfChar.gameoverInitialDeathSound;
+			if (bfChar.gameoverLoopDeathSound != null) loopSoundName = bfChar.gameoverLoopDeathSound;
+			if (bfChar.gameoverConfirmDeathSound != null) endSoundName = bfChar.gameoverConfirmDeathSound;
+		}
 	}
 
 	var charX:Float = 0;
@@ -138,6 +149,10 @@ class GameOverSubstate extends MusicBeatSubstate
 		}
 
 		super.create();
+
+		// NMV 兼容（GameOverSubstate:123）：死亡界面就绪后的脚本回调（defeat retro 的
+		// bgColor/snapToTarget 依赖它，此前 FE 无此广播点）
+		if (PlayState.instance != null) PlayState.instance.callOnScripts('onGameOverPost', []);
 	}
 
 	/** 官方 PicoPlayerBaseCharacter 派生的死亡角色（这几个才有 nene 扔刀） */

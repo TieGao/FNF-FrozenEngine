@@ -16,20 +16,22 @@ class SortUtil
 	}
 
 	/**
-	 * Sorts by FlxBasic's z values。pin 的 flixel fork 连 FlxBasic 都没有 zIndex 字段
-	 * （写入已被 InterpEx 吸收为 no-op），这里 Reflect 容错读取：缺失按 0，
-	 * 排序退化为"稳定不重排"，与 zIndex 无渲染语义的现状一致。
+	 * Sorts by FlxBasic's z values。pin 的 flixel fork 连 FlxBasic 都没有 zIndex 字段，
+	 * 脚本写入被 InterpEx 记进旁表（zIndexStore）——这里必须读旁表，否则
+	 * `group.sort(SortUtil.sortByZ)` 全按 0 比较、等于不排序：finale 血条的
+	 * bg(z=0) 是最后 add 的，不排序就盖住 leftBar/rightBar(z=1)，整条血条只剩底图。
 	 */
 	public static inline function sortByZ(order:Int, a:FlxBasic, b:FlxBasic):Int
 	{
 		if (a == null || b == null) return 0;
 
-		return FlxSort.byValues(order, reflectZ(a), reflectZ(b));
+		return FlxSort.byValues(order, effectiveZ(a), effectiveZ(b));
 	}
 
-	static function reflectZ(o:FlxBasic):Float
+	static function effectiveZ(o:FlxBasic):Float
 	{
 		final z:Dynamic = Reflect.field(o, 'zIndex');
-		return (z == null) ? 0 : z;
+		if (z != null) return z;
+		return nmv.scripts.InterpEx.getZ(o);
 	}
 }

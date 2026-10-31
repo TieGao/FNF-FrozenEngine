@@ -93,14 +93,20 @@ class PresetFnf
 		// NMV 的宠物光标（Pet 继承 Bopper，未随路线 C 移植）：舞台/歌曲脚本普遍引用
 		// pet.curPet / pet.loadPet / pet.origin 等面，缺了会让脚本 onLoad 中断、后续
 		// 定时器闭包裸抛崩游戏。行为桩：FlxSprite 实例（不显示），逻辑放行。
-		script.set('pet', new nmv.objects.PetStub());
+		// 单例：NMV 一个 PlayState 只有一个 pet，跨脚本共享状态。
+		script.set('pet', nmv.objects.PetStub.instance);
 
 		// 'stage'（NMV Stage 对象）：语料只用 stage.add / stage.insert / stage.members，
 		// 与 PlayState 的 flixel 容器面一致，直接映射到宿主 state
 		script.set('stage', FlxG.state);
 
-		// NMV 的 playHUD（BaseHUD/PsychHUD）：映射到 PlayState 自带的 HUD 元素（getter 逐次取）
-		script.set('playHUD', new nmv.objects.PlayHUDShim());
+		// NMV 的 playHUD（BaseHUD/PsychHUD）：映射到 PlayState 自带的 HUD 元素（getter 逐次取）。
+		// 共享单例——与 InterpEx 的 game.playHUD 特判同一个实例，替换值/血量缓存不分裂
+		script.set('playHUD', nmv.objects.PlayHUDShim.instance);
+
+		// NMV 的 audio（PlayableSong）：inst/songLength/人声轨音量（turbulence 每帧读
+		// audio.songLength，defeat 终局静音 audio.playerVolume=0）
+		script.set('audio', new nmv.objects.NmvAudioShim());
 
 		// NMV 的 modManager（modchart 引擎）：完整体系未移植，用记录式兼容面
 		// （setValue/getValue 真存值，时间线/定位 API 记录式 no-op + 一次性面包屑），
@@ -152,6 +158,12 @@ class PresetFnf
 
 	/** modManager 共享实例（NMV 语义 = PlayState 级单例，所有脚本看到同一个）。 */
 	static var sharedModManager:ModManagerCompat = new ModManagerCompat();
+
+	/** 引擎侧原生对象（Note 等）读取 per-lane modchart 值的入口。 */
+	public static function getModManager():ModManagerCompat
+	{
+		return sharedModManager;
+	}
 
 	/**
 	 * NMV 的脚本按自己的包名 import（`funkin.xxx`），FE 没有这个命名空间，

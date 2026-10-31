@@ -212,6 +212,9 @@ class NMVSciptHolder implements IFlxDestroyable
 
 	public function destroy()
 	{
+		// 垫片是共享单例，换歌时清会话内存（finaleUI 换的终局血条引用不能带进下一首）
+		nmv.objects.PlayHUDShim.instance.resetSession();
+		nmv.objects.PetStub.instance.resetSession();
 		group = FlxDestroyUtil.destroy(group);
 	}
 }

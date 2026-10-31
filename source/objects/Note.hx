@@ -99,8 +99,14 @@ class Note extends FlxSprite
 	/** NMV 兼容面：演唱归属角色（opponentNoteHitPre 里脚本设 owner=red 路由演唱）；
 	 *  opponentNoteHit 的默认演唱动画读它，null 走常规 dad/gf。 */
 	public var owner:Dynamic = null;
-	/** NMV Note.player：note 属于哪条车道（0..3）。FE 只有 0=对手/1=玩家（onSpawnNote 时赋值）。 */
+	/** NMV Note.player：note 属于哪条车道（0..3，0 = 玩家侧）。FE 的 noteData 在生成时被
+	 *  折到 `noteData % 每侧列数`（对手轨 0..3），原始车道会丢——2v2 的 lane2/3 演唱与
+	 *  per-lane modchart 全靠这里保留的绝对车道。生成时由 PlayState 写入。 */
 	public var player:Int = 0;
+
+	/** 绝对车道（0..3）：生成时从谱面原始 noteData 折算，-1 = 未设置（非谱面生成的 note）。
+	 *  `player` 是 NMV 脚本面，这里是引擎内部判据（谱面对象池复用，必须显式重置）。 */
+	public var nmvLane:Int = -1;
 
 	/** NMV 兼容（NoteSkin 面板）：note.skin.singAnimations / note.skin.data.singAnimations
 	 *  取 PlayState 的演唱动画名数组（每列一名）；语料只用到这两处（doubletrouble:539、
@@ -550,6 +556,7 @@ class Note extends FlxSprite
 		if(!inEditor) this.strumTime += ClientPrefs.data.noteOffset;
 
 		this.noteData = noteData;
+		this.nmvLane = -1;
 
 		if(noteData > -1)
 		{
@@ -852,6 +859,32 @@ class Note extends FlxSprite
 
 		if(copyAlpha)
 			alpha = strumAlpha * multAlpha;
+
+		// NMV 舞台脚本 modchart per-lane note 样式（AlphaModifier：'stealth' 白闪 + 'alpha' 透明度）。
+		// monotone-attack/voting-time 的 2v2 外侧轨（lane 2/3）在 NMV 里靠这个呈"白色半透明"
+		// 与主轨区分（RGB shader mix 向白 + alpha 乘数，公式同 nmv.shaders.RGBPalette 的
+		// a_flash/a_alpha）；Finale 用 alpha=1 隐藏对手轨 note。lane 按 SONG.keys 折算
+		// （nmv2 绝对车道：lane = noteData / 每车道列数，attack/voting noteData 0..15 → 0..3）。
+		if (backend.NMVContentData.currentMod != null && copyAlpha)
+		{
+			final mm = nmv.scripts.preset.PresetFnf.getModManager();
+			final keysPerLane:Int = getColumnsPerPlayer();
+			if (mm != null && keysPerLane > 0 && PlayState.SONG != null)
+			{
+				final lane:Int = (nmvLane >= 0) ? nmvLane : Std.int(noteData / keysPerLane);
+				final glow:Float = mm.laneStealthGlow(lane);
+				if (glow > 0 && rgbShader != null && rgbShader.enabled)
+				{
+					// 通道重映射数学同 Psych RGB shader：r+g+b 全 1 → newColor 吹到白，mult=glow 控制 mix 强度
+					rgbShader.r = 0xFFFFFFFF;
+					rgbShader.g = 0xFFFFFFFF;
+					rgbShader.b = 0xFFFFFFFF;
+					rgbShader.mult = glow;
+				}
+				final op:Float = mm.laneNoteAlphaMult(lane);
+				if (op < 1) alpha *= op;
+			}
+		}
 
 		if(copyX)
 			x = strumX + offsetX + Math.cos(angleDir) * distance;

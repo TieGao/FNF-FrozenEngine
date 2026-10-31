@@ -1,6 +1,7 @@
 package flxanimate;
 
 import flixel.graphics.frames.FlxAtlasFrames;
+import flixel.graphics.frames.FlxFrame.FlxFrameType;
 import flixel.graphics.FlxGraphic;
 import flixel.util.FlxDestroyUtil;
 import flixel.system.FlxAssets.FlxGraphicAsset;
@@ -122,7 +123,11 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 					}
 					var tl:FlxTimeline = FlxTimeline.fromJSONEx({L: [{LN: 'content', FR: contentFrames}]});
 					if (tl != null)
+					{
+						// 纯 sparrow 主图集时 symbolDictionary 还是 null（只有 _loadAtlas 初始化）
+						if (anim.symbolDictionary == null) anim.symbolDictionary = [];
 						anim.symbolDictionary.set(sn, new FlxSymbol(sn, tl));
+					}
 				}
 				return;
 			}
@@ -203,16 +208,16 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 	 * `FlxAnim.addBySymbolIndices` 的防环版本。
 
 	 */
-	public function safeAddBySymbolIndices(name:String, symbolName:String, indices:Array<Int>, frameRate:Float, looped:Bool):Void
+	public function safeAddBySymbolIndices(name:String, symbolName:String, indices:Array<Int>, frameRate:Float, looped:Bool):Bool
 	{
-		if (anim.symbolDictionary == null) return;
-		if (!anim.symbolDictionary.exists(symbolName))
-		{
-			FlxG.log.error('$symbolName does not exist as a symbol! maybe you misspelled it?');
-			return;
-		}
+		if (anim.symbolDictionary == null) return false;
+		if (!anim.symbolDictionary.exists(symbolName)) return false;
 
-		var regKey:String = symbolName + '#' + name;
+		// 包装符号的字典键**不能以源符号名开头**：Dot-Stuff 的 `FlxAnim.addBySymbol`
+		// 是"遍历字典键做前缀匹配、取第一个"，键 `<源符号>#<动画>` 会被它当成源符号的
+		// 候选，Map 顺序一变就抓到包装（只含别的动画选中的那几帧）→ 播放串台、
+		// 零件（手/护目镜等）跟着混用。用 '@' 开头把包装挡在前缀匹配之外。
+		var regKey:String = '@' + symbolName + '@' + name;
 		var outerParams = new FlxElement(new SymbolParameters((looped) ? Loop : PlayOnce), new FlxMatrix(1, 0, 0, 1, 0, 0));
 		var timeline = new FlxTimeline();
 		timeline.add("Layer 1");
@@ -235,12 +240,78 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 			anim.symbolDictionary.set(regKey, symbol);
 			anim.animsMap.set(name, {instance: outerParams, frameRate: frameRate});
 		}
+		return true;
 	}
 
+	/**
+	 * 非 Animate 图集也照画的开关（FunkinSprite 的 sparrow/loadGraphic 路径用）：
+	 * NMV 原版对这类 FunkinSprite 注册进标准 animation 控制器、就是普通 FlxSprite
+	 * 渲染；移植端脚本也走 animation.play，anim.curInstance 恒 null，此前的 draw
+	 * 门卫直接 return → reactor 的 coreGlow/coreRing/coreClaw 整体不可见。
+	 */
+	public var allowPlainDraw:Bool = false;
+
+	@:access(flixel.FlxSprite)
 	override function draw()
 	{
-		if(anim.curInstance == null || anim.curSymbol == null) return;
+		if (anim.curInstance == null || anim.curSymbol == null)
+		{
+			// FlxAnimate.draw（super）是纯 animate 帧绘制（drawLimb 链），不认
+			// sprite.frames，没有标准渲染可回落——allowPlainDraw 时按 FlxSprite.draw
+			// 的核心逻辑用标准 frames 画（sparrow 帧已同步注册进标准 animation 控制器）。
+			if (allowPlainDraw)
+			{
+				checkClipRect();
+				checkEmptyFrame();
+				if (alpha == 0 || _frame.type == FlxFrameType.EMPTY) return;
+				if (dirty) calcFrame(useFramePixels);
+				for (camera in getCamerasLegacy())
+				{
+					if (!camera.visible || !camera.exists || !isOnScreen(camera)) continue;
+					if (isSimpleRender(camera)) drawSimple(camera);
+					else drawComplex(camera);
+				}
+			}
+			return;
+		}
 		super.draw();
+	}
+
+	/**
+	 * 两条播放头，各推各的：
+	 *
+	 * 1. `anim`（flxanimate 的 FlxAnim）：Animate 图集的实际播放头。**必须原样推进，
+	 *    不能额外干预嵌套符号（零件）的帧。**
+	 * 2. 标准 `animation`（FlxSprite 的 FlxAnimationController）：FlxAnimate 覆写了
+	 *    `updateAnimation` 且只推 `anim`，标准控制器永不前进 —— sparrow/loadGraphic
+	 *    走的精灵（reactor 的 coreGlow/coreRing、舞台道具）脚本 `animation.play()` 后
+	 *    会停在第一帧，必须在这里补推。两个控制器互不干扰：谁在画由 draw 的门卫决定。
+	 *
+	 * 【2026-10-31 夜 事故回溯 · 不要再"修"一次】曾在此处调用 freezePartFrames，
+	 * 把整棵符号树的嵌套元素帧钉回 firstFrame，结果**所有角色动画塌成 1 帧**
+	 * （whitedk/maroon/pink/grey/chef… 全身静止）。错误前提是交接文档 59 号的
+	 * "参考引擎 LF 缺省时 lastFrame=0 → 区间塌成一帧"：
+	 *   NMV `FlxAnimateJson.hx:190-210`  `public var LF(get,never):Int;
+	 *                                      get_LF() => this.LF ?? this.lastFrame ?? -1;`
+	 *   NMV `SymbolInstance.hx:105`        `hasLastFrame = (lastFrame > -1);`
+	 * 即缺省 LF 是 **-1**、`hasLastFrame` 为 **false**，走的是
+	 * `FlxMath.wrap(firstFrame + 相对帧, 0, 符号总帧-1)`；Dot-Stuff 的
+	 * `FlxElement.updateRender` 是 `(相对帧 + firstFrame) % symbol.length`，
+	 * 而 `FlxSymbol.length == timeline.totalFrames` —— **两边数学完全等价**。
+	 * 语料里 0 个元素带 LF 恰好说明"零件该跟着父时间线走"，钉死才是错的。
+	 */
+	override function updateAnimation(elapsed:Float):Void
+	{
+		if (anim != null && anim.curInstance != null && anim.curSymbol != null)
+		{
+			anim.update(elapsed);
+			return;
+		}
+
+		// 标准帧渲染路径（sparrow / loadGraphic）：FlxAnimate 覆写了 updateAnimation
+		// 且只推 `anim`，FlxSprite 的 `animation` 控制器永不前进 —— 不补推就停在第一帧。
+		// 判据与 draw 的门卫完全一致（谁在画就推谁），避免两个控制器互相干扰。
+		if (allowPlainDraw && animation != null) animation.update(elapsed);
 	}
 
 	/**

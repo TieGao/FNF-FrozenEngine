@@ -51,6 +51,35 @@ class ModManagerCompat
 		return (b != null && b.exists(playFieldIndex ?? 0)) ? b.get(playFieldIndex ?? 0) : 0;
 	}
 
+	/**
+	 * NMV AlphaModifier（'stealth'）note 侧语义的 port 版：该车道 note 透明度乘数。
+	 * - 'alpha'：attack/voting 的 2v2 外侧轨 setValue("alpha",0.7) → 0.3（半透明）；
+	 *   Finale setValue("alpha",1) → 0（NMV 同款 = 对手轨 note 隐藏）。
+	 *   注：NMV 本体里 'alpha' 未注册为修饰器（setValue 走 register.get 报错无效），
+	 *   这里采纳脚本作者的设置意图 + 用户实测要的"白色半透明"观感。
+	 */
+	public function laneNoteAlphaMult(lane:Int):Float
+	{
+		var a:Float = getValue('alpha', lane);
+		if (Math.isNaN(a)) a = 0;
+		return a > 0 ? Math.max(1 - a, 0) : 1;
+	}
+
+	/**
+	 * NMV AlphaModifier 的 stealth 白闪强度（RGBShader a_flash 语义，mix 向白）：
+	 * getVisibility=1-stealth 过 getGlow 曲线 clamp(scale(1-s, 1, 0.5, 0, 1.3), 0, 1)
+	 * 的线性段 = (1-s)*2.6（位置项 hidden/sudden/blink 未移植，只取常值部分）。
+	 * attack/voting 外侧轨 stealth=0.5 → 1.0（全白）。
+	 */
+	public function laneStealthGlow(lane:Int):Float
+	{
+		var s:Float = getValue('stealth', lane);
+		if (Math.isNaN(s)) s = 0;
+		if (s <= 0) return 0;
+		final g:Float = (1 - s) * 2.6;
+		return Math.max(0, Math.min(g, 1));
+	}
+
 	public function registerMod(mod:Dynamic, ?subMod:Dynamic = null, ?save:Bool = true):Dynamic
 	{
 		final name:String = (mod != null && Reflect.hasField(mod, 'name')) ? Reflect.field(mod, 'name') : Std.string(Type.typeof(mod));

@@ -189,6 +189,18 @@ class Song
 		// 保留 sectionBeats 修正与事件提取。
 		final skipLaneFlip:Bool = (sourceFormat == 'nmv2');
 
+		// NMV 的 arrowSkin/splashSkin 是它自家 JSON noteskin 系统（data/noteskins/<id>.json
+		// 映射出 noteTexture）的皮肤 ID（'default'/'top'/'pixel'），不是 FE 图集名；
+		// 原样透传会让 Paths.getSparrowAtlas('default') 落空 → Note frames=null →
+		// findByPrefix 崩（2026-10-31 实测：double-trouble 是唯一 arrowSkin='default' 的
+		// nmv2 图，note 生成即崩）。NMV noteskin 未移植，一律剥掉回退 FE 默认
+		// （NOTE_assets / ClientPrefs 的 noteSplashes）。
+		if (skipLaneFlip)
+		{
+			Reflect.deleteField(songJson, 'arrowSkin');
+			Reflect.deleteField(songJson, 'splashSkin');
+		}
+
 		for (section in sectionsData)
 		{
 			var beats:Null<Float> = cast section.sectionBeats;

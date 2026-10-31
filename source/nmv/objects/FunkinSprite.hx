@@ -89,6 +89,10 @@ class FunkinSprite extends PsychFlxAnimate
 				if (spar == null) continue;
 
 				sparrowFrames = true;
+				// NMV 语义：sparrow 图集的 FunkinSprite 就是普通 FlxSprite 渲染——
+				// 不设这个，draw 门卫会因 anim.curInstance 为 null 把整个精灵吞掉
+				// （reactor 大球 coreGlow/coreRing/coreClaw 不可见的根因）
+				allowPlainDraw = true;
 				if (!loadedAny)
 				{
 					frames = spar;
@@ -209,6 +213,21 @@ class FunkinSprite extends PsychFlxAnimate
 			flixel.FlxG.log.warn('FunkinSprite.addAnimByPrefix: no frame matches "$prefix"');
 			return;
 		}
+
+		// NMV 语义（FunkinSprite:266-280）：非 Animate 图集的动画注册进标准 animation
+		// 控制器——脚本的 coreGlow.animation.play('bop') 走的就是标准控制器，不注册
+		// 这份 play 无效（帧虽画出、动画不播）。同帧序列双注册：flxanimate 侧保
+		// getAnimName/curFrame 兼容，标准侧供实际播放。
+		if (indices != null && indices.length > 0)
+			animation.addByIndices(name, prefix, indices, '', fps, looping);
+		else
+			animation.addByPrefix(name, prefix, fps, looping);
+
+		// 纯 Sparrow 图集（无 Animation.json）时 `anim.symbolDictionary` 是 **null**
+		// （FlxAnim 只在 _loadAtlas 里初始化它），下面直接 set 会裸 NPE ——
+		// 这就是 reactor:50 `coreGlow.addAnimByPrefix('bop','reactor core',…)`
+		// 每次进歌必炸、onLoad 后半段（coreRing/coreClaw/overlay）全不建的根因。
+		if (anim.symbolDictionary == null) anim.symbolDictionary = [];
 
 		final key = '@sparrow:' + name;
 		var contentFrames:Array<Dynamic> = [];

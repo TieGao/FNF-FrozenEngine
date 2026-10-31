@@ -36,6 +36,7 @@ import backend.BlueScreenCrashHandler;
 #end
 
 import backend.Highscore;
+import backend.HsLog;
 
 #if (linux && !debug)
 @:cppInclude('./external/gamemode_client.h')
@@ -160,6 +161,7 @@ class Main extends Sprite
 				msgInfo += '${newPos.lineNumber}:';
 			}
 			msgInfo += ' $x';
+			HsLog.record('WARN', msgInfo);
 			if (PlayState.instance != null)
 				PlayState.instance.addTextToDebug('WARNING: $msgInfo', FlxColor.YELLOW);
 		}
@@ -178,6 +180,7 @@ class Main extends Sprite
 				msgInfo += '${newPos.lineNumber}:';
 			}
 			msgInfo += ' $x';
+			HsLog.record('ERROR', msgInfo);
 			if (PlayState.instance != null)
 				PlayState.instance.addTextToDebug('ERROR: $msgInfo', FlxColor.RED);
 		}
@@ -196,6 +199,7 @@ class Main extends Sprite
 				msgInfo += '${newPos.lineNumber}:';
 			}
 			msgInfo += ' $x';
+			HsLog.record('FATAL', msgInfo);
 			if (PlayState.instance != null)
 				PlayState.instance.addTextToDebug('FATAL: $msgInfo', 0xFFBB0000);
 		}

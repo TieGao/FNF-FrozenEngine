@@ -118,8 +118,33 @@ class Character extends FlxSprite
 	public var gameoverCharacter:String = '';
 
 	/** NMV 兼容：死亡循环音名（json 键 `gameover_loop_sound`；lounge/voting 舞台会写）。
-	 *  FE 的 GameOverSubstate 不消费它，字段保脚本链路 + 会话语义。 */
+	 *  消费端在 GameOverSubstate.resetVariables（覆盖 loopSoundName）。 */
 	public var gameoverLoopDeathSound:Null<String> = null;
+
+	/** NMV 兼容：死亡确认音名（turbulence 舞台脚本会写）；消费端同上（覆盖 endSoundName）。 */
+	public var gameoverConfirmDeathSound:Null<String> = null;
+
+	/** NMV 兼容：死亡首音效（json 键 gameover_intial_sound；defeat 舞台脚本会写，
+	 *  此前缺失 → 写路径抛 Invalid field → onGameOver 脚本段中断、击杀演出整段跳过）。
+	 *  消费端在 GameOverSubstate.resetVariables（覆盖 deathSoundName）。 */
+	public var gameoverInitialDeathSound:Null<String> = null;
+
+	/** NMV Bopper 面的相机跟唱位移幅度（utils.hx onMoveCamera 每次换镜头读）。 */
+	public var camDisplacement:Float = 20;
+
+	/** NMV 兼容（Character.getSingDisplacement，NMV:394）：按当前 sing 方向给镜头微位移。
+	 *  此前缺失 → utils.hx:146 fcall 报 Unknown function → onMoveCamera 后半截中断。 */
+	public function getSingDisplacement():flixel.math.FlxPoint
+	{
+		return switch (getAnimationName().substr(4).split('-')[0].toLowerCase())
+		{
+			case 'up': flixel.math.FlxPoint.weak(0, -camDisplacement);
+			case 'down': flixel.math.FlxPoint.weak(0, camDisplacement);
+			case 'left': flixel.math.FlxPoint.weak(-camDisplacement, 0);
+			case 'right': flixel.math.FlxPoint.weak(camDisplacement, 0);
+			default: flixel.math.FlxPoint.weak();
+		}
+	}
 
 	/** 残影开关（NMV 的 afterimages）；FE 未移植残影系统，字段仅供脚本读写。 */
 	public var ghostsEnabled:Bool = false;
@@ -161,8 +186,8 @@ class Character extends FlxSprite
 		animationsArray = [];
 		animOffsets = [];
 		#if flxanimate
-		nmvAnchorReady = false;
 		nmvContentChar = false;
+		nmvLoggedOffsets = [];
 		#end
 		curCharacter = character;
 		var characterPath:String = 'characters/$character.json';
@@ -305,14 +330,24 @@ class Character extends FlxSprite
 		flipX = (json.flip_x != isPlayer);
 		// NMV Character 同款基准：偏移翻转修正用它判断 flipX 是否偏离出生朝向
 		baseFlipX = flipX;
-		healthColorArray = (json.healthbar_colors != null && json.healthbar_colors.length > 2) ? json.healthbar_colors : [161, 161, 161];
+		// 血条颜色：NMV 语料 139/162 只写单值 `healthbar_colour`（ARGB int），少数才写 `healthbar_colors` 数组。
+		// 只读数组会让绝大多数角色落到灰色 [161,161,161] → 血条/图标/血量文字全变灰（"小图标色彩缺失"）。
+		if (json.healthbar_colors != null && json.healthbar_colors.length > 2)
+			healthColorArray = json.healthbar_colors;
+		else if (json.healthbar_colour != null)
+		{
+			final hc:FlxColor = FlxColor.fromInt(json.healthbar_colour);
+			healthColorArray = [hc.red, hc.green, hc.blue];
+		}
+		else
+			healthColorArray = [161, 161, 161];
 		vocalsFile = json.vocals_file != null ? json.vocals_file : '';
 		originalFlipX = (json.flip_x == true);
 		editorIsPlayer = json._editor_isPlayer;
 		flags = (json.flags != null) ? json.flags : {};
 		scalableOffsets = (json.scalableOffsets != null) ? json.scalableOffsets : true;
-		healthColour = (json.healthbar_colour != null) ? json.healthbar_colour : FlxColor.fromRGB(healthColorArray[0], healthColorArray[1],
-			healthColorArray[2]);
+		healthColour = (json.healthbar_colour != null) ? json.healthbar_colour
+			: FlxColor.fromRGB(healthColorArray[0], healthColorArray[1], healthColorArray[2]);
 		gameoverCharacter = (json.gameover_character != null) ? json.gameover_character : '';
 		gameoverLoopDeathSound = json.gameover_loop_sound;
 		ghostsEnabled = (json.afterimages == true);
@@ -347,22 +382,32 @@ class Character extends FlxSprite
 					try hasFrameLabel = atlas.anim.getFrameLabel(animName) != null catch(e:Dynamic) {}
 					var exactSymbol:Bool = atlas.anim.symbolDictionary != null && atlas.anim.symbolDictionary.exists(animName);
 
-					// 优先级：
-					// ① json indices——gf 的 danceLeft/danceRight 是同一符号 'GF Dancing Beat'
-					//   靠 indices 分段，必须走 indices，否则 GF 单向摆头。
-					// ② 精确符号——white 的姿势符号与根 timeline 帧标签同名（'idle'/'down'…），
-					//   若走帧标签路径，addByFrameLabel→addBySymbolIndices 会建同名包装符号
-					//   **覆盖字典里的真符号**，而根 timeline 又引用它 → updateRender 无限递归
-					//   → 栈溢出闪退（white 必崩）。精确命中时直接指向既有符号、不写字典。
-					// ③ 帧标签段——yellow 的动画是根 timeline 按 'yellow idle' 等标签分段，
-					//   图集里没有同名词，走标签 indices + safe 包装（防覆盖）。
-					// ④ 前缀兜底。
+					// 注册优先级（对齐 NMV `FunkinSprite.addAnimByPrefix`：**帧标签 → 符号 → 前缀**）：
+					// ① 有 json indices 时先走符号 indices——gf 的 danceLeft/danceRight 是同一符号
+					//    'GF Dancing Beat' 靠 indices 分段，走帧标签会把两段合成一条（单向摆头）。
+					// ② 没有 indices 但根 timeline 有同名帧标签 → 走帧标签（根时间线）。
+					//    white/whitedk 的 json name（'idle'/'right'/'idle_w'…）与根时间线的帧标签
+					//    完全同名，NMV 走的是标签（所有姿势共用根时间线的包围盒 → 位置稳定）；
+					//    走姿势符号则每个姿势各算一个包围盒 → 逐姿势位移（"到处飘"）。
+					//    旧代码担心的"同名包装覆盖真符号导致递归闪退"不成立：safe 包装的字典键是
+					//    `@<符号>@<动画>`，不写既有键。
+					// ③ 精确符号（前缀歧义时用全帧 indices 的 safe 包装，不覆盖字典）。
+					// ④ 帧标签兜底。
+					// ⑤ 前缀兜底。
+					// 每步失败就往下掉（json 的 name 带不带目录名跟字典键不一定一致：
+					// yellow 写 'yellow idle'、键是 'animations/yellow idle'；Nene 写 'Idle'）。
+					var registered:Bool = false;
 					if(animIndices != null && animIndices.length > 0)
 					{
-						atlas.safeAddBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
-						backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' indices n=' + animIndices.length);
+						registered = atlas.safeAddBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
+						if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' indices n=' + animIndices.length);
 					}
-					else if(exactSymbol)
+					if(!registered && hasFrameLabel && (animIndices == null || animIndices.length == 0))
+					{
+						registered = addFromFrameLabel(animAnim, animName, animFps, animLoop);
+						if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' label[' + animName + ']');
+					}
+					if(!registered && exactSymbol)
 					{
 						if (prefixAmbiguous(animName))
 						{
@@ -371,28 +416,35 @@ class Character extends FlxSprite
 							var sym = atlas.anim.symbolDictionary.get(animName);
 							var frameCount:Int = (sym != null && sym.timeline != null) ? sym.timeline.totalFrames : 0;
 							var all:Array<Int> = [for (i in 0...frameCount) i];
-							atlas.safeAddBySymbolIndices(animAnim, animName, all, animFps, animLoop);
-							backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' exact-ambiguous n=' + frameCount);
+							registered = atlas.safeAddBySymbolIndices(animAnim, animName, all, animFps, animLoop);
+							if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' exact-ambiguous n=' + frameCount);
 						}
 						else
 						{
 							atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
-							backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' exact');
+							registered = atlas.anim.existsByName(animAnim);
+							if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' exact');
 						}
 					}
-					else if(hasFrameLabel)
+					if(!registered && hasFrameLabel)
 					{
-						// safe 版包装：字典键用 <符号>#<动画名>，不覆盖任何既有符号
-						var labelFrame = atlas.anim.getFrameLabel(animName);
-						var labelIndices:Array<Int> = (labelFrame != null) ? labelFrame.getFrameIndices() : [];
-						var rootName:String = atlas.anim.stageInstance.symbol.name;
-						atlas.safeAddBySymbolIndices(animAnim, rootName, labelIndices, animFps, animLoop);
-						backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' label[' + animName + '] n=' + labelIndices.length);
+						registered = addFromFrameLabel(animAnim, animName, animFps, animLoop);
+						if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' label[' + animName + ']');
 					}
-					else
+					if(!registered)
 					{
 						atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
-						backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' prefix');
+						registered = atlas.anim.existsByName(animAnim);
+						if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' prefix');
+					}
+					if(!registered)
+						backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' FAILED name=' + animName);
+					else
+					{
+						// 实际绑定的符号（查"组件混用/播放串台"用：动画名 → 符号名）
+						var played = atlas.anim.getByName(animAnim);
+						if (played != null && played.instance != null && played.instance.symbol != null)
+							backend.Bread.crumb('char[' + curCharacter + '] bind ' + animAnim + ' -> ' + played.instance.symbol.name);
 					}
 					// 逐动画翻转（tankman 的 basic 包 idle/sing 与 extra 包美术朝向不一致）
 					animFlipXMap.set(animAnim, (anim.flip_x == true));
@@ -530,8 +582,15 @@ class Character extends FlxSprite
 	// NMV 兼容面（Bopper API）：字段/方法存在、语义降级为桩，避免角色脚本 onLoad 中断
 	public var useRenderTexture:Bool = false;
 
-	/** NMV 角色脚本直接调 char.onBeatHit(curBeat)；FE 的跳舞走 PlayState beatHit → dance()，这里不重复触发。 */
-	public function onBeatHit(curBeat:Int):Void {}
+	/** NMV 角色脚本直接调 char.onBeatHit(curBeat)；3 主角的跳舞走 PlayState beatHit →
+	 *  dance()（此处被脚本直调时按 NMV Bopper 语义驱动节拍舞），脚本自建的角色
+	 *  （redmungus/maroon/grey/yellow 等）没有任何别的跳舞驱动，空桩会让它们全程站桩
+	 *  （2026-10-31 用户复核：voting redmungus 没动作）。 */
+	public function onBeatHit(curBeat:Int):Void
+	{
+		if (!debugMode && !skipDance && !specialAnim && danceEveryNumBeats != 0 && curBeat % danceEveryNumBeats == 0)
+			dance();
+	}
 
 	/**
 	 * FOR GF DANCING SHIT
@@ -571,37 +630,39 @@ class Character extends FlxSprite
 
 		if (hasAnimation(AnimName))
 		{
-			var daOffset = animOffsets.get(AnimName);
 			#if flxanimate
-			// NMV setAnimOffset 的翻转修正：翻转态下 X 偏移按帧宽镜像
-			// （red 作为玩家侧被翻转后裸用 json 偏移，每个唱击动作横向甩 500px+ = "漂移"）。
-			// 基准帧宽首次就绪时采样；图集未就绪（-1）先按裸值。
-			if (isAnimateAtlas && baseFrameWidth < 0 && frameWidth > 0)
+			if (nmvAtlasAnchorFix)
 			{
-				baseFrameWidth = frameWidth;
-				baseFrameHeight = frameHeight;
-			}
-			if (isAnimateAtlas && baseFrameWidth >= 0)
-			{
-				offset.set(
-					(baseFlipX != null && flipX != baseFlipX) ? (frameWidth - baseFrameWidth - daOffset[0]) : daOffset[0],
-					(baseFlipY != null && flipY != baseFlipY) ? (frameHeight - baseFrameHeight - daOffset[1]) : daOffset[1]
-				);
+				// 逐动画锚点（确定性包围盒）：json 偏移(翻转修正) + 该动画自己的包围盒锚
+				nmvApplyOffset(AnimName);
 			}
 			else
+			{
+				var daOffset = animOffsets.get(AnimName);
+				// NMV setAnimOffset 的翻转修正：翻转态下 X 偏移按帧宽镜像
+				// （red 作为玩家侧被翻转后裸用 json 偏移，每个唱击动作横向甩 500px+ = "漂移"）。
+				// 基准帧宽首次就绪时采样；图集未就绪（-1）先按裸值。
+				if (isAnimateAtlas && baseFrameWidth < 0 && frameWidth > 0)
+				{
+					baseFrameWidth = frameWidth;
+					baseFrameHeight = frameHeight;
+				}
+				if (isAnimateAtlas && baseFrameWidth >= 0)
+				{
+					offset.set(
+						(baseFlipX != null && flipX != baseFlipX) ? (frameWidth - baseFrameWidth - daOffset[0]) : daOffset[0],
+						(baseFlipY != null && flipY != baseFlipY) ? (frameHeight - baseFrameHeight - daOffset[1]) : daOffset[1]
+					);
+				}
+				else
+					offset.set(daOffset[0], daOffset[1]);
+			}
+			#else
+			var daOffset = animOffsets.get(AnimName);
+			offset.set(daOffset[0], daOffset[1]);
 			#end
-				offset.set(daOffset[0], daOffset[1]);
 		}
 		//else offset.set(0, 0);
-
-		#if flxanimate
-		// Animate 图集的锚点补偿对所有动画一致，切动画时重新叠加，避免被 animOffsets 覆盖掉
-		if(nmvAtlasAnchorFix && nmvAnchorReady)
-		{
-			offset.x += nmvAnchorDx;
-			offset.y += nmvAnchorDy;
-		}
-		#end
 
 		if (curCharacter.startsWith('gf-') || curCharacter == 'gf')
 		{
@@ -677,6 +738,23 @@ class Character extends FlxSprite
 
 	#if flxanimate
 	/** fork 的 addBySymbol 是前缀匹配：除精确同名外还有别的符号以该名为前缀时返回 true。 */
+	/**
+	 * 用根时间线的帧标签段注册动画（NMV `addByFrameLabel` 语义）。
+	 * safe 包装：字典键 `@<根符号>@<动画>`，不覆盖任何既有符号。
+	 */
+	function addFromFrameLabel(animAnim:String, animName:String, animFps:Int, animLoop:Bool):Bool
+	{
+		var labelFrame = null;
+		try labelFrame = atlas.anim.getFrameLabel(animName) catch(e:Dynamic) {}
+		if (labelFrame == null) return false;
+
+		var labelIndices:Array<Int> = labelFrame.getFrameIndices();
+		if (labelIndices.length <= 0) return false;
+
+		var rootName:String = atlas.anim.stageInstance.symbol.name;
+		return atlas.safeAddBySymbolIndices(animAnim, rootName, labelIndices, animFps, animLoop);
+	}
+
 	function prefixAmbiguous(symbolName:String):Bool
 	{
 		var count:Int = 0;
@@ -695,18 +773,44 @@ class Character extends FlxSprite
 	/**
 	 * NMV：当前帧的读写口（bf-running 用 legs.animCurFrame 对齐两套动画的帧）。
 	 * 语义与 NMV FunkinSprite 一致：无动画时读 0、写丢弃。
+	 * atlas 角色走 atlas.anim（NMV 的统一控制器等价物）——旧实现只读标准控制器，
+	 * atlas 角色恒 0/写丢弃，bf-running 的帧同步链静默失效。
 	 */
 	public var animCurFrame(get, set):Int;
 
 	inline function get_animCurFrame():Int
 	{
+		#if flxanimate
+		if (isAnimateAtlas)
+			return (atlas == null || atlas.anim == null || atlas.anim.curInstance == null) ? 0 : atlas.anim.curFrame;
+		#end
 		return (animation == null || animation.curAnim == null) ? 0 : animation.curAnim.curFrame;
 	}
 
 	inline function set_animCurFrame(value:Int):Int
 	{
+		#if flxanimate
+		if (isAnimateAtlas)
+		{
+			if (atlas != null && atlas.anim != null) atlas.anim.curFrame = value;
+			return value;
+		}
+		#end
 		if (animation != null && animation.curAnim != null) animation.curAnim.curFrame = value;
 		return value;
+	}
+
+	/**
+	 * NMV 面（FunkinSprite.isAnimFinished 同构语义，nenelobby.hx 在用）：
+	 * 无动画 = false；atlas 角色走 atlas.anim.finished，Sparrow 走标准面。
+	 */
+	public function isAnimFinished():Bool
+	{
+		#if flxanimate
+		if (isAnimateAtlas)
+			return atlas != null && atlas.anim != null && atlas.anim.curInstance != null && atlas.anim.finished;
+		#end
+		return animation != null && animation.curAnim != null && animation.curAnim.finished;
 	}
 
 	/** NMV 的角色 flag 读取；没有该 flag 时返回 null（脚本常写 `getFlag('x') != true`）。 */
@@ -750,21 +854,10 @@ class Character extends FlxSprite
 	public var nmvAtlasAnchorFix:Bool = false;
 	/** 本次加载的角色 json 是否来自 NMV 语料（content/NMVMODS）；changeCharacter 里按解析路径判定。 */
 	var nmvContentChar:Bool = false;
-	/**
-	 * 锚点补偿量（舞台坐标 → 包围盒锚点），首次绘制时采样一次后全局固定。
-	 * 必须所有动画共用同一个值：flixel-animate 用的是整条时间轴的包围盒，
-	 * 逐动画各算一个会让切换动画时角色跳位。
-	 */
-	var nmvAnchorDx:Float = 0;
-	var nmvAnchorDy:Float = 0;
-	var nmvAnchorReady:Bool = false;
-	/** 锚点采样门控：等 idle@0 帧的最大绘制帧数（60fps 约 8 秒），超时退回首绘采样。 */
-	static inline var NMV_ANCHOR_MAX_DRAWS:Int = 480;
-	var nmvAnchorDrawCount:Int = 0;
-	/** 锚点采样缓存：键 = 图集路径（角色 json image 字段），同图集跨实例复用。 */
-	public static var nmvAnchorCache:Map<String, FlxPoint> = [];
-	/** 锚点缓存键：角色 json 的 image 路径（见 captureNmvAnchor）。 */
+	/** 锚点缓存键：角色 json 的 image 路径（确定性结果跨实例复用）。 */
 	var nmvAtlasKey:String;
+	/** 已打过 `nmv off` 面包屑的动画（每个动画一次，验证基准用）。 */
+	var nmvLoggedOffsets:Array<String> = [];
 
 	public override function draw()
 	{
@@ -782,7 +875,6 @@ class Character extends FlxSprite
 			{
 				copyAtlasValues();
 				atlas.draw();
-				if(nmvAtlasAnchorFix) captureNmvAnchor();
 				alpha = lastAlpha;
 				color = lastColor;
 				if(missingCharacter && visible)
@@ -829,58 +921,38 @@ class Character extends FlxSprite
 	}
 
 	/**
-	 * 锚点采样（首帧内容 min 钉位）——同图集缓存 + idle 帧门控 + 超时兜底。
+	 * offset = json 偏移 + 当前动画的包围盒锚（nmvAtlasAnchorFix 专用，playAnim 专用）。
 	 *
-	 * 背景（2026-10-31 复盘）：NMV flixel-animate 的 applyStageMatrix 默认 false 且引擎
-	 * 从不开启 —— 两边渲染数学本就一致，补偿的意义是"把内容 bbox 左上角钉在逻辑位上"，
-	 * 旧实现采"首绘帧内容 min"经实测对 bf/gf/red/green/black 是正确值。
-	 * 旧实现三个缺陷与修法：
-	 * 1. 换实例（Change Character）重采样，首绘动画不同 → 同角色两值瞬移
-	 *    （danger 76,343 → -5,-190）→ **同图集静态缓存**（键 = image 路径，值与实例 offset 无关）；
-	 * 2. 首绘不是 idle 的角色采到离群帧（blackparasite -2074）→ **idle@0 帧门控**，
-	 *    超时（NMV_ANCHOR_MAX_DRAWS 帧）退回首绘采样；
-	 * 3. 旧公式漏 viewMargin（fork 的 worldToView = world - scroll - viewMargin，zoom 折进
-	 *    margin）→ zoom≠1 时被污染 → **补 viewMargin**。
+	 * 推导（两边都是 openfl Matrix.translate = 裸加，锚落在屏幕空间、与 scale 无关）：
+	 *   NMV  : x = ±scale·p + (-bx [+ bw 当翻转]) + 屏幕位置 - json偏移
+	 *   本端 : x = ±scale·p + 屏幕位置 - offset
+	 *   ⇒ offset = json偏移 + bx [- bw 当翻转]
+	 * 翻转项来自 MaybeMaru 的 `scale(-1,1); translate(bounds.width,0)`（Dot-Stuff 只翻不补宽）。
+	 * json 偏移不随翻转镜像 —— NMV 的 correctFlippedOffsets 对角色恒为 false。
 	 */
-	function captureNmvAnchor():Void
+	function nmvApplyOffset(animName:String):Void
 	{
-		if(nmvAnchorReady) return;
-		if(atlas.frameWidth <= 0 || atlas.frameHeight <= 0) return;
+		var daOffset = animOffsets.get(animName);
+		if (daOffset == null) daOffset = [0, 0];
 
-		if (nmvAtlasKey != null && nmvAtlasKey.length > 0 && nmvAnchorCache.exists(nmvAtlasKey))
+		final rect:Null<FlxRect> = nmv.utils.NmvAtlasAnchor.getBounds(atlas, nmvAtlasKey, animName);
+		if (rect == null)
 		{
-			final cached = nmvAnchorCache.get(nmvAtlasKey);
-			nmvAnchorDx = cached.x;
-			nmvAnchorDy = cached.y;
-			nmvAnchorReady = true;
-			offset.x += nmvAnchorDx;
-			offset.y += nmvAnchorDy;
+			offset.set(daOffset[0], daOffset[1]);
 			return;
 		}
 
-		// 采样时机门：等 idle（idle/danceLeft/danceRight）动画第 0 帧
-		nmvAnchorDrawCount++;
-		final curAnim = (animation != null) ? animation.curAnim : null;
-		final animName:String = (curAnim != null) ? curAnim.name : null;
-		final idleHit:Bool = (animName != null && curAnim.curFrame == 0)
-			&& (animName == 'idle' + idleSuffix
-				|| animName == 'danceLeft' + idleSuffix
-				|| animName == 'danceRight' + idleSuffix);
-		if (!idleHit && nmvAnchorDrawCount < NMV_ANCHOR_MAX_DRAWS) return;
+		final flipXr:Bool = (flipX != animFlipX);
+		final ax:Float = rect.x - (flipXr ? rect.width : 0);
+		final ay:Float = rect.y - (flipY ? rect.height : 0);
+		offset.set(daOffset[0] + ax, daOffset[1] + ay);
 
-		final cam = atlas.camera;
-		final sf = atlas.scrollFactor;
-		// fork 的 view→world：world = view + scroll*sf + viewMargin（zoom 已折进 margin）
-		nmvAnchorDx = atlas.relativeX + (cam != null ? cam.scroll.x * sf.x + cam.viewMarginX : 0) + atlas.offset.x;
-		nmvAnchorDy = atlas.relativeY + (cam != null ? cam.scroll.y * sf.y + cam.viewMarginY : 0) + atlas.offset.y;
-		nmvAnchorReady = true;
-
-		if (nmvAtlasKey != null && nmvAtlasKey.length > 0)
-			nmvAnchorCache.set(nmvAtlasKey, FlxPoint.get(nmvAnchorDx, nmvAnchorDy));
-
-		offset.x += nmvAnchorDx;
-		offset.y += nmvAnchorDy;
-		backend.Bread.crumb('nmv anchor ' + (idleHit ? 'idle' : 'timeout') + ' ' + curCharacter + ' dx=' + Std.int(nmvAnchorDx) + ' dy=' + Std.int(nmvAnchorDy));
+		if (!nmvLoggedOffsets.contains(animName))
+		{
+			nmvLoggedOffsets.push(animName);
+			backend.Bread.crumb('nmv off ' + curCharacter + ' ' + animName + ' flip=' + flipXr + ' bw=' + Std.int(rect.width) + ' json=' + Std.int(daOffset[0]) + ','
+				+ Std.int(daOffset[1]) + ' anchor=' + Std.int(ax) + ',' + Std.int(ay) + ' -> ' + Std.int(offset.x) + ',' + Std.int(offset.y));
+		}
 	}
 
 	public override function destroy()

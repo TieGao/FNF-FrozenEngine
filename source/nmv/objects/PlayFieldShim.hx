@@ -24,6 +24,13 @@ class PlayFieldShim extends FlxBasic
 	public var owner:Dynamic = null;
 	public var isPlayer:Bool = true;
 
+	// attack.hx postModifierRegister 写这些（i.isPlayer = i.playerControls = i.noteSplashes = player;
+	// i.autoPlayed = !player; i.underlay.kill()）。underlay 必须是可 kill 的对象——null.kill()
+	// 会经 hscript 报 "Invalid access to field kill"，给一次性空 sprite 承接。
+	public var noteSplashes:Bool = true;
+	public var autoPlayed:Bool = false;
+	public var underlay:flixel.FlxSprite = new flixel.FlxSprite();
+
 	/** 本车道对应的 FE strum 组（0/1 号位；2/3 号位为 null）。迭代时取活成员。 */
 	public var strums:Iterable<FlxSprite>;
 
@@ -33,6 +40,7 @@ class PlayFieldShim extends FlxBasic
 		this.ID = id;
 		this.isPlayer = isPlayerSide;
 		this.strums = strumGroup;
+		underlay.visible = false;
 	}
 
 	/** `for (strum in playField)`：迭代 strums 组的当前成员（空位车道为空迭代）。 */

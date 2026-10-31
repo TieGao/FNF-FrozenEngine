@@ -65,6 +65,24 @@ class PetStub extends FlxSprite
 		loadPet = function(?name:String = '', ?force:Bool = false):Dynamic return this;
 	}
 
+	/**
+	 * 全局单例：NMV 一个 PlayState 只有一个 pet，舞台脚本设的皮肤/位置歌曲脚本要读得到。
+	 * 每脚本各给一个实例会让 `pet.curPet = 'x'` 只在写它的脚本里可见。
+	 * 换歌时由 NMVSciptHolder.destroy → resetSession 清会话内存。
+	 */
+	public static var instance(default, null):PetStub = new PetStub();
+
+	public function resetSession():Void
+	{
+		curPet = '';
+		flags = [];
+		onChange = new flixel.util.FlxSignal.FlxTypedSignal<Dynamic->Void>();
+		_petOffset.set();
+		setPosition(0, 0);
+		alpha = 1;
+		visible = false;
+	}
+
 	/** NMV Bopper.dance()：桩无动画，空实现保脚本链路不断（monotone.hx onBeatHit 调用）。 */
 	public function dance(?forced:Bool = false):Void {}
 }

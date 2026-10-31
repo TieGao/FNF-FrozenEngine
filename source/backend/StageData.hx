@@ -28,6 +28,12 @@ typedef StageFile = {
 	@:optional var _editorMeta:Dynamic;
 	// NMV 语料舞台的宠物站位（danger 等 json 带 "pet":[x,y]；NMV PlayState PET_X/PET_Y 消费）
 	@:optional var pet:Array<Dynamic>;
+	// NMV 角色组层级（NMV PlayState:607-610 消费：组 zIndex = json 值 ?? 0；
+	// toogus 是 bf/dad 20、gf 15 —— 桌子 zIndex 10 之下）。移植端写 InterpEx.zIndexStore 旁表。
+	@:optional var bfZIndex:Null<Int>;
+	@:optional var dadZIndex:Null<Int>;
+	@:optional var gfZIndex:Null<Int>;
+	@:optional var petZIndex:Null<Int>;
 }
 
 enum abstract LoadFilters(Int) from Int from UInt to Int to UInt
