@@ -74,7 +74,122 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 		anim._loadAtlas(animJson);
 		if(!isXml) frames = FlxAnimateFrames.fromSpriteMap(cast myData, img);
 		else frames = FlxAnimateFrames.fromSparrow(cast myData, img);
+		applyNmvAtlasSemantics();
 		origin = anim.curInstance.symbol.transformationPoint;
+	}
+
+	/**
+	 * BTA 的 `SI.B`（元素混合模式）是 **0..14 的整数**，语义见参考引擎
+	 * `animate/internal/filters/Blend.hx:fromInt`：
+	 * `0=ADD 1=ALPHA 2=DARKEN 3=DIFFERENCE 4=ERASE 5=HARDLIGHT 6=INVERT 7=LAYER
+	 *  8=LIGHTEN 9=MULTIPLY 10=NORMAL 11=OVERLAY 12=SCREEN 13=SHADER 14=SUBTRACT`。
+	 * Dot-Stuff 把它原样塞进 `SymbolParameters.blendMode:BlendMode`（字符串抽象），
+	 * 于是字段里躺着 "8"/"12" 这种非法值：`blendMode != NORMAL` 成立 → 该元素被判定
+	 * 成 `cacheAsBitmap` → 走烘焙路径，而真正画出来时因为名字非法等于没应用混合。
+	 * 语料实测：1084 个 ADD、375 LAYER、129 SCREEN、64 LIGHTEN、21 MULTIPLY…
+	 * white 的 `halo` 就是 `B=8`(LIGHTEN)、`mic hand` 是 `B=12`(SCREEN) —— 少了这层
+	 * 混合，光环/手直接露出原始的红+黄两层画，正是用户报的"颜色有红有黄"。
+	 * LAYER/SHADER 不是逐元素混合（openfl 里 LAYER 是容器语义）→ 归 NORMAL。
+	 */
+	static final NMV_BLEND_NAMES:Array<String> = [
+		'add', 'alpha', 'darken', 'difference', 'erase', 'hardlight', 'invert', 'normal',
+		'lighten', 'multiply', 'normal', 'overlay', 'screen', 'normal', 'subtract'
+	];
+
+	/**
+	 * NMV 内容包的 Animate 图集语义补丁（加载后跑一次）：
+	 *
+	 * 1. **`ST: "MC"` / `"B"` 的零件实例恒显示自身第 0 帧**（NMV `MovieClipInstance`）。
+	 * 2. **`SI.B` 的数字混合模式 → 合法 BlendMode 名**（NMV `Blend.fromInt`）。
+	 *
+	 * 只对 NMV 内容生效（`NMVContentData.currentMod != null`）——FE 自家 mod 的 Animate
+	 * 图集维持 Dot-Stuff 原行为，避免又一次"改一处坏一片"。
+	 *
+	 * ## 第 1 条的推导（这是"零件乱跑"的总根因）
+	 *
+	 * - 参考引擎按 `SI.ST` 分三种元素类（`animate/internal/Frame.hx:225`）：
+	 *   `"MC" → MovieClipInstance`、`"B" → ButtonInstance`、其余 → `SymbolInstance`。
+	 * - `MovieClipInstance.getFrameIndex()`：
+	 *   `return swfMode ? super.getFrameIndex(index, frameIndex) : 0;`
+	 *   `swfMode` 默认 false 且 NMV 游戏侧从不开启（全仓 grep 零命中，
+	 *   `FlxAnimateFrames.fromAnimate(..., {cacheOnLoad:true})` 不传该设置）。
+	 *   → MC 零件**永远画第 0 帧**，动作来自父时间线每帧不同的**矩阵**，不是自己在播。
+	 *   这就是 Animate 编辑器里的观感（MC 只显示第一帧）。
+	 * - Dot-Stuff 没有这个区分，一律 `(相对帧 + FF) % 符号长度` → MC 零件跟着父关键帧
+	 *   "漂"到别的姿势帧：whitedk 末帧刀/手回绕、maroon 手与刀交替、grey 手抖、
+	 *   pink 护目镜/爱心乱、chefogus 护目镜错位。全语料 22388 个 G / **6504 个 MC**。
+	 *
+	 * 落法：把 MC/Button 参数改成 `loop = SingleFrame` + `firstFrame = 0`，让
+	 * `FlxElement.updateRender` 的 `default: symbol.firstFrame` 分支接管（恒 0）。
+	 * 必须 `@:bypassAccessor`：`set_loop` 对 `type == MovieClip` 强制改回 Loop，
+	 * `set_firstFrame` 只对 `Graphic` 生效。不动 `type`，保留 filters/cacheAsBitmap。
+	 *
+	 * 对比工具：`docs/nmv-port-plan/scripts/anim-render-probe.py`
+	 * （默认按本规则渲染；`--no-nmv-mc` 看修前行为）。
+	 */
+	/**
+	 * 当前是否在跑 NMV 内容包。两个信号取或：
+	 * - `NMVContentData.currentMod`（Freeplay 选 NMV 曲目时置上）；
+	 * - 内容根路径含 `NMVMODS`（story/直接进歌等没走 Freeplay 的路径）。
+	 * 拿不到就返回 false，宁可不改（FE 自家 Animate 图集维持原行为）。
+	 */
+	inline static function isNmvContent():Bool
+	{
+		if (backend.NMVContentData.currentMod != null) return true;
+		final root:String = backend.Paths.currentContentRoot;
+		return root != null && root.indexOf('NMVMODS') >= 0;
+	}
+
+	@:access(flxanimate.animate.FlxLayer)
+	@:access(flxanimate.animate.SymbolParameters)
+	public function applyNmvAtlasSemantics():Void
+	{
+		if (anim == null || anim.symbolDictionary == null) return;
+		if (!isNmvContent()) return;
+
+		var pinned:Int = 0;
+		var blended:Int = 0;
+
+		for (sym in anim.symbolDictionary)
+		{
+			if (sym == null || sym.timeline == null) continue;
+			for (layer in sym.timeline.getList())
+			{
+				if (layer == null) continue;
+				for (keyframe in layer._keyframes)
+				{
+					if (keyframe == null) continue;
+					for (element in keyframe.getList())
+					{
+						final params = element.symbol;
+						if (params == null) continue;
+
+						// ① MC / Button 零件钉第 0 帧
+						if (params.type == MovieClip || params.type == Button)
+						{
+							@:bypassAccessor params.loop = SingleFrame;
+							@:bypassAccessor params.firstFrame = 0;
+							pinned++;
+						}
+
+						// ② 数字混合模式 → 合法名（已是合法名的不会被 parseInt 命中）
+						final raw:Dynamic = Reflect.field(params, 'blendMode');
+						if (raw == null) continue;
+						final idx:Null<Int> = Std.parseInt(Std.string(raw));
+						if (idx == null) continue;
+						final name:String = (idx >= 0 && idx < NMV_BLEND_NAMES.length) ? NMV_BLEND_NAMES[idx] : 'normal';
+						params.blendMode = cast name;
+						blended++;
+					}
+				}
+			}
+		}
+
+		if (pinned > 0 || blended > 0)
+		{
+			final atlasName:String = (anim.curInstance != null && anim.curInstance.symbol != null) ? anim.curInstance.symbol.name : '?';
+			backend.Bread.crumb('nmv atlas semantics [' + atlasName + '] mcPinned=' + pinned + ' blend=' + blended);
+		}
 	}
 
 	/**
@@ -155,6 +270,9 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 				anim.symbolDictionary.set(key, new FlxSymbol(haxe.io.Path.withoutDirectory(key), FlxTimeline.fromJSONEx(symbol.TL)));
 			}
 		}
+
+		// 子图集里同样有 ST="MC" 的零件实例 / 数字混合模式（多图集角色）
+		applyNmvAtlasSemantics();
 	}
 
 	/**

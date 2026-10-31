@@ -89,7 +89,14 @@ def render(syms, sym_name, frame, depth, out, freeze, max_depth=16):
             ff = si.get('FF') or 0
             lp = si.get('LP') or 'LP'
             cflen = total_frames(syms[child]) if child in syms else 0
-            cf = ff if freeze else part_frame(rel, ff, lp, cflen)
+            # NMV MovieClipInstance.getFrameIndex(): swfMode ? 推进 : 0
+            # 语料里 MC 元件的 FF/LP 恒为空 —— 作者在 Animate 里看到的就是静止的第 0 帧
+            if (si.get('ST') or 'G') in ('MC', 'movieclip', 'B', 'button'):
+                cf = 0
+            elif freeze:
+                cf = ff
+            else:
+                cf = part_frame(rel, ff, lp, cflen)
             out.append((depth, child, None, cf))
             render(syms, child, cf, depth + 1, out, freeze, max_depth)
 
