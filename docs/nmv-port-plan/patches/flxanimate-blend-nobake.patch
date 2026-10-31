@@ -1,0 +1,90 @@
+diff --git a/flxanimate/FlxAnimate.hx b/flxanimate/FlxAnimate.hx
+index e872888..6b868fc 100644
+--- a/flxanimate/FlxAnimate.hx
++++ b/flxanimate/FlxAnimate.hx
+@@ -266,7 +266,7 @@ class FlxAnimate extends FlxSprite
+ 	}
+ 
+ 	var st = 0;
+-	function parseElement(instance:FlxElement, m:FlxMatrix, colorFilter:ColorTransform, ?filterInstance:{?instance:FlxElement} = null, ?cameras:Array<FlxCamera> = null, ?scrollFactor:FlxPoint = null)
++	function parseElement(instance:FlxElement, m:FlxMatrix, colorFilter:ColorTransform, ?filterInstance:{?instance:FlxElement} = null, ?cameras:Array<FlxCamera> = null, ?scrollFactor:FlxPoint = null, ?blend:BlendMode = null)
+ 	{
+ 		if (instance == null || !instance.visible)
+ 			return;
+@@ -274,6 +274,12 @@ class FlxAnimate extends FlxSprite
+ 		var mainSymbol = instance == anim.curInstance;
+ 		var filterin = filterInstance != null;
+ 
++		// 混合沿绘制树继承（对位 MaybeMaru flixel-animate 的 Blend.resolve(this.blend, blend)）：
++		// 自身非 NORMAL 时覆盖父级，否则原样继承。烘焙渲染（filterin）里不叠，外层贴回时统一用。
++		var elemBlend:BlendMode = filterin ? null : blend;
++		if (!filterin && instance.symbol != null && instance.symbol.blendMode != BlendMode.NORMAL)
++			elemBlend = instance.symbol.blendMode;
++
+ 		var skipFilters = anim.metadata.skipFilters;
+ 
+ 		if (cameras == null)
+@@ -303,7 +309,7 @@ class FlxAnimate extends FlxSprite
+ 
+ 		if (instance.bitmap != null)
+ 		{
+-			drawLimb(frames.getByName(instance.bitmap), matrix, colorEffect, filterin, cameras);
++			drawLimb(frames.getByName(instance.bitmap), matrix, colorEffect, filterin, elemBlend, null, cameras);
+ 			return;
+ 		}
+ 		var cacheToBitmap = !skipFilters && (instance.symbol.cacheAsBitmap || this.filters != null && mainSymbol) && (!filterin || filterin && filterInstance.instance != instance);
+@@ -426,7 +432,7 @@ class FlxAnimate extends FlxSprite
+ 				}
+ 
+ 				_tmpMat.identity();
+-				renderLayer(frame, (toBitmap || isMasker || isMasked) ? _tmpMat : matrix, coloreffect, (toBitmap || isMasker || isMasked) ? _elemInstance(null) : filterInstance, (toBitmap || isMasker) ? _singleCam(layer._filterCamera) : (isMasked) ? _singleCam(layer._clipper.maskCamera) : cameras);
++				renderLayer(frame, (toBitmap || isMasker || isMasked) ? _tmpMat : matrix, coloreffect, (toBitmap || isMasker || isMasked) ? _elemInstance(null) : filterInstance, (toBitmap || isMasker) ? _singleCam(layer._filterCamera) : (isMasked) ? _singleCam(layer._clipper.maskCamera) : cameras, elemBlend);
+ 
+ 				if (toBitmap)
+ 				{
+@@ -457,10 +463,10 @@ class FlxAnimate extends FlxSprite
+ 			}
+ 		}
+ 	}
+-	inline function renderLayer(frame:FlxKeyFrame, matrix:FlxMatrix, colorEffect:ColorTransform, ?instance:{?instance:FlxElement} = null, ?cameras:Array<FlxCamera>)
++	inline function renderLayer(frame:FlxKeyFrame, matrix:FlxMatrix, colorEffect:ColorTransform, ?instance:{?instance:FlxElement} = null, ?cameras:Array<FlxCamera> = null, ?blend:BlendMode = null)
+ 	{
+ 		for (element in frame.getList())
+-			parseElement(element, matrix, colorEffect, instance, cameras);
++			parseElement(element, matrix, colorEffect, instance, cameras, null, blend);
+ 	}
+ 	function renderFilter(filterInstance:IFilterable, filters:Array<BitmapFilter>, renderer:FlxAnimateFilterRenderer, ?mask:FlxCamera)
+ 	{
+diff --git a/flxanimate/animate/SymbolParameters.hx b/flxanimate/animate/SymbolParameters.hx
+index c79e734..8aefce1 100644
+--- a/flxanimate/animate/SymbolParameters.hx
++++ b/flxanimate/animate/SymbolParameters.hx
+@@ -98,6 +98,19 @@ class SymbolParameters implements IFilterable
+ 
+ 	public var blendMode(default, set):BlendMode = NORMAL;
+ 
++	/**
++	 * 不让 `blendMode != NORMAL` 触发 `cacheAsBitmap` 离屏烘焙。
++	 *
++	 * 默认 false = 原行为：带混合的符号先渲染到自己的 filterCamera，再把整块 bitmap
++	 * 用 blendMode 贴回去。这条路径对 Animate 分尸图（尤其 NMV 的 MC 零件）会出错位、
++	 * 糊边，且混合只作用于整块矩形。
++	 *
++	 * 打开后 blend 改由 `FlxAnimate.parseElement` 沿绘制树逐元素实时传下去
++	 * （等价 MaybeMaru flixel-animate 的 `Blend.resolve(this.blend, blend)`）。
++	 * 只有显式打开的资源受影响，其他项目维持原样。
++	 */
++	public var blendNoBake:Bool = false;
++
+ 	public var cacheAsBitmap(get, set):Bool;
+ 
+ 	var _cacheAsBitmap:Bool = false;
+@@ -322,7 +335,7 @@ class SymbolParameters implements IFilterable
+ 		if (type == Graphic) return false;
+ 
+ 
+-		if (filters != null && filters.length > 0 || blendMode != NORMAL) return true;
++		if (filters != null && filters.length > 0 || (blendMode != NORMAL && !blendNoBake)) return true;
+ 
+ 		return _cacheAsBitmap;
+ 	}

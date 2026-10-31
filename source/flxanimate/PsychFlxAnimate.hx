@@ -85,11 +85,18 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 	 *  8=LIGHTEN 9=MULTIPLY 10=NORMAL 11=OVERLAY 12=SCREEN 13=SHADER 14=SUBTRACT`。
 	 * Dot-Stuff 把它原样塞进 `SymbolParameters.blendMode:BlendMode`（字符串抽象），
 	 * 于是字段里躺着 "8"/"12" 这种非法值：`blendMode != NORMAL` 成立 → 该元素被判定
-	 * 成 `cacheAsBitmap` → 走烘焙路径，而真正画出来时因为名字非法等于没应用混合。
-	 * 语料实测：1084 个 ADD、375 LAYER、129 SCREEN、64 LIGHTEN、21 MULTIPLY…
+	 * 成 `cacheAsBitmap` → 走烘焙路径（渲到离屏 camera 再整块贴回），而真正画出来时
+	 * 因为名字非法等于没应用混合。
+	 * 语料实测：1159 个 ADD、375 LAYER、135 SCREEN、64 LIGHTEN、33 MULTIPLY…
 	 * white 的 `halo` 就是 `B=8`(LIGHTEN)、`mic hand` 是 `B=12`(SCREEN) —— 少了这层
 	 * 混合，光环/手直接露出原始的红+黄两层画，正是用户报的"颜色有红有黄"。
 	 * LAYER/SHADER 不是逐元素混合（openfl 里 LAYER 是容器语义）→ 归 NORMAL。
+	 *
+	 * **实测结论（2026-10-31 深夜二批之后）**：只把名字改对还不够 —— 烘焙路径在 NMV 的
+	 * MC 零件上会错位/糊边（white 普通版仍有问题、maroon 零件偏移）。所以同时打开
+	 * `SymbolParameters.blendNoBake`，让带混合的符号走普通绘制路径，blend 由
+	 * lib flxanimate 的 `FlxAnimate.parseElement` 沿绘制树实时传给 `drawLimb`
+	 * （对位参考引擎 MaybeMaru 的 `Blend.resolve(this.blend, blend)`）。
 	 */
 	static final NMV_BLEND_NAMES:Array<String> = [
 		'add', 'alpha', 'darken', 'difference', 'erase', 'hardlight', 'invert', 'normal',
@@ -123,6 +130,10 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 	 * `FlxElement.updateRender` 的 `default: symbol.firstFrame` 分支接管（恒 0）。
 	 * 必须 `@:bypassAccessor`：`set_loop` 对 `type == MovieClip` 强制改回 Loop，
 	 * `set_firstFrame` 只对 `Graphic` 生效。不动 `type`，保留 filters/cacheAsBitmap。
+	 *
+	 * 第 2 条的落法：数字 → 合法名 **且** `blendNoBake = true`。只改名不改路径的话，
+	 * 元素还是被 `get_cacheAsBitmap()` 判定烘焙（离屏 camera 渲一遍再整块贴回），
+	 * 在 MC 零件上表现为错位/糊边；关掉后 blend 走 `parseElement` 的实时传参路径。
 	 *
 	 * 对比工具：`docs/nmv-port-plan/scripts/anim-render-probe.py`
 	 * （默认按本规则渲染；`--no-nmv-mc` 看修前行为）。
@@ -179,6 +190,11 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 						if (idx == null) continue;
 						final name:String = (idx >= 0 && idx < NMV_BLEND_NAMES.length) ? NMV_BLEND_NAMES[idx] : 'normal';
 						params.blendMode = cast name;
+						// 不因 blend 走 cacheAsBitmap 离屏烘焙：Dot-Stuff 的烘焙路径会把整块符号
+						// 渲到 filterCamera 再贴回，NMV 的 MC 零件在这条路上会错位/糊边
+						// （white 的 halo/mic hand、maroonParasite 的器官）。打开后由
+						// FlxAnimate.parseElement 沿绘制树实时传 blend（对位参考引擎 Blend.resolve）。
+						if (name != 'normal') params.blendNoBake = true;
 						blended++;
 					}
 				}
