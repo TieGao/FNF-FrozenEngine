@@ -136,7 +136,9 @@ class Character extends FlxSprite
 	 *  此前缺失 → utils.hx:146 fcall 报 Unknown function → onMoveCamera 后半截中断。 */
 	public function getSingDisplacement():flixel.math.FlxPoint
 	{
-		return switch (getAnimationName().substr(4).split('-')[0].toLowerCase())
+		final animName:String = getAnimationName();
+		if (animName.length < 5) return flixel.math.FlxPoint.weak();
+		return switch (animName.substr(4).split('-')[0].toLowerCase())
 		{
 			case 'up': flixel.math.FlxPoint.weak(0, -camDisplacement);
 			case 'down': flixel.math.FlxPoint.weak(0, camDisplacement);
@@ -533,10 +535,13 @@ class Character extends FlxSprite
 		return !isAnimateAtlas ? (animation.curAnim == null) : (atlas.anim.curInstance == null || atlas.anim.curSymbol == null);
 	}
 
-	var _lastPlayedAnimation:String;
+	/** 上次播放的动画名。**必须给空串初始化**：hxcpp 上 String 字段默认是 null，
+	 *  `getAnimationName()` 被脚本/Voider 面广泛调用（getSingDisplacement、bf-running），
+	 *  任何一次 `null.substr()` 都是裸 NPE。 */
+	var _lastPlayedAnimation:String = '';
 	inline public function getAnimationName():String
 	{
-		return _lastPlayedAnimation;
+		return _lastPlayedAnimation == null ? '' : _lastPlayedAnimation;
 	}
 
 	public function isAnimationFinished():Bool
