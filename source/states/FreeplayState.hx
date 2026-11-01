@@ -772,20 +772,8 @@ class FreeplayState extends MusicBeatState
             WeekData.setDirectoryFromWeek(weekData);
             Difficulty.loadFromWeek(weekData);
             
-            if (weekData.difficulties != null && weekData.difficulties.length > 0)
-            {
-                var diffStr:String = weekData.difficulties;
-                difficulties = diffStr.split(',');
-                for (i in 0...difficulties.length)
-                {
-                    difficulties[i] = difficulties[i].trim();
-                }
-                Difficulty.copyFrom(difficulties);
-            }
-            else
-            {
-                difficulties = Difficulty.defaultList.copy();
-            }
+            difficulties = resolveWeekDifficulties(weekData);
+            Difficulty.copyFrom(difficulties);
 
             // 从 week.json 的 songs 元组里取音乐人 / 谱师（旧版 3 元组会返回 null）
             var songEntry:Array<Dynamic> = WeekData.findSongEntry(weekData, songName);
@@ -846,6 +834,60 @@ class FreeplayState extends MusicBeatState
         item.units = units;
         convertTotal += units;
         difficultyPreloadQueue.push(item);
+    }
+
+    /** 周定义的难度表（`week.json` 的 difficulties 串）；为空时用默认三档。 */
+    private function resolveWeekDifficulties(weekData:WeekData):Array<String>
+    {
+        if (weekData != null && weekData.difficulties != null && weekData.difficulties.length > 0)
+        {
+            var diffs:Array<String> = weekData.difficulties.split(',');
+            for (i in 0...diffs.length)
+                diffs[i] = diffs[i].trim();
+            if (diffs.length > 0) return diffs;
+        }
+        return Difficulty.defaultList.copy();
+    }
+
+    /**
+     * 为当前 `songs` 里还没解析出信息的难度补排预加载任务。
+     *
+     * 必须在 `songs` 定稿之后调用：来源切换的时序是
+     * `applySourceFilter → rebuildSongLists()`（这一步会入队）`→ onModFolderChanged()`
+     * （这一步先清空队列、再从 allSongs 重新过滤 songs），那批任务就跟着队列一起没了。
+     * NMV 包是唯一"只能在选择器里进入"的来源（周定义只在 `NMVContentData.currentMod`
+     * 非空时才注册，`allSongs` 里本来没有它们的歌），所以它的歌永远等不到解析 ——
+     * 卡片一直是 `BPM: --`、没有评级。其余来源在 `create()` 那一轮就已经解析过。
+     */
+    private function enqueueMissingSongInfo():Void
+    {
+        for (song in songs)
+        {
+            // 自定义谱面自带入队逻辑（loadCustomChartSongs），这里不重复排
+            if (song == null || song.customChart != null) continue;
+            if (song.week < 0 || song.week >= WeekData.weeksList.length) continue;
+
+            var weekData:WeekData = WeekData.weeksLoaded.get(WeekData.weeksList[song.week]);
+            if (weekData == null) continue;
+
+            var missing:Array<String> = [];
+            for (diffName in resolveWeekDifficulties(weekData))
+            {
+                if (isParsedSongInfoValid(song.difficultyInfo.get(diffName))) continue;
+                if (SongInfoParser.isChartMissing(song.songName, song.folder, diffName, weekData)) continue;
+                missing.push(diffName);
+            }
+            if (missing.length == 0) continue;
+
+            enqueuePreload({
+                song: song,
+                songName: song.songName,
+                folder: song.folder,
+                difficulties: missing,
+                weekData: weekData,
+                cacheKey: getFreeplaySongCacheKey(song.songName, song.folder, song.variant)
+            }, missing.length);
+        }
     }
 
     /**
@@ -3301,6 +3343,10 @@ class FreeplayState extends MusicBeatState
             resetCardScroller();
             return;
         }
+
+        // songs 定稿后再补排预加载：上面刚清空过队列（来源切换会把 rebuildSongLists 排的
+        // 任务一起丢掉），不补的话新来源的歌永远等不到 BPM / 评级解析。
+        enqueueMissingSongInfo();
 
         initializeCardSlots();
 
