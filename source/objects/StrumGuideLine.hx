@@ -89,9 +89,8 @@ class StrumGuideLine extends FlxTypedSpriteGroup<FlxSprite>
         var playState = PlayState.instance;
         if (playState == null) return;
         
-        var opponentMode = playState.opponentMode;
-        var isCoopMode:Bool = (opponentMode == "coop" || opponentMode == "coop_split");
-        var isOpponentMode:Bool = (opponentMode == "opponent");
+        var isCoopMode:Bool = playState.isCoopMode();
+        var isOpponentMode:Bool = playState.isOpponentMode();
         
         // 更新玩家侧引导线
         for (i in 0...playerLines.length)

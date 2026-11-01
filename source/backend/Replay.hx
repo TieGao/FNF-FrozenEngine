@@ -383,7 +383,7 @@ class Replay
             replay.difficultyName = Difficulty.getString();
             replay.noteSpeed = roundToTwo(PlayState.SONG.speed);
             replay.isDownscroll = ClientPrefs.data.downScroll;
-            replay.opponentMode = playState.opponentMode;
+            replay.opponentMode = Std.string(playState.opponentMode);
             replay.sf = ClientPrefs.data.safeFrames;
             
             replay.finalScore = playState.songScore;

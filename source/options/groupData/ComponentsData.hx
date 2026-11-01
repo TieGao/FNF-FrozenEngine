@@ -11,7 +11,7 @@ class ComponentsData
         var cat = new OptionCategory('Components', 'Components', 'specIcon');
 
         var sub1 = cat.section('HitErrorBar', 'Hit Error Bar');
-        sub1.add(new Option('Hit Error Bar', 'Show hit error bar', 'hitErrorBarVisible', BOOL));
+        sub1.add(new Option('Hit Error Bar', 'Show hit error bar', 'hitErrorBarVisible', BOOL)).pageGate = true;
         sub1.add(new Option('Hit Error Bar Pointer Style', 'Style of the hit error bar pointer', 'pointerType', STRING, ['triangle', 'inverted', 'thick_line']));
 
         var hitBarLines = new Option('Hit Bar Lines', 'Number of lines on hit error bar', 'hitBarLines', INT);
@@ -43,7 +43,7 @@ class ComponentsData
         sub1.add(new Option('Hit Error Bar Block Counter', 'Show hit counts under each hit error bar zone', 'hitBarBlockCounter', BOOL));
 
         var sub2 = cat.section('KeyboardDisplay', 'Keyboard Display');
-        sub2.add(new Option('Show Keyboard', 'Display keyboard on screen', 'kb', BOOL));
+        sub2.add(new Option('Show Keyboard', 'Display keyboard on screen', 'kb', BOOL)).pageGate = true;
 
         var keyboardAlpha = new Option('Keyboard Opacity', 'Transparency of the keyboard display', 'keyboardAlpha', FLOAT);
         keyboardAlpha.minValue = 0;
@@ -78,14 +78,16 @@ class ComponentsData
 
         
         var sub3 = cat.section('JudgementsCounter', 'Judgements Counter');
-        sub3.add(new Option('Judgements Counter', 'Show judgements counter', 'Counter', BOOL));
+        sub3.add(new Option('Judgements Counter', 'Show judgements counter', 'Counter', BOOL)).pageGate = true;
+        sub3.add(new Option('Counter Position', 'Layout of the judgements counter: left, centered, right, or split across the top and bottom',
+            'counterPos', STRING, ['left', 'center', 'right', 'split']));
         sub3.add(new Option('Show Highest Combo', 'Show highest combo in judgements counter', 'showHC', BOOL));
         sub3.add(new Option('Show Current Combo', 'Show current combo in judgements counter', 'showCB', BOOL));
         sub3.add(new Option('Show Total Notes Hit', 'Show total notes hit in judgements counter', 'showTNH', BOOL));
         sub3.add(new Option('Show Misses', 'Show misses in judgements counter', 'showMiss', BOOL));
 
         var sub4 = cat.section('SongInfoText', 'Song Info Text');
-        sub4.add(new Option('Song Info Text', 'Show Song Info Text', 'songText', BOOL));
+        sub4.add(new Option('Song Info Text', 'Show Song Info Text', 'songText', BOOL)).pageGate = true;
         sub4.add(new Option('Show Difficulty', 'Show difficulty in song info text', 'showDifficulty', BOOL));
         sub4.add(new Option('Song Engine Version', 'Show engine version in song info text', 'showEngineVer', BOOL));
 
@@ -106,11 +108,11 @@ class ComponentsData
         sub5.add(guideLineAlpha);
 
         var replay = cat.section('Replay', 'Replay');
-        replay.add(new Option('Replay', '[Score Menu and Replay Required]', 'saveReplays', BOOL));
+        replay.add(new Option('Replay', '[Score Menu and Replay Required]', 'saveReplays', BOOL)).pageGate = true;
         replay.add(new Option('High Quality Replays', 'Enable high-quality replays', 'replayQuality', BOOL));
 
         var results = cat.section('Results', 'Results');
-        results.add(new Option('Score Screen', 'Show Kade-style results', 'scoreScreen', BOOL));
+        results.add(new Option('Score Screen', 'Show Kade-style results', 'scoreScreen', BOOL)).pageGate = true;
         results.add(new Option('Skip Results Screen Fade Out', 'Skip the exit results screen animation', 'skipResultExitAnim', BOOL));
 
         return cat;

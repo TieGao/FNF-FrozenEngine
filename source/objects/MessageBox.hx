@@ -42,10 +42,13 @@ class MessageBox extends Sprite
 {
 	public static var active:Array<MessageBox> = [];
 
-	/** 设计尺寸（game 坐标），Win8 通知条的 400x80 */
+	/** 设计尺寸（game 坐标），Win8 通知条的 400x80；正文折行多了按行数往上撑 */
 	static var WIDTH:Float = 400;
-	static var HEIGHT:Float = 80;
+	static var MIN_HEIGHT:Float = 80;
 	static var PAD:Float = 16;
+	/** 标题基线（相对条顶）；正文起始 y 也兼作「头部高度」 */
+	static var TITLE_Y:Float = 8;
+	static var BODY_Y:Float = 30;
 	static var TOP_MARGIN:Float = 24;
 	static var SIDE_MARGIN:Float = 0; // 紧贴右边缘
 	static var STACK_GAP:Float = 8;
@@ -101,10 +104,15 @@ class MessageBox extends Sprite
 		return mb;
 	}
 
+	/** 逐条按自己的高度往下排（正文长的条更高，不能再用固定 HEIGHT） */
 	static function recalcTargets():Void
 	{
-		for (i in 0...active.length)
-			active[i].targetY = TOP_MARGIN + i * (HEIGHT + STACK_GAP);
+		var y:Float = TOP_MARGIN;
+		for (mb in active)
+		{
+			mb.targetY = y;
+			y += mb.toastHeight + STACK_GAP;
+		}
 	}
 
 	// =========================================================
@@ -119,6 +127,8 @@ class MessageBox extends Sprite
 	var timeLeft:Float;
 	var progress:Float = 1;
 	var yPos:Float = TOP_MARGIN;
+	/** 本条实际高度：正文一行时就是 80，折成多行时按行数撑高 */
+	var toastHeight:Float = MIN_HEIGHT;
 	var state:Int = 0; // 0=SLIDE_IN, 1=HOLD, 2=SLIDE_OUT
 	var timePassed:Float = -1;
 	var lastScale:Float = 1;
@@ -140,15 +150,19 @@ class MessageBox extends Sprite
 		this.duration = duration;
 		this.timeLeft = duration;
 
+		// 先量正文折行后的高度：错误信息这类长文本会折成多行，固定 80 会溢出色块外
+		var bodyH:Float = measureText(body, 13, WIDTH - PAD * 2);
+		toastHeight = Math.max(MIN_HEIGHT, BODY_Y + bodyH + PAD);
+
 		// 背景（Metro 扁平直角 + Win8 深蓝）
 		graphics.beginFill(UITheme.toast);
-		graphics.drawRect(0, 0, WIDTH, HEIGHT);
+		graphics.drawRect(0, 0, WIDTH, toastHeight);
 		graphics.endFill();
 
 		// 标题（较大）
-		drawText(title, 17, PAD, 8, WIDTH - PAD * 2, UITheme.textPrimary);
+		drawText(title, 17, PAD, TITLE_Y, WIDTH - PAD * 2, UITheme.textPrimary);
 		// 正文（较小，可换行）
-		drawText(body, 13, PAD, 30, WIDTH - PAD * 2, UITheme.textPrimary);
+		drawText(body, 13, PAD, BODY_Y, WIDTH - PAD * 2, UITheme.textPrimary);
 
 		// 进度条（贴底，每帧重画）
 		bar = new Shape();
@@ -234,6 +248,21 @@ class MessageBox extends Sprite
 		}
 	}
 
+	/** 量折行后的文本高度（不画，只建一次临时 FlxText 取尺寸后清掉） */
+	static function measureText(text:String, size:Int, width:Float):Float
+	{
+		var t = new FlxText(0, 0, width, text, size);
+		t.setFormat(Paths.font("vcr.ttf"), size, FlxColor.WHITE, LEFT);
+		t.antialiasing = ClientPrefs.data.antialiasing;
+		t.updateHitbox();
+
+		var h:Float = t.height;
+		t.graphic.bitmap.dispose();
+		t.graphic.bitmap.disposeImage();
+		t.destroy();
+		return h;
+	}
+
 	function drawText(text:String, size:Int, x:Float, y:Float, width:Float, color:FlxColor):Void
 	{
 		var t = new FlxText(0, 0, width, text, size);
@@ -255,7 +284,7 @@ class MessageBox extends Sprite
 	function drawProgress(p:Float):Void
 	{
 		var barH:Float = 3;
-		var barY:Float = HEIGHT - barH;
+		var barY:Float = toastHeight - barH;
 
 		bar.graphics.clear();
 		bar.graphics.beginFill(UITheme.toastBarTrack);

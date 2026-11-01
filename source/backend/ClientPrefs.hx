@@ -95,6 +95,9 @@ import states.TitleState;
 	];
 
 	public var ghostTapping:Bool = true;
+	// 对手模式专用：脚本 / 舞台回调名跟随 note 所属侧（打 dad 的 note 发 opponentNoteHit），
+	// 而不是跟随"谁在打"。只换回调名，计分 / 血量 / 动画不受影响。
+	public var swapNoteHitCallbacks:Bool = false;
 	public var timeBarType:String = 'Time Left';
 	public var scoreZoom:Bool = true;
 	public var Counter:Bool = true;
@@ -285,6 +288,19 @@ import states.TitleState;
 	public var showCB:Bool = true;
 	public var showMiss:Bool = true;
 	public var showTNH:Bool = true;
+
+	// 判定计数器布局：left / center / right / split
+	public var counterPos:String = 'left';
+	// left / center / right 三者共用的微调偏移
+	public var counterOffsetX:Int = 0;
+	public var counterOffsetY:Int = 0;
+	// split 模式顶部块（Total Notes Hit + Combo）独立偏移
+	public var counterSplitTopX:Int = 0;
+	public var counterSplitTopY:Int = 0;
+	// split 模式底部块（5 个 rating）独立偏移
+	public var counterSplitBottomX:Int = 0;
+	public var counterSplitBottomY:Int = 0;
+
 	public var showEngineVer:Bool = true;
 	public var showDifficulty:Bool = true;
 

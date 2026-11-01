@@ -25,10 +25,26 @@ class OptionSearch
 		return normalize(query).length == 0;
 	}
 
+	/**
+	 * 选项是否被所属页的总开关藏起来了（`Option.pageGate`）。
+	 * 开关自己永远算生效 —— 否则关了以后就再也搜不到、打不开了。
+	 */
+	public static function isInactive(opt:Option):Bool
+	{
+		if (opt == null || opt.ownerCategory == null) return false;
+
+		var gate:Option = opt.ownerCategory.pageGate();
+		if (gate == null || gate == opt) return false;
+
+		return gate.getValue() != true;
+	}
+
 	/** 单个选项是否命中查询 */
 	public static function matches(opt:Option, query:String):Bool
 	{
 		if (opt == null || query == null || query.length == 0) return false;
+		// 所属页的总开关关着时，这些选项在页面上是隐藏的 —— 搜索命中 / 徽标计数也不该算进来
+		if (isInactive(opt)) return false;
 
 		var owner = opt.ownerCategory;
 		var ownerText = (owner != null)

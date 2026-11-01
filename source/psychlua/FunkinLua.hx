@@ -160,7 +160,7 @@ class FunkinLua {
 			set('instakillOnMiss', game.instakillOnMiss);
 			set('botPlay', game.cpuControlled);
 			set('practice', game.practiceMode);
-			set('opponentplay', game.opponentMode);
+			set('opponentplay', Std.string(game.opponentMode));
 			for (i in 0...4) {
 				set('defaultPlayerStrumX' + i, 0);
 				set('defaultPlayerStrumY' + i, 0);

@@ -47,6 +47,32 @@ class OptionCategory
         return o;
     }
 
+    /**
+     * 本页的总开关（`Option.pageGate`），没有就返回 null。
+     * 只认 BOOL —— 别的类型没有"关"这个状态，误标上去会把整页藏光。
+     */
+    public function pageGate():Option
+    {
+        for (o in options)
+            if (o.pageGate && o.type == BOOL) return o;
+        return null;
+    }
+
+    /**
+     * 本页当前该显示的选项。
+     * 总开关为关时只留开关自己（否则它也被藏掉就再也打不开了），其余全部收起。
+     */
+    public function visibleOptions():Array<Option>
+    {
+        var gate:Option = pageGate();
+        if (gate == null || gate.getValue() == true) return options;
+
+        var out:Array<Option> = [];
+        for (o in options)
+            if (o == gate) out.push(o);
+        return out;
+    }
+
     public function refreshLanguage():Void
     {
         displayName = Language.getPhrase('options.category.${id}.title', rawDisplayName);
