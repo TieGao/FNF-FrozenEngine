@@ -46,3 +46,6 @@ moonchart_versions.txt
 docs/openfl-dev-vs-9.6.0-dev.md
 .gitignore
 docs/engine-api-guide.md
+
+# 本地类型检查用（由 export/release/windows/haxe/release.hxml 复制而来，含绝对路径）
+_nmvcheck*.hxml
