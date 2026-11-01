@@ -311,16 +311,21 @@ class Song
 
 	#if sys
 	/** NMV 内容包谱面回退：songs/<歌>/data/<难度>.json；难度文件缺失时回退 normal。 */
-	static function findNmvChart(folder:String, song:String):Null<String>
+	public static function findNmvChart(folder:String, song:String):Null<String>
 	{
-		var mod:String = NMVContentData.currentMod;
-		if (mod == null || mod.length == 0) return null;
+		// 资源根优先取当前内容包（Freeplay 试听 / SongInfoParser 都只设这个，不设 currentMod），
+		// 没有再退回 NMV 模式的启用包。两处都是结构性判据，不看包名。
+		var root:String = Paths.isNmvContentRoot(Paths.currentContentRoot) ? Paths.currentContentRoot : null;
+		if (root == null)
+		{
+			var mod:String = NMVContentData.currentMod;
+			if (mod == null || mod.length == 0) return null;
+			root = '${NMVContentData.ROOT}/$mod';
+		}
 
 		var difficulty:String = 'normal';
 		var dash:Int = song.lastIndexOf('-');
 		if (dash >= 0 && dash < song.length - 1) difficulty = song.substr(dash + 1);
-
-		var root:String = '${NMVContentData.ROOT}/$mod';
 
 		// 事件图表特判：NMV 的事件在 songs/<歌>/data/events.json（vanilla 旧事件格式）。
 		// 不特判的话 'events' 会被当难度名、difficulty 落回 'normal'，
@@ -363,6 +368,36 @@ class Song
 				if (alt != candidate && FileSystem.exists(alt)) return alt;
 			}
 		}
+
+		return null;
+	}
+
+	/**
+	 * 定位一首歌某难度的谱面文件（存在才返回，否则 null）。
+	 *
+	 * 候选顺序与 `getChart` 一致：mods / 内容包（`Paths.json` 内部已按 mods → content →
+	 * assets 的顺序探）→ NMV 包布局（`songs/<歌>/data/<难度>.json`）→ assets 两个旧位置。
+	 *
+	 * Freeplay 试听的前置检查与 `SongInfoParser` 的解析入口都走这里 —— 之前它们各自拼
+	 * 路径，NMV 包的布局（包根相对，没有 `data/` 前缀）不在候选里，于是 Freeplay 里
+	 * NMV 的歌全都报 `Chart file not found` / 拿不到 bpm 与评级。
+	 */
+	public static function findChartPath(folder:String, song:String):Null<String>
+	{
+		final formattedFolder:String = Paths.formatToSongPath(folder);
+		final formattedSong:String = Paths.formatToSongPath(song);
+
+		var path:String = Paths.json('$formattedFolder/$formattedSong');
+		if (FileSystem.exists(path)) return path;
+
+		path = findNmvChart(formattedFolder, formattedSong);
+		if (path != null) return path;
+
+		path = 'assets/data/$formattedFolder/$formattedSong.json';
+		if (FileSystem.exists(path)) return path;
+
+		path = 'assets/shared/data/$formattedFolder/$formattedSong.json';
+		if (FileSystem.exists(path)) return path;
 
 		return null;
 	}

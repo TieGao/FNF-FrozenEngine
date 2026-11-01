@@ -79,9 +79,10 @@ class NMVContentData
 	}
 
 	/** 读一个 NMV 周定义并转成 FE 的 WeekFile；不可用时返回 null。 */
-	public static function readWeek(path:String):Null<WeekFile>
+	public static function readWeek(path:String, ?mod:String):Null<WeekFile>
 	{
 		if (!FileSystem.exists(path)) return null;
+		if (mod == null || mod.length == 0) mod = modFromPath(path);
 
 		var raw:Dynamic = null;
 		try
@@ -117,8 +118,89 @@ class NMVContentData
 		out.hiddenUntilUnlocked = readBool(raw, 'hiddenUntilUnlocked', false);
 		out.hideStoryMode = readBool(raw, 'hideStoryMode', false);
 		out.hideFreeplay = readBool(raw, 'hideFreeplay', false);
-		out.difficulties = '';
+		// 难度表按包内**实际存在**的谱面文件生成（NMV 一首歌通常只有 data/normal.json）。
+		// 留空会退回 Easy/Normal/Hard，Freeplay 里就出现两个不存在的档位，
+		// 选中它们时 findNmvChart 全部回退到 normal.json —— 三个档位放同一张谱。
+		out.difficulties = collectDifficulties(mod).join(',');
 		return out;
+	}
+
+	/** 从 `content/NMVMODS/<mod>/data/weeks/x.json` 里取出包目录名。 */
+	static function modFromPath(path:String):String
+	{
+		final prefix:String = ROOT + '/';
+		final idx:Int = path.indexOf(prefix);
+		if (idx < 0) return '';
+		final rest:String = path.substr(idx + prefix.length);
+		final slash:Int = rest.indexOf('/');
+		return slash > 0 ? rest.substr(0, slash) : '';
+	}
+
+	static var difficultyCache:Map<String, Array<String>> = [];
+
+	/**
+	 * 包内实际存在的难度名（扫 `songs/<歌>/data/*.json`，以及部分包放在 `songs/<歌>/*.json` 的）。
+	 *
+	 * 文件名即难度名（`normal.json` → `Normal`），与 `Song.findNmvChart` 的解析口径一致。
+	 * `events.json` / `song.json` / `*-old.json` / metadata 这些不是难度，剔掉。
+	 * Normal 排最前 —— `Difficulty` 的下标 0 是 Freeplay 打开时选中的档位。
+	 */
+	public static function collectDifficulties(mod:String):Array<String>
+	{
+		if (mod == null || mod.length == 0) return [];
+
+		final cached:Array<String> = difficultyCache.get(mod);
+		if (cached != null) return cached;
+
+		final found:Map<String, Bool> = [];
+		final result:Array<String> = [];
+		final songsDir:String = '$ROOT/$mod/songs';
+		if (FileSystem.exists(songsDir))
+		{
+			for (song in FileSystem.readDirectory(songsDir))
+			{
+				final songPath:String = '$songsDir/$song';
+				if (!FileSystem.isDirectory(songPath)) continue;
+
+				for (dir in [songPath, '$songPath/data'])
+				{
+					if (!FileSystem.exists(dir)) continue;
+					for (file in FileSystem.readDirectory(dir))
+					{
+						if (!file.endsWith('.json')) continue;
+						final name:String = file.substr(0, file.length - 5);
+						if (!isDifficultyFile(name)) continue;
+
+						final display:String = name.charAt(0).toUpperCase() + name.substr(1);
+						if (found.exists(display)) continue;
+						found.set(display, true);
+						result.push(display);
+					}
+				}
+			}
+		}
+
+		final defaultName:String = Difficulty.getDefault();
+		result.sort(function(a, b)
+		{
+			if (a == defaultName) return -1;
+			if (b == defaultName) return 1;
+			return Reflect.compare(a, b);
+		});
+
+		difficultyCache.set(mod, result);
+		return result;
+	}
+
+	/** 谱面目录里的文件是不是一个难度（而不是事件表 / 旧版备份 / metadata）。 */
+	static function isDifficultyFile(name:String):Bool
+	{
+		if (name.length == 0) return false;
+		if (name == 'events' || StringTools.startsWith(name, 'events-')) return false;
+		if (name == 'song' || name == 'other' || name == 'meta' || name == 'metadata') return false;
+		if (name.indexOf('metadata') >= 0) return false;
+		if (name.endsWith('-old') || name.endsWith('_old')) return false;
+		return true;
 	}
 
 	/** NMV 元组 → FE 元组。立绘名（第 3 项）丢弃，曲师（第 4 项）提到 FE 的音乐人位置。 */

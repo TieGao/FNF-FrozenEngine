@@ -230,7 +230,7 @@ class WeekData {
 
 		for (path in NMVContentData.listWeekFiles(mod))
 		{
-			var week:WeekFile = NMVContentData.readWeek(path);
+			var week:WeekFile = NMVContentData.readWeek(path, mod);
 			if (week == null) continue;
 
 			var fileName:String = path.substring(path.lastIndexOf('/') + 1);

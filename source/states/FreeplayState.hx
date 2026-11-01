@@ -1966,17 +1966,12 @@ class FreeplayState extends MusicBeatState
             destroyFreeplayVocals();
 
             #if sys
-            // 试听前先确认谱面文件存在，否则 Song.loadFromJson 抛出的 assets 错误很难定位
-            if (songs[curSelected].customChart == null || !songs[curSelected].customChart.isValid())
-            {
-                var chartPath:String = Paths.modsJson(songLowercase + '/' + poop);
-                if (!sys.FileSystem.exists(chartPath))
-                {
-                    chartPath = Paths.json(songLowercase + '/' + poop);
-                    if (!sys.FileSystem.exists(chartPath))
-                        throw new haxe.Exception('Chart file not found: $poop');
-                }
-            }
+            // 试听前先确认谱面文件存在，否则 Song.loadFromJson 抛出的 assets 错误很难定位。
+            // 路径解析统一走 Song.findChartPath（mods / 内容包 / NMV 包三种布局），
+            // 这里再自己拼一次的话 NMV 包的歌会全部误报 Chart file not found。
+            if ((songs[curSelected].customChart == null || !songs[curSelected].customChart.isValid())
+                && Song.findChartPath(songLowercase, poop) == null)
+                throw new haxe.Exception('Chart file not found: $poop');
             #end
 
             loadCurrentChartIntoPlayState();

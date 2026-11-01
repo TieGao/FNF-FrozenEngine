@@ -980,7 +980,13 @@ class LoadReplaySubState extends MusicBeatSubstate
             }
         }
         else difficultyID = rep.replay.songDiff;
-        
+
+        // 难度表是按当前来源重建的（NMV 包只有 Normal 一档）：回放里记的 'Hard' 不在表里时，
+        // 上面的关键词兜底会给出越界下标，后面 Difficulty.getFilePath 取到 null。
+        // 夹回表内，至少保证谱面能按默认难度加载出来。
+        if (Difficulty.list.length > 0 && (difficultyID < 0 || difficultyID >= Difficulty.list.length))
+            difficultyID = Difficulty.getDefaultIndex();
+
         PlayState.storyDifficulty = difficultyID;
         PlayState.storyWeek = 0;
         

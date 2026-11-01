@@ -17,6 +17,6 @@ class HsLog
 		final n:Int = seen.get(msg) ?? 0;
 		if (n >= MAX_REPEATS) return;
 		seen.set(msg, n + 1);
-		Bread.crumb('HS $level $msg${n + 1 == MAX_REPEATS ? " （后续重复省略）" : ""}');
+		Bread.write('HS $level $msg${n + 1 == MAX_REPEATS ? " （后续重复省略）" : ""}');
 	}
 }

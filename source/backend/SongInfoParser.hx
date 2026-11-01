@@ -264,9 +264,14 @@ class SongInfoParser
         return Paths.formatToSongPath('-' + difficulty);
     }
 
-    /** 按 模组 → mods → 内容包/资源 → assets/data → assets/shared/data 的顺序找谱面文件。 */
+    /** 按 mods → 内容包 → NMV 包 → assets/data → assets/shared/data 的顺序找谱面文件。 */
     private static function resolveChartPath(songLowercase:String, fileName:String):String
     {
+        #if sys
+        // 与 Freeplay 试听 / Song.getChart 共用同一套候选（含 NMV 包的 songs/<歌>/data 布局），
+        // 否则 NMV 的歌在 Freeplay 里拿不到 bpm / 时长 / 评级。
+        return Song.findChartPath(songLowercase, fileName);
+        #else
         var currentModDir:String = Mods.currentModDirectory;
 
         #if MODS_ALLOWED
@@ -281,24 +286,16 @@ class SongInfoParser
         #end
 
         var assetsPath:String = Paths.json(songLowercase + '/' + fileName);
-        #if sys
-        // 内容包是运行时磁盘资源、不在编译期 assets 清单里，Assets.exists 查不到；
-        // getPath 命中内容包时返回的本来就是磁盘路径，先按磁盘判存在。
-        if (FileSystem.exists(assetsPath)) return assetsPath;
-        #end
         if (Assets.exists(assetsPath, TEXT)) return assetsPath;
 
         var directPath:String = 'assets/data/' + songLowercase + '/' + fileName + '.json';
-        #if sys
         if (FileSystem.exists(directPath)) return directPath;
-        #end
 
         var sharedPath:String = 'assets/shared/data/' + songLowercase + '/' + fileName + '.json';
-        #if sys
         if (FileSystem.exists(sharedPath)) return sharedPath;
-        #end
 
         return null;
+        #end
     }
 
     private static function loadChartData(songLowercase:String, fileName:String):String
