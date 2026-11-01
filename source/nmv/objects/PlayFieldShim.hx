@@ -27,7 +27,11 @@ class PlayFieldShim extends FlxBasic
 	// attack.hx postModifierRegister 写这些（i.isPlayer = i.playerControls = i.noteSplashes = player;
 	// i.autoPlayed = !player; i.underlay.kill()）。underlay 必须是可 kill 的对象——null.kill()
 	// 会经 hscript 报 "Invalid access to field kill"，给一次性空 sprite 承接。
-	public var noteSplashes:Bool = true;
+	//
+	// noteSplashes 默认 **false**，对齐 NMV：`PlayField.noteSplashes` 的默认值是 false，
+	// 只有 lane 0 在 `generatePlayfields` 里被设成 `(lane == 0)` = true；lane 1..n 保持 false，
+	// 所以对手轨/中间轨本来就不出 splash。PlayState.spawnNoteSplashOnNote 按这个字段判定。
+	public var noteSplashes:Bool = false;
 	public var autoPlayed:Bool = false;
 	public var underlay:flixel.FlxSprite = new flixel.FlxSprite();
 

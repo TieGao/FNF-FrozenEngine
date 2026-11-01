@@ -35,6 +35,14 @@ typedef SwagSong =
 	@:optional var mania:Int;        // 键数-1 (3 = 4K, 15 = 16K)
     @:optional var keyCount:Int;     // 实际键数 (4-16)
     @:optional var keycount:Int;     // 兼容旧版
+
+    // NMV 原生字段（funkin/data/Song.hx:25-26 + Chart.correctFormat:103-104）：
+    //   keys  = **每条 playfield** 的列数（4K 多人唱仍是 4）
+    //   lanes = playfield 条数，`??= 2`（单侧一角色的普通歌也是 2）
+    // sectionNotes 的 noteData 是**绝对车道** 0 .. lanes*keys-1。
+    // FE 原来的两轨模型正好等于 lanes=2，所以只有 lanes>2 才走多轨分支。
+    @:optional var lanes:Int;
+    @:optional var keys:Int;
     // 以"值域"而非"玩家/对手侧"编码轨道、且自行处理 noteData 的谱面（如自制多轨谱），
     // 置 true 让 convert 原样保留 noteData。convert 的归一化公式本质假设
     // noteData 用 mustHitSection 的 XOR 编码两侧；这类谱没有这层编码，硬套会毁数据。
@@ -343,6 +351,19 @@ class Song
 			if (FileSystem.exists(candidate)) return candidate;
 		}
 
+		// 兜底：歌名带单引号（`d'low`）但目录被导出成去引号版本（`dlow/`）的旧布局。
+		// 2026-11-01 之前 `Paths.formatToSongPath` 会把 `'` 抹掉，那批内容包可能就是
+		// 按 `dlow/` 建的目录；现在 formatToSongPath 保留单引号，这里补一次去引号探测防回归。
+		if (folder != null && folder.indexOf("'") >= 0)
+		{
+			final stripped:String = folder.split("'").join('');
+			for (candidate in candidates)
+			{
+				final alt:String = candidate.split('/$folder/').join('/$stripped/');
+				if (alt != candidate && FileSystem.exists(alt)) return alt;
+			}
+		}
+
 		return null;
 	}
 	#end
@@ -356,6 +377,15 @@ class Song
 			if(subSong != null && Type.typeof(subSong) == TObject)
 				songJson = subSong;
 		}
+
+		// NMV 车道元数据缺省值（NMV `Chart.correctFormat`）：
+		//   keys  ??= 4   —— 每条 playfield 的列数
+		//   lanes ??= 2   —— playfield 条数（普通两轨歌也是 2）
+		// 放在 parseJSON 末尾而不是 convert() 里：convert 只对非 psych_v1 格式执行，
+		// 而 NMV 包里也有已标成 psych_v1 的谱面，那些同样需要这两个字段。
+		// lanes<=2 的谱面在 PlayState 里走原两轨分支 → 老歌零变化。
+		if (songJson.lanes == null) songJson.lanes = 2;
+		if (songJson.keys == null) songJson.keys = getKeyCount(songJson);
 
 		if(convertTo != null && convertTo.length > 0)
 		{

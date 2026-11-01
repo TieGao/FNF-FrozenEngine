@@ -166,6 +166,15 @@ class PresetFnf
 	}
 
 	/**
+	 * 每首歌开演前清掉上一首留下的修饰值（`transformX` / `alpha` / `stealth` 等）。
+	 * sharedModManager 是静态共享的，`setValue` 又是永久赋值，不清理会跨歌串味。
+	 */
+	public static function resetModManager():Void
+	{
+		sharedModManager.reset();
+	}
+
+	/**
 	 * NMV 的脚本按自己的包名 import（`funkin.xxx`），FE 没有这个命名空间，
 	 * 不接上的话 import 全部报 "could not be added"、后续变量解析成 null。
 	 * 这里只映射有对应物（或已补桩）的类。

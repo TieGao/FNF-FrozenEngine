@@ -1,5 +1,5 @@
 diff --git a/flxanimate/FlxAnimate.hx b/flxanimate/FlxAnimate.hx
-index e872888..6b868fc 100644
+index e872888..24a4960 100644
 --- a/flxanimate/FlxAnimate.hx
 +++ b/flxanimate/FlxAnimate.hx
 @@ -266,7 +266,7 @@ class FlxAnimate extends FlxSprite
@@ -11,20 +11,27 @@ index e872888..6b868fc 100644
  	{
  		if (instance == null || !instance.visible)
  			return;
-@@ -274,6 +274,12 @@ class FlxAnimate extends FlxSprite
+@@ -274,6 +274,19 @@ class FlxAnimate extends FlxSprite
  		var mainSymbol = instance == anim.curInstance;
  		var filterin = filterInstance != null;
  
 +		// 混合沿绘制树继承（对位 MaybeMaru flixel-animate 的 Blend.resolve(this.blend, blend)）：
 +		// 自身非 NORMAL 时覆盖父级，否则原样继承。烘焙渲染（filterin）里不叠，外层贴回时统一用。
++		//
++		// selfBlend = 元素**自身**的混合，不受 filterin 影响：filterin 的中间渲染
++		// （filters 烘焙 / 遮罩合成 maskCamera）里逐元素混合无处可用，必须推迟到
++		// 「把离屏结果贴回主画面」那一步 —— 贴回点的 blend 就从这里取。
++		var selfBlend:BlendMode = (instance.symbol != null && instance.symbol.blendMode != BlendMode.NORMAL) ? instance.symbol.blendMode : null;
 +		var elemBlend:BlendMode = filterin ? null : blend;
-+		if (!filterin && instance.symbol != null && instance.symbol.blendMode != BlendMode.NORMAL)
-+			elemBlend = instance.symbol.blendMode;
++		if (!filterin && selfBlend != null)
++			elemBlend = selfBlend;
++		// 贴回离屏位图时用的混合：自身优先，否则继承外层
++		var pasteBlend:BlendMode = (selfBlend != null) ? selfBlend : blend;
 +
  		var skipFilters = anim.metadata.skipFilters;
  
  		if (cameras == null)
-@@ -303,7 +309,7 @@ class FlxAnimate extends FlxSprite
+@@ -303,7 +316,7 @@ class FlxAnimate extends FlxSprite
  
  		if (instance.bitmap != null)
  		{
@@ -33,7 +40,17 @@ index e872888..6b868fc 100644
  			return;
  		}
  		var cacheToBitmap = !skipFilters && (instance.symbol.cacheAsBitmap || this.filters != null && mainSymbol) && (!filterin || filterin && filterInstance.instance != instance);
-@@ -426,7 +432,7 @@ class FlxAnimate extends FlxSprite
+@@ -400,7 +413,8 @@ class FlxAnimate extends FlxSprite
+ 						mat.copyFrom(layer._filterMatrix);
+ 						mat.concat(matrix);
+ 
+-						drawLimb(layer._filterFrame, mat, coloreffect, filterin, (isMasked) ? _singleCam(layer._clipper.maskCamera) : cameras);
++						drawLimb(layer._filterFrame, mat, coloreffect, filterin, pasteBlend, null,
++							(isMasked) ? _singleCam(layer._clipper.maskCamera) : cameras);
+ 						continue;
+ 					}
+ 					else
+@@ -426,7 +440,7 @@ class FlxAnimate extends FlxSprite
  				}
  
  				_tmpMat.identity();
@@ -42,7 +59,29 @@ index e872888..6b868fc 100644
  
  				if (toBitmap)
  				{
-@@ -457,10 +463,10 @@ class FlxAnimate extends FlxSprite
+@@ -440,7 +454,8 @@ class FlxAnimate extends FlxSprite
+ 					mat.copyFrom(layer._filterMatrix);
+ 					mat.concat(matrix);
+ 
+-					drawLimb(layer._filterFrame, mat, coloreffect, filterin, (isMasked) ? _singleCam(layer._clipper.maskCamera) : cameras);
++					drawLimb(layer._filterFrame, mat, coloreffect, filterin, pasteBlend, null,
++						(isMasked) ? _singleCam(layer._clipper.maskCamera) : cameras);
+ 				}
+ 				if (isMasker)
+ 				{
+@@ -452,15 +467,53 @@ class FlxAnimate extends FlxSprite
+ 					mat.copyFrom(layer._filterMatrix);
+ 					mat.concat(matrix);
+ 
+-					drawLimb(layer._filterFrame, mat, coloreffect, filterin, cameras);
++					// Clipper 层贴回时必须带上「被它遮罩的那一层」的混合：
++					// Dot-Stuff 的遮罩是「clipped 内容先渲进 maskCamera → 与本层合成到
++					// 一张离屏位图 → 整块贴回主画面」，逐元素 blend 在中间那步无处安放，
++					// 只能整体在贴回时混。不做这一步，NMV 里 Clipped+SCREEN 的零件
++					// （white 五个唱姿的麦克风手、maroonParasite 的嘴）会以 NORMAL 叠上去
++					// → 红色原画整块露出 = 用户报的「每个动作都有不同部位偏红」。
++					drawLimb(layer._filterFrame, mat, coloreffect, filterin, maskerBlend(symbol, layer), null, cameras);
+ 				}
  			}
  		}
  	}
@@ -52,6 +91,38 @@ index e872888..6b868fc 100644
  		for (element in frame.getList())
 -			parseElement(element, matrix, colorEffect, instance, cameras);
 +			parseElement(element, matrix, colorEffect, instance, cameras, null, blend);
++	}
++
++	/**
++	 * Clipper 层贴回时该用的混合：找同符号时间线里「以本层为遮罩」的那一层，
++	 * 取它当前帧第一个非 NORMAL 的元素混合。
++	 *
++	 * 为什么不在中间渲染时混：Dot-Stuff 的遮罩是「clipped 内容先渲进 maskCamera →
++	 * 与 clipper 层合成到一张离屏位图 → 整块贴回主画面」，中间那步的混合对象是空白
++	 * 离屏 canvas，混了也没意义；真正的混合点在最后贴回。
++	 */
++	function maskerBlend(symbol:FlxSymbol, masker:FlxLayer):BlendMode
++	{
++		if (symbol == null || symbol.timeline == null) return null;
++		for (other in symbol.timeline.getList())
++		{
++			if (other == null || other == masker || other._clipper != masker) continue;
++			final b:BlendMode = frameFirstBlend(other._currFrame);
++			if (b != null) return b;
++		}
++		return null;
++	}
++
++	/** 某一帧里第一个非 NORMAL 的元素混合（整层贴回时只能取一个，NMV 语料这类层都是单元素）。 */
++	function frameFirstBlend(frame:FlxKeyFrame):BlendMode
++	{
++		if (frame == null) return null;
++		for (el in frame.getList())
++		{
++			if (el == null || el.symbol == null) continue;
++			if (el.symbol.blendMode != BlendMode.NORMAL) return el.symbol.blendMode;
++		}
++		return null;
  	}
  	function renderFilter(filterInstance:IFilterable, filters:Array<BitmapFilter>, renderer:FlxAnimateFilterRenderer, ?mask:FlxCamera)
  	{

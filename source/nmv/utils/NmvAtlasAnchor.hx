@@ -105,18 +105,29 @@ class NmvAtlasAnchor
 		}
 		if (name == null || name.length == 0) name = animName;
 
-		// 包装符号（`@<源符号>@<动画>`）拆回源符号 —— NMV 的 indices / 帧标签动画
-		// 用的仍是整条源符号时间线，包装只影响播哪几帧，不影响 `_bounds`。
+		// 包装符号（`@<源符号>@<动画>`）拆回源符号。
 		final full:String = name;
+		var base:String = full;
 		if (name.charCodeAt(0) == '@'.code)
 		{
 			final second:Int = name.indexOf('@', 1);
-			if (second > 1)
-			{
-				final base:String = name.substring(1, second);
-				if (dict.exists(base)) return base;
-			}
+			if (second > 1) base = name.substring(1, second);
 		}
+
+		// 【2026-11-01 二次修正 · 不要再加"只改锚点"的分支】
+		// 曾在 `base` 同时是主符号帧标签时直接返回主符号，想让 `bf-fall` 的 `sing*-loop`
+		// 与普通唱姿共用主符号包围盒。**这个思路是错的，实测无效**（09:38 日志里
+		// `singRIGHT-loop` 仍 bw=466）：
+		//  - 判据 `atlas.anim.getFrameLabel` 走的是 `curSymbol`，播放 `-loop` 时 curSymbol 是
+		//    包装符号、没有帧标签 → 判定恒 false；
+		//  - 就算判对，锚点与内容必须**同源**才能对齐：主符号上那条实例矩阵带
+		//    (-211.6,-241.05) 的打包位移，只把锚点换成主符号的 (-683,-506) 而内容仍画子符号，
+		//    会把画面额外推开 ~471/265 像素（比原来更偏）。
+		// 正解在注册端：`Character.addFromFrameLabelIndices` 让"name 同时是帧标签"的
+		// indices 动画走主符号时间线（= NMV `addAnimByFrameLabelIndices`），于是这里
+		// `base` 天然就是主符号，无需任何特判。
+
+		if (dict.exists(base)) return base;
 		if (dict.exists(full)) return full;
 		return dict.exists(animName) ? animName : null;
 	}

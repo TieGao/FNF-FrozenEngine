@@ -29,6 +29,13 @@ class AdvancedData
         sub.add(new Option('Options Style', 'Choose which options menu style to use', 'optionstype', STRING, ['new', 'psych', 'ke']));
         sub.add(new Option('Use Default Mouse Cursor', 'Use ur system\'s default mouse cursor in game', 'useSystemCursor', BOOL));
 
+        // NMV / Impostor Legacy 兼容项。Legacy 那边还有"选人 / defeat 难度选择"等机制未移植，
+        // 后续同类开关都往这一页加。
+        var legacy = cat.section('Legacy', 'NMV / Impostor Legacy');
+        legacy.add(new Option('Legacy Compact Lanes',
+            'NMV multi-lane songs: draw the extra lanes\' notes on the visible lanes (white, auto, never hittable) and hide the extra strumlines. Off = reference behaviour (extra lanes pushed offscreen, notes fully transparent)',
+            'legacyCompactLanes', BOOL));
+
         // 脚本诊断与日志输出单独一页。选项一律挂在自己的 section 上：用 cat.add 直挂主分类会
         // 多出一个排在最前的同名页（navPages() 把主分类自己也算一页），和已有的 'Advanced' 页重复。
         var dbg = cat.section('Debug', 'Debug');

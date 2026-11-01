@@ -25,6 +25,20 @@ class FunkinSprite extends PsychFlxAnimate
 	public var zIndex:Int = 0;
 	public var skew:FlxPoint = FlxPoint.get();
 
+	/**
+	 * NMV flixel fork 的 `FlxSprite.useRenderTexture` / `_renderTextureDirty`（离屏缓存开关）。
+	 * FE 没有对应实现，但**字段必须存在**：脚本里是链式赋值
+	 * `bf.useRenderTexture = gf.useRenderTexture = dad.useRenderTexture = pet.useRenderTexture = bfIntro.useRenderTexture = true;`
+	 * （doubletrouble.hx:279），HScript 的 `set` 走 `Reflect.setProperty`，hxcpp 对缺失字段抛
+	 * `Invalid field:useRenderTexture` → **整条链从右往左第一项就炸**，onCreatePost 从 279 行
+	 * 起全部中断：`red`（第三个角色）没被创建、灯光/camGame.filters/闪电全没跑，
+	 * 之后每帧 `red.update(elapsed)` 在 null 上取字段 → 4129 行/局的刷屏
+	 * （2026-11-01 bread.log 实测 `doubletrouble:496/537/547`）。
+	 */
+	public var useRenderTexture:Bool = false;
+	/** 同上（NMV 的脏标记；这里只是可写字段，不驱动任何重绘）。 */
+	public var _renderTextureDirty:Bool = false;
+
 	/** 逐动画偏移，`playAnim` 时叠加到 `offset`。 */
 	public var animOffsets:Map<String, Array<Float>> = [];
 

@@ -22,6 +22,9 @@ class NMVSciptHolder implements IFlxDestroyable
 		this.parent = parent;
 		group = new ScriptGroup(parent);
 		group.holder = this;
+		// 每首歌一份干净的修饰值：sharedModManager 跨歌静态共享，
+		// 上一首 voting-time 的 transformX=±865 不清掉会推飞下一首多轨歌的轨道。
+		nmv.scripts.preset.PresetFnf.resetModManager();
 	}
 
 	/** 宿主 State 的 add/remove/insert 与相机句柄注入脚本（NMV Stage 的同名约定）。 */

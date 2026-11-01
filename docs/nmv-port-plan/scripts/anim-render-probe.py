@@ -102,7 +102,7 @@ def png_save(path, w, h, buf):
 class Atlas:
     def __init__(self, folder):
         self.dir = folder
-        self.anim = json.load(open(os.path.join(folder, 'Animation.json'), encoding='utf-8'))
+        self.anim = json.load(open(os.path.join(folder, 'Animation.json'), encoding='utf-8-sig'))
         self.syms = {s['SN']: s for s in self.anim['SD']['S']}
         self.root = self.anim['AN']
         self.syms.setdefault(self.root['SN'], self.root)
@@ -114,7 +114,7 @@ class Atlas:
         for name in ('spritemap1.json', 'spritemap.json', 'spritemap0.json'):
             p = os.path.join(self.dir, name)
             if os.path.exists(p):
-                d = json.load(open(p, encoding='utf-8'))
+                d = json.load(open(p, encoding='utf-8-sig'))
                 for s in d['ATLAS']['SPRITES']:
                     sp = s['SPRITE']
                     self._frames[sp['name']] = sp
@@ -312,7 +312,7 @@ def main(argv):
         anim_name = opts['anim']
         cj = opts.get('char')
         if cj:
-            ch = json.load(open(cj, encoding='utf-8'))
+            ch = json.load(open(cj, encoding='utf-8-sig'))
             ent = [a for a in ch['animations'] if a.get('anim') == anim_name]
             if not ent:
                 print('no anim', anim_name)

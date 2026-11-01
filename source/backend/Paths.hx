@@ -834,7 +834,12 @@ class Paths
 
 	inline static public function formatToSongPath(path:String) {
 		final invalidChars = ~/[~&;:<>#\s]/g;
-		final hideChars = ~/[.,'"%?!]/g;
+		// **单引号不能删**：NMV 内容包的歌曲目录是裸目录名（`songs/d'low/`、
+		// `songs/d'low/d'low.hx`），把 `'` 抹掉会拼成 `songs/dlow/...` 永远找不到
+		// （日志实测：`There is no TEXT asset with an ID of "assets/shared/data/dlow/dlow-hard.json"`，
+		// freeplay 点进去就弹回）。`'` 在 NTSF/EXT4 上都是合法文件名字符，
+		// 标准 FE 谱面/资源目录名从不含它，保留不影响既有加载。
+		final hideChars = ~/[.,"%?!]/g;
 
 		return hideChars.replace(invalidChars.replace(path, '-'), '').trim().toLowerCase();
 	}

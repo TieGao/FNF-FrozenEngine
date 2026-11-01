@@ -335,6 +335,22 @@ class InterpEx extends crowplexus.hscript.Interp #if flixel implements flixel.ut
 			}
 		}
 
+		// 同一根因的孪生坑：atlas 角色 `animation.name` 得 null，而 Haxe 4.3 的
+		// `StringTools.startsWith` 在 cpp 分支是 `s.length >= ...`（**没有 null 保护**）
+		// → `StringTools.startsWith(red.animation.name, 'sing')` 直接裸 NPE。
+		// doubletrouble.hx:537 每条 'Opponent 2 Sing' 音符一次（bread.log 实测 ×22）。
+		// NMV 那边 `Character` 的 animation 就是 animate 控制器，name 恒有值；
+		// 这里用 Character.getAnimationName()（= 最近一次 playAnim 的动画名）对齐语义。
+		if (f == 'name' && Std.isOfType(o, flixel.animation.FlxAnimationController))
+		{
+			final curAnim:Dynamic = super.get(o, 'curAnim');
+			if (curAnim != null) return super.get(o, f);
+
+			final owner:Dynamic = Reflect.field(o, '_sprite');
+			if (owner != null && Std.isOfType(owner, objects.Character))
+				return cast(owner, objects.Character).getAnimationName();
+		}
+
 		return super.get(o, f);
 	}
 	#end

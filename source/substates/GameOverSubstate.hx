@@ -34,6 +34,27 @@ class GameOverSubstate extends MusicBeatSubstate
 	public static var instance:GameOverSubstate;
 	public function new(?playStateBoyfriend:Character = null)
 	{
+		// NMV `GameOverSubstate.new(character)`（funkin/states/substates/GameOverSubstate.hx:108-118）：
+		// **死亡角色由玩家角色 json 的 `gameover_character` 决定**，而不是谱面字段。
+		// NMV 语料 218 个谱面**零** gameOverChar（全是角色 json 写的），所以此前只读谱面
+		// 字段 = 永远退回通用 'bf-dead' → 用户报的"所有特殊死亡动画都没触发"。
+		// 例：bf-fall → bf-fall-dead（同图集 characters/bf/bfFly，动画在
+		// `animations/dead 0START/1MID/2END` 三条帧标签里）、bf-running → bf-running-death。
+		if (playStateBoyfriend != null)
+		{
+			// 谱面显式指定时仍然尊重（FE 自家 mod 的既有行为），NMV 侧谱面从不写 → 走角色。
+			final songGo:Dynamic = (PlayState.SONG != null) ? PlayState.SONG.gameOverChar : null;
+			final chartSet:Bool = songGo != null && Std.string(songGo).trim().length > 0;
+			if (!chartSet && playStateBoyfriend.gameoverCharacter != null && playStateBoyfriend.gameoverCharacter.length > 0)
+				characterName = playStateBoyfriend.gameoverCharacter;
+
+			if (playStateBoyfriend.gameoverInitialDeathSound != null) deathSoundName = playStateBoyfriend.gameoverInitialDeathSound;
+			if (playStateBoyfriend.gameoverLoopDeathSound != null) loopSoundName = playStateBoyfriend.gameoverLoopDeathSound;
+			if (playStateBoyfriend.gameoverConfirmDeathSound != null) endSoundName = playStateBoyfriend.gameoverConfirmDeathSound;
+
+			backend.Bread.crumb('gameover char=' + characterName + ' from=' + playStateBoyfriend.curCharacter);
+		}
+
 		if(playStateBoyfriend != null && playStateBoyfriend.curCharacter == characterName) //Avoids spawning a second boyfriend cuz animate atlas is laggy
 		{
 			this.boyfriend = playStateBoyfriend;
@@ -57,16 +78,10 @@ class GameOverSubstate extends MusicBeatSubstate
 			if(_song.gameOverEnd != null && _song.gameOverEnd.trim().length > 0) endSoundName = _song.gameOverEnd;
 		}
 
-		// NMV 角色脚本面：boyfriend.gameoverInitialDeathSound / gameoverLoopDeathSound /
-		// gameoverConfirmDeathSound（defeat 的击杀演出、turbulence 的 Jorsawsee_Loop/End）。
-		// Initial 此前在 FE 无字段，脚本写直接抛 Invalid field → onGameOver 脚本段中断。
-		if (PlayState.instance != null && PlayState.instance.boyfriend != null)
-		{
-			final bfChar:Character = PlayState.instance.boyfriend;
-			if (bfChar.gameoverInitialDeathSound != null) deathSoundName = bfChar.gameoverInitialDeathSound;
-			if (bfChar.gameoverLoopDeathSound != null) loopSoundName = bfChar.gameoverLoopDeathSound;
-			if (bfChar.gameoverConfirmDeathSound != null) endSoundName = bfChar.gameoverConfirmDeathSound;
-		}
+		// NMV 角色脚本面（boyfriend.gameoverInitialDeathSound / gameoverLoopDeathSound /
+		// gameoverConfirmDeathSound）与 `gameover_character` 都在 `new(playStateBoyfriend)` 里落，
+		// **不要写在这里**：本方法在 PlayState.create 的 923 行调用，而角色到 1048-1062 才创建，
+		// 此处 `PlayState.instance.boyfriend` 恒为 null（此前那段是死代码）。
 	}
 
 	var charX:Float = 0;

@@ -14,6 +14,22 @@ class StrumNote extends FlxSprite
 	public var downScroll:Bool = false;
 	public var sustainReduce:Bool = true;
 	private var player:Int;
+
+	/**
+	 * 多人唱（NMV `SONG.lanes > 2`）里第 2..n 条 playfield 的 strum 基准 X。
+	 *
+	 * 这些组的 x = `baseX + transformX(lane)`：NMV 的 lane>=2 基准坐标恒定在屏幕正中，
+	 * 舞台脚本用 `modManager.setValue("transformX", ±865, lane)` 把整组推到场外
+	 * （voting.hx:120 / attack.hx:151）。两类位置都要留，所以必须记住基准值。
+	 * 只有多轨分支会写它；普通两组 strum 恒为 NaN（不参与叠加，保持 playerPosition 的结果）。
+	 */
+	public var baseX:Float = Math.NaN;
+
+	/**
+	 * 与 baseX 配套的基准 Y（NMV `transformY` 是 `pos.y += value` 的增量）。
+	 * 多轨分支里 `y = baseY + transformY(lane)`；单轨歌恒为 NaN、不参与叠加。
+	 */
+	public var baseY:Float = Math.NaN;
 	
 	public var texture(default, set):String = null;
 	private function set_texture(value:String):String {

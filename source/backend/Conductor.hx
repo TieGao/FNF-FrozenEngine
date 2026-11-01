@@ -16,6 +16,25 @@ class Conductor
 	public static var bpm(default, set):Float = 100;
 	public static var crochet:Float = ((60 / bpm) * 1000); // beats in milliseconds
 	public static var stepCrochet:Float = crochet / 4; // steps in milliseconds
+	/**
+	 * NMV 拼写（多一个 t）：NMV 的 `funkin.backend.Conductor` 里就叫 `crotchet` / `stepCrotchet`，
+	 * Psych/FE 才写成 `crochet`。语料脚本直接读这两个名字（`.hx` 里 31 + 7 处），
+	 * 而 HScript 的字段读取是 `Reflect.getProperty` —— **缺字段静默返回 null，不报错**，
+	 * 于是 `(Conductor.crotchet * 28) / 1000` 得到 0。
+	 *
+	 * 后果（2026-11-01 实测，Torture 全程黑屏的真因）：`FlxTween.start()`（flixel 6.2
+	 * `FlxTween.hx:675`）对 `duration == 0` 是 `active = false; return this;` —— 补间
+	 * **永不更新、onComplete 永不触发**。warehouse.hx:152 的黑幕 `startDark`
+	 * （alpha 1 的 FlxBGSprite，zIndex 5 盖满全屏）就永远淡不出去也不会被 destroy，
+	 * 而 ziffy 的开场动画 zIndex 同为 5 且后 add，所以正好"开局有动画、之后全黑"。
+	 * 同一根因还让 attack/chef/greenhouse/polus/pretender/victory 的 `fakeStartTimer`
+	 * 时长变成 0（假倒计时被瞬间跳过）、warehouse 的刀片/血条/razebud/bye 补间全部无效。
+	 *
+	 * 值只由 `set_bpm` 同步（那是 `crochet`/`stepCrochet` 的唯一赋值点）。
+	 */
+	public static var crotchet:Float = crochet;
+	/** NMV 拼写，见 `crotchet`。 */
+	public static var stepCrotchet:Float = stepCrochet;
 	public static var songPosition:Float = 0;
 	public static var offset:Float = 0;
 
@@ -138,6 +157,9 @@ class Conductor
 		bpm = newBPM;
 		crochet = calculateCrochet(bpm);
 		stepCrochet = crochet / 4;
+		// NMV 拼写别名（唯一赋值点，见 `crotchet` 字段上的注释）
+		crotchet = crochet;
+		stepCrotchet = stepCrochet;
 
 		return bpm = newBPM;
 	}

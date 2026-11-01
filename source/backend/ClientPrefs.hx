@@ -285,6 +285,15 @@ import states.TitleState;
 	public var showEngineVer:Bool = true;
 	public var showDifficulty:Bool = true;
 
+	/**
+	 * NMV / Impostor Legacy 多人唱"合轨"（SONG.lanes > 2 时才生效）。
+	 *
+	 * true  = 外侧轨（lane >= 2）的 note 画到可见轨道上（白色、自动演唱、玩家不用打），
+	 *         多余轨道不生成；
+	 * false = 参考引擎原样：外侧轨推到场外（transformX ±865）、note 全透明。
+	 */
+	public var legacyCompactLanes:Bool = true;
+
 	public var relaxAudioNumber:Int = 16;
 	public var relaxAudioDisplayQuality:Int = 4;
 	public var audioDisplayUpdate:Float = 33.0;

@@ -74,9 +74,17 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 		anim._loadAtlas(animJson);
 		if(!isXml) frames = FlxAnimateFrames.fromSpriteMap(cast myData, img);
 		else frames = FlxAnimateFrames.fromSparrow(cast myData, img);
+		// 主符号名（`AN.SN` 末段）：参考引擎里"命中帧标签"的动画，timeline 就是这条主时间线。
+		// BTA 导出常见 `__BTA_TEMP_SPRITEMAP_PACKED_SYMBOL`（把所有姿势打包成一条 351 帧的时间轴），
+		// 它的包围盒（1322×1012）与单个姿势子符号（466×494）差 600+ 像素 ——
+		// NmvAtlasAnchor 必须能拿到它，否则同一角色的"帧标签动画"和"符号动画"会各用一个锚点。
+		nmvMainSymbol = (animJson != null && animJson.AN != null && animJson.AN.SN != null) ? haxe.io.Path.withoutDirectory(animJson.AN.SN) : null;
 		applyNmvAtlasSemantics();
 		origin = anim.curInstance.symbol.transformationPoint;
 	}
+
+	/** 主图集的主符号名（`AN.SN` 末段）；子图集（addExtraAtlas）不改它。 */
+	public var nmvMainSymbol:Null<String> = null;
 
 	/**
 	 * BTA 的 `SI.B`（元素混合模式）是 **0..14 的整数**，语义见参考引擎
