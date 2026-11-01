@@ -209,6 +209,7 @@ class Character extends FlxSprite
 		animOffsets = [];
 		#if flxanimate
 		nmvContentChar = false;
+		nmvAtlasSemantics = false;
 		nmvLoggedOffsets = [];
 		#end
 		curCharacter = character;
@@ -264,12 +265,13 @@ class Character extends FlxSprite
 		if (#if MODS_ALLOWED FileSystem.exists(animToFind) || #end Assets.exists(animToFind))
 			isAnimateAtlas = true;
 
-		// 锚点补偿：NMV 语料角色默认开（语料 json 都不带 atlas_anchor，10-28 实测即无条件开、
-		// 位置正确；d097ee11 改成 json 显式开启等于全关，位置才全线跑飞）。
-		// json 里 'fe'/'none' 可关掉；FE 原生角色不受影响。
+		// NMV 图集语义的总开关：NMV 语料角色默认开（语料 json 都不带 atlas_anchor，
+		// 10-28 实测即无条件开、位置正确；d097ee11 改成 json 显式开启等于全关，位置才全线跑飞）。
+		// json 写 'fe'/'none' 可让单个角色整体退出（锚点、动画注册、dummy frame、翻转修正）。
 		var anchorMode:String = json.atlas_anchor;
-		nmvAtlasAnchorFix = isAnimateAtlas
+		nmvAtlasSemantics = isAnimateAtlas
 			&& (anchorMode == 'nmv' || (nmvContentChar && anchorMode != 'fe' && anchorMode != 'none'));
+		nmvAtlasAnchorFix = nmvAtlasSemantics;
 		if (nmvAtlasAnchorFix) nmvAtlasKey = json.image;
 		else nmvAtlasKey = null;
 		#end
@@ -317,7 +319,9 @@ class Character extends FlxSprite
 				// NMV 兼容：atlas 角色没有 FlxSprite 意义上的 frame，而 beach.hx 的轮光
 				// shader 读 character.frame.uv / frame.angle（每帧）。用 1x1 白图造一个
 				// uv 全域(0..1)的合成帧 —— NMV useRenderTexture 语义下 frame 即整张贴图。
-				if (this.frame == null)
+				// 只给 NMV 内容包造：原版 atlas 角色的 frame 要留空，frameWidth/Height
+				// 才能反映图集首帧（翻转偏移修正、updateHitbox 都依赖它）。
+				if (nmvAtlasSemantics && this.frame == null)
 				{
 					var dummyG:FlxGraphic = FlxG.bitmap.create(1, 1, FlxColor.WHITE, false, 'nmv_dummy_frame');
 					var dummyF:FlxFrame = new FlxFrame(dummyG);
@@ -403,79 +407,11 @@ class Character extends FlxSprite
 				#if flxanimate
 				else
 				{
-					// 旧库 addBySymbol 是"前缀匹配 + 字典顺序取第一个"："black left" 会撞上
-					// "black left alt"、"black" 会撞上 "black up" → 动画内容串台、长符号一直循环。
-					var hasFrameLabel:Bool = false;
-					try hasFrameLabel = atlas.anim.getFrameLabel(animName) != null catch(e:Dynamic) {}
-					var exactSymbol:Bool = atlas.anim.symbolDictionary != null && atlas.anim.symbolDictionary.exists(animName);
-
-					// 注册优先级（**逐字对齐** NMV `FunkinSprite.addAnimByIndices / addAnimByPrefix`）：
-					//   `findFrameLabelIndices(prefix)` 非空 → 标签；否则有同名符号 → 符号；否则前缀。
-					// ① 有 json indices 且 name 是根 timeline 的帧标签 → **帧标签段 + indices**
-					//    （`addByFrameLabelIndices` 语义：indices 是标签段内的相对序号）。
-					//    这一条是 bf-fall（ejected）"有的唱姿偏有的不偏"的正解：它的
-					//    `sing*-loop` / `idle-loop` / `hey-loop` 的 name（`animations/right`…）同时是
-					//    主符号 `__BTA_TEMP_SPRITEMAP_PACKED_SYMBOL` 的帧标签，NMV 走的是主符号时间线；
-					//    移植端此前 indices 优先 → 掉进子符号，**内容与锚点都换了一条时间线**
-					//    （主符号的实例矩阵带 (-211.6,-241.05) 的打包位移，只改锚点会把画面推得更远）。
-					// ② 有 indices 但没有同名标签 → 符号 indices（子符号）。
-					// ③ 无 indices 但有同名标签 → 帧标签（根时间线）。
-					//    white/whitedk 的 json name（'idle'/'right'/'idle_w'…）与根时间线的帧标签
-					//    完全同名，NMV 走的是标签（所有姿势共用根时间线的包围盒 → 位置稳定）；
-					//    走姿势符号则每个姿势各算一个包围盒 → 逐姿势位移（"到处飘"）。
-					//    旧代码担心的"同名包装覆盖真符号导致递归闪退"不成立：safe 包装的字典键是
-					//    `@<符号>@<动画>`，不写既有键。
-					// ④ 精确符号（前缀歧义时用全帧 indices 的 safe 包装，不覆盖字典）。
-					// ⑤ 帧标签兜底。
-					// ⑥ 前缀兜底。
-					// 每步失败就往下掉（json 的 name 带不带目录名跟字典键不一定一致：
-					// yellow 写 'yellow idle'、键是 'animations/yellow idle'；Nene 写 'Idle'）。
-					var registered:Bool = false;
-					if(animIndices != null && animIndices.length > 0)
-					{
-						registered = addFromFrameLabelIndices(animAnim, animName, animIndices, animFps, animLoop);
-						if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' label-idx n=' + animIndices.length);
-					}
-					if(!registered && animIndices != null && animIndices.length > 0)
-					{
-						registered = atlas.safeAddBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
-						if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' indices n=' + animIndices.length);
-					}
-					if(!registered && hasFrameLabel && (animIndices == null || animIndices.length == 0))
-					{
-						registered = addFromFrameLabel(animAnim, animName, animFps, animLoop);
-						if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' label[' + animName + ']');
-					}
-					if(!registered && exactSymbol)
-					{
-						if (prefixAmbiguous(animName))
-						{
-							// 'black left' vs 'black left alt'：fork 的 addBySymbol 抓哪个看 Map
-							// 顺序，改用显式全帧 indices 的 safe 包装（不覆盖字典）。
-							var sym = atlas.anim.symbolDictionary.get(animName);
-							var frameCount:Int = (sym != null && sym.timeline != null) ? sym.timeline.totalFrames : 0;
-							var all:Array<Int> = [for (i in 0...frameCount) i];
-							registered = atlas.safeAddBySymbolIndices(animAnim, animName, all, animFps, animLoop);
-							if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' exact-ambiguous n=' + frameCount);
-						}
-						else
-						{
-							atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
-							registered = atlas.anim.existsByName(animAnim);
-							if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' exact');
-						}
-					}
-					if(!registered && hasFrameLabel)
-					{
-						registered = addFromFrameLabel(animAnim, animName, animFps, animLoop);
-						if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' label[' + animName + ']');
-					}
-					if(!registered)
-					{
-						atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
-						registered = atlas.anim.existsByName(animAnim);
-						if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' prefix');
-					}
+					// 注册策略按内容来源分派：NMV 语料走 NMV 的标签/符号优先级，
+					// 其余来源（assets 原版、content 其他包、mods）保持 FE 原有语义。
+					var registered:Bool = nmvAtlasSemantics
+						? registerNmvAtlasAnim(animAnim, animName, animIndices, animFps, animLoop)
+						: registerFeAtlasAnim(animAnim, animName, animIndices, animFps, animLoop);
 					if(!registered)
 						backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' FAILED name=' + animName);
 					else
@@ -700,15 +636,17 @@ class Character extends FlxSprite
 			else
 			{
 				var daOffset = animOffsets.get(target);
-				// NMV setAnimOffset 的翻转修正：翻转态下 X 偏移按帧宽镜像
+				// NMV 语料的 setAnimOffset 翻转修正：翻转态下偏移按帧宽镜像
 				// （red 作为玩家侧被翻转后裸用 json 偏移，每个唱击动作横向甩 500px+ = "漂移"）。
 				// 基准帧宽首次就绪时采样；图集未就绪（-1）先按裸值。
-				if (isAnimateAtlas && baseFrameWidth < 0 && frameWidth > 0)
+				// 只对 NMV 内容包开：原版 atlas 角色的 offset 是按舞台原点调好的，
+				// 镜像会让被翻转的角色整条动画反向位移。
+				if (nmvAtlasSemantics && isAnimateAtlas && baseFrameWidth < 0 && frameWidth > 0)
 				{
 					baseFrameWidth = frameWidth;
 					baseFrameHeight = frameHeight;
 				}
-				if (isAnimateAtlas && baseFrameWidth >= 0)
+				if (nmvAtlasSemantics && isAnimateAtlas && baseFrameWidth >= 0)
 				{
 					offset.set(
 						(baseFlipX != null && flipX != baseFlipX) ? (frameWidth - baseFrameWidth - daOffset[0]) : daOffset[0],
@@ -798,6 +736,99 @@ class Character extends FlxSprite
 	}
 
 	#if flxanimate
+	/**
+	 * NMV 内容包的图集动画注册，优先级**逐字对齐** NMV `FunkinSprite.addAnimByIndices / addAnimByPrefix`：
+	 * `findFrameLabelIndices(prefix)` 非空 → 标签；否则有同名符号 → 符号；否则前缀。
+	 *
+	 * ① 有 json indices 且 name 是根 timeline 的帧标签 → **帧标签段 + indices**
+	 *    （`addByFrameLabelIndices` 语义：indices 是标签段内的相对序号）。
+	 *    bf-fall（ejected）的 `sing*-loop` / `idle-loop` / `hey-loop` 的 name
+	 *    （`animations/right`…）同时是主符号 `__BTA_TEMP_SPRITEMAP_PACKED_SYMBOL` 的帧标签，
+	 *    NMV 走的是主符号时间线；走子符号会连**内容带锚点**换一条时间线
+	 *    （主符号的实例矩阵带 (-211.6,-241.05) 的打包位移）。
+	 * ② 有 indices 但没有同名标签 → 符号 indices（子符号）。
+	 * ③ 无 indices 但有同名标签 → 帧标签（根时间线）。
+	 *    white/whitedk 的 json name（'idle'/'right'/'idle_w'…）与根时间线的帧标签
+	 *    完全同名，NMV 走的是标签（所有姿势共用根时间线的包围盒 → 位置稳定）。
+	 * ④ 精确符号（前缀歧义时用全帧 indices 的 safe 包装，不覆盖字典）。
+	 * ⑤ 帧标签兜底。
+	 * ⑥ 前缀兜底。
+	 * 每步失败就往下掉（json 的 name 带不带目录名跟字典键不一定一致：
+	 * yellow 写 'yellow idle'、键是 'animations/yellow idle'；Nene 写 'Idle'）。
+	 */
+	function registerNmvAtlasAnim(animAnim:String, animName:String, animIndices:Array<Int>, animFps:Int, animLoop:Bool):Bool
+	{
+		var hasFrameLabel:Bool = false;
+		try hasFrameLabel = atlas.anim.getFrameLabel(animName) != null catch(e:Dynamic) {}
+		var exactSymbol:Bool = atlas.anim.symbolDictionary != null && atlas.anim.symbolDictionary.exists(animName);
+
+		var registered:Bool = false;
+		if(animIndices != null && animIndices.length > 0)
+		{
+			registered = addFromFrameLabelIndices(animAnim, animName, animIndices, animFps, animLoop);
+			if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' label-idx n=' + animIndices.length);
+		}
+		if(!registered && animIndices != null && animIndices.length > 0)
+		{
+			registered = atlas.safeAddBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
+			if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' indices n=' + animIndices.length);
+		}
+		if(!registered && hasFrameLabel && (animIndices == null || animIndices.length == 0))
+		{
+			registered = addFromFrameLabel(animAnim, animName, animFps, animLoop);
+			if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' label[' + animName + ']');
+		}
+		if(!registered && exactSymbol)
+		{
+			if (prefixAmbiguous(animName))
+			{
+				// 'black left' vs 'black left alt'：fork 的 addBySymbol 抓哪个看 Map
+				// 顺序，改用显式全帧 indices 的 safe 包装（不覆盖字典）。
+				var sym = atlas.anim.symbolDictionary.get(animName);
+				var frameCount:Int = (sym != null && sym.timeline != null) ? sym.timeline.totalFrames : 0;
+				var all:Array<Int> = [for (i in 0...frameCount) i];
+				registered = atlas.safeAddBySymbolIndices(animAnim, animName, all, animFps, animLoop);
+				if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' exact-ambiguous n=' + frameCount);
+			}
+			else
+			{
+				atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
+				registered = atlas.anim.existsByName(animAnim);
+				if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' exact');
+			}
+		}
+		if(!registered && hasFrameLabel)
+		{
+			registered = addFromFrameLabel(animAnim, animName, animFps, animLoop);
+			if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' label[' + animName + ']');
+		}
+		if(!registered)
+		{
+			atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
+			registered = atlas.anim.existsByName(animAnim);
+			if (registered) backend.Bread.crumb('char[' + curCharacter + '] anim ' + animAnim + ' prefix');
+		}
+		return registered;
+	}
+
+	/**
+	 * FE 原有的图集动画注册：有 indices 走符号 indices，否则按符号名注册。
+	 *
+	 * 帧标签与符号同名时**不走标签** —— 原版图集（assets 的 tankman/pico、content 的
+	 * sserafim 等）的美术位置是按符号调的，改走根时间线标签段会连内容带锚点换一条时间线
+	 * （kazuha 的 `idle`、sakura 的 `joint pose *` 都是标签与符号同名）。
+	 */
+	function registerFeAtlasAnim(animAnim:String, animName:String, animIndices:Array<Int>, animFps:Int, animLoop:Bool):Bool
+	{
+		// 防环版：图集里可能有与动画名同名的子符号（kazuha 的 idle），
+		// 原版 addBySymbolIndices 会覆盖它造成渲染期无限递归 → 栈溢出闪退
+		if(animIndices != null && animIndices.length > 0)
+			return atlas.safeAddBySymbolIndices(animAnim, animName, animIndices, animFps, animLoop);
+
+		atlas.anim.addBySymbol(animAnim, animName, animFps, animLoop);
+		return atlas.anim.existsByName(animAnim);
+	}
+
 	/** fork 的 addBySymbol 是前缀匹配：除精确同名外还有别的符号以该名为前缀时返回 true。 */
 	/**
 	 * 用根时间线的帧标签段注册动画（NMV `addByFrameLabel` 语义）。
@@ -941,6 +972,12 @@ class Character extends FlxSprite
 	 * 同一份 Animation.json 在两边会整体错开包围盒的 (x, y)。
 	 */
 	public var nmvAtlasAnchorFix:Bool = false;
+	/**
+	 * NMV 图集语义总开关（= 锚点补偿 + NMV 动画注册优先级 + dummy frame + 翻转偏移修正）。
+	 * 只有 NMV 内容包的角色、或 json 显式 `atlas_anchor: "nmv"` 时开；
+	 * json 写 `"fe"` / `"none"` 可让单个角色整体退出。
+	 */
+	var nmvAtlasSemantics:Bool = false;
 	/**
 	 * NMV `Character.animSuffix`：`playAnim` 时自动追加到动画名后面。
 	 *

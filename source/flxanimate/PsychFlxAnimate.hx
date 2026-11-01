@@ -147,14 +147,15 @@ class PsychFlxAnimate extends OriginalFlxAnimate
 	 * （默认按本规则渲染；`--no-nmv-mc` 看修前行为）。
 	 */
 	/**
-	 * 当前是否在跑 NMV 内容包。两个信号取或：
-	 * - `NMVContentData.currentMod`（Freeplay 选 NMV 曲目时置上）；
-	 * - 内容根路径含 `NMVMODS`（story/直接进歌等没走 Freeplay 的路径）。
+	 * 当前是否在跑 NMV 内容包：只看 `Paths.currentContentRoot`（进歌前由 WeekData /
+	 * Freeplay 设成这首歌的资源根）。
+	 *
+	 * 不能看 `NMVContentData.currentMod` —— 那是 Freeplay 的选择态，返回主菜单后仍保留，
+	 * 从 story mode 进别的内容包（如 VanillaSongs/Collab）时会把别的包的图集误判成 NMV。
 	 * 拿不到就返回 false，宁可不改（FE 自家 Animate 图集维持原行为）。
 	 */
 	inline static function isNmvContent():Bool
 	{
-		if (backend.NMVContentData.currentMod != null) return true;
 		final root:String = backend.Paths.currentContentRoot;
 		return root != null && root.indexOf('NMVMODS') >= 0;
 	}
