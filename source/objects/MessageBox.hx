@@ -34,6 +34,9 @@ import backend.UITheme;
  *
  * 通过静态方法 `MessageBox.show(...)` 调用，内部用 `active` 队列维护多个堆叠，
  * 关闭后其余会自动上移重排。
+ *
+ * `MessageBox.showProgress(...)` 是常驻版：不自动消失，进度条由 `setProgress` 推进，
+ * 做完用 `closeIn(秒)` 收尾。用于「正在转换歌曲」这类要显示进度条的长任务。
  */
 class MessageBox extends Sprite
 {
@@ -77,6 +80,27 @@ class MessageBox extends Sprite
 		return mb;
 	}
 
+	/**
+	 * 常驻条：不走停留计时，停在那儿等 `setProgress` / `closeIn`。
+	 *
+	 * 不做滑入动画：调用方挂上之后紧接着就会去干阻塞的活（逐首转换），
+	 * 滑到一半会被冻住，反而让条停在屏幕外。直接落在最终位置更实在。
+	 */
+	public static function showProgress(title:String, body:String):MessageBox
+	{
+		var mb = new MessageBox(title, body, MESSAGE, null, 0);
+		mb.persistent = true;
+
+		active.push(mb);
+		recalcTargets();
+		mb.yPos = mb.targetY;
+		mb.x = TARGET_X * mb.lastScale;
+		mb.y = mb.yPos * mb.lastScale;
+		mb.alpha = 1;
+		mb.state = 1; // 直接进 HOLD，closeIn 的倒计时才会走
+		return mb;
+	}
+
 	static function recalcTargets():Void
 	{
 		for (i in 0...active.length)
@@ -89,6 +113,8 @@ class MessageBox extends Sprite
 	public var action:Void->Void = null;
 	public var duration:Float;
 	public var targetY:Float = TOP_MARGIN;
+	/** true = 常驻：不走停留计时，靠 setProgress / closeIn 驱动 */
+	public var persistent:Bool = false;
 
 	var timeLeft:Float;
 	var progress:Float = 1;
@@ -96,6 +122,8 @@ class MessageBox extends Sprite
 	var state:Int = 0; // 0=SLIDE_IN, 1=HOLD, 2=SLIDE_OUT
 	var timePassed:Float = -1;
 	var lastScale:Float = 1;
+	/** 常驻模式的关闭倒计时（<0 = 不关闭） */
+	var closeTimer:Float = -1;
 
 	var tweenX:FlxTween = null;
 	var tweenFade:FlxTween = null;
@@ -142,6 +170,21 @@ class MessageBox extends Sprite
 
 		FlxG.game.addChild(this); // 全局挂载：切界面不消失
 	}
+
+	/** 设置进度条（0~1）。仅常驻模式需要，普通通知条的进度是停留倒计时。 */
+	public function setProgress(p:Float):Void
+	{
+		progress = Math.max(0, Math.min(1, p));
+		drawProgress(progress);
+	}
+
+	/** 常驻模式收尾：再停留 seconds 秒后滑出。 */
+	public function closeIn(seconds:Float):Void
+		closeTimer = Math.max(0, seconds);
+
+	/** 立刻滑出（不等停留 / 倒计时）。 */
+	public function close():Void
+		slideOut();
 
 	/** 从屏幕右侧推入并淡入 */
 	function slideIn():Void
@@ -250,9 +293,21 @@ class MessageBox extends Sprite
 
 		if (state == 1)
 		{
-			timeLeft -= elapsed;
-			progress = Math.max(0, timeLeft / duration);
-			if (timeLeft <= 0) slideOut();
+			if (persistent)
+			{
+				// 常驻条：进度条由 setProgress 驱动，这里只跑关闭倒计时
+				if (closeTimer >= 0)
+				{
+					closeTimer -= elapsed;
+					if (closeTimer <= 0) slideOut();
+				}
+			}
+			else
+			{
+				timeLeft -= elapsed;
+				progress = Math.max(0, timeLeft / duration);
+				if (timeLeft <= 0) slideOut();
+			}
 		}
 
 		this.y = yPos * lastScale;

@@ -53,6 +53,10 @@ class HitErrorBar extends FlxSpriteGroup
         'bad'       => FlxColor.fromRGB(255, 0, 0),
         'shit'      => FlxColor.fromRGB(139, 0, 0)
     ];
+
+    // 每个评级色块下的命中数：rating => [左侧(打早了), 右侧(打晚了)]
+    var blockHitCounts:Map<String, Array<Int>> = [];
+    var blockHitTexts:Map<String, Array<FlxText>> = [];
     
     public function new()
     {
@@ -66,6 +70,7 @@ class HitErrorBar extends FlxSpriteGroup
         createMiddleLine();
         createHitBars();
         createHitNotes();
+        createBlockCounters();
         
         // 设置组的宽高
         this.width = timingBar.width;
@@ -229,6 +234,65 @@ class HitErrorBar extends FlxSpriteGroup
             hitNoteTimers.push(0);
         }
         add(hitNotes);
+    }
+    
+    /**
+     * 在每个评级色块正下方放一个命中计数（左右各一份，同评级左右分开算）。
+     * 未开启 hitBarBlockCounter 时什么都不建。
+     */
+    function createBlockCounters()
+    {
+        if (!ClientPrefs.data.hitBarBlockCounter) return;
+        
+        var marvWindow:Float = ClientPrefs.data.marvelousEnabled ? ClientPrefs.data.marvelousWindow : 0;
+        var sickWindow:Float = ClientPrefs.data.sickWindow;
+        var goodWindow:Float = ClientPrefs.data.goodWindow;
+        var badWindow:Float = ClientPrefs.data.badWindow;
+        
+        var barCenterX:Float = barWidth / 2;
+        var pixelsPerMs:Float = barCenterX / maxTiming;
+        // 开着 ms 文本时它占着 bar 正下方（y=25，16px 字高约 20px），计数再往下让开
+        var textY:Float = timingBar.y + barHeight + (ClientPrefs.data.msInErrorBar ? 20 : 1);
+        
+        // [评级名, 外边界ms, 内边界ms]，外 = 远离中心，内 = 靠近中心
+        var zones:Array<Dynamic> = [
+            ['shit', 166.0, badWindow],
+            ['bad', badWindow, goodWindow],
+            ['good', goodWindow, sickWindow],
+            ['sick', sickWindow, marvWindow]
+        ];
+        if (marvWindow > 0) zones.push(['marvelous', marvWindow, 0.0]);
+        
+        for (zone in zones)
+        {
+            var name:String = zone[0];
+            var outerMs:Float = zone[1];
+            var innerMs:Float = zone[2];
+            blockHitCounts[name] = [0, 0];
+            blockHitTexts[name] = [];
+            for (side in 0...2) // 0 = 左半边（早），1 = 右半边（晚）
+            {
+                var dir:Float = (side == 0) ? -1 : 1;
+                var outerX:Float = barCenterX + dir * outerMs * pixelsPerMs;
+                var innerX:Float = barCenterX + dir * innerMs * pixelsPerMs;
+                var txt:FlxText = new FlxText(Math.min(outerX, innerX), textY, Math.abs(innerX - outerX), '0', 8);
+                txt.setFormat(GameFont.resolve('pixel-latin.ttf'), 8, ratingColors[name], CENTER, OUTLINE, FlxColor.BLACK);
+                txt.antialiasing = false;
+                txt.borderSize = 1;
+                txt.wordWrap = false;
+                add(txt);
+                blockHitTexts[name].push(txt);
+            }
+        }
+    }
+    
+    function countBlockHit(ms:Float, ratingName:String)
+    {
+        if (!blockHitCounts.exists(ratingName)) return;
+        var sideIdx:Int = ms < 0 ? 0 : 1;
+        blockHitCounts[ratingName][sideIdx]++;
+        var txt:FlxText = blockHitTexts[ratingName][sideIdx];
+        if (txt != null) txt.text = Std.string(blockHitCounts[ratingName][sideIdx]);
     }
     
     function showMsText(ms:Float, xPos:Float, ratingName:String)
@@ -425,6 +489,7 @@ class HitErrorBar extends FlxSpriteGroup
         returning = false;
         addHitMarker(ms);
         addHitNote(ms, noteDirection);
+        countBlockHit(ms, getRatingName(ms));
         updatePointerColor();
         this.alpha = 0.9;
     }
@@ -579,6 +644,17 @@ class HitErrorBar extends FlxSpriteGroup
             bar.kill();
         }
         clearHitNotes();
+        for (name in blockHitCounts.keys())
+        {
+            blockHitCounts[name][0] = 0;
+            blockHitCounts[name][1] = 0;
+            var texts:Array<FlxText> = blockHitTexts[name];
+            if (texts != null)
+            {
+                for (txt in texts)
+                    if (txt != null) txt.text = '0';
+            }
+        }
         this.alpha = 0.7;
     }
 }

@@ -12,6 +12,7 @@ import lime.utils.Assets;
 import lime.media.AudioBuffer;
 
 import flash.media.Sound;
+import flash.net.FileFilter;
 import flash.geom.Rectangle;
 
 import haxe.Json;
@@ -20,6 +21,9 @@ import haxe.io.Bytes;
 
 import states.editors.content.MetaNote;
 import states.editors.content.VSlice;
+import states.editors.content.ChartConvertCore.ChartImportInfo;
+import states.editors.content.ChartImportDialog.ChartConvertOptions;
+import states.editors.content.OsuArchiveExtractor.ExtractResult;
 import states.editors.content.Prompt;
 import states.editors.content.*;
 import states.editors.content.ChartMinimap.ChartMinimapPanel;
@@ -446,6 +450,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		
 		fullTipText = new FlxText(0, 0, FlxG.width - 200);
 		fullTipText.setFormat(Paths.font('vcr.ttf'), 24, FlxColor.WHITE, CENTER);
+		fullTipText.antialiasing = ClientPrefs.data.antialiasing;
 		fullTipText.cameras = [camUI];
 		fullTipText.scrollFactor.set();
 		fullTipText.visible = fullTipText.active = false;
@@ -1614,7 +1619,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 	// ===== 谱面缩略图（ChartMinimap）=====
 
-	/** 给缩略图提供每个 section 的数据：时间用 cachedSectionTimes，note 数现场从 notes[] 统计 */
+	/** 给缩略图提供每个 section 的数据：时间用 cachedSectionTimes，note 数现场从 notes[] 按轨道统计 */
 	function buildMinimapSections():Array<ChartMinimapSection>
 	{
 		var out:Array<ChartMinimapSection> = [];
@@ -1627,18 +1632,28 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			if(st == null) break;
 			var et:Float = (i + 1 < cachedSectionTimes.length) ? cachedSectionTimes[i + 1] : Math.max(songLen, st + 1);
 			var bpm:Float = (i < cachedSectionBPMs.length) ? cachedSectionBPMs[i] : PlayState.SONG.bpm;
-			out.push({time: st, endTime: et, bpm: bpm, noteCount: 0});
+			out.push({time: st, endTime: et, bpm: bpm, noteCount: 0, sideNotes: [for (p in 0...GRID_PLAYERS) 0]});
 		}
 		if(out.length == 0) return out;
 
-		// 现场编辑的真数据源是 notes[]（MetaNote），按时间归节计数
+		// 现场编辑的真数据源是 notes[]（MetaNote）：按时间归节，按 songData[1] / 每轨轨道数 归轨道
+		var cols:Int = GRID_COLUMNS_PER_PLAYER;
 		for (note in notes)
 		{
 			if(note == null || note.isEvent) continue;
 			var t:Float = note.strumTime;
+			var side:Int = Std.int(note.songData[1] / cols);
+			if(side < 0) side = 0;
+			else if(side >= GRID_PLAYERS) side = GRID_PLAYERS - 1;
+
 			for (j in 0...out.length)
 			{
-				if(t < out[j].endTime || j == out.length - 1) { out[j].noteCount++; break; }
+				if(t < out[j].endTime || j == out.length - 1)
+				{
+					out[j].noteCount++;
+					out[j].sideNotes[side]++;
+					break;
+				}
 			}
 		}
 		return out;
@@ -3737,7 +3752,10 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				{
 					chartAudioCategory = category;
 					Paths.currentChartCategory = category;
-					Paths.currentChartDirectory = null;
+					// 谱面所在目录必须登记：音轨/人声候选靠它定位，而 content 分类里的歌名
+					// 不一定等于目录名（osu 用 Title、数据包用目录名之外的显示名）。
+					// 数据包布局的 charts/ 由 Paths 上退一级找 song/。
+					setChartDirectoryFromPath(normPath);
 					Mods.loadTopMod();
 					loadChartFromAnyPath(normPath);
 				}
@@ -4365,132 +4383,26 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 		
+		// === 谱面导入（StepMania / osu!mania / Quaver / MIDI / Malody）===
 		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Psych to OSU...', function()
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Import Chart...', function()
 		{
 			if(!fileDialog.completed) return;
 			upperBox.isMinimized = true;
 			upperBox.bg.visible = false;
 
-			updateChartData();
-			
-			fileDialog.openDirectory('Save OSU File', function()
+			fileDialog.open(null, 'Open Chart (.sm/.ssc/.osu/.osz/.qua/.qp/.mid/.mc)',
+				[new FileFilter('Chart Files', ChartConverter.FILE_FILTER)], function()
 			{
-				try
-				{
-					var path:String = fileDialog.path.replace('\\', '/');
-					if(!path.endsWith('/')) path += '/';
-					
-					var osuFileName:String = Paths.formatToSongPath(PlayState.SONG.song) + '.osu';
-					var savePath:String = path + osuFileName;
-					
-					overwriteCheck(savePath, osuFileName, '', function()
-					{
-						if(OsuConverter.convertPsychToOsu(PlayState.SONG, savePath))
-						{
-							showOutput('OSU file saved successfully: $savePath');
-						}
-						else
-						{
-							showOutput('OSU conversion failed!', true);
-						}
-					});
-				}
-				catch(e:Exception)
-				{
-					showOutput('Error: ${e.message}', true);
-					trace(e.stack);
-				}
+				openChartImportDialog(fileDialog.path.replace('\\', '/'));
 			});
 		}, btnWid);
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
+		// === 谱面导出（StepMania / osu!mania / Quaver）===
 		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  OSU to Psych...', function()
-		{
-			if(!fileDialog.completed) return;
-			upperBox.isMinimized = true;
-			upperBox.bg.visible = false;
-
-			fileDialog.open('*.osu', 'Open OSU Mania Chart', function()
-			{
-				try
-				{
-					var filePath:String = fileDialog.path.replace('\\', '/');
-					
-					// 先读取 OSU 文件获取键数信息
-					var content:String = File.getContent(filePath);
-					var sections:Map<String, Array<String>> = OsuConverter.parseOsuSections(content);
-					var difficulty:Map<String, String> = OsuConverter.parseKeyValues(sections["Difficulty"]);
-					var keys:Int = Std.parseInt(difficulty.get("CircleSize"));
-					if (keys < 1) keys = 4;
-					
-
-						var dialog:OsuImportDialog = new OsuImportDialog(keys);
-						dialog.onConfirm = function(convertTo4k:Bool, action:Int)
-						{
-							performOsuImport(filePath, keys, convertTo4k, action);
-						};
-						dialog.onCancel = function()
-						{
-							showOutput('OSU import cancelled');
-						};
-						openSubState(dialog);
-
-				}
-				catch(e:Exception)
-				{
-					showOutput('Error: ${e.message}', true);
-					trace(e.stack);
-				}
-			});
-		}, btnWid);
-		btn.text.alignment = LEFT;
-		tab_group.add(btn);
-		// === StepMania 导入 ===
-		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Import StepMania...', function()
-		{
-			if(!fileDialog.completed) return;
-			upperBox.isMinimized = true;
-			upperBox.bg.visible = false;
-
-			fileDialog.open('*.sm;*.ssc', 'Open StepMania Chart (.sm / .ssc)', function()
-			{
-				try
-				{
-					var filePath:String = fileDialog.path.replace('\\', '/');
-					
-					// 检测键数
-					var keys:Int = StepManiaConverter.detectStepManiaKeys(filePath);
-					
-					// 显示导入对话框
-					ClientPrefs.toggleVolumeKeys(false);
-					var dialog:StepManiaDialog = new StepManiaDialog(StepManiaDialog.ACTION_IMPORT, keys, keys);
-					dialog.onConfirm = function(action:Int, format:String, convertKeys:Bool, targetKeys:Int)
-					{
-						performStepManiaImport(filePath, targetKeys);
-					};
-					dialog.onCancel = function()
-					{
-						showOutput('StepMania import cancelled');
-					};
-					openSubState(dialog);
-				}
-				catch(e:Exception)
-				{
-					showOutput('Error: ${e.message}', true);
-					trace(e.stack);
-				}
-			});
-		}, btnWid);
-		btn.text.alignment = LEFT;
-		tab_group.add(btn);
-
-		// === StepMania 导出 ===
-		btnY += 20;
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Export StepMania...', function()
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  Export Chart...', function()
 		{
 			if(!fileDialog.completed) return;
 			upperBox.isMinimized = true;
@@ -4498,17 +4410,18 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 			updateChartData();
 			var keys:Int = GRID_COLUMNS_PER_PLAYER;
-			
-			// 显示导出对话框
+
 			ClientPrefs.toggleVolumeKeys(false);
-			var dialog:StepManiaDialog = new StepManiaDialog(StepManiaDialog.ACTION_EXPORT, keys, keys);
-			dialog.onConfirm = function(action:Int, format:String, convertKeys:Bool, targetKeys:Int)
+			var dialog:ChartImportDialog = new ChartImportDialog(ChartImportDialog.MODE_EXPORT, keys, keys);
+			dialog.onConfirm = function(opts:ChartConvertOptions)
 			{
-				performStepManiaExport(format);
+				var targetFormat:String = opts.format;
+				if(targetFormat == null) return;
+				performChartExport(targetFormat, opts.diff);
 			};
 			dialog.onCancel = function()
 			{
-				showOutput('StepMania export cancelled');
+				showOutput('Chart export cancelled');
 			};
 			openSubState(dialog);
 		}, btnWid);
@@ -5432,12 +5345,24 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		super.destroy();
 	}
 
+	/**
+	 * 把谱面文件所在目录登记为「当前谱面目录」。
+	 * 音轨 / 人声候选靠它定位（Paths.inst / voices 的 chartDir 分支），
+	 * 缺了它就只能按歌名猜路径 —— 自定义谱面的歌名往往不等于目录名（osu 用 Title）。
+	 */
+	function setChartDirectoryFromPath(filePath:String)
+	{
+		if (filePath == null || filePath.length < 1) return;
+		var norm:String = filePath.replace('\\', '/');
+		var slash:Int = norm.lastIndexOf('/');
+		Paths.currentChartDirectory = (slash > 0) ? norm.substring(0, slash) : null;
+	}
+
 	function loadChartFromAnyPath(path:String)
 	{
-		var lowerPath:String = path.toLowerCase();
-		if (lowerPath.endsWith('.osu'))
-			openOsuChartFromFile(path);
-		else if (lowerPath.endsWith('.json'))
+		if (ChartConverter.detectFormat(path) != null)
+			openChartImportDialog(path);
+		else if (path.toLowerCase().endsWith('.json'))
 			loadChartFromFile(path);
 		else showOutput('Unsupported chart file: $path', true);
 	}
@@ -5462,6 +5387,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 			var func:Void->Void = function()
 			{
+				setChartDirectoryFromPath(filePath);
 				loadChart(loadedChart);
 				Song.chartPath = filePath;
 				reloadNotesDropdowns();
@@ -5657,52 +5583,146 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		}
 	}
 
-	function openOsuChartFromFile(filePath:String)
+	function openChartImportDialog(filePath:String)
+	{
+		var info:ChartImportInfo = null;
+		try
+		{
+			info = ChartConverter.probe(filePath);
+		}
+		catch(e:Dynamic)
+		{
+			showOutput('Error: ${Std.string(e)}', true);
+			return;
+		}
+
+		ClientPrefs.toggleVolumeKeys(false);
+		var dialog:ChartImportDialog = new ChartImportDialog(ChartImportDialog.MODE_IMPORT, info.keys, info.keys, info.diffs, info.formatLabel,
+			info.format, info.title);
+		dialog.onConfirm = function(opts:ChartConvertOptions)
+		{
+			performChartImport(filePath, opts.diff, opts.convertKeys ? opts.targetKeys : info.keys, opts.action, opts.extractAudio);
+		};
+		dialog.onCancel = function()
+		{
+			showOutput('Chart import cancelled');
+		};
+		openSubState(dialog);
+	}
+
+	/**
+	 * 统一谱面导入（.sm/.ssc/.osu/.osz/.qua/.qp/.mid/.mc → SwagSong）
+	 * ACTION_LOAD 直接载入编辑器；ACTION_SAVE 先存转换后的 Psych JSON 再询问是否载入
+	 * @param extractAudio 仅 .osz 有效：保存时把包内音频一起落到输出目录
+	 */
+	function performChartImport(filePath:String, diff:String, targetKeys:Int, action:Int, extractAudio:Bool = false)
 	{
 		try
 		{
-			// 检查文件是否存在
-			if (!FileSystem.exists(filePath))
+			var loadedChart:SwagSong = ChartConverter.importChart(filePath, diff, targetKeys);
+			if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
 			{
-				showOutput('Error: File not found: $filePath', true);
+				showOutput('Error: Unable to read chart file', true);
 				return;
 			}
 
-			// 检查文件扩展名
-			var lowerPath:String = filePath.toLowerCase();
-			if (!lowerPath.endsWith('.osu') && !lowerPath.endsWith('.osz'))
+			if(action == ChartImportDialog.ACTION_SAVE)
 			{
-				showOutput('Error: File is not a valid OSU chart (.osu or .osz expected).', true);
-				return;
-			}
+				// 保存转换后的 Psych JSON（可选继续载入编辑器）
+				fileDialog.openDirectory('Save Converted Psych JSON', function()
+				{
+					var path:String = fileDialog.path.replace('\\', '/');
+					if(!path.endsWith('/')) path += '/';
 
-			var content:String = File.getContent(filePath);
-			var sections:Map<String, Array<String>> = OsuConverter.parseOsuSections(content);
-			var difficulty:Map<String, String> = OsuConverter.parseKeyValues(sections["Difficulty"]);
-			var keys:Int = Std.parseInt(difficulty.get("CircleSize"));
-			if (keys < 1) keys = 4;
-			
-			// 限制最大键数为 16
-			if (keys > 16) keys = 16;
-			
-			var dialog:OsuImportDialog = new OsuImportDialog(keys);
-			dialog.onConfirm = function(convertTo4k:Bool, action:Int)
+					var chartName:String = Paths.formatToSongPath(loadedChart.song);
+					if(chartName == null || chartName.length == 0) chartName = 'converted';
+					var savePath:String = path + chartName + '.json';
+					var saveData:String = PsychJsonPrinter.print(loadedChart, ['sectionNotes', 'events']);
+
+					overwriteCheck(savePath, chartName + '.json', saveData, function()
+					{
+						// .osz 里的音频一起落地，省得用户再去解包（失败不影响谱面本身）
+						var audioPath:String = extractAudio ? extractOszAudio(filePath, path) : null;
+						if(audioPath != null)
+							showOutput('Audio extracted to: $audioPath');
+
+						openSubState(new BasePrompt(400, 150, 'Import Complete', function(state:BasePrompt)
+						{
+							var btnY:Float = state.bg.y + state.bg.height - 70;
+
+							var yesBtn:PsychUIButton = new PsychUIButton(0, btnY, 'Yes, load to editor', function()
+							{
+								state.close();
+
+								var func:Void->Void = function()
+								{
+									GRID_COLUMNS_PER_PLAYER = targetKeys;
+									loadChart(loadedChart);
+									Song.chartPath = savePath;
+									reloadNotesDropdowns();
+									rebuildChartLayout();
+									prepareReload();
+									showOutput('Chart loaded from: ' + savePath);
+								};
+
+								if (!ignoreProgressCheckBox.checked)
+									openSubState(new Prompt('Warning: Any unsaved progress\nwill be lost.', func));
+								else
+									func();
+							});
+							yesBtn.normalStyle.bgColor = FlxColor.GREEN;
+							yesBtn.normalStyle.textColor = FlxColor.WHITE;
+							yesBtn.cameras = state.cameras;
+							yesBtn.screenCenter(X);
+							yesBtn.x -= 100;
+							state.add(yesBtn);
+
+							var noBtn:PsychUIButton = new PsychUIButton(0, btnY, 'No, just save', function()
+							{
+								state.close();
+								showOutput('Chart converted and saved successfully: ' + savePath);
+							});
+							noBtn.cameras = state.cameras;
+							noBtn.screenCenter(X);
+							noBtn.x += 100;
+							state.add(noBtn);
+
+							var infoTxt:FlxText = new FlxText(0, state.bg.y + 60, state.bg.width,
+								'Chart saved successfully!\nWould you like to load it into the editor?', 18);
+							infoTxt.setFormat(null, 18, FlxColor.WHITE, CENTER);
+							infoTxt.cameras = state.cameras;
+							state.add(infoTxt);
+						}
+						));
+					}, true);
+				});
+			}
+			else
 			{
-				performOsuImport(filePath, keys, convertTo4k, action);
-			};
-			dialog.onCancel = function()
-			{
-				showOutput('OSU import cancelled');
-			};
-			openSubState(dialog);
+				var func:Void->Void = function()
+				{
+					GRID_COLUMNS_PER_PLAYER = targetKeys;
+					setChartDirectoryFromPath(filePath);
+					loadChart(loadedChart);
+					Song.chartPath = null;
+					reloadNotesDropdowns();
+					rebuildChartLayout();
+					prepareReload();
+					showOutput('${targetKeys}K chart loaded from: ' + filePath);
+				};
+
+				if (!ignoreProgressCheckBox.checked)
+					openSubState(new Prompt('Warning: Any unsaved progress\nwill be lost.', func));
+				else
+					func();
+			}
 		}
-		catch(e:Exception)
+		catch(e:Dynamic)
 		{
-			showOutput('Error: ${e.message}', true);
-			trace(e.stack);
+			showOutput('Error: ${Std.string(e)}', true);
+			trace(e);
 		}
 	}
-
 	function loadFileList(mainFolder:String, ?optionalList:String = null, ?fileTypes:Array<String> = null)
 	{
 		if(fileTypes == null) fileTypes = ['.json'];
@@ -6167,285 +6187,62 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		#end
 	}
 
-	function performOsuImport(filePath:String, keys:Int, convertTo4k:Bool, action:Int)
-	{
-		try
-		{
-			// 读取文件进行转换
-			var chartInfo:Array<String> = getChartSourceInfo(filePath);
-			var loadedChart:SwagSong = OsuConverter.convertOsuToPsych(filePath, chartInfo[0], chartInfo[1]);
-			if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
-			{
-				showOutput('Error: Unable to read OSU file or file format is incorrect', true);
-				return;
-			}
-
-			// 如果需要转换为 4K (仅当 keys == 8 且 convertTo4k == true)
-			if (convertTo4k && keys == 8)
-			{
-				var targetKeys:Int = 4;
-				var sourceKeys:Int = keys;
-				
-				
-				// 更新键数信息
-				Reflect.setField(loadedChart, 'mania', targetKeys - 1);
-				Reflect.setField(loadedChart, 'keyCount', targetKeys);
-				Reflect.setField(loadedChart, 'keycount', targetKeys);
-				
-				showOutput('Converted from ${sourceKeys}K to ${targetKeys}K (${targetKeys - 1} key mania)');
-			}
-			else
-			{
-				// 保持原键数
-				var maniaVal:Int = keys - 1;
-				Reflect.setField(loadedChart, 'mania', maniaVal);
-				Reflect.setField(loadedChart, 'keyCount', keys);
-				Reflect.setField(loadedChart, 'keycount', keys);
-				
-				if (keys == 8)
-					showOutput('Keeping original 8K (7 key mania)');
-				else
-					showOutput('Importing ${keys}K (${keys - 1} key mania)');
-			}
-
-			// 根据操作类型执行不同逻辑
-			if (action == OsuImportDialog.ACTION_LOAD_TO_EDITOR)
-			{
-				// 直接加载到图表编辑器
-				var func:Void->Void = function()
-				{
-					// 更新 mania 列数配置
-					GRID_COLUMNS_PER_PLAYER = convertTo4k ? 4 : keys;
-					
-					loadChart(loadedChart);
-					Song.chartPath = null;
-					reloadNotesDropdowns();
-					
-					// 重建布局以适配新的键数
-					rebuildChartLayout();
-					prepareReload();
-					
-					showOutput('OSU chart loaded into editor successfully! (${convertTo4k ? 4 : keys}K)');
-				};
-				
-				if (!ignoreProgressCheckBox.checked)
-					openSubState(new Prompt('Warning: Any unsaved progress\nwill be lost.', func));
-				else
-					func();
-			}
-			else // ACTION_SAVE_TO_FILE
-			{
-				// 保存到文件
-				fileDialog.openDirectory('Save Converted Psych JSON', function()
-				{
-					var path:String = fileDialog.path.replace('\\', '/');
-					if(!path.endsWith('/')) path += '/';
-
-					var chartName:String = Paths.formatToSongPath(loadedChart.song);
-					if(chartName == null || chartName.length == 0) chartName = 'converted';
-					var savePath:String = path + chartName + '.json';
-					var saveData:String = PsychJsonPrinter.print(loadedChart, ['sectionNotes', 'events']);
-
-					overwriteCheck(savePath, chartName + '.json', saveData, function()
-					{
-						// 询问是否同时加载到编辑器
-						openSubState(new BasePrompt(400, 150, 'Import Complete',
-							function(state:BasePrompt)
-							{
-								var btnY:Float = state.bg.y + state.bg.height - 70;
-								
-								var yesBtn:PsychUIButton = new PsychUIButton(0, btnY, 'Yes, load to editor', function()
-								{
-									state.close();
-									
-									// 更新键数配置
-									GRID_COLUMNS_PER_PLAYER = convertTo4k ? 4 : keys;
-									
-									var func:Void->Void = function()
-									{
-										loadChart(loadedChart);
-										Song.chartPath = savePath;
-										reloadNotesDropdowns();
-										rebuildChartLayout();
-										prepareReload();
-										showOutput('OSU chart loaded from: ' + savePath);
-									};
-									
-									if (!ignoreProgressCheckBox.checked)
-										openSubState(new Prompt('Warning: Any unsaved progress\nwill be lost.', func));
-									else
-										func();
-								});
-								yesBtn.normalStyle.bgColor = FlxColor.GREEN;
-								yesBtn.normalStyle.textColor = FlxColor.WHITE;
-								yesBtn.cameras = state.cameras;
-								yesBtn.screenCenter(X);
-								yesBtn.x -= 100;
-								state.add(yesBtn);
-								
-								var noBtn:PsychUIButton = new PsychUIButton(0, btnY, 'No, just save', function()
-								{
-									state.close();
-									showOutput('OSU chart converted and saved successfully: ' + savePath);
-								});
-								noBtn.cameras = state.cameras;
-								noBtn.screenCenter(X);
-								noBtn.x += 100;
-								state.add(noBtn);
-								
-								var infoTxt:FlxText = new FlxText(0, state.bg.y + 60, state.bg.width,
-									'Chart saved successfully!\nWould you like to load it into the editor?', 18);
-								infoTxt.setFormat(null, 18, FlxColor.WHITE, CENTER);
-								infoTxt.cameras = state.cameras;
-								state.add(infoTxt);
-							}
-						));
-					}, true);
-				});
-			}
-		}
-		catch(e:Exception)
-		{
-			showOutput('Error: ${e.message}', true);
-			trace(e.stack);
-		}
-	}
-
-	function getChartSourceInfo(filePath:String):Array<String>
-	{
-		var normalized:String = filePath.replace('\\', '/');
-		var marker:String = '/customcharts/';
-		var markerIndex:Int = normalized.toLowerCase().indexOf(marker);
-		if (markerIndex == -1) return [null, null];
-
-		var parts:Array<String> = normalized.substr(markerIndex + marker.length).split('/');
-		if (parts.length < 3) return [null, null];
-		return [parts[0], parts[1]];
-	}
-
-	function getKeyCountFromSong(song:SwagSong):Int
-	{
-		if (Reflect.hasField(song, "mania")) return Reflect.field(song, "mania") + 1;
-		if (Reflect.hasField(song, "keyCount")) return Reflect.field(song, "keyCount");
-		if (Reflect.hasField(song, "keycount")) return Reflect.field(song, "keycount");
-		return 4;
-	}
-
 	/**
-	 * 执行 StepMania 导入
+	 * 执行谱面导出（.sm / .ssc / .osu / .qua），写到用户选的目录
+	 * @param diffName 写入文件的难度名
 	 */
-	function performStepManiaImport(filePath:String, targetKeys:Int):Void
+	function performChartExport(format:String, diffName:String = 'Challenge'):Void
 	{
-		try
-		{
-			var loadedChart:SwagSong = StepManiaConverter.convertStepManiaToPsych(filePath);
-			if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
-			{
-				showOutput('Error: Unable to read StepMania file', true);
-				return;
-			}
-
-			// 如果需要转换键数
-			var sourceKeys:Int = getKeyCountFromSong(loadedChart);
-			if (sourceKeys != targetKeys)
-			{
-				// 重新映射音符列
-				remapSongKeys(loadedChart, sourceKeys, targetKeys);
-				// 更新 mania 字段
-				Reflect.setField(loadedChart, 'mania', targetKeys - 1);
-				Reflect.setField(loadedChart, 'keyCount', targetKeys);
-				Reflect.setField(loadedChart, 'keycount', targetKeys);
-				showOutput('Converted from ${sourceKeys}K to ${targetKeys}K');
-			}
-
-			var func:Void->Void = function()
-			{
-				GRID_COLUMNS_PER_PLAYER = targetKeys;
-				loadChart(loadedChart);
-				Song.chartPath = filePath;
-				reloadNotesDropdowns();
-				rebuildChartLayout();
-				prepareReload();
-				showOutput('StepMania chart loaded from: ' + filePath);
-			};
-			
-			if (!ignoreProgressCheckBox.checked)
-				openSubState(new Prompt('Warning: Any unsaved progress\nwill be lost.', func));
-			else
-				func();
-		}
-		catch(e:Exception)
-		{
-			showOutput('Error: ${e.message}', true);
-			trace(e.stack);
-		}
-	}
-
-	/**
-	 * 执行 StepMania 导出
-	 */
-	function performStepManiaExport(format:String):Void
-	{
-		fileDialog.openDirectory('Save StepMania File', function()
+		fileDialog.openDirectory('Save Chart File', function()
 		{
 			try
 			{
 				var path:String = fileDialog.path.replace('\\', '/');
 				if(!path.endsWith('/')) path += '/';
-				
-				var ext = (format == "ssc") ? "ssc" : "sm";
-				var fileName:String = Paths.formatToSongPath(PlayState.SONG.song) + '.' + ext;
+
+				var content:String = ChartConverter.exportChart(PlayState.SONG, format, diffName);
+				var fileName:String = Paths.formatToSongPath(PlayState.SONG.song) + '.' + format;
 				var savePath:String = path + fileName;
-				
-				overwriteCheck(savePath, fileName, '', function()
+
+				overwriteCheck(savePath, fileName, content, function()
 				{
-					var smText:String = StepManiaConverter.convertPsychToStepMania(PlayState.SONG, format);
-					File.saveContent(savePath, smText);
-					showOutput('StepMania file saved successfully: $savePath');
+					showOutput('${format.toUpperCase()} file saved successfully: $savePath');
 				});
 			}
-			catch(e:Exception)
+			catch(e:Dynamic)
 			{
-				showOutput('Error: ${e.message}', true);
-				trace(e.stack);
+				showOutput('Error: ${Std.string(e)}', true);
 			}
 		});
 	}
 
 	/**
-	 * 重新映射歌曲的键数
+	 * 从 .osz 里取出音频并复制成 targetDir/inst.<ext>
+	 * @return 落地后的音频路径；包里没有音频或解包失败返回 null
 	 */
-	function remapSongKeys(song:SwagSong, sourceKeys:Int, targetKeys:Int):Void
+	function extractOszAudio(oszPath:String, targetDir:String):Null<String>
 	{
-		if (sourceKeys == targetKeys) return;
-		
-		var scale:Float = (targetKeys - 1) / (sourceKeys - 1);
-		var halfScale:Bool = (targetKeys > sourceKeys);
-		
-		for (section in song.notes)
+		var result:ExtractResult = OsuArchiveExtractor.extract(oszPath);
+		if(result == null) return null;
+
+		var saved:Null<String> = null;
+		try
 		{
-			for (note in section.sectionNotes)
+			if(result.audioPath != null)
 			{
-				if (note == null || note[1] == null) continue;
-				var data:Int = Std.int(note[1]);
-				var player = Math.floor(data / sourceKeys);
-				var col = data % sourceKeys;
-				
-				// 重新映射列
-				var newCol:Int;
-				if (halfScale)
-				{
-					newCol = Math.round(col * scale);
-				}
-				else
-				{
-					newCol = Math.floor(col * scale);
-				}
-				newCol = Std.int(Math.max(0, Math.min(newCol, targetKeys - 1)));
-				
-				note[1] = player * targetKeys + newCol;
+				var ext:String = result.audioPath.substr(result.audioPath.lastIndexOf('.'));
+				var targetPath:String = targetDir + 'inst' + ext;
+				if(!FileSystem.exists(targetPath)) File.copy(result.audioPath, targetPath);
+				saved = targetPath;
 			}
 		}
+		catch(e:Dynamic)
+		{
+			trace('OSZ audio copy failed: $e');
+		}
+		OsuArchiveExtractor.cleanup(result.tempDir);
+		return saved;
 	}
+
 }
 

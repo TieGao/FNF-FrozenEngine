@@ -429,7 +429,7 @@ class OptionPreviewLayer extends FlxGroup
         if (v == 'hiterrorbarvisible' || v == 'pointertype'
             || v == 'hitbarlines' || v == 'hitbarlinetime'
             || v == 'hiterrorbaroffsetx' || v == 'hiterrorbaroffsety'
-            || v == 'msinerrorbar') return 'hiterrorbar';
+            || v == 'msinerrorbar' || v == 'hitbarblockcounter') return 'hiterrorbar';
         return '';
     }
 

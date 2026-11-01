@@ -49,7 +49,8 @@ class StrumGuideLine extends FlxTypedSpriteGroup<FlxSprite>
         // 计算每条线的宽度
         var spacing:Float = Note.getNoteSpacing(keys);
         var strumWidth:Float = 115; // 基础宽度
-        var lineWidth:Float = strumWidth * (4 / keys); // 根据键数调整宽度
+        // 缩放口径与音符一致（多K居中不缩放时回到 4K 基准），否则线宽会和放大后的音符对不上
+        var lineWidth:Float = strumWidth * (4 / Note.getScaleKeys(keys)); // 根据键数调整宽度
         
         // 创建玩家侧的引导线
         for (i in 0...keys)

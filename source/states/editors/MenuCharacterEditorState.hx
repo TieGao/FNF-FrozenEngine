@@ -50,6 +50,7 @@ class MenuCharacterEditorState extends EditorMusicState implements PsychUIEventH
 
 		txtOffsets = new FlxText(20, 10, 0, "[0, 0]", 32);
 		txtOffsets.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER);
+		txtOffsets.antialiasing = ClientPrefs.data.antialiasing;
 		txtOffsets.alpha = 0.7;
 		add(txtOffsets);
 
@@ -57,6 +58,7 @@ class MenuCharacterEditorState extends EditorMusicState implements PsychUIEventH
 			"Arrow Keys - Change Offset (Hold shift for 10x speed)
 			\nSpace - Play \"Start Press\" animation (Boyfriend Character Type)", 16);
 		tipText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, CENTER);
+		tipText.antialiasing = ClientPrefs.data.antialiasing;
 		tipText.scrollFactor.set();
 		add(tipText);
 

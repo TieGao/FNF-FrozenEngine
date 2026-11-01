@@ -20,6 +20,12 @@ class GameplaySettingsSubState extends BaseOptionsMenu
 			BOOL);
 		addOption(option);
 
+		var option:Option = new Option('Centered Multi-Key Scaling',
+			'If checked, multi-key notes shrink by key count when your lane is centered.\nUncheck to keep the 4K note size.',
+			'centerMultiKeyScale',
+			BOOL);
+		addOption(option);
+
 		var option:Option = new Option('Opponent Notes',
 			'If unchecked, opponent notes get hidden.',
 			'opponentStrums',

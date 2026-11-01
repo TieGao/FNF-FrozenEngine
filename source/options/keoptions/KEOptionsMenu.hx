@@ -1187,6 +1187,7 @@ function onScrollChange()
 		return [
 			KEOption.create("Downscroll", "Notes scroll downwards instead of upwards", "downScroll", "bool"),
 			KEOption.create("Middlescroll", "Put your lane in the center", "middleScroll", "bool"),
+			KEOption.create("Centered Multi-Key Scaling", "When centered, multi-key notes shrink by key count; turn off to keep the 4K note size", "centerMultiKeyScale", "bool"),
 			KEOption.create("Opponent Notes", "Show opponent's strumline", "opponentStrums", "bool"),
 			KEOption.create("Ghost Tapping", "Allow pressing keys without missing", "ghostTapping", "bool"),
 			KEOption.create("Auto Pause", "Pause when window loses focus", "autoPause", "bool"),
@@ -1239,7 +1240,8 @@ function onScrollChange()
 				KEOption.create("Hit Bar Line Time", "Time (in seconds) each line represents", "hitBarLineTime", "float", 2.0, 0.1, 5.0, 0.1),
 				KEOption.create("Hit Error Bar Offset X", "Horizontal position of hit error bar", "hitErrorBarOffsetX", "int", 0, -500, 500, 1),
 				KEOption.create("Hit Error Bar Offset Y", "Vertical position of hit error bar", "hitErrorBarOffsetY", "int", 0, -300, 300, 1),
-				KEOption.create("Hit Error Bar MS", "Show MS on hit error bar rather than on ratings", "msInErrorBar", "bool")
+				KEOption.create("Hit Error Bar MS", "Show MS on hit error bar rather than on ratings", "msInErrorBar", "bool"),
+				KEOption.create("Hit Error Bar Block Counter", "Show hit counts under each hit error bar zone", "hitBarBlockCounter", "bool")
 			],
 			"",
 			"Hit Error Bar Settings"

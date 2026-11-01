@@ -151,6 +151,7 @@ class EventMetaNote extends MetaNote
 
 		eventText = new FlxText(0, 0, 400, '', 12);
 		eventText.setFormat(Paths.font('vcr.ttf'), 12, FlxColor.WHITE, RIGHT);
+		eventText.antialiasing = ClientPrefs.data.antialiasing;
 		eventText.scrollFactor.x = 0;
 		updateEventText();
 	}

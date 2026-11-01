@@ -1,6 +1,7 @@
 package backend;
 
 import haxe.Json;
+import states.editors.content.CodenameConverter;
 import states.editors.content.OsuConverter;
 import states.editors.content.VSlice;
 
@@ -32,6 +33,8 @@ typedef CustomChartSong = {
     /** metadata 里的曲师 / 谱师（内容包才有）。 */
     var artist:String;
     var charter:String;
+    /** 卡片配色（数据包 meta.json 的 color，如 "146,113,253"）；null = Freeplay 默认色。 */
+    @:optional var color:Null<Int>;
 }
 
 /** 内容包 metadata 里我们关心的字段。 */
@@ -39,6 +42,14 @@ typedef CustomChartMetadataInfo = {
     var songName:String;
     var artist:String;
     var charter:String;
+}
+
+/** 数据包（Codename 系）meta.json 里我们关心的字段。 */
+typedef DataFolderMeta = {
+    var displayName:String;
+    var artist:String;
+    var charter:String;
+    var color:Null<Int>;
 }
 
 typedef CustomChartWeek = {
@@ -50,8 +61,12 @@ typedef CustomChartWeek = {
 class CustomChartData
 {
     static inline var INDEX_FILE:String = '.chart-index.json';
+    /** 数据包布局的子目录 / 文件：谱面 charts/、音轨 song/、曲目信息 meta.json。 */
+    static inline var DATA_CHART_DIR:String = 'charts';
+    static inline var DATA_AUDIO_DIR:String = 'song';
+    static inline var DATA_META_FILE:String = 'meta.json';
     static inline var INFO_CACHE_FILE:String = '.freeplay-info.json';
-    static inline var INDEX_VERSION:Int = 3;
+    static inline var INDEX_VERSION:Int = 4;
     static inline var INFO_CACHE_VERSION:Int = 3;
     public static var weeksLoaded:Map<String, CustomChartWeek> = new Map<String, CustomChartWeek>();
     public static var weeksList:Array<String> = [];
@@ -100,6 +115,8 @@ class CustomChartData
                 loadCategory(chartCategory, weekSongs);
                 saveCachedCategory(chartCategory, weekSongs);
             }
+            // 扫盘结果是排查「content 里的歌没出来」的唯一线索，落进会话日志
+            trace('Content category "$chartCategory": ${weekSongs.length} song(s)');
             if (weekSongs.length > 0)
             {
                 weeksLoaded.set(chartCategory, {name: chartCategory, category: chartCategory, songs: weekSongs});
@@ -184,6 +201,14 @@ class CustomChartData
             return;
         }
 
+        // 分类目录本身就是一首歌的数据包（charts/ + song/ + meta.json）：直接当单曲处理，
+        // 否则 charts / scripts / song 会被当成三首「歌」，真正的曲目反而不出现。
+        if (isDataFolderSong(categoryPath))
+        {
+            collectDataFolderSong(category, categoryPath, categoryPath.substring(categoryPath.lastIndexOf('/') + 1), result);
+            return;
+        }
+
         for (firstDirectory in FileSystem.readDirectory(categoryPath))
         {
             if (firstDirectory.startsWith('.') || !FileSystem.isDirectory('$categoryPath/$firstDirectory'))
@@ -194,6 +219,13 @@ class CustomChartData
 
     private static function collectSongDirectory(category:String, directory:String, name:String, result:Array<CustomChartSong>):Void
     {
+        // 数据包布局：整个目录就是一首歌，谱面在 charts/ 里，别再往下钻。
+        if (isDataFolderSong(directory))
+        {
+            collectDataFolderSong(category, directory, name, result);
+            return;
+        }
+
         var isVSlice:Bool = isVSliceDirectory(category, directory) || findMetadata(directory) != null;
         var difficulties:Array<CustomChartDifficulty> = isVSlice
             ? collectVSliceDifficulties(directory)
@@ -216,6 +248,90 @@ class CustomChartData
                 collectSongDirectory(category, childPath, child, result);
         }
     }
+
+    /**
+     * 目录是不是数据包布局（Codename 系）：charts/ 放谱面、song/ 放音轨、meta.json 放曲目信息。
+     * 判据只看 charts/ 下有没有谱面 —— 只有 song/ 的目录仍是普通歌目录（谱面在根上）。
+     */
+    private static function isDataFolderSong(directory:String):Bool
+    {
+        if (!FileSystem.isDirectory('$directory/$DATA_CHART_DIR')) return false;
+        return collectChartFiles('$directory/$DATA_CHART_DIR').length > 0;
+    }
+
+    /** 数据包布局的单曲：难度 = charts/ 下的文件名，音轨取 song/，显示名与署名取 meta.json。 */
+    private static function collectDataFolderSong(category:String, directory:String, name:String, result:Array<CustomChartSong>):Void
+    {
+        var difficulties:Array<CustomChartDifficulty> = collectChartFiles('$directory/$DATA_CHART_DIR');
+        if (difficulties.length == 0) return;
+
+        var meta:DataFolderMeta = readDataFolderMeta(directory);
+        var displayName:String = (meta != null && meta.displayName != null && meta.displayName.length > 0) ? meta.displayName : name;
+
+        result.push({name: name, sourceCategory: category, category: detectCategory(category, difficulties[0].path),
+            directory: directory, audioPath: findAudio(directory, 'fnf'), difficulties: difficulties,
+            info: new Map<String, Dynamic>(), contentRoot: null, displayName: displayName,
+            artist: meta != null ? meta.artist : null, charter: meta != null ? meta.charter : null,
+            color: meta != null ? meta.color : null});
+    }
+
+    /** 读数据包 meta.json 的 displayName / composer / charter / color（缺失或解析失败返回 null）。 */
+    private static function readDataFolderMeta(directory:String):DataFolderMeta
+    {
+        var metaPath:String = '$directory/$DATA_META_FILE';
+        if (!FileSystem.exists(metaPath)) return null;
+        try
+        {
+            var parsed:Dynamic = Json.parse(File.getContent(metaPath));
+            if (parsed == null) return null;
+            var custom:Dynamic = parsed.customValues;
+            return {
+                displayName: firstText([parsed.displayName, parsed.name]),
+                artist: firstText([parsed.composer, parsed.composers, custom != null ? custom.composers : null, parsed.artist]),
+                charter: firstText([parsed.charter, parsed.charters, custom != null ? custom.charters : null]),
+                color: parseMetaColor(parsed.color)
+            };
+        }
+        catch (e:Dynamic) {}
+        return null;
+    }
+
+    /** 取第一个非空值 —— meta.json 的字段名各引擎不统一，数组按 ', ' 拼接。 */
+    private static function firstText(values:Array<Dynamic>):String
+    {
+        for (value in values)
+        {
+            if (value == null) continue;
+            var text:String = Std.isOfType(value, Array) ? cast(value, Array<Dynamic>).join(', ') : Std.string(value);
+            text = text.trim();
+            if (text.length > 0) return text;
+        }
+        return null;
+    }
+
+    /** meta.json 的 color：'146,113,253'（RGB）/ '#RRGGBB' / 整数；认不出来返回 null。 */
+    private static function parseMetaColor(value:Dynamic):Null<Int>
+    {
+        if (value == null) return null;
+        var text:String = Std.string(value).trim();
+        if (text.length == 0) return null;
+
+        if (text.indexOf(',') > 0)
+        {
+            var parts:Array<String> = text.split(',');
+            if (parts.length < 3) return null;
+            var r:Null<Int> = Std.parseInt(parts[0].trim());
+            var g:Null<Int> = Std.parseInt(parts[1].trim());
+            var b:Null<Int> = Std.parseInt(parts[2].trim());
+            if (r == null || g == null || b == null) return null;
+            return FlxColor.fromRGB(clampByte(r), clampByte(g), clampByte(b));
+        }
+        if (text.startsWith('#')) return FlxColor.fromString(text);
+        return Std.parseInt(text);
+    }
+
+    private static inline function clampByte(value:Int):Int
+        return Std.int(Math.max(0, Math.min(255, value)));
 
     /**
      * 内容包布局扫描（如 content/VanillaSongs/Erect）：
@@ -427,13 +543,12 @@ class CustomChartData
 
     private static function findAudio(directory:String, category:String):String
     {
-        for (fileName in FileSystem.readDirectory(directory))
-        {
-            var lower:String = fileName.toLowerCase();
-            if (lower == 'inst.ogg' || lower == 'inst.mp3' || lower == 'audio.ogg' || lower == 'audio.mp3' || lower == 'song.ogg' || lower == 'song.mp3'
-                || lower == 'inst-erect.ogg' || lower == 'inst-erect.mp3' || lower == 'inst-pico.ogg' || lower == 'inst-pico.mp3')
-                return '$directory/$fileName';
-        }
+        var found:String = findAudioFile(directory);
+        if (found != null) return found;
+
+        // 数据包布局把音轨放在歌目录的 song/ 子目录里
+        found = findAudioFile('$directory/$DATA_AUDIO_DIR');
+        if (found != null) return found;
 
         if (category == 'osu_mania' || category == 'fnf')
         {
@@ -447,6 +562,20 @@ class CustomChartData
                 if (audioName != null && FileSystem.exists('$directory/$audioName'))
                     return '$directory/$audioName';
             }
+        }
+        return null;
+    }
+
+    /** 目录里第一个标准命名的音轨（Inst / audio / song …）。 */
+    private static function findAudioFile(directory:String):String
+    {
+        if (!FileSystem.exists(directory) || !FileSystem.isDirectory(directory)) return null;
+        for (fileName in FileSystem.readDirectory(directory))
+        {
+            var lower:String = fileName.toLowerCase();
+            if (lower == 'inst.ogg' || lower == 'inst.mp3' || lower == 'audio.ogg' || lower == 'audio.mp3' || lower == 'song.ogg' || lower == 'song.mp3'
+                || lower == 'inst-erect.ogg' || lower == 'inst-erect.mp3' || lower == 'inst-pico.ogg' || lower == 'inst-pico.mp3')
+                return '$directory/$fileName';
         }
         return null;
     }
@@ -492,7 +621,12 @@ class CustomChartData
                         return pack.difficulties.get(key);
                 return null;
             }
-            return Song.parseJSON(File.getContent(chart.path), song.name);
+            var raw:String = File.getContent(chart.path);
+            // Codename 谱面用 strumLines 组织音符，Psych 解析器只认 notes，硬解会得到 0 音符
+            var parsed:Dynamic = Json.parse(raw);
+            if (parsed != null && !Reflect.hasField(parsed, 'song') && Reflect.hasField(parsed, 'strumLines'))
+                return CodenameConverter.convertCodenameToPsych(chart.path);
+            return Song.parseJSON(raw, song.name);
         }
         catch (e:Dynamic)
         {
@@ -616,7 +750,8 @@ class CustomChartData
                 var song:CustomChartSong = {name: entry.name, sourceCategory: category, category: entry.category, directory: entry.directory,
                     audioPath: entry.audioPath, difficulties: difficulties, info: new Map<String, Dynamic>(),
                     contentRoot: entry.contentRoot, displayName: entry.displayName,
-                    artist: entry.artist, charter: entry.charter};
+                    artist: entry.artist, charter: entry.charter,
+                    color: entry.color != null ? Std.int(entry.color) : null};
                 song.info = loadInfoCache(song);
                 result.push(song);
             }
@@ -639,7 +774,7 @@ class CustomChartData
                 serializable.push({name: song.name, sourceCategory: song.sourceCategory, category: song.category, directory: song.directory,
                     audioPath: song.audioPath, difficulties: song.difficulties, info: song.info,
                     contentRoot: song.contentRoot, displayName: song.displayName,
-                    artist: song.artist, charter: song.charter});
+                    artist: song.artist, charter: song.charter, color: song.color});
             File.saveContent(indexPath, Json.stringify({version: INDEX_VERSION, sourceStamp: getDirectoryStamp(categoryPath), songs: serializable}));
         }
         catch (e:Dynamic) {}
