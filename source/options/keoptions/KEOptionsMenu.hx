@@ -1189,6 +1189,7 @@ function onScrollChange()
 			KEOption.create("Middlescroll", "Put your lane in the center", "middleScroll", "bool"),
 			KEOption.create("Centered Multi-Key Scaling", "When centered, multi-key notes shrink by key count; turn off to keep the 4K note size", "centerMultiKeyScale", "bool"),
 			KEOption.create("Opponent Notes", "Show opponent's strumline", "opponentStrums", "bool"),
+			KEOption.create("Swap Hit Callbacks", "Opponent mode only: dispatch opponentNoteHit for the notes you play (dad side) and goodNoteHit for the CPU side, instead of by who hit it", "swapNoteHitCallbacks", "bool"),
 			KEOption.create("Ghost Tapping", "Allow pressing keys without missing", "ghostTapping", "bool"),
 			KEOption.create("Auto Pause", "Pause when window loses focus", "autoPause", "bool"),
 			KEOption.create("Disable Reset", "Disable the reset button", "noReset", "bool"),
@@ -1301,6 +1302,8 @@ function onScrollChange()
 			"Configure Judgements Counter settings",
 			[
 				KEOption.create("Judgements Counter", "Show judgements counter", "Counter", "bool"),
+				KEOption.createStringOption("Counter Position", "Layout of the judgements counter: left, centered, right, or split across the top and bottom",
+					"counterPos", ["left", "center", "right", "split"], "left"),
 				KEOption.create("Show Highest Combo", "Show highest combo in judgements counter", "showHC", "bool"),
 				KEOption.create("Show Current Combo", "Show current combo in judgements counter", "showCB", "bool"),
 				KEOption.create("Show Total Notes Hit", "Show total notes in judgements counter", "showTNH", "bool"),

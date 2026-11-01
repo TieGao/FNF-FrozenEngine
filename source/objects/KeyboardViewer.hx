@@ -37,7 +37,7 @@ class KeyboardViewer extends FlxSpriteGroup
 	public var totalText:FlxText;
 
 	public var keys:Int = 4;
-	public var displayKeys:Int = 4; // 实际显示的键位数（coop模式下为8）
+	public var displayKeys:Int = 4; // 实际显示的键位数（coop 下为每侧键数 * 2）
 
 	var total:Int = 0;
 
@@ -56,9 +56,8 @@ class KeyboardViewer extends FlxSpriteGroup
 		// 设置键位数量
 		this.keys = keys;
 		
-		// 确定显示键位数：coop模式显示8个，否则显示歌曲键位数
-		var isCoop:Bool = PlayState.instance != null && (PlayState.instance.opponentMode == "coop" || PlayState.instance.opponentMode == "coop_split");
-		displayKeys = isCoop ? 8 : keys;
+		// coop 下两侧各一套键，显示键数 = 每侧键数 * 2（6K/9K 同样成立）
+		displayKeys = coopActive() ? keys * 2 : keys;
 		
 		// 初始化noteArrays
 		for(i in 0...displayKeys) noteArrays.push([]);
@@ -205,9 +204,15 @@ class KeyboardViewer extends FlxSpriteGroup
 		return newRect;
 	}
 
+	/** 当前是否 coop（两侧各一套键，显示键数翻倍） */
+	private function coopActive():Bool
+	{
+		return PlayState.instance != null && PlayState.instance.isCoopMode();
+	}
+
 	/**
 	 * 获取按钮X位置
-	 * coop模式：前4个键显示在左半区（对应player的4个键），后4个键显示在右半区（对应opponent的4个键）
+	 * coop模式：前半段是玩家侧的键，后半段是对手侧的键
 	 * 非coop模式：按顺序显示所有键
 	 */
 	private function getButtonX(index:Int):Float
@@ -218,7 +223,7 @@ class KeyboardViewer extends FlxSpriteGroup
 	/**
 	 * 获取键名 - 支持4K legacy键名
 	 */
-	private function getKeyName(keyIndex:Int, bindIndex:Int = 0):String
+	private function getKeyName(keyIndex:Int):String
 	{
 		var totalKeys:Int = keys;
 		
@@ -236,17 +241,11 @@ class KeyboardViewer extends FlxSpriteGroup
 
 	public function pressed(key:Int, ?keyBindIndex:Int = 0)
 	{
-		var isCoop:Bool = PlayState.instance != null && (PlayState.instance.opponentMode == "coop" || PlayState.instance.opponentMode == "coop_split");
 		var displayIndex:Int = key;
 		
-		// coop模式下，player用左边4个，opponent用右边4个
-		if (isCoop && displayKeys == 8)
-		{
-			if (keyBindIndex == 0)
-				displayIndex = key; // player: 0-3
-			else
-				displayIndex = key + 4; // opponent: 4-7
-		}
+		// coop 下玩家侧占前半段、对手侧占后半段（按每侧键数偏移，6K/9K 同样成立）
+		if (coopActive() && keyBindIndex != 0)
+			displayIndex = key + keys;
 		
 		// 确保数组大小足够
 		while (heldKeys.length <= displayIndex) {
@@ -296,17 +295,11 @@ class KeyboardViewer extends FlxSpriteGroup
 
 	public function released(key:Int, ?keyBindIndex:Int = 0)
 	{
-		var isCoop:Bool = PlayState.instance != null && (PlayState.instance.opponentMode == "coop" || PlayState.instance.opponentMode == "coop_split");
 		var displayIndex:Int = key;
 		
-		// coop模式下，player用左边4个，opponent用右边4个
-		if (isCoop && displayKeys == 8)
-		{
-			if (keyBindIndex == 0)
-				displayIndex = key; // player: 0-3
-			else
-				displayIndex = key + 4; // opponent: 4-7
-		}
+		// coop 下玩家侧占前半段、对手侧占后半段（按每侧键数偏移，6K/9K 同样成立）
+		if (coopActive() && keyBindIndex != 0)
+			displayIndex = key + keys;
 		
 		if(displayIndex < keyAlphas.length && displayIndex >= 0) {
 			// 标记键已释放
@@ -335,113 +328,19 @@ class KeyboardViewer extends FlxSpriteGroup
 	public function createArray():Array<String>
 	{
 		var array:Array<String> = [];
-		
-		var isCoop:Bool = PlayState.instance != null && (PlayState.instance.opponentMode == "coop" || PlayState.instance.opponentMode == "coop_split");
-		var totalKeys:Int = keys;
-		
-		// 4K legacy 键名
-		var legacyKeys:Array<String> = ['note_left', 'note_down', 'note_up', 'note_right'];
-		
-		// 如果是coop模式，我们需要显示8个键（4个player + 4个opponent）
-		if (isCoop && displayKeys == 8)
+		// 每侧一套键：coop 时玩家侧取第一组键位、对手侧取第二组
+		var bindCount:Int = coopActive() ? 2 : 1;
+		for (b in 0...bindCount)
 		{
-			if (totalKeys == 4)
+			for (i in 0...keys)
 			{
-				// 4K coop - player侧 (bindIndex 0)
-				for (i in 0...4)
-				{
-					var keyList:Array<FlxKey> = Controls.instance.keyboardBinds[legacyKeys[i]];
-					var keyCode:FlxKey = 0;
-					if (keyList != null && keyList.length > 0)
-					{
-						keyCode = keyList[0];
-					}
-					array.push(InputFormatter.getKeyName(keyCode));
-				}
-				
-				// 4K coop - opponent侧 (bindIndex 1)
-				for (i in 0...4)
-				{
-					var keyList:Array<FlxKey> = Controls.instance.keyboardBinds[legacyKeys[i]];
-					var keyCode:FlxKey = 0;
-					if (keyList != null && keyList.length > 1)
-					{
-						keyCode = keyList[1];
-					}
-					else if (keyList != null && keyList.length > 0)
-					{
-						keyCode = keyList[0];
-					}
-					array.push(InputFormatter.getKeyName(keyCode));
-				}
-			}
-			else
-			{
-				// 5K+ coop
-				// player侧 (bindIndex 0)
-				for (i in 0...4)
-				{
-					var keyName = 'note_${totalKeys}k_${i+1}';
-					var keyList:Array<FlxKey> = Controls.instance.keyboardBinds[keyName];
-					var keyCode:FlxKey = 0;
-					if (keyList != null && keyList.length > 0)
-					{
-						keyCode = keyList[0];
-					}
-					array.push(InputFormatter.getKeyName(keyCode));
-				}
-				
-				// opponent侧 (bindIndex 1)
-				for (i in 0...4)
-				{
-					var keyName = 'note_${totalKeys}k_${i+1}';
-					var keyList:Array<FlxKey> = Controls.instance.keyboardBinds[keyName];
-					var keyCode:FlxKey = 0;
-					if (keyList != null && keyList.length > 1)
-					{
-						keyCode = keyList[1];
-					}
-					else if (keyList != null && keyList.length > 0)
-					{
-						keyCode = keyList[0];
-					}
-					array.push(InputFormatter.getKeyName(keyCode));
-				}
-			}
-			return array;
-		}
-		
-		// 非coop模式
-		if (totalKeys == 4)
-		{
-			// 4K 非coop
-			for (i in 0...4)
-			{
-				var keyList:Array<FlxKey> = Controls.instance.keyboardBinds[legacyKeys[i]];
+				var keyList:Array<FlxKey> = Controls.instance.keyboardBinds[getKeyName(i)];
 				var keyCode:FlxKey = 0;
 				if (keyList != null && keyList.length > 0)
-				{
-					keyCode = keyList[0];
-				}
+					keyCode = (b < keyList.length) ? keyList[b] : keyList[0];
 				array.push(InputFormatter.getKeyName(keyCode));
 			}
 		}
-		else
-		{
-			// 5K+ 非coop
-			for (i in 0...displayKeys)
-			{
-				var keyName = 'note_${totalKeys}k_${i+1}';
-				var keyList:Array<FlxKey> = Controls.instance.keyboardBinds[keyName];
-				var keyCode:FlxKey = 0;
-				if (keyList != null && keyList.length > 0)
-				{
-					keyCode = keyList[0];
-				}
-				array.push(InputFormatter.getKeyName(keyCode));
-			}
-		}
-		
 		return array;
 	}
 

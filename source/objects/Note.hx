@@ -829,15 +829,8 @@ class Note extends FlxSprite
 	{
 		super.update(elapsed);
 
-		var allowHumanHit:Bool = mustPress;
-		if (PlayState.instance != null)
-		{
-			var mode:String = PlayState.instance.opponentMode;
-			if (mode == "opponent")
-				allowHumanHit = !mustPress;                    // 对手模式：只有原本对手的 note 是人类打击
-			else if (mode == "coop" || mode == "coop_split")
-				allowHumanHit = true;                          // coop：全都可以人类打击
-		}
+		// 这条 note 是否由玩家操作（模式判断统一走 PlayState，不要在这里另抄一份）
+		var allowHumanHit:Bool = PlayState.instance == null ? mustPress : PlayState.instance.noteIsHuman(this);
 
 		if (allowHumanHit)
 		{

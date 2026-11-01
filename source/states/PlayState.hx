@@ -5,6 +5,7 @@ import backend.StageData;
 import backend.WeekData;
 import backend.Song;
 import backend.Rating;
+import backend.PlayMode;
 
 import flixel.FlxBasic;
 import flixel.FlxObject;
@@ -429,7 +430,7 @@ class PlayState extends MusicBeatState
 	public var instakillOnMiss:Bool = false;
 	public var cpuControlled:Bool = false;
 	public var practiceMode:Bool = false;
-	public var opponentMode:String = 'player';
+	public var opponentMode(default, set):PlayMode = PlayMode.PLAYER;
 	public var swapPlayerOpponent:Bool = false;
 	public static var lastKeyBindIndex:Int = 0;
 	public var pressMissDamage:Float = 0.05;
@@ -483,7 +484,7 @@ class PlayState extends MusicBeatState
 	{
 		if (isCoopMode() && keyBindIndex > 0)
 			return opponentStrums.members[key];
-		if (opponentMode == "opponent")
+		if (isOpponentMode())
 			return opponentStrums.members[key];
 		return playerStrums.members[key];
 	}
@@ -841,12 +842,7 @@ class PlayState extends MusicBeatState
 		trace('Song: ' + replayData.songName);
         
         // 设置游戏模式（从replay数据中读取）
-		if (replayData.opponentMode != null)
-			opponentMode = replayData.opponentMode;
-        else
-            opponentMode = "player"; // 向后兼容
-        
-        keys = isCoopMode() ? 8 : 4; // 根据游戏模式设置键位数量
+		opponentMode = replayData.opponentMode; // normalize 内部兜底旧档 / 缺失值
         trace('Opponent mode set to: ' + opponentMode);
         
         // 设置回放模式标志
@@ -910,6 +906,8 @@ class PlayState extends MusicBeatState
 		{
 			keysArray.push('note_${totalKeys}k_$i');
 		}
+		// 实际键位数：coop 两侧各一套（不再写死 4/8，6K/9K 才对得上）
+		keys = totalKeys * (isCoopMode() ? 2 : 1);
 
 		if(FlxG.sound.music != null)
 			FlxG.sound.music.stop();
@@ -918,10 +916,13 @@ class PlayState extends MusicBeatState
 		healthGain = ClientPrefs.getGameplaySetting('healthgain');
 		healthLoss = ClientPrefs.getGameplaySetting('healthloss');
 		instakillOnMiss = ClientPrefs.getGameplaySetting('instakill');
-		practiceMode = ClientPrefs.getGameplaySetting('practice');
-		cpuControlled = ClientPrefs.getGameplaySetting('botplay');
-		opponentMode = ClientPrefs.getGameplaySetting('opponentplay');
-		keys = isCoopMode() ? 8 : 4; // 根据游戏模式设置键位数量
+		// 回放必须按录制时的模式 / 开关还原，不能被当前设置覆盖（否则对手、coop 回放会打到另一侧）
+		if (!loadRep)
+		{
+			practiceMode = ClientPrefs.getGameplaySetting('practice');
+			cpuControlled = ClientPrefs.getGameplaySetting('botplay');
+			opponentMode = ClientPrefs.getGameplaySetting('opponentplay');
+		}
 		guitarHeroSustains = ClientPrefs.data.guitarHeroSustains;
 
 		// var gameCam:FlxCamera = FlxG.camera;
@@ -1329,7 +1330,7 @@ class PlayState extends MusicBeatState
 		{
 		healthBar = new Bar(0, FlxG.height * (!ClientPrefs.data.downScroll ? 0.89 : 0.11), 'healthBar', function() return health, 0, 2);
 		healthBar.screenCenter(X);
-		if (opponentMode == 'opponent') healthBar.leftToRight = true;
+		if (isOpponentMode()) healthBar.leftToRight = true;
 		 else healthBar.leftToRight = false;
 		healthBar.scrollFactor.set();
 		healthBar.visible = !ClientPrefs.data.hideHud;
@@ -3436,17 +3437,15 @@ public function reloadCounterColors()
 						if(cpuControlled && !daNote.blockHit && daNote.canBeHit && (daNote.isSustainNote || daNote.strumTime <= Conductor.songPosition))
 							goodNoteHit(daNote);
 					}
-					else if (opponentMode != "opponent")
+					else if (isOpponentMode())
 					{
-						if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote)
-								opponentNoteHit(daNote);
-					}
-					else if (!daNote.blockHit && daNote.strumTime <= Conductor.songPosition)
-					{
-						if ((opponentMode == "opponent" && daNote.mustPress) || (opponentMode != "opponent" && !daNote.mustPress))
+						// 对手模式：CPU 打玩家侧，时间到就直接算命中
+						if (!daNote.blockHit && daNote.strumTime <= Conductor.songPosition)
 							opponentNoteHit(daNote);
-						else if (opponentMode == "opponent" && !daNote.mustPress && daNote.wasGoodHit)
-							opponentNoteHit(daNote); // 在对手模式下，对手控制BF的note
+					}
+					else if (daNote.wasGoodHit && !daNote.hitByOpponent && !daNote.ignoreNote)
+					{
+						opponentNoteHit(daNote);
 					}
 
 					if(daNote.isSustainNote && strum.sustainReduce) daNote.clipToStrumNote(strum);
@@ -4402,7 +4401,7 @@ public function reloadCounterColors()
 			// 只在非回放模式下保存分数
 			if (!loadRep && !inReplay)
 			{
-				var mode:String = opponentMode == 'player' ? null : opponentMode;
+				var mode:String = isPlayerMode() ? null : Std.string(opponentMode);
 
 				// saveScore 前抓旧档最佳 accuracy（跨难度，与 FreeplayCard 口径一致），供升档判定
 				var oldBest:Float = 0;
@@ -4811,7 +4810,7 @@ public function reloadCounterColors()
 		}
 		var noteDiff = Math.abs(effectiveNoteDiff);
         vocals.volume = 1;
-		if(opponentMode != 'player' && opponentVocals != null)
+		if(!isPlayerMode() && opponentVocals != null)
 			opponentVocals.volume = 1;
 		if (isSplitCoopMode() && side == null)
 			side = getSideFromNote(note);
@@ -5778,10 +5777,9 @@ public function reloadCounterColors()
 
 		if(ClientPrefs.data.replayQuality) frameRep.recordJudgment(note.strumTime, note.noteData, 0, 'miss', note.isSustainNote);
 
-		// play character anims
+		// play character anims：谁在唱这条 note 谁播 miss（与 goodNoteHit 的角色选择保持同一口径）
 		var char:Character = boyfriend;
-		if(note != null && !note.mustPress && opponentMode != "opponent") char = dad;
-		if(note != null && note.mustPress && opponentMode == "opponent") char = boyfriend;
+		if(note != null && !note.mustPress) char = dad;
 		if((note != null && note.gfNote) || (SONG.notes[curSection] != null && SONG.notes[curSection].gfSection)) char = gf;
 
 		if(char != null && (note == null || !note.noMissAnimation))
@@ -5828,8 +5826,11 @@ public function reloadCounterColors()
 
 	function opponentNoteHit(note:Note):Void
 	{
-		var result:Dynamic = callOnLuas('opponentNoteHitPre', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
-		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) result = callOnHScript('opponentNoteHitPre', [note]);
+		// 对手模式 + 开了交换时，CPU 打的这条（BF 侧）发 goodNoteHit
+		var hitEvent:String = shouldSwapHitCallbacks() ? 'goodNoteHit' : 'opponentNoteHit';
+
+		var result:Dynamic = callOnLuas(hitEvent + 'Pre', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
+		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) result = callOnHScript(hitEvent + 'Pre', [note]);
 		#if HSCRIPT_ALLOWED
 		if (nmvNoteCall('opponentNoteHitPre', [note])) result = LuaUtils.Function_Stop;
 		#end
@@ -5841,7 +5842,8 @@ public function reloadCounterColors()
 
 		if(note.noteType == 'Hey!')
 		{
-			var heyChar:Character = (opponentMode == "opponent") ? boyfriend : dad;
+			// 谁在唱这条 note 谁播动画：玩家侧 = BF，对手侧 = dad（与谁操作无关）
+			var heyChar:Character = note.mustPress ? boyfriend : dad;
 			if(note.gfNote) heyChar = gf;
 			if(heyChar.hasAnimation('hey'))
 			{
@@ -5854,7 +5856,7 @@ public function reloadCounterColors()
 		{
 			// NMV 兼容：opponentNoteHitPre 里脚本可设 note.owner（如 doubletrouble 的 red），
 			// 演唱动画跟随 owner 而不是固定 dad/gf（NMV opponentNoteHit → characterSing(owner ?? 常规)）
-			var char:Character = (opponentMode == "opponent") ? boyfriend : dad;
+			var char:Character = note.mustPress ? boyfriend : dad;
 			final noteOwner:Character = liveCharacter(note.owner);
 			if (noteOwner != null) char = noteOwner;
 			else
@@ -5896,15 +5898,19 @@ public function reloadCounterColors()
 		}
 
 		if(opponentVocals.length <= 0) vocals.volume = 1;
-		if(opponentMode != "player" && opponentVocals != null) opponentVocals.volume = 1;
-		var isDadStrum:Bool = !(opponentMode == "opponent" && note.mustPress);
+		if(!isPlayerMode() && opponentVocals != null) opponentVocals.volume = 1;
+		// 动画永远落在 note 所属的一侧（对手模式下 CPU 打的是 BF 侧，所以这里是 false）
+		var isDadStrum:Bool = !note.mustPress;
 		strumPlayAnim(isDadStrum, Std.int(Math.abs(note.noteData)), Conductor.stepCrochet * 1.25 / 1000 / playbackRate, note.nmvLane);
 		note.hitByOpponent = true;
 		note.wasGoodHit = true; 
 		
-		stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
-		var result:Dynamic = callOnLuas('opponentNoteHit', [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
-		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('opponentNoteHit', [note]);
+		if (hitEvent == 'goodNoteHit')
+			stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
+		else
+			stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
+		var result:Dynamic = callOnLuas(hitEvent, [notes.members.indexOf(note), Math.abs(note.noteData), note.noteType, note.isSustainNote]);
+		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript(hitEvent, [note]);
 		#if HSCRIPT_ALLOWED
 		nmvNoteCall('opponentNoteHit', [note]);
 		#end
@@ -5926,14 +5932,17 @@ public function reloadCounterColors()
 		if(note.wasGoodHit) return;
 		if(cpuControlled && note.ignoreNote) return;
 
-		if ((isCoopMode() || opponentMode == "opponent") && songName != "tutorial") camZooming = true;
+		// 除纯 player 模式外，玩家都在打对手侧（或两侧），镜头缩放按玩家命中触发
+		if (!isPlayerMode() && songName != "tutorial") camZooming = true;
 
 		var isSus:Bool = note.isSustainNote; //GET OUT OF MY HEAD, GET OUT OF MY HEAD, GET OUT OF MY HEAD
 		var leData:Int = Math.round(Math.abs(note.noteData));
 		var leType:String = note.noteType;
+		// 对手模式 + 开了交换时，回调名跟随 note 所属侧（人类打的是 dad 侧 → 发 opponentNoteHit）
+		var hitEvent:String = shouldSwapHitCallbacks() ? 'opponentNoteHit' : 'goodNoteHit';
 
-		var result:Dynamic = callOnLuas('goodNoteHitPre', [notes.members.indexOf(note), leData, leType, isSus]);
-		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) result = callOnHScript('goodNoteHitPre', [note]);
+		var result:Dynamic = callOnLuas(hitEvent + 'Pre', [notes.members.indexOf(note), leData, leType, isSus]);
+		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) result = callOnHScript(hitEvent + 'Pre', [note]);
 		#if HSCRIPT_ALLOWED
 		if (nmvNoteCall('goodNoteHitPre', [note])) result = LuaUtils.Function_Stop;
 		#end
@@ -6071,9 +6080,12 @@ public function reloadCounterColors()
 					noteHoldCover.onPlayerNoteHit(Std.int(Math.abs(note.noteData)), note.isSustainNote, note);
 			}
 
-		stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
-		var result:Dynamic = callOnLuas('goodNoteHit', [notes.members.indexOf(note), leData, leType, isSus]);
-		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript('goodNoteHit', [note]);
+		if (hitEvent == 'goodNoteHit')
+			stagesFunc(function(stage:BaseStage) stage.goodNoteHit(note));
+		else
+			stagesFunc(function(stage:BaseStage) stage.opponentNoteHit(note));
+		var result:Dynamic = callOnLuas(hitEvent, [notes.members.indexOf(note), leData, leType, isSus]);
+		if(result != LuaUtils.Function_Stop && result != LuaUtils.Function_StopHScript && result != LuaUtils.Function_StopAll) callOnHScript(hitEvent, [note]);
 		#if HSCRIPT_ALLOWED
 		nmvNoteCall('goodNoteHit', [note]);
 		#end
@@ -6778,18 +6790,31 @@ public function reloadCounterColors()
         poolsWarmed = true;
     }
 
-		private function isCoopMode():Bool
+	// ============ 模式判定（唯一入口，调用方不要再自己拼字符串比较） ============
+	// opponentMode 存的是 PlayMode，赋值时自动归一化（旧存档的 bool / 空值都能兜住）
+
+	function set_opponentMode(value:PlayMode):PlayMode
 	{
-		return opponentMode == "coop" || opponentMode == "coop_split";
+		return opponentMode = PlayMode.normalize(value);
 	}
+
+	public function isPlayerMode():Bool
+		return opponentMode.isPlayer();
+
+	public function isOpponentMode():Bool
+		return opponentMode.isOpponent();
+
+	public function isCoopMode():Bool
+		return opponentMode.isCoop();
 
 	public function isSplitCoopMode():Bool
-	{
-		return opponentMode == "coop_split";
-	}
+		return opponentMode.isSplitCoop();
+
+	/** 该侧（mustPress）是否由玩家操作；keyBindIndex 0 = 玩家侧、1 = 对手侧（coop 用） */
+	public function sideIsHuman(mustPress:Bool, keyBindIndex:Int = -1):Bool
+		return opponentMode.sideIsHuman(mustPress, keyBindIndex);
 
 	// middlescroll 是否真正生效。coop 两侧都由人类操作，没有理由只把一侧居中 → 静默失效。
-	// 不要加 inline：函数体调用了 private 的 isCoopMode()，内联展开到外部类会编译失败。
 	public function middleScrollActive():Bool
 	{
 		return ClientPrefs.data.middleScroll && !isCoopMode();
@@ -6798,16 +6823,13 @@ public function reloadCounterColors()
 	// 该 strum 组是否为 CPU 自动演奏（非人类操作）的一侧。player: 0 = opponentStrums, 1 = playerStrums
 	public function strumGroupIsCpuSide(player:Int):Bool
 	{
-		if (isCoopMode()) return false; // coop 两侧都是人
-		return (opponentMode == "opponent") ? player > 0 : player < 1;
+		return !sideIsHuman(player == 1);
 	}
 
 	// 该 note 是否属于 CPU 自动演奏（非人类操作）的一侧
 	public function noteIsCpuSide(note:Note):Bool
 	{
-		if (note == null) return false;
-		if (isCoopMode()) return false; // coop 两侧都是人
-		return (opponentMode == "opponent") ? note.mustPress : !note.mustPress;
+		return note != null && !noteIsHuman(note);
 	}
 
 	private function get_health():Float
@@ -6831,7 +6853,7 @@ public function reloadCounterColors()
 		health = value;
 		var newPercent:Null<Float> = FlxMath.remapToRange(FlxMath.bound(healthBar.valueFunction(), healthBar.bounds.min, healthBar.bounds.max), healthBar.bounds.min, healthBar.bounds.max, 0, 100);
 		healthBar.percent = (newPercent != null ? newPercent : 0);
-		if (opponentMode == 'opponent')
+		if (isOpponentMode())
 		{
 			iconP1.animation.curAnim.curFrame = (healthBar.percent > 80) ? 1 : 0; //If health is under 20%, change player icon to frame 1 (losing icon), otherwise, frame 0 (normal)
 			iconP2.animation.curAnim.curFrame = (healthBar.percent < 20) ? 1 : 0; //If health is over 80%, change opponent icon to frame 1 (losing icon), otherwise, frame 0 (normal)
@@ -6921,18 +6943,11 @@ public function reloadCounterColors()
 		return (side == "opponent") ? opponentRatingsData : playerRatingsData;
 	}
 
-	private function noteIsHuman(note:Note, keyBindIndex:Int = -1):Bool
+	/** 该 note 是否由玩家操作（Note / 外部对象也用它，别再各自抄一份模式判断） */
+	public function noteIsHuman(note:Note, keyBindIndex:Int = -1):Bool
 	{
-		switch(opponentMode)
-		{
-			case "opponent":
-				return !note.mustPress;
-			case "coop", "coop_split":
-				if (keyBindIndex < 0) return true;
-				return keyBindIndex == 0 ? note.mustPress : !note.mustPress;
-			default:
-				return note.mustPress;
-		}
+		if (note == null) return false;
+		return sideIsHuman(note.mustPress, keyBindIndex);
 	}
 
 	private function noteShouldUseOpponentSide(note:Note):Bool
@@ -6992,9 +7007,22 @@ public function reloadCounterColors()
 		return -1;
 	}
 
+	/**
+	 * 对手模式下是否把两套命中回调名对调。
+	 * 关（默认）：回调跟随"谁在打"——人类命中发 goodNoteHit，CPU 命中发 opponentNoteHit。
+	 * 开：回调跟随 note 所属侧——人类打 dad 的 note 发 opponentNoteHit，CPU 打 BF 的 note 发 goodNoteHit。
+	 * 只换脚本 / 舞台回调名，计分、血量、combo、角色动画一律不受影响。
+	 */
+	public function shouldSwapHitCallbacks():Bool
+	{
+		return isOpponentMode() && ClientPrefs.data.swapNoteHitCallbacks;
+	}
+
+	/** 玩家打的是对手侧时（opponent / coop），要补发对手侧的 note 事件 */
 	private function shouldFireOpponentEvents(note:Note):Bool
 	{
-		return !note.mustPress && (opponentMode == "opponent" || isCoopMode());
+		// 开了回调交换时，goodNoteHit 自己就派发了 opponentNoteHit*，不能再补发一次
+		return !note.mustPress && !isPlayerMode() && !shouldSwapHitCallbacks();
 	}
 
 	private function triggerOpponentEventsForHumanHit(note:Note):Void

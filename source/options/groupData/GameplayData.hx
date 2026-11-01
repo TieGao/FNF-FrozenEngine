@@ -14,6 +14,8 @@ class GameplayData
         sub.add(new Option('Middlescroll', 'Put your lane in the center', 'middleScroll', BOOL));
         sub.add(new Option('Centered Multi-Key Scaling', 'When centered, multi-key notes shrink by key count; turn off to keep the 4K note size', 'centerMultiKeyScale', BOOL));
         sub.add(new Option('Opponent Notes', 'Show opponent\'s strumline', 'opponentStrums', BOOL));
+        sub.add(new Option('Swap Hit Callbacks', 'Opponent mode only: dispatch opponentNoteHit for the notes you play (dad side) and goodNoteHit for the CPU side, instead of by who hit it',
+            'swapNoteHitCallbacks', BOOL));
         sub.add(new Option('Ghost Tapping', 'Allow pressing keys without missing', 'ghostTapping', BOOL));
         sub.add(new Option('Auto Pause', 'Pause when window loses focus', 'autoPause', BOOL));
         sub.add(new Option('Disable Reset', 'Disable the reset button', 'noReset', BOOL));

@@ -127,6 +127,14 @@ class OptionsPageState extends MusicBeatState
     var scroll:Float = 0;
     var maxScroll:Float = 0;
 
+    /**
+     * 本页总开关被改过，等下一帧重建列表。
+     *
+     * 不能在保存回调里当场 buildRows() —— 那时开关控件自己还在 update() 里，
+     * 把它的行拆掉会让它接着往已销毁的精灵上写值。
+     */
+    var pageGateDirty:Bool = false;
+
     var onClose:Void->Void = null;
     var langReloadCb:Void->Void = null;
 
@@ -270,6 +278,10 @@ class OptionsPageState extends MusicBeatState
         Option.onValueSaved = function(opt:Option) {
             if (previewLayer != null)
                 previewLayer.notifyValueSaved(opt);
+
+            // 总开关变了 → 本页子项要增删（真正的重建在 update() 里做）
+            if (instance != null && opt != null && opt.pageGate)
+                instance.pageGateDirty = true;
         };
 
         buildScrollers();
@@ -607,11 +619,13 @@ class OptionsPageState extends MusicBeatState
         if (searching)
         {
             // 搜索时展示整个大类（含所有子分类）的命中结果，与导航徽标统计口径一致
+            // （总开关关掉的页，其选项在 OptionSearch.matches 里已被排除）
             optionsToShow = OptionSearch.filterCategory(selectedCat, currentSearch.toLowerCase());
         }
         else
         {
-            optionsToShow = currentSub.options;
+            // 总开关为关时本页只剩开关自己，其余子项收起
+            optionsToShow = currentSub.visibleOptions();
         }
 
         var startX = NAV_W + NAV_PAD * 2;
@@ -1096,6 +1110,13 @@ class OptionsPageState extends MusicBeatState
         {
             themeVersion = UITheme.version;
             applyTheme();
+        }
+
+        // 本页总开关刚被改过 → 重建列表（行数变了，滚动范围与键盘选中一起收敛）
+        if (pageGateDirty)
+        {
+            pageGateDirty = false;
+            buildRows();
         }
 
         super.update(elapsed);

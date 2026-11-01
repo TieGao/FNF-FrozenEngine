@@ -483,7 +483,7 @@ class NoteHoldCover extends FlxTypedSpriteGroup<FlxSprite>
             }
             else
             {
-                var oppMode:Bool = PlayState.instance.opponentMode == 'opponent';
+                var oppMode:Bool = PlayState.instance.isOpponentMode();
                 if (!oppMode)
                 {
                     playAnimWithOffset(sprite, 'End', true);
@@ -542,7 +542,7 @@ class NoteHoldCover extends FlxTypedSpriteGroup<FlxSprite>
             {
                 if (oppSplashEnabled)
                 {
-                    var oppMode:Bool = PlayState.instance.opponentMode == 'opponent';
+                    var oppMode:Bool = PlayState.instance.isOpponentMode();
                     if (oppMode)
                     {
                         playAnimWithOffset(sprite, 'End', true);

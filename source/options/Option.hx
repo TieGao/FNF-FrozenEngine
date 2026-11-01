@@ -72,6 +72,15 @@ class Option
 	public var actionLabel:String = '';
 	public var ownerCategory:OptionCategory = null;
 
+	/**
+	 * 本页总开关（只有 BOOL 能用）。
+	 *
+	 * 置 true 的选项放在该页第一项；它为关时，同页其余选项整体隐藏，
+	 * 关 / 开即时生效。判定与列表重建见 `OptionCategory.visibleOptions()` 与
+	 * `OptionsPageState.buildRows()`。
+	 */
+	public var pageGate:Bool = false;
+
 	// =========================================================
 	// 调色板（COLOR 类型）
 	// =========================================================

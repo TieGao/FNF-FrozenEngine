@@ -4,6 +4,7 @@ import objects.Character;
 import objects.DraggableBar;
 import objects.KeyboardViewer;
 import objects.HitErrorBar;
+import objects.JudgementCounter;
 import flixel.addons.display.shapes.FlxShapeCircle;
 
 import states.stages.StageWeek1 as BackgroundStage;
@@ -205,6 +206,9 @@ class NoteOffsetState extends MusicBeatState
 		controllerPointer.alpha = 0.6;
 		controllerPointer.cameras = [camHUD];
 		add(controllerPointer);
+
+		// 最后创建，保证画在顶部黑条之上
+		createCounterPreview();
 		
 		updateMode();
 		_lastControllerMode = true;
@@ -227,6 +231,10 @@ class NoteOffsetState extends MusicBeatState
 	var startDragPos:FlxPoint = new FlxPoint();
 	var startKbOffset:FlxPoint = new FlxPoint();
 	var startHitBarOffset:FlxPoint = new FlxPoint();
+
+	// 判定计数器预览（按当前 counterPos 摆位，可拖动改偏移）
+	var counterPreview:Array<CounterLayoutItem> = [];
+	var startCounterOffset:FlxPoint = new FlxPoint();
 
 	override public function update(elapsed:Float)
 	{
@@ -384,6 +392,23 @@ class NoteOffsetState extends MusicBeatState
 					startHitBarOffset.x = ClientPrefs.data.hitErrorBarOffsetX;
 					startHitBarOffset.y = ClientPrefs.data.hitErrorBarOffsetY;
 				}
+				else if (inCounterBlock('', startMousePos.x, startMousePos.y))
+				{
+					// split 下顶部 / 底部各写各的偏移，其余三种布局共用一组
+					if (ClientPrefs.data.counterPos == JudgementCounter.POS_SPLIT)
+					{
+						var top:Bool = inCounterBlock(JudgementCounter.BLOCK_STATS, startMousePos.x, startMousePos.y);
+						draggingTarget = top ? "counterTop" : "counterBottom";
+						startCounterOffset.x = top ? ClientPrefs.data.counterSplitTopX : ClientPrefs.data.counterSplitBottomX;
+						startCounterOffset.y = top ? ClientPrefs.data.counterSplitTopY : ClientPrefs.data.counterSplitBottomY;
+					}
+					else
+					{
+						draggingTarget = "counter";
+						startCounterOffset.x = ClientPrefs.data.counterOffsetX;
+						startCounterOffset.y = ClientPrefs.data.counterOffsetY;
+					}
+				}
 			}
 			
 			if(FlxG.mouse.justReleased || gamepadReleased) {
@@ -447,6 +472,36 @@ class NoteOffsetState extends MusicBeatState
 				}
 			}
 
+			// 拖拽判定计数器
+			if (draggingTarget == "counter" || draggingTarget == "counterTop" || draggingTarget == "counterBottom")
+			{
+				if(FlxG.mouse.justMoved || analogMoved)
+				{
+					var mousePos:FlxPoint = null;
+					if(!controls.controllerMode)
+						mousePos = FlxG.mouse.getViewPosition(camHUD);
+					else
+						mousePos = controllerPointer.getScreenPosition(camHUD);
+
+					var dx:Int = Math.round((mousePos.x - startMousePos.x) + startCounterOffset.x);
+					var dy:Int = Math.round((mousePos.y - startMousePos.y) + startCounterOffset.y);
+					switch (draggingTarget)
+					{
+						case "counterTop":
+							ClientPrefs.data.counterSplitTopX = dx;
+							ClientPrefs.data.counterSplitTopY = dy;
+						case "counterBottom":
+							ClientPrefs.data.counterSplitBottomX = dx;
+							ClientPrefs.data.counterSplitBottomY = dy;
+						default:
+							ClientPrefs.data.counterOffsetX = dx;
+							ClientPrefs.data.counterOffsetY = dy;
+					}
+					updateCounterPreviewPosition();
+					reloadTexts();
+				}
+			}
+
 			if(controls.RESET)
 			{
 				// 重置所有偏移量
@@ -458,10 +513,17 @@ class NoteOffsetState extends MusicBeatState
 				ClientPrefs.data.kbOffsetY = 0;
 				ClientPrefs.data.hitErrorBarOffsetX = -5;
 				ClientPrefs.data.hitErrorBarOffsetY = 0;
+				ClientPrefs.data.counterOffsetX = 0;
+				ClientPrefs.data.counterOffsetY = 0;
+				ClientPrefs.data.counterSplitTopX = 0;
+				ClientPrefs.data.counterSplitTopY = 0;
+				ClientPrefs.data.counterSplitBottomX = 0;
+				ClientPrefs.data.counterSplitBottomY = 0;
 				
 				repositionCombo();
 				updateKeyboardViewerPosition();
 				updateHitErrorBarPosition();
+				updateCounterPreviewPosition();
 				reloadTexts();
 			}
 		}
@@ -635,34 +697,101 @@ class NoteOffsetState extends MusicBeatState
 
 	function createTexts()
 	{
-		for (i in 0...4)
+		// 4 行固定（rating / numbers）+ 3 行计数器偏移，按行内容显隐
+		for (i in 0...7)
 		{
-			var text:FlxText = new FlxText(10, 48 + (i * 30), 0, '', 24);
+			var text:FlxText = new FlxText(10, 48 + (i * 26), 0, '', 24);
 			text.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
 			text.scrollFactor.set();
 			text.borderSize = 2;
 			dumbTexts.add(text);
 			text.cameras = [camHUD];
-
-			if(i > 1)
-			{
-				text.y += 24;
-			}
 		}
 	}
 
 	function reloadTexts()
 	{
+		var lines:Array<String> = [];
+		lines.push(Language.getPhrase('combo_rating_offset', 'Rating Offset:'));
+		lines.push('[' + ClientPrefs.data.comboOffset[0] + ', ' + ClientPrefs.data.comboOffset[1] + ']');
+		lines.push(Language.getPhrase('combo_numbers_offset', 'Numbers Offset:'));
+		lines.push('[' + ClientPrefs.data.comboOffset[2] + ', ' + ClientPrefs.data.comboOffset[3] + ']');
+		lines.push(Language.getPhrase('counter_preview_position', 'Counter Position:') + ' ' + ClientPrefs.data.counterPos.toUpperCase());
+		if (ClientPrefs.data.counterPos == JudgementCounter.POS_SPLIT)
+		{
+			lines.push(Language.getPhrase('counter_preview_split_top', 'Split Top:') + ' [' + ClientPrefs.data.counterSplitTopX + ', ' + ClientPrefs.data.counterSplitTopY + ']');
+			lines.push(Language.getPhrase('counter_preview_split_bottom', 'Split Bottom:') + ' [' + ClientPrefs.data.counterSplitBottomX + ', ' + ClientPrefs.data.counterSplitBottomY + ']');
+		}
+		else
+		{
+			lines.push(Language.getPhrase('counter_preview_offset', 'Counter Offset:') + ' [' + ClientPrefs.data.counterOffsetX + ', ' + ClientPrefs.data.counterOffsetY + ']');
+		}
+
 		for (i in 0...dumbTexts.length)
 		{
-			switch(i)
-			{
-				case 0: dumbTexts.members[i].text = Language.getPhrase('combo_rating_offset', 'Rating Offset:');
-				case 1: dumbTexts.members[i].text = '[' + ClientPrefs.data.comboOffset[0] + ', ' + ClientPrefs.data.comboOffset[1] + ']';
-				case 2: dumbTexts.members[i].text = Language.getPhrase('combo_numbers_offset', 'Numbers Offset:');
-				case 3: dumbTexts.members[i].text = '[' + ClientPrefs.data.comboOffset[2] + ', ' + ClientPrefs.data.comboOffset[3] + ']';
-			}
+			var text:FlxText = dumbTexts.members[i];
+			var hasLine:Bool = i < lines.length;
+			text.visible = hasLine;
+			text.text = hasLine ? lines[i] : '';
 		}
+	}
+
+	/** 按当前 counterPos 摆出计数器预览；标签与配色与游戏内完全同源。 */
+	function createCounterPreview()
+	{
+		var mode:String = ClientPrefs.data.counterPos;
+		var baseColor:FlxColor = FlxColor.fromRGB(boyfriend.healthColorArray[0], boyfriend.healthColorArray[1], boyfriend.healthColorArray[2]);
+
+		for (spec in JudgementCounter.specs())
+		{
+			if (!JudgementCounter.isRowVisible(spec.key, mode)) continue;
+
+			var text:FlxText = new FlxText(0, 0, JudgementCounter.TEXT_WIDTH, JudgementCounter.format(mode, spec.label, sampleValue(spec.key)), JudgementCounter.TEXT_SIZE);
+			text.setFormat(Paths.font("vcr.ttf"), JudgementCounter.TEXT_SIZE,
+				JudgementCounter.isBaseColored(spec.key) ? baseColor : spec.color, LEFT, OUTLINE, FlxColor.BLACK);
+			text.antialiasing = ClientPrefs.data.antialiasing;
+			text.scrollFactor.set();
+			text.borderSize = 2;
+			text.cameras = [camHUD];
+			add(text);
+			counterPreview.push({text: text, block: spec.block});
+		}
+
+		updateCounterPreviewPosition();
+	}
+
+	function sampleValue(key:String):Int
+	{
+		return switch (key)
+		{
+			case 'tnh': 1024;
+			case 'hc': 256;
+			case 'cb': 128;
+			case 'marv': 42;
+			case 'sick': 96;
+			case 'good': 12;
+			case 'bad': 3;
+			case 'shit': 1;
+			default: 4;
+		}
+	}
+
+	function updateCounterPreviewPosition():Void
+	{
+		JudgementCounter.layout(ClientPrefs.data.counterPos, counterPreview, true);
+	}
+
+	/** 命中判定按整块文本框算（居中/右对齐时文字只占框内一部分）。 */
+	function inCounterBlock(block:String, px:Float, py:Float):Bool
+	{
+		for (item in counterPreview)
+		{
+			if (block != '' && item.block != block) continue;
+			var text:FlxText = item.text;
+			// 用 width 而不是 fieldWidth：split 横向排版下是 autoSize，fieldWidth 恒为 0
+			if (px >= text.x && px <= text.x + text.width && py >= text.y && py <= text.y + text.height) return true;
+		}
+		return false;
 	}
 
 	function updateNoteDelay()
@@ -690,6 +819,8 @@ class NoteOffsetState extends MusicBeatState
 			keyboardViewer.visible = onComboMenu;
 		if (hitErrorBar != null)
 			hitErrorBar.visible = onComboMenu;
+		for (item in counterPreview)
+			item.text.visible = onComboMenu;
 
 		controllerPointer.visible = false;
 		FlxG.mouse.visible = true;
