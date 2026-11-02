@@ -31,7 +31,7 @@
 	<define name="MULTITHREADED_LOADING" /> 
 	<define name="SHOW_LOADING_SCREEN" />
 	<define name="VIDEOS_ALLOWED" if="windows || linux || android || mac" unless="32bits"/>
-	<define name="BASE_GAME_FILES" />
+	<define name="BASE_GAME_FILES" unless="NO_BASE_GAME_FILES" />
 
 	<section if="BASE_GAME_FILES">
 		<define name="BASE_GAME_ERECT"  unless="NO_EXTRA_BASE_GAME || NO_BASE_GAME_ERECT" />

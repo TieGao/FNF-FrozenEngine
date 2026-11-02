@@ -140,6 +140,7 @@ class Main extends Sprite
 		// 首次启动时把 content/CustomCharts 建出来，用户可直接往里放谱面。
 		#if sys
 		Paths.ensureContentDirs();
+		Paths.logAssetEnvironment();
 		#end
 
 		Highscore.load();
