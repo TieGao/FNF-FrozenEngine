@@ -286,7 +286,7 @@ class SongInfoParser
         // getPath 命中内容包时返回的本来就是磁盘路径，先按磁盘判存在。
         if (FileSystem.exists(assetsPath)) return assetsPath;
         #end
-        if (Paths.assetExists(assetsPath, TEXT)) return assetsPath;
+        if (Assets.exists(assetsPath, TEXT)) return assetsPath;
 
         var directPath:String = 'assets/data/' + songLowercase + '/' + fileName + '.json';
         #if sys

@@ -216,46 +216,6 @@ class Paths
 	inline public static function getSharedPath(file:String = '')
 		return 'assets/shared/$file';
 
-	/**
-	 * 资源是否存在：磁盘优先，其次编译期资源索引。
-	 * lime 的 Assets 是构建期快照，外挂目录（content/、外部导入的 assets/）里的文件不在里面，
-	 * 所以存在性判断必须先问磁盘，索引只当打包进二进制的兜底。
-	 */
-	public static function assetExists(path:String, ?type:AssetType = TEXT):Bool
-	{
-		if (path == null || path.length == 0) return false;
-		#if sys
-		if (FileSystem.exists(path)) return true;
-		#end
-		return OpenFlAssets.exists(path, type);
-	}
-
-	/** 读文本：磁盘优先，其次编译期资源索引。 */
-	public static function assetText(path:String):String
-	{
-		if (path == null || path.length == 0) return null;
-		#if sys
-		if (FileSystem.exists(path))
-		{
-			try return File.getContent(path) catch (e:Dynamic) {}
-		}
-		#end
-		return OpenFlAssets.exists(path, TEXT) ? OpenFlAssets.getText(path) : null;
-	}
-
-	/** 读字节：磁盘优先，其次编译期资源索引。 */
-	public static function assetBytes(path:String):haxe.io.Bytes
-	{
-		if (path == null || path.length == 0) return null;
-		#if sys
-		if (FileSystem.exists(path))
-		{
-			try return File.getBytes(path) catch (e:Dynamic) {}
-		}
-		#end
-		return OpenFlAssets.exists(path, BINARY) ? OpenFlAssets.getBytes(path) : null;
-	}
-
 	inline static public function txt(key:String, ?folder:String)
 		return getPath('data/$key.txt', TEXT, folder, true);
 
@@ -274,8 +234,6 @@ class Paths
 	inline static public function lua(key:String, ?folder:String)
 		return getPath('$key.lua', TEXT, folder, true);
 
-	public static var currentTrackedVideos:Map<String, String> = [];
-	
 	/** 视频扩展名候选（libvlc 按内容探测 demux，这些格式都能播）。 */
 	public static var VIDEO_EXTS:Array<String> = ['mp4', 'mkv', 'webm', 'ogv'];
 
@@ -301,50 +259,6 @@ class Paths
 		}
 		#end
 		return 'assets/videos/$key.$VIDEO_EXT';
-	}
-
-	// 新增缓存视频函数
-	static public function cachedVideo(key:String):String
-	{
-		var videoPath:String = video(key); // 先获取原始路径
-		
-		// 检查是否已缓存
-		if (currentTrackedVideos.exists(videoPath))
-		{
-			localTrackedAssets.push(videoPath);
-			return currentTrackedVideos.get(videoPath);
-		}
-		
-		return cacheVideoPath(videoPath);
-	}
-
-	// 缓存视频路径
-	static function cacheVideoPath(filePath:String):String
-	{
-		// 验证视频文件是否存在
-		var exists:Bool = false;
-		
-		#if MODS_ALLOWED
-		if (FileSystem.exists(filePath))
-			exists = true;
-		#end
-		
-		#if !MODS_ALLOWED
-		if (OpenFlAssets.exists(filePath, BINARY))
-			exists = true;
-		#end
-		
-		if (!exists)
-		{
-			trace('Video not found for caching: $filePath');
-			return filePath;
-		}
-		
-		// 缓存视频路径
-		currentTrackedVideos.set(filePath, filePath);
-		localTrackedAssets.push(filePath);
-		
-		return filePath;
 	}
 
 	inline static public function sound(key:String, ?modsAllowed:Bool = true):Sound
@@ -637,7 +551,7 @@ class Paths
     var bitmap:BitmapData = null;
     var file:String = getPath(key, IMAGE, parentFolder, true);
     
-    #if sys
+    #if MODS_ALLOWED
     if (FileSystem.exists(file))
         bitmap = BitmapData.fromFile(file);
     else #end if (OpenFlAssets.exists(file, IMAGE))
@@ -678,7 +592,7 @@ class Paths
 		if (bitmap == null)
 		{
 			var file:String = getPath(key, IMAGE, parentFolder, true);
-			#if sys
+			#if MODS_ALLOWED
 			if (FileSystem.exists(file))
 				bitmap = BitmapData.fromFile(file);
 			else #end if (OpenFlAssets.exists(file, IMAGE))
@@ -717,7 +631,12 @@ class Paths
 
 	inline static public function getTextFromFile(key:String, ?ignoreMods:Bool = false):String
 	{
-		return assetText(getPath(key, TEXT, null, !ignoreMods));
+		var path:String = getPath(key, TEXT, !ignoreMods);
+		#if sys
+		return (FileSystem.exists(path)) ? File.getContent(path) : null;
+		#else
+		return (OpenFlAssets.exists(path, TEXT)) ? Assets.getText(path) : null;
+		#end
 	}
 
 	/**
@@ -761,16 +680,30 @@ class Paths
 
 	static public function getAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
 	{
+		var useMod = false;
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
 
-		var xmlText:String = assetText(getPath('images/$key.xml', TEXT, parentFolder, true));
-		if (xmlText != null)
-			return FlxAtlasFrames.fromSparrow(imageLoaded, xmlText);
-
-		var jsonText:String = assetText(getPath('images/$key.json', TEXT, parentFolder, true));
-		if (jsonText != null)
-			return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, jsonText);
-
+		var myXml:Dynamic = getPath('images/$key.xml', TEXT, parentFolder, true);
+		if(OpenFlAssets.exists(myXml) #if MODS_ALLOWED || (FileSystem.exists(myXml) && (useMod = true)) #end )
+		{
+			#if MODS_ALLOWED
+			return FlxAtlasFrames.fromSparrow(imageLoaded, (useMod ? File.getContent(myXml) : myXml));
+			#else
+			return FlxAtlasFrames.fromSparrow(imageLoaded, myXml);
+			#end
+		}
+		else
+		{
+			var myJson:Dynamic = getPath('images/$key.json', TEXT, parentFolder, true);
+			if(OpenFlAssets.exists(myJson) #if MODS_ALLOWED || (FileSystem.exists(myJson) && (useMod = true)) #end )
+			{
+				#if MODS_ALLOWED
+				return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, (useMod ? File.getContent(myJson) : myJson));
+				#else
+				return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, myJson);
+				#end
+			}
+		}
 		return getPackerAtlas(key, parentFolder);
 	}
 	
@@ -797,37 +730,46 @@ class Paths
 	{
 		if(key.contains('psychic')) trace(key, parentFolder, allowGPU);
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
-		var xmlText:String = assetText(getPath(Language.getFileTranslation('images/$key') + '.xml', TEXT, parentFolder));
-		if (xmlText == null)
-		{
-			FlxG.log.error('Atlas XML not found: images/$key.xml (parent=$parentFolder)');
-			return null;
-		}
-		return FlxAtlasFrames.fromSparrow(imageLoaded, xmlText);
+		#if MODS_ALLOWED
+		var xmlExists:Bool = false;
+
+		var xml:String = modsXml(key);
+		if(FileSystem.exists(xml)) xmlExists = true;
+
+		return FlxAtlasFrames.fromSparrow(imageLoaded, (xmlExists ? File.getContent(xml) : getPath(Language.getFileTranslation('images/$key') + '.xml', TEXT, parentFolder)));
+		#else
+		return FlxAtlasFrames.fromSparrow(imageLoaded, getPath(Language.getFileTranslation('images/$key') + '.xml', TEXT, parentFolder));
+		#end
 	}
 
 	inline static public function getPackerAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
 	{
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
-		var txtText:String = assetText(getPath(Language.getFileTranslation('images/$key') + '.txt', TEXT, parentFolder));
-		if (txtText == null)
-		{
-			FlxG.log.error('Atlas TXT not found: images/$key.txt (parent=$parentFolder)');
-			return null;
-		}
-		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, txtText);
+		#if MODS_ALLOWED
+		var txtExists:Bool = false;
+		
+		var txt:String = modsTxt(key);
+		if(FileSystem.exists(txt)) txtExists = true;
+
+		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, (txtExists ? File.getContent(txt) : getPath(Language.getFileTranslation('images/$key') + '.txt', TEXT, parentFolder)));
+		#else
+		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, getPath(Language.getFileTranslation('images/$key') + '.txt', TEXT, parentFolder));
+		#end
 	}
 
 	inline static public function getAsepriteAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
 	{
 		var imageLoaded:FlxGraphic = image(key, parentFolder, allowGPU);
-		var jsonText:String = assetText(getPath(Language.getFileTranslation('images/$key') + '.json', TEXT, parentFolder));
-		if (jsonText == null)
-		{
-			FlxG.log.error('Atlas JSON not found: images/$key.json (parent=$parentFolder)');
-			return null;
-		}
-		return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, jsonText);
+		#if MODS_ALLOWED
+		var jsonExists:Bool = false;
+
+		var json:String = modsImagesJson(key);
+		if(FileSystem.exists(json)) jsonExists = true;
+
+		return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, (jsonExists ? File.getContent(json) : getPath(Language.getFileTranslation('images/$key') + '.json', TEXT, parentFolder)));
+		#else
+		return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, getPath(Language.getFileTranslation('images/$key') + '.json', TEXT, parentFolder));
+		#end
 	}
 
 	inline static public function formatToSongPath(path:String) {
@@ -980,33 +922,6 @@ class Paths
 		}
 	}
 	#end
-
-	/**
-	 * 启动时打一行资源环境，用于定位「文件明明在磁盘上、游戏却认不到」。
-	 * manifest 是 lime 的构建期索引：条目数明显少于磁盘文件数，就说明构建时没打包进来，
-	 * 运行期只能走磁盘通道（这也是外挂资源唯一能生效的通道）。
-	 */
-	public static function logAssetEnvironment():Void
-	{
-		var cwd:String = '';
-		#if sys
-		try cwd = Sys.getCwd() catch (e:Dynamic) {}
-		#end
-
-		var packs:Int = 0;
-		#if sys
-		var packsRoot:String = '$CONTENT_ROOT/VanillaSongs';
-		if (FileSystem.exists(packsRoot))
-		{
-			try packs = FileSystem.readDirectory(packsRoot).length catch (e:Dynamic) {}
-		}
-		#end
-
-		var manifest:Int = 0;
-		try manifest = OpenFlAssets.list().length catch (e:Dynamic) {}
-
-		trace('[assets] cwd=$cwd | content packs=$packs | manifest=$manifest entries');
-	}
 
 	public static function returnSound(key:String, ?path:String, ?modsAllowed:Bool = true, ?beepOnNull:Bool = true)
 	{

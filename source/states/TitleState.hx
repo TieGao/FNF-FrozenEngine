@@ -347,8 +347,8 @@ class TitleState extends MusicBeatState
 		#if MODS_ALLOWED
 		var firstArray:Array<String> = Mods.mergeAllTextsNamed('data/introText.txt');
 		#else
-		var fullText:String = Paths.assetText(Paths.txt('introText'));
-		var firstArray:Array<String> = fullText != null ? fullText.split('\n') : [];
+		var fullText:String = Assets.getText(Paths.txt('introText'));
+		var firstArray:Array<String> = fullText.split('\n');
 		#end
 		var swagGoodArray:Array<Array<String>> = [];
 

@@ -716,9 +716,6 @@ class FunkinLua {
 		Lua_helper.add_callback(lua, "precacheImage", function(name:String, ?allowGPU:Bool = true) {
 			Paths.image(name, allowGPU);
 		});
-		Lua_helper.add_callback(lua, "precacheVideo", function(name:String) {
-			Paths.cachedVideo(name);
-		});
 		Lua_helper.add_callback(lua, "precacheSound", function(name:String) {
 			Paths.sound(name);
 		});
@@ -1255,13 +1252,21 @@ class FunkinLua {
 			var songPath:String = Paths.formatToSongPath(Song.loadedSongName);
 			#if TRANSLATIONS_ALLOWED
 			path = Paths.getPath('data/$songPath/${dialogueFile}_${ClientPrefs.data.language}.json', TEXT);
-			if(!Paths.assetExists(path))
+			#if MODS_ALLOWED
+			if(!FileSystem.exists(path))
+			#else
+			if(!Assets.exists(path, TEXT))
+			#end
 			#end
 				path = Paths.getPath('data/$songPath/$dialogueFile.json', TEXT);
 
 			luaTrace('startDialogue: Trying to load dialogue: ' + path);
 
-			if(Paths.assetExists(path))
+			#if MODS_ALLOWED
+			if(FileSystem.exists(path))
+			#else
+			if(Assets.exists(path, TEXT))
+			#end
 			{
 				var shit:DialogueFile = DialogueBoxPsych.parseDialogue(path);
 				if(shit.dialogue.length > 0)
@@ -1759,11 +1764,19 @@ class FunkinLua {
 	{
 		if(!scriptFile.endsWith(ext)) scriptFile += ext;
 		var path:String = Paths.getPath(scriptFile, TEXT);
-		if(Paths.assetExists(path))
+		#if MODS_ALLOWED
+		if(FileSystem.exists(path))
+		#else
+		if(Assets.exists(path, TEXT))
+		#end
 		{
 			return path;
 		}
-		else if(Paths.assetExists(scriptFile))
+		#if MODS_ALLOWED
+		else if(FileSystem.exists(scriptFile))
+		#else
+		else if(Assets.exists(scriptFile, TEXT))
+		#end
 		{
 			return scriptFile;
 		}

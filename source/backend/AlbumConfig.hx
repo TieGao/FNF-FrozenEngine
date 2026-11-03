@@ -53,7 +53,17 @@ class AlbumConfig
 		try
 		{
 			var path:String = Paths.getPath('albums/$albumId.json');
-			var raw:String = Paths.assetText(path);
+			var raw:String = null;
+
+			#if MODS_ALLOWED
+			if (FileSystem.exists(path))
+				raw = File.getContent(path);
+			else if (Assets.exists(path))
+				raw = Assets.getText(path);
+			#else
+			if (Assets.exists(path))
+				raw = Assets.getText(path);
+			#end
 
 			if (raw != null)
 			{

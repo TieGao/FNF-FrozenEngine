@@ -188,6 +188,9 @@ class WeekData {
 			if (pack.startsWith('.')) continue;
 			// MODS 菜单里被禁用的内容包（contentList.txt）不注册它的周
 			if (ContentPacks.isDisabled('VanillaSongs/$pack')) continue;
+			#if !BASE_GAME_ERECT_CONTENT
+			if (pack == 'Erect') continue; // 内容侧总开关：关掉 BASE_GAME_ERECT_CONTENT 则不注册 erect 内容包
+			#end
 			var packPath:String = '$groupPath/$pack';
 			if (!FileSystem.isDirectory(packPath)) continue;
 
@@ -279,7 +282,16 @@ class WeekData {
 	}
 
 	private static function getWeekFile(path:String):WeekFile {
-		var rawJson:String = Paths.assetText(path);
+		var rawJson:String = null;
+		#if MODS_ALLOWED
+		if(FileSystem.exists(path)) {
+			rawJson = File.getContent(path);
+		}
+		#else
+		if(OpenFlAssets.exists(path)) {
+			rawJson = Assets.getText(path);
+		}
+		#end
 
 		if(rawJson != null && rawJson.length > 0) {
 			return cast tjson.TJSON.parse(rawJson);

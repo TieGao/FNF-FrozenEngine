@@ -83,9 +83,13 @@ class StageData {
 		{
 			var key:String = 'stages/' + stage + '.json';
 			var path:String = Paths.getPath(key, TEXT, null, true);
-			var raw:String = Paths.assetText(path);
-			if (raw != null)
-				return cast tjson.TJSON.parse(raw);
+			#if MODS_ALLOWED
+			if(FileSystem.exists(path))
+				return cast tjson.TJSON.parse(File.getContent(path));
+			#end
+			// 内容包与嵌入资源不在 FileSystem 里，补一条 Assets 通道
+			if(Assets.exists(path, TEXT))
+				return cast tjson.TJSON.parse(Assets.getText(path));
 		}
 		return dummy();
 	}
