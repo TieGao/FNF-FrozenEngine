@@ -483,11 +483,7 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 				Paths.setContentRoot(charRoot);
 			}
 			var path:String = Paths.getPath(characterPath, TEXT, null, true);
-			#if MODS_ALLOWED
-			if (FileSystem.exists(path))
-			#else
-			if (Assets.exists(path))
-			#end
+			if (Paths.assetExists(path))
 			{
 				_char = intended;
 				check_player.checked = character.isPlayer;

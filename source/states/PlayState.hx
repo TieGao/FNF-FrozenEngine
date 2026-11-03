@@ -1399,9 +1399,8 @@ class PlayState extends MusicBeatState
 		#if LUA_ALLOWED
 		var doPush:Bool = false;
 		var luaFile:String = 'characters/$name.lua';
-		#if MODS_ALLOWED
-		var replacePath:String = Paths.modFolders(luaFile);
-		if(FileSystem.exists(replacePath))
+		var replacePath:String = Paths.getPath(luaFile, TEXT);
+		if(Paths.assetExists(replacePath))
 		{
 			luaFile = replacePath;
 			doPush = true;
@@ -1409,13 +1408,9 @@ class PlayState extends MusicBeatState
 		else
 		{
 			luaFile = Paths.getSharedPath(luaFile);
-			if(FileSystem.exists(luaFile))
+			if(Paths.assetExists(luaFile))
 				doPush = true;
 		}
-		#else
-		luaFile = Paths.getSharedPath(luaFile);
-		if(Assets.exists(luaFile)) doPush = true;
-		#end
 
 		if(doPush)
 		{
@@ -1489,12 +1484,8 @@ class PlayState extends MusicBeatState
 		var foundFile:Bool = false;
 		var fileName:String = Paths.video(name);
 
-		#if sys
-		if (FileSystem.exists(fileName))
-		#else
-		if (OpenFlAssets.exists(fileName))
-		#end
-		foundFile = true;
+		if (Paths.assetExists(fileName, BINARY))
+			foundFile = true;
 
 		if (foundFile)
 		{
@@ -5355,16 +5346,11 @@ public function reloadCounterColors()
 	#if LUA_ALLOWED
 	public function startLuasNamed(luaFile:String)
 	{
-		#if MODS_ALLOWED
-		var luaToLoad:String = Paths.modFolders(luaFile);
-		if(!FileSystem.exists(luaToLoad))
+		var luaToLoad:String = Paths.getPath(luaFile, TEXT);
+		if(!Paths.assetExists(luaToLoad))
 			luaToLoad = Paths.getSharedPath(luaFile);
 
-		if(FileSystem.exists(luaToLoad))
-		#elseif sys
-		var luaToLoad:String = Paths.getSharedPath(luaFile);
-		if(OpenFlAssets.exists(luaToLoad))
-		#end
+		if(Paths.assetExists(luaToLoad))
 		{
 			for (script in luaArray)
 				if(script.scriptName == luaToLoad) return false;

@@ -35,11 +35,7 @@ class LanguageSubState extends MusicBeatSubstate
 					if(!displayLanguages.exists(langFile))
 					{
 						var path:String = '$directory/$file';
-						#if MODS_ALLOWED 
-						var txt:String = File.getContent(path);
-						#else
-						var txt:String = Assets.getText(path);
-						#end
+						var txt:String = Paths.assetText(path);
 
 						var id:Int = txt.indexOf('\n');
 						if(id > 0) //language display name shouldnt be an empty string or null
