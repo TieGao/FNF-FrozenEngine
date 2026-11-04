@@ -145,6 +145,16 @@ jobs:
             .haxelib/
             .hxcpp_cache
 
+      # PCH（预编译头）不做跨轮缓存：它把 NDK/SDK sysroot 文件的 mtime 编进去，
+      # 换一个 runner（文件系统重新铺过、mtime 变了）clang 直接拒收缓存的 pch
+      # —— "file ... has been modified since the precompiled header was built"。
+      # restore 后把只装 pch 的 haxe/ 子目录删掉，每轮现编（秒级），.obj 那份
+      # 内容寻址缓存不受影响。
+      - name: Drop stale PCH from restored hxcpp cache
+        if: inputs.dependencies_to_update == ''
+        shell: bash
+        run: rm -rf .hxcpp_cache/haxe
+
       # 依赖策略判定必须放在 Restore 之后 —— 判断依据就是 restore 的产物。
       # 留空且缓存可用 → cached：跳过安装。
       # 留空但缓存是冷的（或明显残缺）→ install：回退到完整安装，别让构建裸奔。
