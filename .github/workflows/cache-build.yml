@@ -169,7 +169,7 @@ jobs:
             #  2) 库清单从 setup 脚本现抓，不手写：setup 加了新库（10-28 移动版接
             #     extension-document-picker）而手写清单不跟，判定就会放过残缺缓存，
             #     缺库被拖到编译期才炸。三份脚本抓并集，哪个仓库用哪个 OS 都覆盖。
-            libs=$(grep -hoE 'haxelib (install|git|set) [A-Za-z0-9_-]+' \
+            libs=$(grep -hoE 'haxelib (install|git|set) [A-Za-z0-9_.-]+' \
                     setup/unix.sh setup/windows.bat setup/windows-msvc.bat 2>/dev/null \
                     | awk '{print $3}' | sort -u || true)
             if [ -z "$libs" ]; then
