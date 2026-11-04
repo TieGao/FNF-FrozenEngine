@@ -253,9 +253,14 @@ jobs:
         if: inputs.name == 'iOS'
         shell: bash
         run: |
-          root=$(haxelib path extension-document-picker 2>/dev/null | head -n 1 | tr -d '\r' || true)
-          if [ -z "$root" ] || [ ! -d "$root" ]; then
-            echo "extension-document-picker 未安装（本项目不引用它），跳过"
+          # git 安装的 checkout 固定在 .haxelib/<lib>/git/（这库名只有短横线没点号，
+          # 不涉及逗号转换）。不问 haxelib path：它会随机往 stdout 混版本横幅，
+          # head -1 抓到横幅就把 root 判空、整步误走"未安装"分支（wave-7 iOS 实录：
+          # 步骤打印"未安装，跳过"，五秒后 lime 找不到 ndll 炸掉）。release 安装的
+          # 版本自带 ndll、没有 git/ 目录，跳过正合适。
+          root=".haxelib/extension-document-picker/git"
+          if [ ! -d "$root/project" ]; then
+            echo "extension-document-picker git checkout 不在 $root（release 自带 ndll 或未引用），跳过"
             exit 0
           fi
           if ls "$root"/ndll/iPhone/libextension_document_picker.iphoneos*.a >/dev/null 2>&1; then
