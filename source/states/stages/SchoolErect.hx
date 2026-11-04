@@ -1,6 +1,6 @@
 package states.stages;
 
-#if BASE_GAME_ERECT
+#if STAGE_ERECT
 import states.stages.objects.*;
 import shaders.DropShadowShader;
 import substates.GameOverSubstate;

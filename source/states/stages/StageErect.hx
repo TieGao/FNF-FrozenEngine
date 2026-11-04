@@ -1,6 +1,6 @@
 package states.stages;
 
-#if BASE_GAME_ERECT
+#if STAGE_ERECT
 import flixel.FlxSprite;
 import flixel.math.FlxPoint;
 import flixel.math.FlxRect;

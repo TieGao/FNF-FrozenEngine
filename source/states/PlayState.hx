@@ -93,7 +93,7 @@ class PlayState extends MusicBeatState
 
 	//event variables
 	private var isCameraOnForcedPos:Bool = false;
-	#if BASE_GAME_ERECT
+	#if STAGE_ERECT
 	private var erectCameraTargetTween:FlxTween;
 	private var erectCameraZoomTween:FlxTween;
 	private var erectCameraBopEnabled:Bool = false;
@@ -1440,7 +1440,9 @@ class PlayState extends MusicBeatState
 		else
 		#end
 		{
-			scriptFile = Paths.getSharedPath(scriptFile);
+			// 角色脚本可以放在内容包里（<包>/shared/characters/<名>.hx）：getPath 依次试
+			// 当前包 → 依赖包 → assets/shared。mods 那段在上面已经优先处理过了。
+			scriptFile = Paths.getPath(scriptFile, TEXT, null, true);
 			if(FileSystem.exists(scriptFile))
 				doPush = true;
 		}
@@ -2267,7 +2269,7 @@ public function reloadCounterColors()
 	// called only once per different event (Used for precaching)
 	function eventPushed(event:EventNote) {
 		eventPushedUnique(event);
-		#if BASE_GAME_ERECT
+		#if STAGE_ERECT
 		if (event.event == 'Set Camera Zoom' || event.event == 'Set Camera Bop')
 		{
 			// 这套混音使用独立的相机节奏，避免与默认的四拍变焦叠加。
@@ -3021,7 +3023,7 @@ public function reloadCounterColors()
 					char.specialAnim = true;
 				}
 
-			#if BASE_GAME_ERECT
+			#if STAGE_ERECT
 			case 'Set Camera Target':
 				setErectCameraTarget(value1, value2);
 
@@ -3213,7 +3215,7 @@ public function reloadCounterColors()
 		callOnScripts('onEvent', [eventName, value1, value2, strumTime]);
 	}
 
-	#if BASE_GAME_ERECT
+	#if STAGE_ERECT
 	private function getErectEase(name:String):Dynamic
 	{
 		var easing:Dynamic = Reflect.field(FlxEase, name);
@@ -5187,7 +5189,7 @@ public function reloadCounterColors()
 
 		hscriptArray = null;
 		#end
-		#if BASE_GAME_ERECT
+		#if STAGE_ERECT
 		if (erectCameraTargetTween != null) erectCameraTargetTween.cancel();
 		if (erectCameraZoomTween != null) erectCameraZoomTween.cancel();
 		#end
@@ -5282,7 +5284,7 @@ public function reloadCounterColors()
 		super.beatHit();
 		lastBeatHit = curBeat;
 
-		#if BASE_GAME_ERECT
+		#if STAGE_ERECT
 		if (erectCameraBopEnabled && erectCameraBopRate > 0 && ClientPrefs.data.camZooms
 			&& curBeat % erectCameraBopRate == 0 && FlxG.camera.zoom < 1.35)
 		{
@@ -5320,7 +5322,7 @@ public function reloadCounterColors()
 			if (generatedMusic && !endingSong && !isCameraOnForcedPos)
 				moveCameraSection();
 
-			if (camZooming && #if BASE_GAME_ERECT !erectCameraBopEnabled && #end FlxG.camera.zoom < 1.35 && ClientPrefs.data.camZooms)
+			if (camZooming && #if STAGE_ERECT !erectCameraBopEnabled && #end FlxG.camera.zoom < 1.35 && ClientPrefs.data.camZooms)
 			{
 				FlxG.camera.zoom += 0.015 * camZoomingMult;
 				camHUD.zoom += 0.03 * camZoomingMult;

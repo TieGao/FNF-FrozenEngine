@@ -2,7 +2,7 @@
 <project>
 	<!-- _________________________ Application Settings _________________________ -->
 
-	<app title="Friday Night Funkin': Frozen Engine" file="FrozenEngine" packageName="com.shadowmario.frozenengine" package="com.icetheaxe.frozenengine" main="Main" version="0.6.8" company="ShadowMario" />
+	<app title="Friday Night Funkin': Frozen Engine" file="FrozenEngine" packageName="com.shadowmario.frozenengine" package="com.icetheaxe.frozenengine" main="Main" version="0.6.10" company="ShadowMario" />
 
 	<!--Switch Export with Unique ApplicationID and Icon-->
 	<set name="APP_ID" value="0x0100f6c013bbc000" />
@@ -33,8 +33,12 @@
 	<define name="VIDEOS_ALLOWED" if="windows || linux || android || mac" unless="32bits"/>
 	<define name="BASE_GAME_FILES" unless="NO_BASE_GAME_FILES" />
 
+	<!-- 变体舞台的**源码**开关，与资源打包解耦：舞台类只是代码，图/谱面/数据都在 content/ 里，
+	     所以不跟 BASE_GAME_FILES 走 —— 薄包（-D NO_BASE_GAME_FILES）照样编译。
+	     要连代码一起剔：-D NO_STAGE_ERECT（单个变体）或 -D NO_EXTRA_STAGE（全部变体）。 -->
+	<define name="STAGE_ERECT" unless="NO_EXTRA_STAGE || NO_STAGE_ERECT || NO_EXTRA_BASE_GAME || NO_BASE_GAME_ERECT" />
+
 	<section if="BASE_GAME_FILES">
-		<define name="BASE_GAME_ERECT"  unless="NO_EXTRA_BASE_GAME || NO_BASE_GAME_ERECT" />
 		<define name="BASE_GAME_ERECT_CONTENT" unless="NO_EXTRA_BASE_GAME || NO_BASE_GAME_ERECT || NO_BASE_GAME_ERECT_CONTENT" />
 		<define name="BASE_GAME_PICO"   unless="NO_EXTRA_BASE_GAME || NO_BASE_GAME_PICO" />
 		<define name="BASE_GAME_BF"     unless="NO_EXTRA_BASE_GAME || NO_BASE_GAME_BF" />
@@ -119,8 +123,8 @@
 	     桌面端也走条件打包 —— 之前是"打包后再 rm content/VanillaSongs/*"，但 macOS 产物是
 	     FrozenEngine.app/Contents/Resources/，工作目录顶层根本没有 content/，那边 rm 一直是空操作，
 	     所以 mac 包始终带着全套额外内容。改用编译期把关后三个桌面平台一视同仁。
-	     注意 Erect 用的是 BASE_GAME_ERECT_CONTENT（只管数据）—— 这样即使剔除内容包，
-	     9 个 *Erect.hx 舞台类仍由 BASE_GAME_ERECT 保持编译，Erect 相关代码不会编不进去。
+	     Erect 的数据用 BASE_GAME_ERECT_CONTENT（只管打包），舞台源码归 STAGE_ERECT（见文件开头），
+	     两者互不影响：剔数据不会让舞台类消失，剔舞台类也不会少打数据。
 	     CustomCharts / NMVMODS 属用户内容（目录缺失时由 Paths.ensureContentDirs() 运行时补建），始终打包。 -->
 	<assets path='content/CustomCharts' rename='content/CustomCharts' embed='false' />
 	<assets path='content/NMVMODS'     rename='content/NMVMODS'     embed='false' />

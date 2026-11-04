@@ -109,7 +109,7 @@ class StageData {
 			case 'tank': new Tank();					//Week 7 - Ugh, Guns, Stress
 			case 'phillyStreets': new PhillyStreets(); 	//Weekend 1 - Darnell, Lit Up, 2Hot
 			case 'phillyBlazin': new PhillyBlazin();	//Weekend 1 - Blazin
-			#if BASE_GAME_ERECT
+			#if STAGE_ERECT
 			case 'stage-erect': new StageErect();	//Week 1 Erect
 			case 'spooky-erect': new SpookyErect();	//Week 2 Erect
 			case 'philly-erect': new PhillyErect();	//Week 3 Erect

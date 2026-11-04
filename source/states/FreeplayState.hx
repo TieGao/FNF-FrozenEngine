@@ -1191,13 +1191,14 @@ class FreeplayState extends MusicBeatState
     {
         if (!ClientPrefs.data.saveFreeplayCache)
             return;
-        trace('cache saved');
         #if sys 
         var cachePath:String = 'freeplaySongCache.json';
         var tempPath:String = cachePath + '.tmp';
-        var output = File.write(tempPath, false);
+        // 缓存只是加速用的旁路数据，落盘失败（目录只读 / 空间不足 / 文件被占用）
+        // 不能把整个 Freeplay 拖崩 —— 记一行 trace 就放弃本次会话的写入。
         try
         {
+            var output = File.write(tempPath, false);
             output.writeString('{');
             var isFirst:Bool = true;
             for (key in freeplaySongCache.keys())
@@ -1214,16 +1215,17 @@ class FreeplayState extends MusicBeatState
                 isFirst = false;
             }
             output.writeString('}');
+            output.close();
+
+            if (FileSystem.exists(cachePath))
+                FileSystem.deleteFile(cachePath);
+            FileSystem.rename(tempPath, cachePath);
+            trace('cache saved');
         }
         catch (e:Dynamic)
         {
-            output.close();
-            throw e;
+            trace('Failed to save Freeplay cache: $e');
         }
-        output.close();
-        if (FileSystem.exists(cachePath))
-            FileSystem.deleteFile(cachePath);
-        FileSystem.rename(tempPath, cachePath);
         freeplayCacheDirty = false;
         #end
     }
