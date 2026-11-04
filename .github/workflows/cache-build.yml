@@ -178,9 +178,12 @@ jobs:
             fi
             for lib in $libs; do
               # .current 不在 = 这库压根没装，直接判残缺。
-              if [ ! -f ".haxelib/$lib/.current" ]; then
+              # 注意 haxelib 仓库目录名把点号换成逗号：funkin.vis 落在 .haxelib/funkin,vis/
+              # （本地与 CI 都可验证）。字面用点号找路径必然误判残缺。
+              libdir=".haxelib/$(printf '%s' "$lib" | tr '.' ',')"
+              if [ ! -f "$libdir/.current" ]; then
                 broken="$broken $lib"
-                echo "[sentinel] $lib：.haxelib/$lib/.current 不存在"
+                echo "[sentinel] $lib：$libdir/.current 不存在"
                 continue
               fi
               # 取「长得像路径的行」而不是 head -1：haxelib 会不定期往 stdout 混
