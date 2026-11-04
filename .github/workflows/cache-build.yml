@@ -267,7 +267,12 @@ jobs:
           # define，而 Build.xml 的 NDLL target 写的是 if="ios"（它是为 lime rebuild
           # 准备的，lime 才设 ios）。少了它 target 解析为空，hxcpp 静默 exit 0，
           # 产物目录压根不建（2026-11-05 CI 实录）。
-          haxelib run hxcpp "$root/project/Build.xml" -Diphoneos -Dios -DHXCPP_ARM64 -DOBJC_ARC
+          # 还得先 cd 进 project/：Build.xml 里的 common/、ios/、../ndll/ 全是相对
+          # 路径，而 haxelib run hxcpp 的 cwd 在 hxcpp 仓库里，不 cd 就是
+          # "no such file or directory: './common/ExternalInterface.cpp'"。fork 自带
+          # 的 build.sh 也是这么干的（cd 到 project 再调）。
+          cd "$root/project"
+          haxelib run hxcpp Build.xml -Diphoneos -Dios -DHXCPP_ARM64 -DOBJC_ARC
           ls -la "$root"/ndll/iPhone/
 
       - name: Configure Android
