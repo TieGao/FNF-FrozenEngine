@@ -16,6 +16,12 @@ on:
         required: false
         type: string
         default: ''
+  # push 到 main 就编一遍（触发方式对齐 CNE windows.yml：push + workflow_dispatch，
+  # 那边的缓存块整段注释没启用，CNE 只在触发方式上值得抄）：编译问题当场暴露，
+  # 不等第二天 schedule；缓存也跟着主干保持新鲜。
+  push:
+    branches:
+      - main
   # 每天 06:00 UTC 在默认分支跑一次：既当真·日常构建，也把缓存写进 main 作用域，
   # 好让 PR 构建能通过 restore-keys 读到这里预热好的缓存（PR 自身的缓存存在
   # refs/pull/N/merge，只有该 PR 的 re-run 能读）。

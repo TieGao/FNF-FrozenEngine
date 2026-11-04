@@ -161,8 +161,23 @@ jobs:
           want='${{ inputs.dependencies_to_update }}'
           broken=''
           if [ -z "$want" ]; then
-            for lib in lime hxcpp openfl flixel flixel-addons flxanimate luahscript linc_luajit hxvlc hscript-iris moonchart tjson hxdiscord_rpc; do
-              p=$(haxelib path "$lib" 2>/dev/null | head -n 1 | tr -d '\r' | tr '\\' '/')
+            # 两个坑都在 11 月的每日构建里真炸过，这里必须都防住：
+            #  1) Actions 的 bash 自带 -e -o pipefail，而 haxelib path 对未安装的库
+            #     返回非零 —— 旧写法里命令替换的管道一挂，整个脚本当场死掉，
+            #     broken 兜底根本没机会跑，「残缺缓存→回退重装」永远走不到。
+            #     所以每条 haxelib path 都挂 || true，缺库只记 broken，不炸步骤。
+            #  2) 库清单从 setup 脚本现抓，不手写：setup 加了新库（10-28 移动版接
+            #     extension-document-picker）而手写清单不跟，判定就会放过残缺缓存，
+            #     缺库被拖到编译期才炸。三份脚本抓并集，哪个仓库用哪个 OS 都覆盖。
+            libs=$(grep -hoE 'haxelib (install|git|set) [A-Za-z0-9_-]+' \
+                    setup/unix.sh setup/windows.bat setup/windows-msvc.bat 2>/dev/null \
+                    | awk '{print $3}' | sort -u || true)
+            if [ -z "$libs" ]; then
+              # setup 脚本没匹配到（布局变了）就退回这份老清单，判定别裸奔
+              libs='lime hxcpp openfl flixel flixel-addons flxanimate luahscript linc_luajit hxvlc hscript-iris moonchart tjson hxdiscord_rpc'
+            fi
+            for lib in $libs; do
+              p=$(haxelib path "$lib" 2>/dev/null | head -n 1 | tr -d '\r' | tr '\\' '/' || true)
               if [ -z "$p" ] || [ ! -d "$p" ]; then broken="$broken $lib"; fi
             done
           fi
@@ -195,6 +210,30 @@ jobs:
           echo "已缓存条目（前 20 个）："
           ls -A .haxelib | head -20
 
+      # extension-document-picker 的 git fork 只带源码（project/），没有预编译的
+      # ndll/iPhone/*.a —— lime 编 iOS 时会去 .haxelib/<ext>/ndll/iPhone/ 找
+      # lib<name>.iphoneos*.a（候选：.iphoneos / -v7 / -v7s / -64），一个都没有就
+      # 直接炸（11-04 起移动版每日构建的根因之一）。fork 不往里塞二进制（每次改
+      # 源码都得重编重推），就在 CI 现场编一份：-DHXCPP_ARM64 对应 hxcpp
+      # finish-setup.xml 的 LIBEXTRA=.iphoneos-64，正好落在 lime 的候选清单里。
+      # 产物写进 .haxelib/ 的 git checkout，随上面的缓存整体存取，下轮命中即跳过。
+      - name: Build iOS ndll from source (extension-document-picker)
+        if: inputs.name == 'iOS'
+        shell: bash
+        run: |
+          root=$(haxelib path extension-document-picker 2>/dev/null | head -n 1 | tr -d '\r' || true)
+          if [ -z "$root" ] || [ ! -d "$root" ]; then
+            echo "extension-document-picker 未安装（本项目不引用它），跳过"
+            exit 0
+          fi
+          if ls "$root"/ndll/iPhone/libextension_document_picker.iphoneos*.a >/dev/null 2>&1; then
+            echo "ndll 已存在（缓存带来），跳过源码编译："
+            ls "$root"/ndll/iPhone/libextension_document_picker.iphoneos*.a
+            exit 0
+          fi
+          haxelib run hxcpp "$root/project/Build.xml" -Diphoneos -DHXCPP_ARM64 -DOBJC_ARC
+          ls -la "$root"/ndll/iPhone/
+
       - name: Configure Android
         if: inputs.name == 'Android'
         run: |
@@ -219,7 +258,10 @@ jobs:
       # restore 命中靠的是 restore-keys 前缀匹配：save 这边少一段（比如漏掉 target），
       # 写进去的那份就永远匹配不上自己的 restore —— 缓存存了，但没人读得到。
       - name: Save build cache (deps + hxcpp objects)
-        if: always() && steps.install.outcome != 'failure'
+        # haxelib 判定步骤自己挂了也不能存：那时既没验证过缓存、也大概率没装上依赖，
+        # 存进去就是空 .haxelib/ —— restore-keys 是"最新者优先"，下轮就会命中这份
+        # 空壳、把真缓存全部压住，然后空转层层放大（11 月每日构建就是这么坏的）。
+        if: always() && steps.haxelib.outcome == 'success' && steps.install.outcome != 'failure'
         continue-on-error: true
         uses: actions/cache/save@v4
         with:
