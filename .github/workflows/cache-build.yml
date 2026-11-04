@@ -177,10 +177,24 @@ jobs:
               libs='lime hxcpp openfl flixel flixel-addons flxanimate luahscript linc_luajit hxvlc hscript-iris moonchart tjson hxdiscord_rpc'
             fi
             for lib in $libs; do
-              p=$(haxelib path "$lib" 2>/dev/null | head -n 1 | tr -d '\r' | tr '\\' '/' || true)
+              # .current 不在 = 这库压根没装，直接判残缺。
+              if [ ! -f ".haxelib/$lib/.current" ]; then
+                broken="$broken $lib"
+                echo "[sentinel] $lib：.haxelib/$lib/.current 不存在"
+                continue
+              fi
+              # 取「长得像路径的行」而不是 head -1：haxelib 会不定期往 stdout 混
+              # 版本横幅（A new version...）和空行，head -1 抓到它们就会把健康库
+              # 误判成残缺（11-04 的 Linux job 随机误判 hscript-iris/hxvlc/lime/
+              # openfl 四个库，全是这条的嫌疑）。
+              raw=$(haxelib path "$lib" 2>&1 || true)
+              p=$(printf '%s\n' "$raw" | grep -m1 -E '^([A-Za-z]:[/\\]|/)' | tr -d '\r' | tr '\\' '/' || true)
               # 空目录也算残缺：luahscript 那种「clone 中断只剩个空壳 checkout」的库，
               # haxelib path 会正常报 classpath、目录也在，编译期才炸 Type not found。
-              if [ -z "$p" ] || [ ! -d "$p" ] || [ -z "$(ls -A "$p" 2>/dev/null)" ]; then broken="$broken $lib"; fi
+              if [ -z "$p" ] || [ ! -d "$p" ] || [ -z "$(ls -A "$p" 2>/dev/null)" ]; then
+                broken="$broken $lib"
+                echo "[sentinel] $lib 判残缺 —— haxelib path 输出前3行: $(printf '%s\n' "$raw" | head -3 | tr '\n' '|')"
+              fi
             done
           fi
 
