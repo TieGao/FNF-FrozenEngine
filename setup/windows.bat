@@ -20,8 +20,8 @@ haxelib git moonchart https://github.com/MaybeMaru/moonchart --skip-dependencies
 haxelib install format --skip-dependencies || exit /b 1
 haxelib install hxp --skip-dependencies || exit /b 1
 haxelib git hxcpp https://github.com/TieGao/hxcpp.git || exit /b 1
-haxelib git flxanimate https://github.com/Dot-Stuff/flxanimate 0188d47c982913eb10fad7bd75f062ddfc680f4b --always || exit /b 1
-haxelib git linc_luajit https://github.com/TieGao/linc_luajit_largs 82388eb8d9eb084d91da6ff63de44426c4df0a6e --always || exit /b 1
+haxelib git flxanimate https://github.com/Dot-Stuff/flxanimate 0188d47c982913eb10fad7bd75f062ddfc680f4b --always --skip-dependencies || exit /b 1
+haxelib git linc_luajit https://github.com/TieGao/linc_luajit_largs 82388eb8d9eb084d91da6ff63de44426c4df0a6e --always --skip-dependencies || exit /b 1
 haxelib git luahscript https://github.com/VapireMox/luahscript 122acb150ba5a55d02b138c2530fa5619fb06c3a --always || exit /b 1
 haxelib git funkin.vis https://github.com/FunkinCrew/funkVis 22b1ce089dd924f15cdc4632397ef3504d464e90 --always || exit /b 1
 haxelib git grig.audio https://gitlab.com/haxe-grig/grig.audio.git cbf91e2180fd2e374924fe74844086aab7891666 --always || exit /b 1

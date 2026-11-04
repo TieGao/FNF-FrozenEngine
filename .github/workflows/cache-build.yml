@@ -178,7 +178,9 @@ jobs:
             fi
             for lib in $libs; do
               p=$(haxelib path "$lib" 2>/dev/null | head -n 1 | tr -d '\r' | tr '\\' '/' || true)
-              if [ -z "$p" ] || [ ! -d "$p" ]; then broken="$broken $lib"; fi
+              # 空目录也算残缺：luahscript 那种「clone 中断只剩个空壳 checkout」的库，
+              # haxelib path 会正常报 classpath、目录也在，编译期才炸 Type not found。
+              if [ -z "$p" ] || [ ! -d "$p" ] || [ -z "$(ls -A "$p" 2>/dev/null)" ]; then broken="$broken $lib"; fi
             done
           fi
 
@@ -193,6 +195,19 @@ jobs:
             echo "缓存里的库残缺:$broken → 回退完整安装"
           fi
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
+      # 回退安装前把恢复来的 .haxelib/ 整个清掉。缓存被判残缺，里面就有半装/空壳的库
+      # ——而 haxelib git 见到同名目录存在就不再 clone（空壳 checkout 正好卡在这里：
+      # 「You already have luahscript version git installed」然后什么都不干），残缺
+      # 目录会原样活过 install，这正是坏缓存能一代代传下来的通道。install 模式下
+      # .haxelib 反正不可信，删掉重装才是真·回退。dependencies_to_update=all 时
+      # restore 本来就跳过，这里删的只是个空目录，无伤。
+      - name: Wipe .haxelib before reinstall (cache was judged broken)
+        if: steps.haxelib.outputs.mode == 'install'
+        shell: bash
+        run: |
+          rm -rf .haxelib
+          mkdir -p .haxelib
 
       # 装依赖这一步给个 id：装挂了就不能再存缓存 —— 否则一份"半装"的 .haxelib/
       # 会被 if: always() 的 save 收进去，之后每轮 restore 都命中它（luahscript 空壳
