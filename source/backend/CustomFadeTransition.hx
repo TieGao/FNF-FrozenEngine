@@ -25,8 +25,7 @@ class CustomFadeTransition extends MusicBeatSubstate {
 	// loading 模式专用变量
 	var loadingSprite:FlxSprite;
 	var greenBg:FlxSprite;
-	var loadingTween:FlxTween;
-	var greenBgTween:FlxTween;
+	var coverTween:FlxTween;
 	var isLoadingMode:Bool = false;
 	
 	public function new(duration:Float, isTransIn:Bool, ?transitionType:String = null)
@@ -47,61 +46,46 @@ class CustomFadeTransition extends MusicBeatSubstate {
 		if (transitionType == "loading")
 		{
 			isLoadingMode = true;
-			
-			greenBg = new FlxSprite(0, 0).makeGraphic(width, height, 0xFFCAFF4D);
+
+			// 纯色底用 1×1 缩放，别分配整屏贴图
+			greenBg = new FlxSprite().makeGraphic(1, 1, 0xFFCAFF4D);
+			greenBg.scale.set(width, height);
+			greenBg.updateHitbox();
 			greenBg.scrollFactor.set();
 			greenBg.screenCenter();
 			greenBg.alpha = isTransIn ? 1 : 0;
 			add(greenBg);
 
-			loadingSprite = new FlxSprite(0, 0).loadGraphic(Paths.image('funkay'));
+			loadingSprite = new FlxSprite().loadGraphic(Paths.image('funkay'));
 			loadingSprite.scrollFactor.set();
+			// 和 LoadingState 里的 funkay 保持完全一致的缩放 / 抗锯齿，交接瞬间才看不出换过手
+			loadingSprite.antialiasing = ClientPrefs.data.antialiasing;
+			loadingSprite.setGraphicSize(0, Std.int(height));
+			// ★ 先按缩放后的尺寸刷 hitbox 再居中，落点才和 LoadingState 里的 funkay 完全一致
+			//   （以前是先 screenCenter 再 setGraphicSize，funkay 会偏左，交接时横向跳一大截）
+			loadingSprite.updateHitbox();
 			loadingSprite.screenCenter();
 			loadingSprite.alpha = isTransIn ? 1 : 0;
-			loadingSprite.setGraphicSize(0, FlxG.height);
 			add(loadingSprite);
 
+			// 两个精灵走同一条时间轴，只在两者都到位的时刻收尾：
+			// 以前 greenBg 在 duration * 0.7 就回调切状态，那时 funkay 才 ~0.79 不透明度，
+			// 接手的 LoadingState 又是满不透明，视觉上 funkay 会突然"跳实"一下
+			startCoverTween(isTransIn ? 1 : 0, isTransIn ? 0 : 1, function() {
+				if (isTransIn)
+				{
+					close();
+					return;
+				}
 
-			if (!isTransIn) 
-			{
-				// ★ 淡出（退出场景）：从 0 -> 1，完成后只调用 finishCallback，不关闭 substate
-				loadingTween = FlxTween.tween(loadingSprite, {alpha: 1}, duration, {
-					ease: FlxEase.sineInOut,
-					onComplete: function(_) {
-						// 只执行回调，不调用 close()，让精灵保留
-						if (finishCallback != null) {
-							finishCallback();
-							finishCallback = null;
-						}
-						// ★ 不调用 close()！substate 保留，精灵继续显示
-					}
-				});
-
-				greenBgTween = FlxTween.tween(greenBg, {alpha: 1}, duration * 0.7, {
-					ease: FlxEase.sineInOut,
-					onComplete: function(_) {
-						// 只执行回调，不调用 close()，让精灵保留
-						if (finishCallback != null) {
-							finishCallback();
-							finishCallback = null;
-						}
-						// ★ 不调用 close()！substate 保留，精灵继续显示
-					}
-				});
-			} 
-			else 
-			{
-				// 淡入（进入场景）：从 1 -> 0，完成后关闭
-				loadingTween = FlxTween.tween(loadingSprite, {alpha: 0}, duration, {
-					ease: FlxEase.sineInOut,
-					onComplete: function(_) {
-						close(); // 关闭 substate，移除精灵
-					}
-				});
-				greenBgTween = FlxTween.tween(greenBg, {alpha: 0}, duration * 1.2, {
-					ease: FlxEase.sineInOut
-				});
-			}
+				// ★ 盖板完全铺满后才切状态，LoadingState 首帧就是同一张盖板，中间不会露黑底
+				if (finishCallback != null)
+				{
+					var cb:Void->Void = finishCallback;
+					finishCallback = null;
+					cb();
+				}
+			});
 			return;
 		}
 		
@@ -195,6 +179,24 @@ class CustomFadeTransition extends MusicBeatSubstate {
 		});
 	}
 
+	public function startCoverTween(from:Float, to:Float, onDone:Void->Void)
+	{
+		if (coverTween != null) coverTween.cancel();
+
+		coverTween = FlxTween.num(from, to, duration, {
+			type: ONESHOT,
+			ease: FlxEase.sineInOut,
+			onComplete: function(_) {
+				coverTween = null;
+				onDone();
+			}
+		}, function(v:Float) {
+			// 底色和 funkay 同一条曲线，保证收尾那一刻两者都精确到达 0 / 1
+			if (greenBg != null) greenBg.alpha = v;
+			if (loadingSprite != null) loadingSprite.alpha = v;
+		});
+	}
+
 	override function close():Void
 	{
 		// 取消所有 tween
@@ -202,13 +204,9 @@ class CustomFadeTransition extends MusicBeatSubstate {
 			effectTween.cancel();
 			effectTween = null;
 		}
-		if (loadingTween != null) {
-			loadingTween.cancel();
-			loadingTween = null;
-		}
-		if (greenBgTween != null) {
-			greenBgTween.cancel();
-			greenBgTween = null;
+		if (coverTween != null) {
+			coverTween.cancel();
+			coverTween = null;
 		}
 		// 如果是像素模式且为进入，清除滤镜
 		if (isPixelTransition && camera != null && isTransIn)

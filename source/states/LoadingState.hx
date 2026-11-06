@@ -81,6 +81,11 @@ class LoadingState extends MusicBeatState
 	var fadeInDuration:Float = 0.5; // 渐变进入持续时间（秒）
 	var fadeInTimer:Float = 0;
 
+	// loading 盖板模式的收尾计时（不做 alpha 淡出，只留一点时间让进度条补满）
+	var isFinishing:Bool = false;
+	var finishTimer:Float = 0;
+	var finishDelay:Float = 0.1;
+
 	#if PSYCH_WATERMARKS
 	var logo:FlxSprite;
 	var pessy:FlxSprite;
@@ -195,14 +200,25 @@ class LoadingState extends MusicBeatState
 		addBehindBar(funkay);
 		#end
 		
-		// 设置所有元素初始透明度为0（完全透明），然后开始渐变进入
-		setAllAlpha(0.0);
-		isFadingIn = true;
-		fadeInTimer = 0;
-		fadeInAlpha = 0;
-		
-		// 进度条在渐变进入期间不可见
-		barGroup.alpha = 0;
+		// loading 过渡用不透明的纯色盖板接管画面：进场时上一段过渡刚把同一张盖板铺满到 1.0，
+		// 这里再淡入一遍只会二次重影，而且会空转 fadeInDuration 秒（进度条这期间还是 alpha 0），
+		// 所以盖板模式下直接满不透明接手
+		if (usesCoverTransition())
+		{
+			isFadingIn = false;
+			barGroup.alpha = 1;
+		}
+		else
+		{
+			// 设置所有元素初始透明度为0（完全透明），然后开始渐变进入
+			setAllAlpha(0.0);
+			isFadingIn = true;
+			fadeInTimer = 0;
+			fadeInAlpha = 0;
+
+			// 进度条在渐变进入期间不可见
+			barGroup.alpha = 0;
+		}
 		
 		super.create();
 
@@ -218,10 +234,16 @@ class LoadingState extends MusicBeatState
 		insert(members.indexOf(barGroup), obj);
 	}
 
+	// loading 过渡是全程不透明的纯色盖板，没有 alpha 淡入淡出可言
+	public static inline function usesCoverTransition():Bool
+	{
+		return ClientPrefs.data.transitionType == "loading";
+	}
+
 	// 设置所有加载界面元素的透明度
 	function setAllAlpha(alpha:Float)
 	{
-		if (ClientPrefs.data.transitionType == "loading")  return;
+		if (usesCoverTransition()) return;
 
 		#if PSYCH_WATERMARKS
 		for (member in members)
@@ -335,6 +357,16 @@ class LoadingState extends MusicBeatState
 				setAllAlpha(fadeOutAlpha);
 			}
 		}
+		else if (isFinishing)
+		{
+			// 盖板模式收尾：不做淡出，等进度条补满就交棒
+			finishTimer -= elapsed;
+			if (finishTimer <= 0)
+			{
+				isFinishing = false;
+				onLoad();
+			}
+		}
 		
 		#if HSCRIPT_ALLOWED
 		if(hscript != null)
@@ -419,6 +451,15 @@ class LoadingState extends MusicBeatState
 	// 开始渐变透明效果
 	function startFadeOut()
 	{
+		// 盖板模式：淡出等于把下面的黑底露出来，正是"中间黑屏一下"的来源。
+		// 这里只留极短时间让进度条补到 100%，画面始终不透明地交给目标状态自己的淡出
+		if (usesCoverTransition())
+		{
+			isFinishing = true;
+			finishTimer = finishDelay;
+			return;
+		}
+
 		isFadingOut = true;
 		fadeOutTimer = 0;
 		fadeOutAlpha = 1;
@@ -440,12 +481,15 @@ class LoadingState extends MusicBeatState
 	var finishedLoading:Bool = false;
 	function onLoad()
 	{
+		final cover:Bool = usesCoverTransition();
 		_loaded();
 
 		if (stopMusic && FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
-		FlxG.camera.visible = false;
+		// ★ 盖板模式不能把相机藏掉：藏掉整帧就是纯黑，而这里到目标界面接过画面还有一帧以上，
+		// 那几帧黑屏就是切换时"闪黑一下"的直接来源。盖板留着，交给目标界面的 trans-in 淡出
+		if (!cover) FlxG.camera.visible = false;
 		MusicBeatState.switchState(target);
 		transitioning = true;
 		finishedLoading = true;
@@ -458,7 +502,11 @@ class LoadingState extends MusicBeatState
 		initialThreadCompleted = true;
 		isIntrusive = false;
 
-		if (ClientPrefs.data.transitionType == 'fade') FlxTransitionableState.skipNextTransIn = true;
+		// 'fade' / 'loading' 都靠目标界面自己的 trans-in 接手淡出，这里跳过 LoadingState 的 trans-out。
+		// loading 模式下的 trans-out 只会把同一张盖板再淡入一遍（画面上什么都没变），
+		// 白白多等 0.5 秒；更早之前那 0.5 秒还被 camera.visible=false 变成了纯黑
+		final transType:String = ClientPrefs.data.transitionType;
+		if (transType == 'fade' || transType == 'loading') FlxTransitionableState.skipNextTransIn = true;
 		if (threadPool != null) threadPool.shutdown(); // kill all workers safely
 		threadPool = null;
 		mutex = null;
