@@ -549,7 +549,12 @@ class LoadingState extends MusicBeatState
 		loadNextDirectory();
 
 		if(intrusive)
+		{
+			// 盖板模式：上一步的过渡已经把同一张纯色盖板铺满到 1.0，LoadingState 自己再叠一层
+			// trans-in 只是重复绘制（还会把进度条压在下面淡入），这里直接跳过
+			if (usesCoverTransition()) FlxTransitionableState.skipNextTransOut = true;
 			return new LoadingState(target, stopMusic);
+		}
 		
 		if (stopMusic && FlxG.sound.music != null)
 			FlxG.sound.music.stop();
