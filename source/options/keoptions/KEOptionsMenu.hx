@@ -1161,7 +1161,7 @@ function onScrollChange()
 			KEOption.create("Divide Draw And Update", "Draw and Update in separate threads", "devideDrawAndUpdate", "bool"),
 			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 480, 1),
 			KEOption.create("Update Rate", "Target update rate", "updaterate", "int", 60, 60, 480, 1),
-			KEOption.create("Unlimited FPS", "Remove framerate cap (also for update rate)", "unlimitedFPS", "bool"),
+			KEOption.create("Unlimited FPS", "Remove framerate cap (lime UNCAPPED, takes priority over FPS Rework)", "unlimitedFPS", "bool"),
 			KEOption.create("FPS Rework", "Make ur game more smooth", "fpsRework", "bool")
 		];
 	}

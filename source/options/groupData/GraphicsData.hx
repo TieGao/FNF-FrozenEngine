@@ -73,7 +73,7 @@ class GraphicsData
         var ups = new Option('Update Rate', 'Target update rate', 'updaterate', INT);
         ups.minValue = 60; ups.maxValue = 480; ups.changeValue = 1; sub.add(ups);
 
-        sub.add(new Option('Unlimited FPS', 'Remove framerate cap (also for update rate)', 'unlimitedFPS', BOOL));
+        sub.add(new Option('Unlimited FPS', 'Remove framerate cap (lime UNCAPPED, takes priority over FPS Rework)', 'unlimitedFPS', BOOL));
         sub.add(new Option('FPS Rework', 'Make ur game more smooth', 'fpsRework', BOOL));
 
         var sub2 = cat.section('FPSCounter', 'FPS Counter');

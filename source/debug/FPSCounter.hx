@@ -251,7 +251,9 @@ class FPSCounter extends TextField
 	var deltaTimeout:Float = 0.0;
 	private override function __enterFrame(deltaTime:Float):Void
 	{
-		if (ClientPrefs.data.fpsRework)
+		// UNCAPPED 期间 lime 主循环不再限速，fpsRework 的 1.5s 回写只会把
+		// update/draw 帧率和 window.frameRate 改来改去；无限帧率优先，直接跳过。
+		if (ClientPrefs.data.fpsRework && !ClientPrefs.data.unlimitedFPS)
 		{
 			// Flixel keeps reseting this to 60 on focus gained
 			if (FlxG.stage.window.frameRate != ClientPrefs.data.framerate && FlxG.stage.window.frameRate != FlxG.game.focusLostFramerate)
@@ -302,7 +304,9 @@ class FPSCounter extends TextField
 				return;
 			}
 
-			currentFPS = times.length < FlxG.updateFramerate ? times.length : FlxG.updateFramerate;
+			// 无限制帧率时 FlxG.updateFramerate 只是名义值（lime 已忽略它），
+			// 拿它当显示上限会把几百 FPS 截成 60；直接报 1 秒窗口内的帧数。
+			currentFPS = ClientPrefs.data.unlimitedFPS ? times.length : (times.length < FlxG.updateFramerate ? times.length : FlxG.updateFramerate);
 			// 在不使用 fpsRework 时，TPS 等于 FPS
 			currentTPS = currentFPS;
 			deltaTimeout = 0.0;

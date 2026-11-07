@@ -111,15 +111,23 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		option.minValue = 60;
 		option.maxValue = 240;
 		option.defaultValue = Std.int(FlxMath.bound(refreshRate, option.minValue, option.maxValue));
-		option.displayFormat = '%v FPS';
-		option.onChange = onChangeFramerate;
-		#end
+	option.displayFormat = '%v FPS';
+	option.onChange = onChangeFramerate;
 
-		var option:Option = new Option('FPS Rework',
-			"If checked, this works around the game becoming \"slow\" and \"smooth\" when the current FPS is lower than the FPS cap.",
-			'fpsRework',
-			BOOL);
-		addOption(option);
+	var unlimitedOption:Option = new Option('Unlimited FPS',
+		"Removes the framerate cap (lime UNCAPPED profile). Takes priority over FPS Rework.",
+		'unlimitedFPS',
+		BOOL);
+	unlimitedOption.onChange = onChangeFramerate;
+	addOption(unlimitedOption);
+	#end
+
+	var option:Option = new Option('FPS Rework',
+		"If checked, this works around the game becoming \"slow\" and \"smooth\" when the current FPS is lower than the FPS cap.",
+		'fpsRework',
+		BOOL);
+	option.onChange = onChangeFramerate;
+	addOption(option);
 
 		super();
 		insert(1, boyfriend);
@@ -146,26 +154,7 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 
 	function onChangeFramerate()
 	{
-		if(ClientPrefs.data.framerate > FlxG.drawFramerate)
-		{
-			if (ClientPrefs.data.fpsRework)
-				FlxG.stage.window.frameRate = ClientPrefs.data.framerate;
-			else
-			{
-				FlxG.updateFramerate = ClientPrefs.data.framerate;
-				FlxG.drawFramerate = ClientPrefs.data.framerate;
-			}
-		}
-		else
-		{
-			if (ClientPrefs.data.fpsRework)
-				FlxG.stage.window.frameRate = ClientPrefs.data.framerate;
-			else
-			{
-				FlxG.drawFramerate = ClientPrefs.data.framerate;
-				FlxG.updateFramerate = ClientPrefs.data.framerate;
-			}
-		}
+		ClientPrefs.applyFrameTiming();
 	}
 	
 	function onChangeResolution()

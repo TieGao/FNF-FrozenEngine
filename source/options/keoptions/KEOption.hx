@@ -665,15 +665,10 @@ class KEOption
 	private function applyImmediateChanges()
 	{
 		switch(variable) {
-			case "framerate":
-				if(ClientPrefs.data.framerate > FlxG.drawFramerate) {
-					FlxG.updateFramerate = ClientPrefs.data.framerate;
-					FlxG.drawFramerate = ClientPrefs.data.framerate;
-				} else {
-					FlxG.drawFramerate = ClientPrefs.data.framerate;
-					FlxG.updateFramerate = ClientPrefs.data.framerate;
-				}
-			case "showFPS":
+		case "framerate", "updaterate", "unlimitedFPS", "fpsRework", "devideDrawAndUpdate":
+			// 所有帧率相关开关统一走 lime 帧调度入口（unlimitedFPS = FrameProfile.UNCAPPED）
+			ClientPrefs.applyFrameTiming();
+		case "showFPS":
 				if(Main.fpsVar != null)
 					Main.fpsVar.visible = ClientPrefs.data.showFPS;
 			case "autoPause":

@@ -741,6 +741,82 @@ class ClientPrefs {
 		FlxG.log.add("Settings saved!");
 	}
 
+	/**
+	 * 统一应用帧率 / lime 帧调度。loadPrefs() 与三套设置菜单的即时生效都走这里。
+	 *
+	 * unlimitedFPS 用 lime 8.4.0 官方的 FrameProfile.UNCAPPED：主循环忽略 window.frameRate，
+	 * 一帧结束立刻开下一帧（UncapMode.SOFT 保留常规事件处理）。必须同时关掉 vsync，
+	 * 否则 realVSyncActive 仍把每帧锁在显示器刷新率。
+	 *
+	 * 别写成 `FlxG.drawFramerate = 0`：本机 lime 8.4.0 的
+	 * SDLApplication::ApplyMainLoopSettings() 把 <= 0 的帧率当成 effectiveFrameRate = 1.0
+	 * （约 1 FPS），flixel 6.2.1 那边还会算出 _stepMS / _maxAccumulation = Inf。
+	 */
+	public static function applyFrameTiming():Void
+	{
+		#if (!html5 && !switch)
+		if (FlxG.stage != null && FlxG.stage.application != null)
+		{
+			final app = FlxG.stage.application;
+			if (data.unlimitedFPS)
+			{
+				app.configureFrameTiming(lime.app.FrameProfile.UNCAPPED,
+					{uncapMode: lime.app.UncapMode.SOFT}, lime.app.VSyncMode.OFF);
+				return;
+			}
+
+			app.configureFrameTiming(lime.app.FrameProfile.BALANCED,
+				{uncapMode: lime.app.UncapMode.OFF},
+				data.vsync ? lime.app.VSyncMode.ON : lime.app.VSyncMode.OFF);
+		}
+		#end
+
+		// 无限制帧率时不动 FlxG.*Framerate：它们只决定 stage.frameRate 与固定步长，
+		// 而 UNCAPPED 由 lime 主循环直接放行，写这些值只会带来抖动。
+		if (data.unlimitedFPS) return;
+
+		// 核心修改：正确区分设置 Update 和 Draw 帧率
+		if (data.fpsRework)
+		{
+			// 使用 fpsRework 模式，可以完全分离 TPS 和 FPS
+			FlxG.stage.window.frameRate = data.framerate;  // 绘制帧率（屏幕刷新）
+			
+			if (data.devideDrawAndUpdate)
+			{
+				// 完全分离模式：更新速率和绘制速率可以完全不同
+				var drawFps = Std.int(FlxMath.bound(data.framerate, 30, 480));
+				var updateTps = Std.int(FlxMath.bound(data.updaterate, 30, 480));
+				
+				FlxG.drawFramerate = drawFps;
+				FlxG.updateFramerate = updateTps;
+			}
+			else
+			{
+				// 同步模式：更新速率跟随绘制速率（传统行为）
+				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
+				FlxG.drawFramerate = fps;
+				FlxG.updateFramerate = fps;
+			}
+		}
+		else
+		{
+			// 传统模式（不使用 fpsRework）
+			if (data.devideDrawAndUpdate)
+			{
+				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
+				var tps = Std.int(FlxMath.bound(data.updaterate, 30, 480));
+				FlxG.drawFramerate = fps;
+				FlxG.updateFramerate = tps;
+			}
+			else
+			{
+				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
+				FlxG.updateFramerate = fps;
+				FlxG.drawFramerate = fps;
+			}
+		}
+	}
+
 	public static function loadPrefs() {
 		#if ACHIEVEMENTS_ALLOWED Achievements.load(); #end
 
@@ -808,46 +884,7 @@ class ClientPrefs {
 		@:privateAccess openfl.Lib.current.stage.__setLogicalSize(Std.int(output[0]), Std.int(output[1]));
 		#end
 
-		// 核心修改：正确区分设置 Update 和 Draw 帧率
-		if (data.fpsRework)
-		{
-			// 使用 fpsRework 模式，可以完全分离 TPS 和 FPS
-			FlxG.stage.window.frameRate = data.framerate;  // 绘制帧率（屏幕刷新）
-			
-			if (data.devideDrawAndUpdate)
-			{
-				// 完全分离模式：更新速率和绘制速率可以完全不同
-				var drawFps = Std.int(FlxMath.bound(data.framerate, 30, 480));
-				var updateTps = Std.int(FlxMath.bound(data.updaterate, 30, 480));
-				
-				FlxG.drawFramerate = drawFps;
-				FlxG.updateFramerate = updateTps;
-			}
-			else
-			{
-				// 同步模式：更新速率跟随绘制速率（传统行为）
-				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
-				FlxG.drawFramerate = fps;
-				FlxG.updateFramerate = fps;
-			}
-		}
-		else
-		{
-			// 传统模式（不使用 fpsRework）
-			if (data.devideDrawAndUpdate)
-			{
-				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
-				var tps = Std.int(FlxMath.bound(data.updaterate, 30, 480));
-				FlxG.drawFramerate = fps;
-				FlxG.updateFramerate = tps;
-			}
-			else
-			{
-				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
-				FlxG.updateFramerate = fps;
-				FlxG.drawFramerate = fps;
-			}
-		}
+		applyFrameTiming();
 
 		if(FlxG.save.data.gameplaySettings != null)
 		{
