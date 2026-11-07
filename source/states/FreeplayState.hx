@@ -184,14 +184,81 @@ class FreeplayState extends MusicBeatState
     
     var freeplaySongCache:Map<String, Dynamic> = new Map<String, Dynamic>();
     var freeplayCacheDirty:Bool = false;
-    var difficultyPreloadQueue:Array<Dynamic> = [];
     var menuBgGraphicCache:Map<String, Dynamic> = new Map<String, Dynamic>();
+
+    // ===================== 转化调度：单难度任务 + 时间预算 =====================
+    /**
+     * 待解析任务按歌分桶。桶内顺序就是执行顺序（当前难度排最前，其余按入队顺序）。
+     * 用「歌 → 桶」而不是扁平队列：挑「离选中最近的一首」时每帧只比较歌曲数（几百次），
+     * 滚出窗口时整桶丢弃是 O(1)，同歌连续读盘对 OS 缓存也友好。
+     */
+    var preloadBySong:Map<NewSongMetaData, Array<Dynamic>> = new Map();
+    /** 还有待办的歌 —— pickNearestPendingSong 只遍历它 */
+    var pendingSongs:Array<NewSongMetaData> = [];
+    /** 歌 → 当前 songs 下标；换来源 / 重建列表时刷新 */
+    var songIndexMap:Map<NewSongMetaData, Int> = new Map();
+    /** 歌 → 回填所需的上下文（只在不写缓存、按可视窗口补解析时用到） */
+    var songPreloadCtx:Map<NewSongMetaData, Dynamic> = new Map();
+    /** 卡片脏标记：完成一项只打标记，每帧末尾统一刷一次，避免一帧刷十次 FlxText */
+    var dirtyCards:Array<Bool> = [];
+    var dirtySelected:Bool = false;
+    /** 窗口模式上次扫过的下标，避免每帧重扫可视范围 */
+    var lastWindowSelected:Int = -1;
+
+    /** 距上次「有意义的输入」的时间；决定用 3ms 还是 8ms 预算 */
+    var idleInput:Float = 0;
+    /** 队列连续为空的时长，用于空闲后落盘 */
+    var idleSinceEmpty:Float = 0;
+    var lastCacheSaveAt:Float = 0;
+
+    /**
+     * 每帧分给转化的比例（占「目标帧时间」的比例，不是固定毫秒）。
+     * 固定 8ms 在 240fps 下等于两帧，会直接把帧率压到 80 —— 必须跟着 drawFramerate 走。
+     */
+    static inline var PRELOAD_SHARE_ACTIVE:Float = 0.30;
+    /** 静止 1s 后放宽（此时没有滚动，掉一点点帧也看不出来） */
+    static inline var PRELOAD_SHARE_IDLE:Float = 0.60;
+    /** 预算硬上限，防止低帧率下把整帧吃掉 */
+    static inline var PRELOAD_BUDGET_CAP:Float = 8.0;
+    /** 预算下限，保证总有推进 */
+    static inline var PRELOAD_BUDGET_FLOOR:Float = 0.8;
+    /** 单帧最多处理多少档，防止极短谱面把一帧占满 */
+    static inline var PRELOAD_MAX_ITEMS:Int = 32;
+    /** 不写缓存时只解析选中谱面 ±PRELOAD_WINDOW 首 */
+    static inline var PRELOAD_WINDOW:Int = 10;
+    /** 超出这个距离还没轮到就直接丢弃 */
+    static inline var PRELOAD_DROP_DIST:Int = 16;
+    /** 队列空闲多久后允许落盘 */
+    static inline var CACHE_SAVE_IDLE:Float = 3.0;
+    /** 两次落盘的最小间隔（转一半退出也不至于全丢） */
+    static inline var CACHE_SAVE_INTERVAL:Float = 8.0;
+    /** 转化还在进行中也强制落盘的最长间隔 */
+    static inline var CACHE_SAVE_FORCE:Float = 15.0;
 
     // ===================== 转换进度提示 =====================
     /** 本轮待处理难度总数（内容包解析 / 谱面转换都算，按难度计） */
     var convertTotal:Int = 0;
     /** 已处理完的难度数 */
     var convertDone:Int = 0;
+    /** 进度条显示的单调值：窗口模式下 convertTotal 会收缩，这里只增不减，避免条倒退 */
+    var convertShown:Float = 0;
+    /** 本轮剖析是否已经出过报告（队列跑空时打一次） */
+    var profileDumped:Bool = false;
+
+    /** 代际号：换来源 / 离开界面时 ++，后台线程回来的旧结果按它丢弃 */
+    var preloadEpoch:Int = 0;
+
+    #if (cpp && lime_threads)
+    /** 后台解析：同一时刻只跑一个 —— hxcpp 的 GC 是全局 stop-the-world，并发只会互相拖 */
+    var threadedBusy:Bool = false;
+    var threadedAt:Float = 0;
+    var threadedTask:Dynamic = null;
+    /** 超时过一次就永久降级同步，不再派新任务。做成 static：坏机器只在本次进程里付一次 3s，
+     *  而不是每进一次 Freeplay 都白等一遍。 */
+    static var threadedDead:Bool = false;
+    /** 后台结果队列：lime 的 ThreadPool 回调本来就派回主线程，直接 push 不用加锁 */
+    static var threadedResults:Array<Dynamic> = [];
+    #end
     /** 常驻提示（objects.MessageBox.showProgress），底部那根条就是进度 */
     var convertToast:MessageBox = null;
         
@@ -297,6 +364,11 @@ class FreeplayState extends MusicBeatState
         persistentUpdate = true;
         PlayState.isStoryMode = false;
         freeplaySongCache = loadFreeplaySongCache();
+        // 增量落盘的计时基准：不设的话第一帧就会判定「距上次写盘很久」直接写一次
+        lastCacheSaveAt = haxe.Timer.stamp();
+        idleSinceEmpty = 0;
+        idleInput = 0;
+        lastWindowSelected = -1;
         WeekData.reloadWeekFiles(false);
         options.keoptions.KEOptionsMenu.isFreeplay = true;
         options.keoptions.KEOptionsMenu.onPlayState = false;
@@ -861,29 +933,73 @@ class FreeplayState extends MusicBeatState
                 return;
             }
             var pendingDiffs:Array<String> = filterPendingDifficulties(songName, song.folder, weekData, missingDiffs);
-            if (pendingDiffs.length > 0)
-                enqueuePreload({ song: song, songName: songName, folder: song.folder, difficulties: pendingDiffs, weekData: weekData, cacheKey: cacheKey },
-                    pendingDiffs.length);
+            enqueueChartDiffs(song, weekData, cacheKey, pendingDiffs);
             songs.push(song);
             return;
         }
 
         var pendingDiffs:Array<String> = filterPendingDifficulties(songName, song.folder, weekData, difficulties);
-        if (pendingDiffs.length > 0)
-            enqueuePreload({ song: song, songName: songName, folder: song.folder, difficulties: pendingDiffs, weekData: weekData, cacheKey: cacheKey },
-                pendingDiffs.length);
+        enqueueChartDiffs(song, weekData, cacheKey, pendingDiffs);
         songs.push(song);
     }
 
     /**
-     * 入队一个预加载任务，并把它的「进度权重」累进总量。
-     * units 按难度算：转化一首 3 难度的歌，进度条走 3 格。
+     * 把一首歌待解析的难度逐个入队。
+     * 每个难度 = 一个独立任务 —— 旧实现是「一首歌的全部难度塞进一帧」，
+     * 单帧 10~30ms，进去后连着掉两百多帧。
      */
-    private function enqueuePreload(item:Dynamic, units:Int):Void
+    private function enqueueChartDiffs(song:NewSongMetaData, weekData:WeekData, cacheKey:String, diffs:Array<String>):Void
     {
-        item.units = units;
-        convertTotal += units;
-        difficultyPreloadQueue.push(item);
+        if (song == null || diffs == null || diffs.length == 0) return;
+
+        // 窗口模式滚回来时要能重新入队，这里把上下文留一份
+        songPreloadCtx.set(song, {weekData: weekData, cacheKey: cacheKey, diffs: diffs.copy()});
+
+        // 不写缓存（只看可视范围）时先不铺开：让第一帧的 ensureWindowPreload
+        // 按选中位置只补 ±PRELOAD_WINDOW，省掉几百个建完就丢的任务对象。
+        if (!ClientPrefs.data.saveFreeplayCache) return;
+
+        for (diffName in diffs)
+        {
+            enqueuePreloadTask({
+                kind: 'chart',
+                song: song,
+                diffName: diffName,
+                weekData: weekData,
+                cacheKey: cacheKey,
+                weight: 1
+            });
+        }
+    }
+
+    /**
+     * 入队单个任务，并把它的进度权重累进总量。
+     * 同一档已经在队列里就不重复入队（窗口模式会反复扫可视范围）。
+     */
+    private function enqueuePreloadTask(task:Dynamic):Void
+    {
+        var bucket:Array<Dynamic> = preloadBySong.get(task.song);
+        if (bucket == null)
+        {
+            bucket = [];
+            preloadBySong.set(task.song, bucket);
+            pendingSongs.push(task.song);
+        }
+
+        for (existing in bucket)
+        {
+            if (existing.kind == task.kind && existing.diffName == task.diffName)
+                return;
+        }
+
+        // 当前难度排最前：卡片上显示的正是这一档的 BPM / 时长
+        var currentDiff:String = Difficulty.getString(curDifficulty, false);
+        if (task.kind == 'chart' && currentDiff != null && task.diffName == currentDiff)
+            bucket.unshift(task);
+        else
+            bucket.push(task);
+
+        convertTotal += (task.weight == null) ? 1 : task.weight;
     }
 
     /**
@@ -927,10 +1043,21 @@ class FreeplayState extends MusicBeatState
                     && !CustomChartData.isChartFailed(chart.customChart.song, difficulty))
                     missingInfo.push(difficulty);
             }
-            if (missingInfo.length > 0)
+            // 单难度任务：一首 3 档的歌 = 3 格，且每档可被时间预算截断。
+            // 不写缓存时同样先不铺开 —— 交给 ensureWindowPreload 按选中位置补。
+            if (ClientPrefs.data.saveFreeplayCache)
             {
-                // 进度按难度计：一首 3 档的歌走 3 格，条动得更细
-                enqueuePreload({customChart: chart.customChart}, missingInfo.length);
+                for (difficulty in missingInfo)
+                {
+                    enqueuePreloadTask({
+                        kind: 'custom',
+                        song: chart,
+                        diffName: difficulty,
+                        weekData: null,
+                        cacheKey: null,
+                        weight: 1
+                    });
+                }
             }
         }
     }
@@ -1082,7 +1209,7 @@ class FreeplayState extends MusicBeatState
         return SongInfoParser.getChartStamp(songName, folder, diffName, weekData) == recorded;
     }
 
-    /** 缓存条目必须具备的字段，与 buildFreeplayCacheEntry 写入的字段一一对应。 */
+    /** 缓存条目必须具备的字段，与 cacheFieldFor 写入的字段一一对应。 */
     static var CACHE_REQUIRED_FIELDS:Array<String> = [
         'bpm', 'length', 'formattedLength', 'noteCount', 'keyCount',
         'playerNoteCount', 'opponentNoteCount', 'difficultyRating',
@@ -1120,38 +1247,30 @@ class FreeplayState extends MusicBeatState
         return true;
     }
 
-    private function buildFreeplayCacheEntry(infoMap:Map<String, ParsedSongInfo>):Dynamic
+    /** 单个难度的缓存字段。字段表必须与 CACHE_REQUIRED_FIELDS 保持一致。 */
+    private function cacheFieldFor(info:ParsedSongInfo):Dynamic
     {
-        var entry:Dynamic = {};
-        entry.data = {};
-        for (diffName in infoMap.keys())
-        {
-            var info:ParsedSongInfo = infoMap.get(diffName);
-            if (info == null)
-                continue;
-
-            Reflect.setField(entry.data, diffName, {
-                bpm: info.bpm,
-                length: info.length,
-                formattedLength: info.formattedLength,
-                noteCount: info.noteCount,
-                // 必须与 requiredFields 保持一致：漏写会让缓存条目永远缺这个字段，
-                // 卡片 KEYS 变成 --，而且因为校验也漏了它，旧条目一直"有效"、不会重算。
-                keyCount: info.keyCount,
-                playerNoteCount: info.playerNoteCount,
-                opponentNoteCount: info.opponentNoteCount,
-                difficultyRating: info.difficultyRating,
-                difficultyRatingPlayer: info.difficultyRatingPlayer,
-                difficultyRatingOpponent: info.difficultyRatingOpponent,
-                difficultyRatingCoop: info.difficultyRatingCoop,
-                ratingText: info.ratingText,
-                ratingColor: info.ratingColor,
-                // 缓存必须带上 album，否则开了 saveFreeplayCache 的玩家拿不到封面。
-                // 注意 isParsedSongInfoValid 的 requiredFields 不能加它 —— 老缓存没这个字段。
-                album: info.album
-            });
-        }
-        return entry;
+        if (info == null) return null;
+        return {
+            bpm: info.bpm,
+            length: info.length,
+            formattedLength: info.formattedLength,
+            noteCount: info.noteCount,
+            // 必须与 requiredFields 保持一致：漏写会让缓存条目永远缺这个字段，
+            // 卡片 KEYS 变成 --，而且因为校验也漏了它，旧条目一直"有效"、不会重算。
+            keyCount: info.keyCount,
+            playerNoteCount: info.playerNoteCount,
+            opponentNoteCount: info.opponentNoteCount,
+            difficultyRating: info.difficultyRating,
+            difficultyRatingPlayer: info.difficultyRatingPlayer,
+            difficultyRatingOpponent: info.difficultyRatingOpponent,
+            difficultyRatingCoop: info.difficultyRatingCoop,
+            ratingText: info.ratingText,
+            ratingColor: info.ratingColor,
+            // 缓存必须带上 album，否则开了 saveFreeplayCache 的玩家拿不到封面。
+            // 注意 isParsedSongInfoValid 的 requiredFields 不能加它 —— 老缓存没这个字段。
+            album: info.album
+        };
     }
 
     private function loadFreeplaySongCache():Map<String, Dynamic>
@@ -1374,6 +1493,13 @@ class FreeplayState extends MusicBeatState
         for (i in 0...songs.length) cards.push(null);
         visibleCardMin = 0;
         visibleCardMax = -1;
+
+        // 脏标记与「歌 → 下标」索引必须跟着列表一起重建，否则转化完成的卡片刷不到
+        dirtyCards = [];
+        for (i in 0...songs.length) dirtyCards.push(false);
+        dirtySelected = false;
+        lastWindowSelected = -1;
+        rebuildSongIndexMap();
     }
 
     private function ensureCard(index:Int):FreeplayCard
@@ -2170,10 +2296,16 @@ class FreeplayState extends MusicBeatState
         if (cardsNeedRefresh && !inModFolderSelector)
             refreshCardsAfterSourceChange();
 
+        // 转化预算靠它判断「玩家是否在操作」：有滚动 / 点击 / 按键就回落到 3ms，
+        // 完全静止 1 秒后放宽到 8ms。
+        idleInput += elapsed;
+        if (FlxG.mouse.justPressed || FlxG.mouse.wheel != 0 || FlxG.keys.pressed.ANY)
+            idleInput = 0;
+
         updateScoreLerp(elapsed);
         updateCardScroll(elapsed);
         updateTextsThrottled(elapsed);
-        processPreloadQueue();
+        processPreloadQueue(elapsed);
         handleMouseInput();
         handleKeyboardInput(elapsed);
 
@@ -2237,106 +2369,484 @@ class FreeplayState extends MusicBeatState
         updateTimer = 0;
     }
 
-    /** 每帧最多处理 1 个预加载任务（防止卡顿）；队列空了再把缓存落盘。 */
-    private function processPreloadQueue():Void
+    /**
+     * 每帧按时间预算推进转化。
+     * 预算：滚动 / 刚有操作时 3ms，静止 1s 后放宽到 8ms —— 静止帧本来就有富余，
+     * 白白省下一半墙钟时间又不影响手感。
+     */
+    private function processPreloadQueue(elapsed:Float):Void
     {
-        if (difficultyPreloadQueue.length == 0)
+        // 增量落盘：队列空闲后写一次，另外每 15s 强写一次 —— 转化途中崩溃/强退
+        // 最多丢最后 15 秒，而不是整轮白转。
+        flushCacheIfDue();
+
+        // 后台解析的结果先收回来（没有开启线程时这两句是空函数）
+        drainThreadedResults();
+        checkThreadedTimeout();
+
+        // 开了后台解析且还有任务在跑：这一帧什么都不做，等结果回来。
+        // 少了这一句，主线程会在 worker 干活的间隙退化成同步解析 —— 等于白开线程。
+        #if (cpp && lime_threads)
+        var threadedPending:Bool = ClientPrefs.data.freeplayThreadedParse && !threadedDead && threadedBusy;
+        #else
+        var threadedPending:Bool = false;
+        #end
+
+        // 不写缓存时只解析可视范围：必须在两个分支之前，否则队列一空就再也补不上
+        // （下面会提前 return）。它内部按 curSelected 变化去重，每帧调用是廉价的。
+        if (!ClientPrefs.data.saveFreeplayCache) ensureWindowPreload();
+
+        if (pendingSongs.length == 0 && !threadedPending)
         {
-            finishConvertToast();
-            if (freeplayCacheDirty) saveFreeplaySongCache();
+            idleSinceEmpty += elapsed;
+            flushDirtyCards();
+            if (convertToast != null && idleSinceEmpty >= 0.5) finishConvertToast();
+            #if (debug || SONGINFO_PROFILE)
+            // 队列跑空就出报告（比放在 destroy 里可靠：直接关窗口时 destroy 不会走）
+            if (!profileDumped && idleSinceEmpty >= 1.0)
+            {
+                profileDumped = true;
+                trace('[Freeplay] 本轮转化完成：${convertDone}/${convertTotal} 档，目标 ${FlxG.drawFramerate}fps');
+                SongInfoParser.dumpProfile();
+                SongInfoParser.resetProfile();
+            }
+            #end
             return;
         }
+        idleSinceEmpty = 0;
 
-        // 提示单独占一帧：转换是同步阻塞的，同帧创建的话要等它跑完才画得出来
-        if (convertToast == null)
+        // 提示单独占一帧：转化是同步阻塞的，同帧创建的话要等它跑完才画得出来。
+        // 不写缓存（只解析可视范围）时不弹提示 —— 那种模式下转化是随滚动持续回填的，
+        // 挂个常驻条只会一直闪。
+        if (convertToast == null && ClientPrefs.data.saveFreeplayCache)
         {
             beginConvertToast();
             return;
         }
 
-        var item:Dynamic = difficultyPreloadQueue.shift();
-        runPreloadItem(item);
-        convertDone = Std.int(Math.min(convertTotal, convertDone + unitsOf(item)));
-        convertToast.setProgress(convertProgress());
+        if (threadedPending) return;
+
+        var scrolling:Bool = Math.abs(lerpSelected - cardScrollPos / CARD_SPACING) > 0.5;
+        var busy:Bool = (idleInput < 1.0) || scrolling;
+
+        // 预算按「目标帧时间的百分比」算，不写死毫秒。
+        // 240fps 目标 → 帧时间 4.17ms → 滚动时 1.25ms / 静止 2.5ms，帧率基本不受影响。
+        var targetFps:Int = (FlxG.drawFramerate > 0) ? FlxG.drawFramerate : 60;
+        var frameMs:Float = 1000.0 / targetFps;
+        var budget:Float = frameMs * (busy ? PRELOAD_SHARE_ACTIVE : PRELOAD_SHARE_IDLE);
+        if (budget > PRELOAD_BUDGET_CAP) budget = PRELOAD_BUDGET_CAP;
+        if (budget < PRELOAD_BUDGET_FLOOR) budget = PRELOAD_BUDGET_FLOOR;
+
+        var target:NewSongMetaData = pickNearestPendingSong();
+        if (target == null) return;
+
+        var bucket:Array<Dynamic> = preloadBySong.get(target);
+        if (bucket == null)
+        {
+            pendingSongs.remove(target);
+            return;
+        }
+
+        var start:Float = haxe.Timer.stamp();
+        var done:Int = 0;
+        while (bucket.length > 0 && done < PRELOAD_MAX_ITEMS)
+        {
+            var task:Dynamic = bucket.shift();
+            var dispatched:Bool = runPreloadTask(task);
+            convertDone += (task.weight == null) ? 1 : task.weight;
+            done++;
+
+            // 交给后台线程了：一帧只派一个，等结果回来再继续
+            if (dispatched) break;
+
+            // 至少做完一项再判预算，保证极小谱面不会把一帧占死
+            if ((haxe.Timer.stamp() - start) * 1000.0 >= budget) break;
+        }
+
+        if (bucket.length == 0)
+        {
+            preloadBySong.remove(target);
+            pendingSongs.remove(target);
+            #if sys
+            // 自定义谱面的 info 缓存按整首落盘：单难度化后每档都写一次会把 IO 翻三倍
+            if (target.customChart != null)
+                CustomChartData.flushInfoCache(target.customChart.song);
+            #end
+        }
+
+        flushDirtyCards();
+        if (convertToast != null) convertToast.setProgress(displayProgress());
     }
 
-    /** 队列项的进度权重（按难度算）。 */
-    private inline function unitsOf(item:Dynamic):Int
-        return (item.units == null) ? 0 : item.units;
-
-    /** 单个预加载任务的实际工作。 */
-    private function runPreloadItem(item:Dynamic):Void
+    /** 挑「离当前选中最近」的一首待办 —— 滚动改了 curSelected，下一帧自然换桶，不用排序。 */
+    private function pickNearestPendingSong():NewSongMetaData
     {
-        try
+        var best:NewSongMetaData = null;
+        var bestDist:Int = 0x7FFFFFFF;
+        for (song in pendingSongs)
         {
-            #if sys
-            if (item.customChart != null)
+            var idx:Null<Int> = songIndexMap.get(song);
+            var dist:Int = (idx == null) ? 0x7FFFFFFF
+                : (idx > curSelected ? idx - curSelected : curSelected - idx);
+            if (best == null || dist < bestDist)
             {
-                CustomChartData.preloadInfo(item.customChart.song);
-                item.customChart.difficultyInfo = item.customChart.song.info;
-                for (i in 0...songs.length)
-                {
-                    if (songs[i].customChart == item.customChart)
-                    {
-                        songs[i].difficultyInfo = cast item.customChart.difficultyInfo;
-                        if (i < cards.length && cards[i] != null)
-                            cards[i].updateRatingSprite();
-                        break;
-                    }
-                }
-            }
-            else
-            #end
-            {
-                var info = SongInfoParser.preloadAllDifficulties(item.songName, item.folder, item.difficulties, item.weekData);
-
-                // 合并进已有的 map，不能整体替换：命中缓存时 item.difficulties 只是
-                // 「缺的那几档」，替换会把已经解析好的评级丢掉，缓存条目也会被改写成只剩一半
-                // —— 症状是难度评级时有时无，且每次启动在两个子集之间来回翻转。
-                if (item.song.difficultyInfo == null)
-                    item.song.difficultyInfo = new Map<String, ParsedSongInfo>();
-                for (diffName in info.keys())
-                    item.song.difficultyInfo.set(diffName, info.get(diffName));
-
-                if (ClientPrefs.data.saveFreeplayCache)
-                {
-                    var entry:Dynamic = freeplaySongCache.get(item.cacheKey);
-                    if (entry == null || entry.data == null)
-                        entry = {data: {}};
-                    var fresh:Dynamic = buildFreeplayCacheEntry(info);
-                    for (field in Reflect.fields(fresh.data))
-                        Reflect.setField(entry.data, field, Reflect.field(fresh.data, field));
-
-                    // 仍然解析不出来的难度连同谱面时间戳一起记下，下次进 Freeplay 不再重试。
-                    // 谱面改动后时间戳会变，isMissingRecorded 就会放行重新解析。
-                    var itemDiffs:Array<String> = item.difficulties;
-                    for (diffName in itemDiffs)
-                    {
-                        if (isParsedSongInfoValid(item.song.difficultyInfo.get(diffName))) continue;
-                        if (entry.missing == null) entry.missing = {};
-                        Reflect.setField(entry.missing, diffName,
-                            SongInfoParser.getChartStamp(item.songName, item.folder, diffName, item.weekData));
-                    }
-
-                    freeplaySongCache.set(item.cacheKey, entry);
-                    freeplayCacheDirty = true;
-                }
-            }
-
-            if (item.customChart != null || item.song == songs[curSelected])
-            {
-                updateCardDifficultyInfo();
-                updateSongInfoTexts();
-                // album 和评级数字都是异步到达的，到了要一起刷新
-                showCharacterForIndex(curSelected, false);
-                if (difficultyCarousel != null)
-                    difficultyCarousel.refreshRatings(carouselRatingProvider);
+                bestDist = dist;
+                best = song;
             }
         }
-        catch(e:Dynamic)
+        return best;
+    }
+
+    /**
+     * 单个任务的实际工作：一个难度（普通谱面）或一档自定义谱面。
+     * 返回 true = 已经派给后台线程，本帧不再占时间。
+     */
+    private function runPreloadTask(task:Dynamic):Bool
+    {
+        var song:NewSongMetaData = task.song;
+        if (song == null) return false;
+
+        if (task.kind == 'custom')
+        {
+            try
+            {
+                #if sys
+                if (song.customChart == null) return false;
+                CustomChartData.preloadOneInfo(song.customChart.song, task.diffName);
+                song.customChart.difficultyInfo = song.customChart.song.info;
+                song.difficultyInfo = cast song.customChart.difficultyInfo;
+                #end
+                markCardDirty(song);
+            }
+            catch (e:Dynamic)
+            {
+                trace('Failed to preload custom chart info: $e');
+            }
+            return false;
+        }
+
+        // 先试后台线程：路径解析留在主线程（避开 Mods/Paths 两个全局），只把读+解析丢出去
+        if (tryThreadedParse(task)) return true;
+
+        try
+        {
+            applyChartInfo(task, SongInfoParser.preloadDifficulty(song.songName, song.folder, task.diffName, task.weekData));
+        }
+        catch (e:Dynamic)
         {
             trace('Failed to preload song info: $e');
         }
+        return false;
+    }
+
+    /**
+     * 把一档的解析结果写回歌曲 + 缓存，并打脏标记。
+     * 主线程同步 / 后台线程回调两条路共用，保证两条路的结果落法完全一致。
+     */
+    private function applyChartInfo(task:Dynamic, info:ParsedSongInfo):Void
+    {
+        if (task == null || info == null) return;
+        var song:NewSongMetaData = task.song;
+        if (song == null) return;
+
+        // 合并进已有的 map，不能整体替换：命中缓存时任务只覆盖「缺的那几档」，
+        // 替换会把已经解析好的评级丢掉 —— 症状是难度评级时有时无。
+        if (song.difficultyInfo == null)
+            song.difficultyInfo = new Map<String, ParsedSongInfo>();
+        song.difficultyInfo.set(task.diffName, info);
+
+        if (ClientPrefs.data.saveFreeplayCache && task.cacheKey != null)
+        {
+            var entry:Dynamic = freeplaySongCache.get(task.cacheKey);
+            if (entry == null || entry.data == null)
+                entry = {data: {}};
+
+            Reflect.setField(entry.data, task.diffName, cacheFieldFor(info));
+
+            // 仍然解析不出来的难度连同谱面时间戳一起记下，下次进 Freeplay 不再重试。
+            // 谱面改动后时间戳会变，isMissingRecorded 就会放行重新解析。
+            if (!isParsedSongInfoValid(info))
+            {
+                if (entry.missing == null) entry.missing = {};
+                Reflect.setField(entry.missing, task.diffName,
+                    SongInfoParser.getChartStamp(song.songName, song.folder, task.diffName, task.weekData));
+            }
+
+            freeplaySongCache.set(task.cacheKey, entry);
+            freeplayCacheDirty = true;
+        }
+
+        markCardDirty(song);
+    }
+
+    // ===================== 后台解析（可选，默认关） =====================
+    #if (cpp && lime_threads)
+    /**
+     * 派一个后台解析任务，成功返回 true。
+     *
+     * 边界很硬：worker 只做 File.getContent + Json.parse + 纯计算；
+     * 不碰 Paths / Mods / Assets / trace / 任何 flixel 对象。
+     * 路径解析必须留在主线程（resolveChartPathFor 内部会临时改写两个全局）。
+     */
+    private function tryThreadedParse(task:Dynamic):Bool
+    {
+        if (!ClientPrefs.data.freeplayThreadedParse) return false;
+        if (threadedDead || threadedBusy) return false;
+
+        var song:NewSongMetaData = task.song;
+        if (song == null) return false;
+
+        var resolved = SongInfoParser.resolveChartPathFor(song.songName, song.folder, task.diffName, task.weekData);
+        // 缺谱面、或只存在于编译期资源索引里（Assets.getText 不是线程安全的）→ 交回同步路径
+        if (resolved.path == null) return false;
+
+        var mode:String = SongInfoParser.resolveDifficultyMode();
+        var mirror:Null<Bool> = cast ClientPrefs.getGameplaySetting('mirrornotes', false, true);
+        var epoch:Int = preloadEpoch;
+
+        // 先置忙再建 Future：万一 lime 没真开线程（lime_threads 未定义时 Future 会同步执行），
+        // onComplete 会在构造过程中就触发，顺序反了就会永远卡在「忙」。
+        threadedBusy = true;
+        threadedAt = haxe.Timer.stamp();
+        threadedTask = task;
+
+        var future = new lime.app.Future<ParsedSongInfo>(
+            function() return SongInfoParser.parseChartFile(resolved.path, mode, false, mirror),
+            true // ★ 第二参才是 useThreads（LoadingState 传的是 isIntrusive，别照抄）
+        );
+        future.onComplete(function(info:ParsedSongInfo)
+        {
+            threadedResults.push({task: task, info: info, epoch: epoch});
+        });
+        future.onError(function(err:Dynamic)
+        {
+            threadedResults.push({task: task, info: null, epoch: epoch});
+        });
+        return true;
+    }
+
+    /** 主线程每帧取回结果 —— lime 的 ThreadPool 把回调派回主线程，这里不需要加锁。 */
+    private function drainThreadedResults():Void
+    {
+        if (threadedResults.length == 0) return;
+
+        var batch:Array<Dynamic> = threadedResults;
+        threadedResults = [];
+
+        for (result in batch)
+        {
+            if (result.epoch != preloadEpoch) continue; // 换来源 / 离开界面了，结果作废
+
+            threadedBusy = false;
+            threadedTask = null;
+
+            if (result.info != null)
+            {
+                applyChartInfo(result.task, result.info);
+                continue;
+            }
+
+            // 线程里搞不定（磁盘路径读不到 / 解析异常）：回主线程同步重试一次
+            try
+            {
+                var t:Dynamic = result.task;
+                applyChartInfo(t, SongInfoParser.preloadDifficulty(t.song.songName, t.song.folder, t.diffName, t.weekData));
+            }
+            catch (e:Dynamic)
+            {
+                trace('Failed to preload song info (sync retry): $e');
+            }
+        }
+    }
+
+    /** 卡死（网络盘 / 杀软锁文件）时没法 kill 原生线程，只能本会话降级同步。 */
+    private function checkThreadedTimeout():Void
+    {
+        if (!threadedBusy) return;
+        if (haxe.Timer.stamp() - threadedAt < 3.0) return;
+
+        threadedDead = true;
+        threadedBusy = false;
+        trace('Freeplay: 后台解析超时，本会话降级为同步解析');
+
+        // 超时的那个任务补一次同步，别把这一档弄丢
+        var t:Dynamic = threadedTask;
+        threadedTask = null;
+        if (t != null)
+        {
+            try
+            {
+                applyChartInfo(t, SongInfoParser.preloadDifficulty(t.song.songName, t.song.folder, t.diffName, t.weekData));
+            }
+            catch (e:Dynamic)
+            {
+                trace('Failed to preload song info (timeout retry): $e');
+            }
+        }
+    }
+    #else
+    private inline function drainThreadedResults():Void {}
+
+    private inline function checkThreadedTimeout():Void {}
+
+    private inline function tryThreadedParse(task:Dynamic):Bool
+        return false;
+    #end
+
+    /** 只打脏标记，真正的刷新留到每帧末尾统一做（一帧完成 10 档时不能刷 10 次 FlxText）。 */
+    private function markCardDirty(song:NewSongMetaData):Void
+    {
+        var idx:Null<Int> = songIndexMap.get(song);
+        if (idx == null) return;
+
+        if (idx >= visibleCardMin && idx <= visibleCardMax && idx < dirtyCards.length)
+            dirtyCards[idx] = true;
+        if (idx == curSelected) dirtySelected = true;
+    }
+
+    /** 把本帧变脏的卡片 / 选中项统一刷一次。 */
+    private function flushDirtyCards():Void
+    {
+        for (i in 0...dirtyCards.length)
+        {
+            if (!dirtyCards[i]) continue;
+            dirtyCards[i] = false;
+            if (i < cards.length && cards[i] != null) applyCardSongInfo(i, cards[i]);
+        }
+
+        if (dirtySelected)
+        {
+            dirtySelected = false;
+            updateSongInfoTexts();
+            // album 和评级数字都是异步到达的，到了要一起刷新
+            showCharacterForIndex(curSelected, false);
+            if (difficultyCarousel != null)
+                difficultyCarousel.refreshRatings(carouselRatingProvider);
+        }
+    }
+
+    /** 进度只增不减：窗口模式下 convertTotal 会随窗口收缩，直接除会让条倒退。 */
+    private inline function displayProgress():Float
+    {
+        var raw:Float = convertTotal > 0 ? Math.min(1, convertDone / convertTotal) : 1;
+        if (raw > convertShown) convertShown = raw;
+        return convertShown;
+    }
+
+    /**
+     * 不写缓存时只解析「选中 ± PRELOAD_WINDOW」，滚太远的待办直接丢。
+     * 只在换选中或队列空了时重扫，避免每帧几十次 Reflect 校验。
+     */
+    private function ensureWindowPreload():Void
+    {
+        if (songs.length == 0) return;
+        // 只在选中项变了时重扫：否则每帧 20 多首歌 × 3 档 × 14 个字段的 Reflect 校验白烧
+        if (curSelected == lastWindowSelected) return;
+        lastWindowSelected = curSelected;
+
+        var from:Int = Std.int(Math.max(0, curSelected - PRELOAD_WINDOW));
+        var to:Int = Std.int(Math.min(songs.length - 1, curSelected + PRELOAD_WINDOW));
+        for (i in from...to + 1)
+            enqueueWindowSong(songs[i]);
+
+        dropFarPendingTasks();
+    }
+
+    private function enqueueWindowSong(song:NewSongMetaData):Void
+    {
+        if (song == null || preloadBySong.exists(song)) return;
+
+        if (song.customChart != null)
+        {
+            #if sys
+            for (difficulty in song.customChart.difficulties)
+            {
+                if (isParsedSongInfoValid(song.difficultyInfo.get(difficulty))) continue;
+                if (CustomChartData.isChartFailed(song.customChart.song, difficulty)) continue;
+                enqueuePreloadTask({kind: 'custom', song: song, diffName: difficulty, weekData: null, cacheKey: null, weight: 1});
+            }
+            #end
+            return;
+        }
+
+        var ctx:Dynamic = songPreloadCtx.get(song);
+        if (ctx == null) return;
+
+        for (diffName in (ctx.diffs:Array<String>))
+        {
+            if (isParsedSongInfoValid(song.difficultyInfo.get(diffName))) continue;
+            if (SongInfoParser.isChartMissing(song.songName, song.folder, diffName, ctx.weekData)) continue;
+            enqueuePreloadTask({
+                kind: 'chart',
+                song: song,
+                diffName: diffName,
+                weekData: ctx.weekData,
+                cacheKey: ctx.cacheKey,
+                weight: 1
+            });
+        }
+    }
+
+    private function dropFarPendingTasks():Void
+    {
+        var i:Int = pendingSongs.length - 1;
+        while (i >= 0)
+        {
+            var song:NewSongMetaData = pendingSongs[i];
+            var idx:Null<Int> = songIndexMap.get(song);
+            if (idx != null)
+            {
+                var dist:Int = idx > curSelected ? idx - curSelected : curSelected - idx;
+                if (dist > PRELOAD_DROP_DIST)
+                {
+                    var bucket:Array<Dynamic> = preloadBySong.get(song);
+                    convertTotal -= (bucket == null) ? 0 : bucket.length;
+                    if (convertTotal < convertDone) convertTotal = convertDone;
+                    preloadBySong.remove(song);
+                    pendingSongs.splice(i, 1);
+                }
+            }
+            i--;
+        }
+    }
+
+    /** 队列空闲一段时间 / 距上次写盘超过 15s 才落盘：转化到一半退出也只丢最后十几秒的成果。 */
+    private function flushCacheIfDue():Void
+    {
+        if (!freeplayCacheDirty || !ClientPrefs.data.saveFreeplayCache) return;
+
+        var now:Float = haxe.Timer.stamp();
+        if (now - lastCacheSaveAt < CACHE_SAVE_INTERVAL) return;
+        // 还在跑的时候只在间隔够长（15s）时写；闲着就 3s 后收尾
+        if (idleSinceEmpty < CACHE_SAVE_IDLE && now - lastCacheSaveAt < CACHE_SAVE_FORCE) return;
+
+        saveFreeplaySongCache();
+        freeplayCacheDirty = false;
+        lastCacheSaveAt = now;
+    }
+
+    /** 清空全部待办（换来源 / 离开界面）。 */
+    private function clearPreloadQueue():Void
+    {
+        preloadBySong.clear();
+        pendingSongs = [];
+        songPreloadCtx.clear();
+        idleSinceEmpty = 0;
+        lastWindowSelected = -1;
+        profileDumped = false;
+        preloadEpoch++;
+        #if (cpp && lime_threads)
+        // 换来源/离开界面：还在跑的后台解析结果一律作废
+        threadedBusy = false;
+        threadedTask = null;
+        threadedResults = [];
+        #end
+    }
+
+    private function rebuildSongIndexMap():Void
+    {
+        songIndexMap.clear();
+        for (i in 0...songs.length) songIndexMap.set(songs[i], i);
     }
 
     // ========================= 转换进度提示 =========================
@@ -2347,7 +2857,7 @@ class FreeplayState extends MusicBeatState
         convertToast = MessageBox.showProgress(
             Language.getPhrase('freeplay_converter_title', 'Song Converter'),
             Language.getPhrase('freeplay_converter_body', 'Please wait while converting songs...'));
-        convertToast.setProgress(convertProgress());
+        convertToast.setProgress(displayProgress());
     }
 
     /** 队列清空：条拉满，稍停一下自己缩回去。 */
@@ -2358,6 +2868,7 @@ class FreeplayState extends MusicBeatState
         convertToast.setProgress(1);
         convertToast.closeIn(1.2);
         convertToast = null; // 之后交给 MessageBox 自己滑出销毁
+        convertShown = 0;    // 下一轮（换来源后的回填）从 0 重新走，不接着上一轮的满条
     }
 
     /** 丢弃进度并立刻收起（切换来源 / 离开 Freeplay 时）。 */
@@ -2365,15 +2876,13 @@ class FreeplayState extends MusicBeatState
     {
         convertTotal = 0;
         convertDone = 0;
+        convertShown = 0;
         if (convertToast != null)
         {
             convertToast.close();
             convertToast = null;
         }
     }
-
-    private inline function convertProgress():Float
-        return convertTotal > 0 ? Math.min(1, convertDone / convertTotal) : 0;
 
     /** 鼠标：卡片命中 / 卡片点击 / Replay / 搜索 / 来源标签 / 难度方块。 */
     private function handleMouseInput():Void
@@ -3236,7 +3745,7 @@ class FreeplayState extends MusicBeatState
     public function onModFolderChanged()
     {
         // 队列项持有旧歌曲元数据；筛选变化后必须丢弃，不能让旧任务继续占内存。
-        difficultyPreloadQueue = [];
+        clearPreloadQueue();
         // 换分类后进度条的前提（总数）也作废，连同提示一起清掉
         resetConvertProgress();
         // 换了来源，上一个来源的原因（比如「没有任何周」）不再适用
@@ -3409,9 +3918,14 @@ class FreeplayState extends MusicBeatState
             saveFreeplaySongCache();
 
         releasePreviewAudio();
-        difficultyPreloadQueue = [];
+        clearPreloadQueue();
         // 提示条挂在 FlxG.game 上，不随 state 自动消失，离开界面时主动收掉
         resetConvertProgress();
+        #if (debug || SONGINFO_PROFILE)
+        // 转化耗时汇总：读文件 / 解析+转换 / 统计 / 评级 四段占比，用来决定下一步优化重心
+        SongInfoParser.dumpProfile();
+        SongInfoParser.resetProfile();
+        #end
         if (cardScroller != null)
         {
             remove(cardScroller);

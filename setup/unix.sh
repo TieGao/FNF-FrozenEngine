@@ -20,7 +20,7 @@ haxelib install tjson 1.4.0 --skip-dependencies
 haxelib install hxdiscord_rpc 1.2.4 --skip-dependencies
 haxelib git hxvlc https://github.com/IceTheAxe/hxvlc --skip-dependencies --always
 haxelib git moonchart https://github.com/MaybeMaru/moonchart --skip-dependencies --always
-haxelib git lime https://github.com/TieGao/lime --always
+haxelib git lime https://github.com/IceTheAxe/lime haxelib --always
 haxelib git openfl https://github.com/TieGao/openfl --skip-dependencies --always
 haxelib install format --skip-dependencies --always
 haxelib install hxp --skip-dependencies --always

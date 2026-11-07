@@ -1283,6 +1283,7 @@ function onScrollChange()
 				KEOption.create("Freeplay ToolBar", "Show tool bar in freeplay", "toolBar", "bool"),
 				KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool"),
 				KEOption.create("Save Freeplay Cache", "Save freeplay song metadata cache to disk", "saveFreeplayCache", "bool"),
+				KEOption.create("Threaded Song Conversion", "Parse chart info on a background thread (turn off if Freeplay stutters)", "freeplayThreadedParse", "bool"),
 				KEOption.create("Space Back Ground EveryWhere", "Show space background everywhere", "globalspace", "bool"),
 				KEOption.create("Mod Folder Manager", "Organize mods in Freeplay using folder selector", "freeplayModFolder", "bool"),
 				KEOption.createStringOption("Freeplay List Style", "Background style of the Freeplay list items (search / mod folder / replay)",

@@ -46,6 +46,17 @@ class HitErrorBar extends FlxSpriteGroup
     var centerX:Float = 0;
     var centerY:Float = 0;
     
+    // ===== 宿主注入（与 PlayState 解耦）=====
+    // 以前这里直接读 states.PlayState.instance.playbackRate / Conductor.crochet，
+    // 导致任何不在 PlayState 里使用判定条的场景（校准页、编辑器、预览）都会空引用。
+    /** 播放速率，由宿主场景写入；默认 1。 */
+    public var playbackRate:Float = 1;
+    /** 拍长（ms），>0 时优先使用；<=0 回落到 Conductor.crochet。 */
+    public var beatCrochet:Float = 0;
+    
+    inline function getRate():Float return playbackRate > 0 ? playbackRate : 1.0;
+    inline function getBeatCrochet():Float return beatCrochet > 0 ? beatCrochet : Conductor.crochet;
+    
     var ratingColors:Map<String, FlxColor> = [
         'marvelous' => FlxColor.fromRGB(255, 215, 0),
         'sick'      => FlxColor.fromRGB(135, 206, 235),
@@ -333,9 +344,11 @@ class HitErrorBar extends FlxSpriteGroup
         currentMsText.x = (timingBar.width / 2) - (currentMsText.width / 2);
         currentMsText.y = 25;
 
+        var rate:Float = getRate();
+        
         add(currentMsText);
         
-        FlxTween.tween(currentMsText, {alpha: 0}, 0.2 / states.PlayState.instance.playbackRate, {
+        FlxTween.tween(currentMsText, {alpha: 0}, 0.2 / rate, {
             ease: FlxEase.quadOut,
             onComplete: function(tween:FlxTween) {
                 if (currentMsText != null && this.members.contains(currentMsText))
@@ -345,7 +358,7 @@ class HitErrorBar extends FlxSpriteGroup
                     currentMsText = null;
                 }
             },
-            startDelay: Conductor.crochet * 0.004 / states.PlayState.instance.playbackRate
+            startDelay: getBeatCrochet() * 0.004 / rate
         });
     }
     

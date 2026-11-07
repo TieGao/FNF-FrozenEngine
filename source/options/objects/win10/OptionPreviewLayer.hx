@@ -47,6 +47,14 @@ class OptionPreviewLayer extends FlxGroup
     // ---------- KeyboardViewer ----------
     var kbViewer:KeyboardViewer = null;
 
+    // ---------- 键盘预览的 demo 键雨 ----------
+    /** 距离下一次"假按键"还有多久（秒） */
+    var demoRainTimer:Float = 0;
+    var demoRainIndex:Int = 0;
+    /** 正在闪按压高亮的键，-1 = 没有 */
+    var demoFlashIndex:Int = -1;
+    var demoFlashTimer:Float = 0;
+
     // ---------- HitErrorBar ----------
     var hitBar:HitErrorBar = null;
 
@@ -255,6 +263,9 @@ class OptionPreviewLayer extends FlxGroup
 
     function rebuildKeyboardViewer():Void
     {
+        // 旧实例销毁前先把 demo 状态收掉，否则闪现索引会落到新实例的键上
+        stopKbDemo();
+
         if (kbViewer != null)
         {
             remove(kbViewer, true);
@@ -262,6 +273,58 @@ class OptionPreviewLayer extends FlxGroup
             kbViewer = null;
         }
         ensureKeyboardViewer();
+    }
+
+    /**
+     * 预览键盘没人按，键雨永远看不到 —— 让 4 个键轮流"被按一下"。
+     *
+     * 间隔跟着 `keyboardTime` 走：所有 TimeDis 共用同一份 frame（Cache 里那个
+     * FlxFramesCollection），同时存在两条会互相盖掉裁切高度，所以保证任一时刻只有一条。
+     */
+    function updateKbDemo(elapsed:Float):Void
+    {
+        if (kbViewer == null) return;
+
+        var gap:Float = Math.max(600, ClientPrefs.data.keyboardTime + 150) / 1000;
+        demoRainTimer -= elapsed;
+
+        if (demoRainTimer <= 0)
+        {
+            demoRainTimer = gap;
+
+            var count:Int = kbViewer.keyAlphas.length;
+            if (count > 0)
+            {
+                demoRainIndex = demoRainIndex % count;
+                kbViewer.demoRain(demoRainIndex);
+
+                demoFlashIndex = demoRainIndex;
+                demoFlashTimer = 0.14;
+                demoRainIndex = (demoRainIndex + 1) % count;
+            }
+        }
+
+        if (demoFlashIndex >= 0)
+        {
+            demoFlashTimer -= elapsed;
+            if (demoFlashTimer <= 0)
+            {
+                if (demoFlashIndex < kbViewer.keyAlphas.length)
+                    kbViewer.keyAlphas[demoFlashIndex].alpha = 0;
+                demoFlashIndex = -1;
+            }
+        }
+    }
+
+    function stopKbDemo():Void
+    {
+        if (kbViewer != null && demoFlashIndex >= 0 && demoFlashIndex < kbViewer.keyAlphas.length)
+            kbViewer.keyAlphas[demoFlashIndex].alpha = 0;
+
+        demoFlashIndex = -1;
+        demoFlashTimer = 0;
+        demoRainTimer = 0;
+        demoRainIndex = 0;
     }
 
     // =====================================================
@@ -424,6 +487,8 @@ class OptionPreviewLayer extends FlxGroup
         if (v == 'noteskin' || v == 'splashskin' || v == 'splashalpha') return 'note';
         if (v == 'holdcoverskin' || v == 'holdcoveralpha') return 'holdcover';
         if (v == 'kb' || v == 'keyboardalpha'
+            || v == 'keyboardbgcolor' || v == 'keyboardedgecolor'
+            || v == 'keyboardraincolor' || v == 'keyboardtextcolor'
             || v == 'kboffsetx' || v == 'kboffsety'
             || v == 'keyboardtimedisplay' || v == 'keyboardtime') return 'kb';
         if (v == 'hiterrorbarvisible' || v == 'pointertype'
@@ -452,6 +517,8 @@ class OptionPreviewLayer extends FlxGroup
 
         if (kbViewer != null) kbViewer.visible = showKb;
         if (hitBar != null)   hitBar.visible   = showHitBar;
+
+        if (!showKb) stopKbDemo();
     }
 
     function hideAll():Void
@@ -465,6 +532,8 @@ class OptionPreviewLayer extends FlxGroup
 
         if (kbViewer != null) kbViewer.visible = false;
         if (hitBar != null)   hitBar.visible   = false;
+
+        stopKbDemo();
 
         currentKind = '';
         currentOpt = null;
@@ -492,6 +561,11 @@ class OptionPreviewLayer extends FlxGroup
             for (spr in holdCoverSprites)
                 spr.alpha = holdCoverCfg.alphaVal * ClientPrefs.data.holdcoverAlpha;
         }
+
+        if (currentKind == 'kb' && kbViewer != null && kbViewer.visible)
+            updateKbDemo(elapsed);
+        else
+            stopKbDemo();
     }
 
     override public function destroy():Void

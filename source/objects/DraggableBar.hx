@@ -31,6 +31,19 @@ class DraggableBar extends Bar
         
         if (!draggable) return;
         
+        // 不可见时一律不响应：FlxG.mouse.overlaps 只看得到子 sprite 的 visible，
+        // 组被隐藏（例如校准页 Combo 界面把延迟条藏起来）时鼠标仍然会命中，容易误拖。
+        if (!visible)
+        {
+            if (isDragging)
+            {
+                isDragging = false;
+                leftBar.alpha = 1;
+                rightBar.alpha = 1;
+            }
+            return;
+        }
+        
         var mouseOverBg = FlxG.mouse.overlaps(bg, FlxG.camera);
         
         // --- 开始拖拽（按下时立即跳转） ---

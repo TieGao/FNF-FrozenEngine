@@ -73,8 +73,8 @@ class ComponentsData
         keyboardTime.decimals = 2;
         sub2.add(keyboardTime);
 
-        sub2.add(new Option('Keyboard BG Color', 'Background color of the keyboard display', 'keyboardBGColor', COLOR));
-        sub2.add(new Option('Keyboard Text Color', 'Text color of the keyboard display', 'keyboardTextColor', COLOR));
+        // 键位颜色（主体 / 边缘 / 键雨 / 字体）改到本页右侧的调色盘里编辑，
+        // 见 options.objects.win10.KeyboardColorPanel —— 这里不再放 COLOR 行，免得两套入口打架。
 
         
         var sub3 = cat.section('JudgementsCounter', 'Judgements Counter');

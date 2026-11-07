@@ -254,7 +254,12 @@ class Song
 		return rawData != null ? parseJSON(rawData, jsonInput) : null;
 	}
 
-	public static function parseJSON(rawData:String, ?nameForError:String = null, ?convertTo:String = 'psych_v1'):SwagSong
+	/**
+	 * @param silent Freeplay 的信息预载会把上千份谱面各解析一次，这里每份都 trace 的话
+	 *               光是日志落盘（LogFile 每行 flush）就要白花几百毫秒，还会把会话日志刷满。
+	 *               只有「批量解析」路径传 true；正常游玩加载保持 false。
+	 */
+	public static function parseJSON(rawData:String, ?nameForError:String = null, ?convertTo:String = 'psych_v1', ?silent:Bool = false):SwagSong
 	{
 		var songJson:SwagSong = cast Json.parse(rawData);
 		if(Reflect.hasField(songJson, 'song'))
@@ -274,7 +279,7 @@ class Song
 				case 'psych_v1':
 					if(!fmt.startsWith('psych_v1')) //Convert to Psych 1.0 format
 					{
-						trace('converting chart $nameForError with format $fmt to psych_v1 format...');
+						if(!silent) trace('converting chart $nameForError with format $fmt to psych_v1 format...');
 						songJson.format = 'psych_v1_convert';
 						convert(songJson);
 					}

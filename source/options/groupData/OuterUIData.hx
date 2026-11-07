@@ -17,6 +17,7 @@ class OuterUIData
         sub.add(new Option('Freeplay ToolBar', 'Show tool bar in freeplay', 'toolBar', BOOL));
         sub.add(new Option('New Freeplay Space BackGround', 'Just a cool background lol', 'freeplayspace', BOOL));
         sub.add(new Option('Save Freeplay Cache', 'Save freeplay song metadata cache to disk', 'saveFreeplayCache', BOOL));
+        sub.add(new Option('Threaded Song Conversion', 'Parse chart info on a background thread (turn off if Freeplay stutters)', 'freeplayThreadedParse', BOOL));
         sub.add(new Option('Space Back Ground EveryWhere', 'Show space background everywhere', 'globalspace', BOOL));
         sub.add(new Option('Mod Folder Manager', 'Organize mods in Freeplay using folder selector', 'freeplayModFolder', BOOL));
 

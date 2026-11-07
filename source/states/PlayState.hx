@@ -1057,6 +1057,7 @@ class PlayState extends MusicBeatState
 			if (isSplitCoopMode())
 			{
 				hitErrorBarPlayer = new HitErrorBar();
+				hitErrorBarPlayer.playbackRate = playbackRate;
 				hitErrorBarPlayer.screenCenter();
 				hitErrorBarPlayer.x = FlxG.width / 2 - 325;
 				hitErrorBarPlayer.y = FlxG.height * 0.27 + ClientPrefs.data.hitErrorBarOffsetY;
@@ -1065,6 +1066,7 @@ class PlayState extends MusicBeatState
 				uiGroup.add(hitErrorBarPlayer);
 
 				hitErrorBarOpponent = new HitErrorBar();
+				hitErrorBarOpponent.playbackRate = playbackRate;
 				hitErrorBarOpponent.screenCenter();
 				hitErrorBarOpponent.x = FlxG.width / 2 - hitErrorBarOpponent.width - 175;
 				hitErrorBarOpponent.y = hitErrorBarPlayer.y;
@@ -1073,6 +1075,7 @@ class PlayState extends MusicBeatState
 			else
 			{
 				hitErrorBar = new HitErrorBar();
+				hitErrorBar.playbackRate = playbackRate;
 				hitErrorBar.screenCenter(X);
 				hitErrorBar.x += ClientPrefs.data.hitErrorBarOffsetX - 5;
 				hitErrorBar.y = FlxG.height * 0.3 + ClientPrefs.data.hitErrorBarOffsetY; // 顶部10%位置
@@ -1269,6 +1272,10 @@ class PlayState extends MusicBeatState
 			}
 		}
 		playbackRate = value;
+		// 判定条的 ms 文本动画按播放速率缩放，速率变了要同步（HitErrorBar 不再反查 PlayState）
+		if (hitErrorBar != null) hitErrorBar.playbackRate = value;
+		if (hitErrorBarPlayer != null) hitErrorBarPlayer.playbackRate = value;
+		if (hitErrorBarOpponent != null) hitErrorBarOpponent.playbackRate = value;
 		FlxG.animationTimeScale = value;
 		Conductor.offset = Reflect.hasField(PlayState.SONG, 'offset') ? (PlayState.SONG.offset / value) : 0;
 		Conductor.safeZoneOffset = (ClientPrefs.data.safeFrames / 60) * 1000 * value;

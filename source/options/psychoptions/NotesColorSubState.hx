@@ -453,11 +453,16 @@ class NotesColorSubState extends MusicBeatSubstate
 				holdingOnObj = colorGradient;
 			}
 			else if (pointerOverlaps(colorPalette)) {
-				setShaderColor(colorPalette.pixels.getPixel32(
-					Std.int((pointerX() - colorPalette.x) / colorPalette.scale.x), 
-					Std.int((pointerY() - colorPalette.y) / colorPalette.scale.y)));
-				FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
-				updateColors();
+				// 「GPU Caching」开着时 Paths 可能已经把 CPU 像素丢了（image = null 却仍 readable），
+				// 直接 getPixel32 会空引用崩溃 —— 拿不到就跳过这次取色
+				var palBmp = colorPalette.pixels;
+				if (palBmp != null && palBmp.image != null) {
+					setShaderColor(palBmp.getPixel32(
+						Std.int((pointerX() - colorPalette.x) / colorPalette.scale.x), 
+						Std.int((pointerY() - colorPalette.y) / colorPalette.scale.y)));
+					FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+					updateColors();
+				}
 			}
 			else if (pointerOverlaps(skinNote))
 			{

@@ -121,6 +121,21 @@ import states.TitleState;
 	public var ImpStory:Bool = false;
 	public var freeplayspace:Bool = false;
 	public var saveFreeplayCache:Bool = true;
+	/**
+	 * Freeplay 的谱面信息解析放到后台线程。
+	 *
+	 * 桌面默认开：曲库上千份谱面时，转化全塞主线程会把 240fps 压到 70 多；
+	 * 丢给 worker 后帧率和推条速度可以同时保住（实测 770 档从 9s 降到约 5s，且不掉帧）。
+	 * 失败兜底：3 秒超时自动降级为同步解析，本会话不再派新任务，所以最坏情况只是「回到旧行为」。
+	 *
+	 * 移动端默认关：这套只在桌面验证过，后台持续 CPU 在手机上还要考虑发热与耗电。
+	 * 开关只影响普通谱面；自定义谱面走转换器，仍留在主线程。
+	 */
+	#if desktop
+	public var freeplayThreadedParse:Bool = true;
+	#else
+	public var freeplayThreadedParse:Bool = false;
+	#end
 	public var globalspace:Bool = false;
 	public var cardGlow:Bool = true; // 新增：在 Freeplay 卡片下显示呼吸发光
 	public var freeplayModFolder:Bool = true; // 使用模组文件夹管理器隔离歌曲
@@ -263,6 +278,11 @@ import states.TitleState;
 	public var kbOffsetY:Float = 0.0;
 	public var keyboardAlpha:Float = 1.0;
 	public var keyboardBGColor:FlxColor = FlxColor.BLACK;
+	// 键位描边色。旧版描边是画白色再乘主体色，等价于"边缘永远等于主体色"，
+	// 拆出来之后默认给白色，键盘默认带一圈白边。
+	public var keyboardEdgeColor:FlxColor = FlxColor.WHITE;
+	// 键雨（TimeDis）颜色。旧版直接复用主体色，默认黑保持原样。
+	public var keyboardRainColor:FlxColor = FlxColor.BLACK;
 	public var keyboardTextColor:FlxColor = FlxColor.WHITE;
 	public var keyboardTimeDisplay:Bool = true;
 	public var keyboardTime:Float = 500.0;

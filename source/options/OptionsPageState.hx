@@ -124,6 +124,9 @@ class OptionsPageState extends MusicBeatState
     // ---------- 新增：预览层 ----------
     var previewLayer:OptionPreviewLayer = null;
 
+    /** KeyboardDisplay 子页右侧的调色盘（键盘预览正下方，固定不动） */
+    var kbPanel:KeyboardColorPanel = null;
+
     var scroll:Float = 0;
     var maxScroll:Float = 0;
 
@@ -247,6 +250,20 @@ class OptionsPageState extends MusicBeatState
 
         previewLayer = new OptionPreviewLayer(FlxG.width * 0.72, HEADER_H + 40);
         add(previewLayer);
+
+        // KBViewer 调色盘：贴在键盘预览正下方，固定不动（选项行从它后面滚过去）。
+        // 预览键盘包围盒高 104（4 键布局，见 KeyboardViewer 的 localMaxY），底端 = HEADER_H + 40 + 104。
+        var kbPanelW:Float = 384;
+        var kbPanelY:Float = HEADER_H + 40 + 104 + 16;
+        var kbPanelH:Float = Math.min(420, FlxG.height - 24 - kbPanelY);
+        var kbPanelX:Float = FlxMath.bound(FlxG.width * 0.72 - kbPanelW / 2,
+                                           NAV_W + 24, FlxG.width - kbPanelW - 16);
+
+        kbPanel = new KeyboardColorPanel(kbPanelX, kbPanelY, kbPanelW, kbPanelH);
+        kbPanel.visible = false;
+        kbPanel.active = false;
+        // 必须加在 previewLayer 之后：面板要压在选项行和预览层上面
+        add(kbPanel);
 
         headerTitle = new FlxText(leftX, 6, leftW, selectedCat.displayName, 22);
         headerTitle.setFormat(Paths.font('vcr.ttf'), 24,
@@ -926,6 +943,8 @@ class OptionsPageState extends MusicBeatState
     {
         if (PsychUIInputText.focusOn != null) return;
         if (isAnyPopupOpen()) return;
+        // 指针压在调色盘上：不切焦点、不亮行、不改右上角说明
+        if (kbPanel != null && kbPanel.blocksPointer(OptionInput.mouseX(), OptionInput.mouseY())) return;
         // "鼠标真的动了"或者"点了一下"都算鼠标接管
         if (FlxG.mouse.deltaViewX == 0 && FlxG.mouse.deltaViewY == 0 && !FlxG.mouse.justPressed) return;
 
@@ -1026,11 +1045,26 @@ class OptionsPageState extends MusicBeatState
         }
     }
 
+    /** 当前子分类是不是 KeyboardViewer 的颜色页（调色盘只在这页出现） */
+    function isKbColorPage():Bool
+    {
+        if (currentSub == null || currentSub.id == null) return false;
+        return currentSub.id.toLowerCase() == 'keyboarddisplay';
+    }
+
     // =========================================================
     // 悬浮检测 + 预览同步
     // =========================================================
     function updateHoverDescription()
     {
+        // 调色盘盖在选项行尾段之上，指针在它上面时不该再点亮后面的行
+        if (kbPanel != null && kbPanel.blocksPointer(OptionInput.mouseX(), OptionInput.mouseY()))
+        {
+            hoveredOption = null;
+            setHoverDesc('');
+            return;
+        }
+
         var found:Option = null;
         var mx = FlxG.mouse.x;
         var my = FlxG.mouse.y;
@@ -1119,15 +1153,33 @@ class OptionsPageState extends MusicBeatState
             buildRows();
         }
 
+        // 调色盘只在 KeyboardDisplay 子页出现，且跟着子页切换即时收放
+        if (kbPanel != null)
+        {
+            var showPanel:Bool = isKbColorPage();
+            if (kbPanel.visible != showPanel)
+            {
+                kbPanel.visible = showPanel;
+                kbPanel.active = showPanel;
+                if (showPanel) kbPanel.syncFromPrefs();
+            }
+        }
+
         super.update(elapsed);
+
+        // 指针压在调色盘上时，列表既不吃滚轮也不吃拖拽，右键也不该关页面
+        var overPanel:Bool = (kbPanel != null
+            && kbPanel.blocksPointer(OptionInput.mouseX(), OptionInput.mouseY()));
 
         if (scrollHolder.value != scroll)
             scrollHolder.value = scroll;
         if (navScrollHolder.value != navScroll)
             navScrollHolder.value = navScroll;
 
-        // 下拉/调色板展开时滚轮归它们用，别再驱动列表
-        if (contentScroller != null) contentScroller.inputAllow = !isAnyPopupOpen();
+        // 下拉/调色板展开时滚轮归它们用，别再驱动列表。
+        // 拖动中途不掐 inputAllow —— 松手事件会被一起吞掉，列表会卡在拖拽态
+        if (contentScroller != null && !contentScroller.isDragging)
+            contentScroller.inputAllow = !isAnyPopupOpen() && !overPanel;
 
         // 字符串下拉展开时，方向键 / 回车 / ESC 归它自己 —— 键盘也能开列表逐项选。
         // 必须放在下面的 BACK 分支之前，否则 ESC 会把整个设置页关掉。
@@ -1137,7 +1189,7 @@ class OptionsPageState extends MusicBeatState
         // ---------- 返回 ----------
         // 判 focusZone 而不是 PsychUIInputText.focusOn：按 ESC 时输入组件会自己
         // 先把 focusOn 清掉，那一帧再判 focusOn 就会直接关掉整个页面。
-        if (controls.BACK || FlxG.mouse.justPressedRight) {
+        if (controls.BACK || (FlxG.mouse.justPressedRight && !overPanel)) {
             if (focusZone == ZONE_SEARCH) {
                 // 搜索框里打字时，退格不能算"返回"（老 bug：按一次退格就丢焦点）
                 if (!searchBackPressed())
@@ -1247,6 +1299,8 @@ class OptionsPageState extends MusicBeatState
         if (currentSub != null)
             selectSubCategory(currentSub);
 
+        if (kbPanel != null) kbPanel.syncFromPrefs();
+
         if (hoveredOption != null)
             setHoverDesc(hoveredOption.description);
     }
@@ -1287,6 +1341,7 @@ class OptionsPageState extends MusicBeatState
 
         if (searchComp != null) searchComp.refreshTheme();
         if (backButton != null) backButton.refreshTheme();
+        if (kbPanel != null) kbPanel.refreshTheme();
     }
 
     override function destroy()
@@ -1306,6 +1361,13 @@ class OptionsPageState extends MusicBeatState
         {
             previewLayer.destroy();
             previewLayer = null;
+        }
+
+        if (kbPanel != null)
+        {
+            remove(kbPanel, true);
+            kbPanel.destroy();
+            kbPanel = null;
         }
 
         super.destroy();

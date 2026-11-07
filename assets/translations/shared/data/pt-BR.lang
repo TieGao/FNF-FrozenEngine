@@ -228,8 +228,13 @@ combo_rating_offset: "Offset de Classificação:"
 combo_numbers_offset: "Offset de Números:"
 combo_offset: "Offset do Combo";
 note_delay: "Atraso das Notas";
-switch_on_accept: "(Pressione Accept para Trocar)"
+switch_on_accept: "(Pressione ENTER para Trocar)"
 switch_on_start: "(Pressione Start para Trocar)"
+delay_test_empty: "Acompanhe a batida para medir seu offset"
+delay_test_hint: "Pressione [SPACE] em cada batida - o erro aparece na barra"
+delay_test_result: "Amostras {1}   Média {2} ms   Sugestão {3} ms"
+delay_test_apply: "Pressione [SHIFT+SPACE] para aplicar o valor sugerido"
+delay_test_applied: "Aplicado: {1} ms"
 
 // Controls Menu
 keygroup_notes: "NOTAS"

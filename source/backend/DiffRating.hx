@@ -25,6 +25,11 @@ import backend.Song;
  * 设置读取：
  *   - opponentplay -> normal / opponent / coop
  *   - mirrornotes  -> 按当前 K 数镜像
+ *
+ * 性能约定（2026-11 转化器优化）：
+ *   calcForSong 每次调用会重新建一遍对象数组。Freeplay 预载对同一份谱面要算三套，
+ *   改用 calcForSongAllModes：只建一次、排序一次，三个模式各走一份索引视图。
+ *   两条路径共用 buildObjects / calcStrain，结果必须逐位相同。
  */
 class DiffRating
 {
@@ -98,15 +103,87 @@ class DiffRating
     // 评分计算
     ///////////////////////////////////////////////////////////////////////////
 
-    public static function calcForSong(song:SwagSong, ?mode:String = MODE_NORMAL, ?splitCustomTracks:Bool = false):Float
+    /**
+     * 单个模式的评分。
+     * @param mirrorNotes 显式指定镜像开关；null = 读 ClientPrefs（默认行为不变）。
+     *                    后台线程必须显式传入 —— ClientPrefs 的 Map 是主线程可写的。
+     */
+    public static function calcForSong(song:SwagSong, ?mode:String = MODE_NORMAL, ?splitCustomTracks:Bool = false,
+                                       ?mirrorNotes:Null<Bool> = null):Float
     {
         if (song == null || song.notes == null || song.notes.length == 0) return 0;
 
         mode = normalizeMode(mode);
 
         var columns:Int = getColumnCount(song, splitCustomTracks);
+        var mirror:Bool = (mirrorNotes != null) ? mirrorNotes : ClientPrefs.getGameplaySetting('mirrornotes', false, true);
 
-        var objs:Array<ManiaObj> = [];
+        var objs:Array<RawNote> = buildRawNotes(song, columns, splitCustomTracks, mirror, mode);
+        if (objs.length <= 1) return 0;
+
+        sortByStartTime(objs);
+
+        var idx:Array<Int> = [];
+        for (i in 0...objs.length) idx.push(i);
+
+        return calcStrain(buildObjects(objs, idx, columns), columns);
+    }
+
+    /**
+     * 三套评级一次算完：对象只建一遍、排序只做一次。
+     * Freeplay 预载专用；结果必须与连续调三次 calcForSong 逐位相同。
+     */
+    public static function calcForSongAllModes(song:SwagSong, ?splitCustomTracks:Bool = false,
+                                               ?mirrorNotes:Null<Bool> = null):{normal:Float, opponent:Float, coop:Float}
+    {
+        var zero:{normal:Float, opponent:Float, coop:Float} = {normal: 0, opponent: 0, coop: 0};
+        if (song == null || song.notes == null || song.notes.length == 0) return zero;
+
+        var columns:Int = getColumnCount(song, splitCustomTracks);
+        var mirror:Bool = (mirrorNotes != null) ? mirrorNotes : ClientPrefs.getGameplaySetting('mirrornotes', false, true);
+
+        // mode 传 null = 两侧都收，之后再按 side 分索引视图
+        var raw:Array<RawNote> = buildRawNotes(song, columns, splitCustomTracks, mirror, null);
+        if (raw.length == 0) return zero;
+
+        sortByStartTime(raw);
+
+        var normalIdx:Array<Int> = [];
+        var opponentIdx:Array<Int> = [];
+        var coopIdx:Array<Int> = [];
+        for (i in 0...raw.length)
+        {
+            coopIdx.push(i);
+            if (raw[i].opponent) opponentIdx.push(i);
+            else normalIdx.push(i);
+        }
+
+        return {
+            normal: calcStrain(buildObjects(raw, normalIdx, columns), columns),
+            opponent: calcStrain(buildObjects(raw, opponentIdx, columns), columns),
+            coop: calcStrain(buildObjects(raw, coopIdx, columns), columns)
+        };
+    }
+
+    /**
+     * 建「音符原始列表」。
+     * mode 非空时只收该模式参与的音符；null 时两侧都收（供 calcForSongAllModes 分视图）。
+     *
+     * 性能要点：columns / boundary / mirror 三个量全部提到循环外。
+     * 旧实现每个音符要调两次 Song.isOpponentLane（内部各 3 次 Reflect），
+     * 再加一次 ClientPrefs.getGameplaySetting —— 千音符谱面就是上万次反射。
+     * 这里用完全等价的 boundary 比较替代，语义不变。
+     */
+    private static function buildRawNotes(song:SwagSong, columns:Int, splitCustomTracks:Bool, mirror:Bool, mode:String):Array<RawNote>
+    {
+        var out:Array<RawNote> = [];
+
+        var keyCount:Int = Song.getKeyCount(song);
+        var split:Bool = Song.shouldSplitCustomTracks(song, splitCustomTracks);
+        var boundary:Int = split ? Std.int(keyCount / 2) : keyCount;
+
+        var wantPlayer:Bool = (mode != MODE_OPPONENT);
+        var wantOpponent:Bool = (mode != MODE_NORMAL);
 
         for (sec in song.notes)
         {
@@ -118,55 +195,69 @@ class DiffRating
                 if (n == null || n.length < 2) continue;
                 var rawLane:Int = Std.int(n[1]);
                 if (rawLane < 0) continue;
-                var lane:Int = resolvePlayableLane(rawLane, song, mode, columns, splitCustomTracks);
-                if (lane < 0) continue;
+
+                var isOpponent:Bool = rawLane >= boundary;
+                if (isOpponent && !wantOpponent) continue;
+                if (!isOpponent && !wantPlayer) continue;
+
                 var start:Float = n[0];
                 var sustain:Float = (n.length >= 3 && n[2] != null) ? n[2] : 0.0;
                 var end:Float = start + (sustain > 0 ? sustain : 0);
-                objs.push({
-                    startTime: start,
-                    endTime: end,
-                    column: lane,
-                    index: 0,
-                    deltaTime: 0,
-                    previousIndex: -1,
-                    previousStart: 0,
-                    previousHitByColumn: [],
-                    columnStrainTime: 0
-                });
+
+                var lane:Int = rawLane % columns;
+                if (lane < 0) lane += columns;
+                if (mirror) lane = columns - 1 - lane;
+
+                out.push({startTime: start, endTime: end, lane: lane, opponent: isOpponent});
             }
         }
+        return out;
+    }
 
-        if (objs.length <= 1) return 0;
-
+    private static inline function sortByStartTime(objs:Array<RawNote>):Void
+    {
+        // 比较器必须与原实现一致（同 startTime 返回 0）。
+        // ★ 这里依赖排序的稳定性：calcForSongAllModes 是「全量排序 + 按侧过滤」，
+        //   而 calcForSong 是「按侧过滤 + 排序」，两者只有在稳定排序下才会得到同样的并列顺序。
+        //   hxcpp 的 Array.sort 走 std::stable_sort（hxcpp/include/Array.h:908），成立。
         objs.sort(function(a, b) return a.startTime < b.startTime ? -1 : (a.startTime > b.startTime ? 1 : 0));
+    }
+
+    /**
+     * 按索引视图构造 ManiaObj 序列。idx 必须是已按 startTime 升序的 raw 下标。
+     * 与原实现逐行对应：objects[k] 对应 idx[k+1]，previousIndex 记的是视图内序号。
+     */
+    private static function buildObjects(raw:Array<RawNote>, idx:Array<Int>, columns:Int):Array<ManiaObj>
+    {
+        var objects:Array<ManiaObj> = [];
+        if (idx.length <= 1) return objects;
 
         var perColumn:Array<Array<Int>> = [];
         for (i in 0...columns) perColumn.push([]);
         var prevByColumn:Array<Int> = [];
         for (i in 0...columns) prevByColumn.push(-1);
 
-        var objects:Array<ManiaObj> = [];
-        for (i in 1...objs.length)
+        for (i in 1...idx.length)
         {
-            var prev = objs[i - 1];
-            var cur = objs[i];
-            var idx = objects.length;
-            var delta = cur.startTime - prev.startTime;
+            var prev:RawNote = raw[idx[i - 1]];
+            var cur:RawNote = raw[idx[i]];
+            var valueIndex:Int = objects.length;
+            var delta:Float = cur.startTime - prev.startTime;
             var prevHit:Array<Int> = prevByColumn.copy();
-            var col = cur.column;
+            var col:Int = cur.lane;
             if (col < 0) col = 0;
             if (col >= columns) col = columns - 1;
-            var colList = perColumn[col];
+            var colList:Array<Int> = perColumn[col];
             var prevInCol:Int = colList.length > 0 ? colList[colList.length - 1] : -1;
             var colStrainTime:Float = prevInCol >= 0
                 ? cur.startTime - objects[prevInCol].startTime
                 : cur.startTime;
+
             var m:ManiaObj = {
                 startTime: cur.startTime,
                 endTime: cur.endTime,
                 column: col,
-                index: idx,
+                index: valueIndex,
                 deltaTime: delta,
                 previousIndex: i - 1,
                 previousStart: prev.startTime,
@@ -174,9 +265,16 @@ class DiffRating
                 columnStrainTime: colStrainTime
             };
             objects.push(m);
-            colList.push(idx);
-            prevByColumn[col] = idx;
+            colList.push(valueIndex);
+            prevByColumn[col] = valueIndex;
         }
+        return objects;
+    }
+
+    /** 原 strain 循环，逐行保持不变。objects 为空时返回 0（对应旧实现的 objs.length <= 1）。 */
+    private static function calcStrain(objects:Array<ManiaObj>, columns:Int):Float
+    {
+        if (objects.length == 0) return 0;
 
         var individualStrains:Array<Float> = [];
         for (i in 0...columns) individualStrains.push(0);
@@ -253,8 +351,12 @@ class DiffRating
      *
      * 返回该 note 在“可游玩侧”的列索引（0 .. columns-1），
      * 若该 note 不属于当前 mode 的可游玩侧则返回 -1。
+     *
+     * 注：calcForSong / calcForSongAllModes 已把等价逻辑内联进 buildRawNotes（避免每音符反射），
+     *     这个函数保留给外部单点调用。
      */
-    static function resolvePlayableLane(rawLane:Int, song:SwagSong, mode:String, columns:Int, splitCustomTracks:Bool):Int
+    public static function resolvePlayableLane(rawLane:Int, song:SwagSong, mode:String, columns:Int, splitCustomTracks:Bool,
+                                               ?mirrorNotes:Null<Bool> = null):Int
     {
         var isOpponentSide:Bool = Song.isOpponentLane(rawLane, song, splitCustomTracks);
 
@@ -274,7 +376,7 @@ class DiffRating
         var lane:Int = rawLane % columns;
         if (lane < 0) lane += columns;
 
-        var flipChart:Bool = ClientPrefs.getGameplaySetting('mirrornotes', false, true);
+        var flipChart:Bool = (mirrorNotes != null) ? mirrorNotes : ClientPrefs.getGameplaySetting('mirrornotes', false, true);
         if (flipChart) lane = columns - 1 - lane;
 
         return lane;
@@ -404,6 +506,14 @@ class DiffRating
     {
         return formatRating(calcForSong(song, mode));
     }
+}
+
+/** 排序前的原始音符（只保留评分需要的字段，避免 ManiaObj 那些派生字段的分配）。 */
+typedef RawNote = {
+    var startTime:Float;
+    var endTime:Float;
+    var lane:Int;
+    var opponent:Bool;
 }
 
 typedef ManiaObj = {

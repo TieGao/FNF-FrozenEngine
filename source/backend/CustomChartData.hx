@@ -640,18 +640,40 @@ class CustomChartData
         if (song == null)
             return;
         for (difficulty in song.difficulties)
-        {
-            var chartInfo:CustomChartDifficulty = getDifficulty(song, difficulty.name);
-            if (chartInfo != null && failedCharts.exists(chartInfo.path + '|' + difficulty.name))
-                continue;
+            preloadOneInfo(song, difficulty.name);
+        saveInfoCache(song);
+    }
 
-            var chart:Dynamic = loadChart(song, difficulty.name);
-            if (chart != null)
-                song.info.set(difficulty.name, SongInfoParser.getSongInfoFromChart(
-                    cast chart, difficulty.name, ClientPrefs.data.customChartTrackSplit));
-            else if (chartInfo != null)
-                failedCharts.set(chartInfo.path + '|' + difficulty.name, true);
+    /**
+     * 只解析一档，不落盘。
+     * Freeplay 的转化器按「单难度」调度，落盘改由整首跑完后调 flushInfoCache —— 否则
+     * 一首 3 档的歌会把 .freeplay-info.json 写三遍，而每遍都要递归 stat 整个曲目目录。
+     * 返回 false 表示这一档转换失败（已记入 failedCharts，本轮不再重试）。
+     */
+    public static function preloadOneInfo(song:CustomChartSong, difficulty:String):Bool
+    {
+        if (song == null || difficulty == null) return false;
+
+        var chartInfo:CustomChartDifficulty = getDifficulty(song, difficulty);
+        if (chartInfo != null && failedCharts.exists(chartInfo.path + '|' + difficulty))
+            return false;
+
+        var chart:Dynamic = loadChart(song, difficulty);
+        if (chart != null)
+        {
+            song.info.set(difficulty, SongInfoParser.getSongInfoFromChart(
+                cast chart, difficulty, ClientPrefs.data.customChartTrackSplit));
+            return true;
         }
+
+        if (chartInfo != null)
+            failedCharts.set(chartInfo.path + '|' + difficulty, true);
+        return false;
+    }
+
+    /** 整首解析完后统一落盘（等价于原先 preloadInfo 末尾那次 saveInfoCache）。 */
+    public static function flushInfoCache(song:CustomChartSong):Void
+    {
         saveInfoCache(song);
     }
 

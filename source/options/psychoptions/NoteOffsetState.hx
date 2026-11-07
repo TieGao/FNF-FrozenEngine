@@ -37,6 +37,15 @@ class NoteOffsetState extends MusicBeatState
 	var controllerPointer:FlxSprite;
 	var _lastControllerMode:Bool = false;
 
+	// === 延迟测试：跟着节拍敲，误差直接投到判定条上 ===
+	// 采样值沿用判定条的符号约定：负 = 打早（偏左），正 = 打晚（偏右）
+	var testInfoText:FlxText;
+	var testHintText:FlxText;
+	var testSum:Float = 0;
+	var testCount:Int = 0;
+	var testAvg:Float = 0;
+	var lastSampleBeat:Int = -999999;
+
 	// === KeyboardViewer 和 HitErrorBar 预览 ===
 	var keyboardViewer:KeyboardViewer;
 	var hitErrorBar:HitErrorBar;
@@ -209,6 +218,7 @@ class NoteOffsetState extends MusicBeatState
 
 		// 最后创建，保证画在顶部黑条之上
 		createCounterPreview();
+		createTestTexts();
 		
 		updateMode();
 		_lastControllerMode = true;
@@ -566,11 +576,22 @@ class NoteOffsetState extends MusicBeatState
 				barPercent = 0;
 				updateNoteDelay();
 				updateDraggableBarPosition();
+				clearTestSamples();
 			}
+
+			// 延迟测试：跟着节拍敲 SPACE 采样，SHIFT+SPACE 把建议值写进 noteOffset
+			// （手柄用 A 采样；模式切换已经让给纯 ENTER，所以 SPACE 空出来了）
+			if(FlxG.keys.justPressed.SPACE || FlxG.gamepads.anyJustPressed(A))
+			{
+				if(FlxG.keys.pressed.SHIFT) applySuggestedOffset();
+				else sampleBeat();
+			}
+
+			hintMusicBeat();
 		}
 
-		// 切换模式 (Combo Offset <-> Note Delay)
-		if((!controls.controllerMode && controls.ACCEPT) ||
+		// 切换模式 (Combo Offset <-> Note Delay)：键盘只用 ENTER（SPACE 留给延迟测试），手柄仍是 START
+		if((!controls.controllerMode && FlxG.keys.justPressed.ENTER) ||
 		(controls.controllerMode && FlxG.gamepads.anyJustPressed(START)))
 		{
 			onComboMenu = !onComboMenu;
@@ -639,6 +660,118 @@ class NoteOffsetState extends MusicBeatState
 			hitErrorBar.x += ClientPrefs.data.hitErrorBarOffsetX - 5;
 			hitErrorBar.y = FlxG.height * 0.3 + ClientPrefs.data.hitErrorBarOffsetY;
 		}
+		layoutTestTexts();
+	}
+
+	// ================= 延迟测试 =================
+	// 判定条已与 PlayState 解耦（playbackRate 由宿主注入），这里把它当"校准示波器"用：
+	// 跟着节拍敲一次就投一条竖线，比只给个数字更直观——能看出自己是稳定偏早还是偏晚。
+
+	function createTestTexts():Void
+	{
+		testInfoText = new FlxText(0, 0, FlxG.width, '', 20);
+		testInfoText.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		testInfoText.borderSize = 2;
+		testInfoText.scrollFactor.set();
+		testInfoText.cameras = [camHUD];
+		add(testInfoText);
+
+		testHintText = new FlxText(0, 0, FlxG.width, '', 16);
+		testHintText.setFormat(Paths.font('vcr.ttf'), 16, FlxColor.fromRGB(190, 190, 190), CENTER, OUTLINE, FlxColor.BLACK);
+		testHintText.borderSize = 2;
+		testHintText.scrollFactor.set();
+		testHintText.cameras = [camHUD];
+		add(testHintText);
+
+		layoutTestTexts();
+		updateTestText();
+	}
+
+	function layoutTestTexts():Void
+	{
+		if (testInfoText == null || testHintText == null) return;
+		var barY:Float = (hitErrorBar != null) ? hitErrorBar.y : FlxG.height * 0.3;
+		var barH:Float = (hitErrorBar != null) ? hitErrorBar.height : 50;
+		testInfoText.y = barY + barH + 12;
+		testHintText.y = testInfoText.y + 24;
+	}
+
+	function updateTestText():Void
+	{
+		if (testInfoText == null || testHintText == null) return;
+
+		if (testCount <= 0)
+		{
+			testInfoText.text = Language.getPhrase('delay_test_empty', 'Tap along with the beat to measure your offset');
+			testHintText.text = Language.getPhrase('delay_test_hint', 'Press [SPACE] on each beat - the error shows on the bar');
+			return;
+		}
+
+		var avgStr:String = (testAvg >= 0 ? '+' : '') + Std.string(Math.round(testAvg));
+		testInfoText.text = Language.getPhrase('delay_test_result', 'Samples {1}   Average {2} ms   Suggest {3} ms',
+			[Std.string(testCount), avgStr, Std.string(getSuggestedOffset())]);
+		testHintText.text = Language.getPhrase('delay_test_apply', 'Press [SHIFT+SPACE] to apply the suggested offset');
+	}
+
+	/** 以音乐拍点为准采一次样：早为负、晚为正，和判定条左右方向一致。 */
+	function sampleBeat():Void
+	{
+		if (FlxG.sound.music == null || !FlxG.sound.music.playing) return;
+
+		var crochet:Float = Conductor.crochet;
+		if (crochet <= 0) return;
+
+		// 直接读音频播放位置：Conductor.songPosition 要到本帧末尾才同步，会平白差一帧。
+		// 基准用音乐本身的拍点，不掺 noteOffset——否则应用建议值后相位也会跟着移，越测越偏。
+		var musicTime:Float = FlxG.sound.music.time;
+		if (musicTime < 0) return;
+
+		var beatIndex:Int = Math.round(musicTime / crochet);
+		if (beatIndex == lastSampleBeat) return; // 同一拍只算一次，防连按刷样本
+
+		var err:Float = musicTime - beatIndex * crochet;
+		if (Math.abs(err) > crochet * 0.45) return; // 离拍点太远，当没对上，不污染样本
+
+		lastSampleBeat = beatIndex;
+		testCount++;
+		testSum += err;
+		testAvg = testSum / testCount;
+
+		if (hitErrorBar != null) hitErrorBar.registerHit(err);
+		updateTestText();
+	}
+
+	function getSuggestedOffset():Int
+	{
+		var suggest:Int = Math.round(testAvg);
+		return Std.int(Math.max(delayMin, Math.min(delayMax, suggest)));
+	}
+
+	function applySuggestedOffset():Void
+	{
+		if (testCount <= 0) return;
+
+		var applied:Int = getSuggestedOffset();
+		barPercent = applied;
+		updateNoteDelay();
+		updateDraggableBarPosition();
+		clearTestSamples(applied);
+	}
+
+	function clearTestSamples(?appliedTo:Null<Int>):Void
+	{
+		testSum = 0;
+		testCount = 0;
+		testAvg = 0;
+		lastSampleBeat = -999999;
+		if (hitErrorBar != null) hitErrorBar.resetAll();
+
+		if (appliedTo != null && testInfoText != null && testHintText != null)
+		{
+			testInfoText.text = Language.getPhrase('delay_test_applied', 'Applied: {1} ms', [Std.string(appliedTo)]);
+			testHintText.text = Language.getPhrase('delay_test_hint', 'Press [SPACE] on each beat - the error shows on the bar');
+		}
+		else updateTestText();
 	}
 
 	var zoomTween:FlxTween;
@@ -669,18 +802,39 @@ class NoteOffsetState extends MusicBeatState
 				}
 			});
 
-			beatText.alpha = 1;
-			beatText.y = 320;
-			beatText.velocity.y = -150;
-			if(beatTween != null) beatTween.cancel();
-			beatTween = FlxTween.tween(beatText, {alpha: 0}, 1, {ease: FlxEase.sineIn, onComplete: function(twn:FlxTween)
-				{
-					beatTween = null;
-				}
-			});
+			// "节拍！"提示已挪到 hintMusicBeat()：它必须和音乐本身的拍点对齐，
+			// 否则 noteOffset 一改，提示相位就跟着移，测出来的值会自我误导。
 		}
 
 		lastBeatHit = curBeat;
+	}
+
+	var lastHintBeat:Int = -999999;
+
+	/** 测试模式的视觉节拍提示：跟音乐本身的拍点走，不受 noteOffset 平移影响。 */
+	function hintMusicBeat():Void
+	{
+		if (beatText == null || FlxG.sound.music == null || !FlxG.sound.music.playing) return;
+
+		var crochet:Float = Conductor.crochet;
+		if (crochet <= 0) return;
+
+		var musicTime:Float = FlxG.sound.music.time;
+		var beat:Int = Math.floor(musicTime / crochet + 0.01); // 0.01 拍容差，防浮点抖动
+		if (beat == lastHintBeat) return;
+		lastHintBeat = beat;
+
+		if (beat % 4 != 2) return;
+
+		beatText.alpha = 1;
+		beatText.y = 320;
+		beatText.velocity.y = -150;
+		if (beatTween != null) beatTween.cancel();
+		beatTween = FlxTween.tween(beatText, {alpha: 0}, 1, {ease: FlxEase.sineIn, onComplete: function(twn:FlxTween)
+			{
+				beatTween = null;
+			}
+		});
 	}
 
 	function repositionCombo()
@@ -809,16 +963,21 @@ class NoteOffsetState extends MusicBeatState
 		
 		// Note Delay 元素
 		timeBar.visible = !onComboMenu;
+		timeBar.draggable = !onComboMenu; // 双保险，避免隐藏状态下被鼠标误拖
 		timeTxt.visible = !onComboMenu;
 		if (timeBar.valueText != null)
 			timeBar.valueText.visible = !onComboMenu;
 		beatText.visible = !onComboMenu;
 
-		// KeyboardViewer 和 HitErrorBar 只在 Combo Offset 模式下可见
+		// KeyboardViewer 只在 Combo Offset 模式下可见；判定条两个模式都要用（Note 模式拿它做延迟测试）
 		if (keyboardViewer != null)
 			keyboardViewer.visible = onComboMenu;
 		if (hitErrorBar != null)
-			hitErrorBar.visible = onComboMenu;
+			hitErrorBar.visible = true;
+		if (testInfoText != null)
+			testInfoText.visible = !onComboMenu;
+		if (testHintText != null)
+			testHintText.visible = !onComboMenu;
 		for (item in counterPreview)
 			item.text.visible = onComboMenu;
 
@@ -842,7 +1001,7 @@ class NoteOffsetState extends MusicBeatState
 			str = Language.getPhrase('note_delay', 'Note/Beat Delay');
 
 		if(!controls.controllerMode)
-			str2 = Language.getPhrase('switch_on_accept', '(Press Accept to Switch)');
+			str2 = Language.getPhrase('switch_on_accept', '(Press ENTER to Switch)');
 		else
 			str2 = Language.getPhrase('switch_on_start', '(Press Start to Switch)');
 
