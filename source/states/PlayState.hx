@@ -3,6 +3,7 @@ package states;
 import backend.Highscore;
 import backend.StageData;
 import backend.WeekData;
+import backend.WeekReplay;
 import backend.Song;
 import backend.Rating;
 import backend.PlayMode;
@@ -346,6 +347,19 @@ class PlayState extends MusicBeatState
 	public static var campaignGoods:Int = 0;
 	public static var campaignBads:Int = 0;
 	public static var campaignShits:Int = 0;
+	/** 整周累计的判定权重和 / 物量（Σ totalNotesHit、Σ totalPlayed），用于算周准确率。 */
+	public static var campaignNotesHit:Float = 0;
+	public static var campaignPlayed:Int = 0;
+
+	// —— 周目身份快照：selectWeek 时写死，结算只认这里 ——
+	// storyWeek 是 loadedWeeks 的下标（会跳过 hiddenUntilUnlocked 的周），
+	// 而 WeekData.getWeekFileName() 吃的是 weeksList 下标，两者会错位，所以不能事后反推。
+	public static var campaignWeekFile:String = null;
+	public static var campaignModFolder:String = null;
+	public static var campaignVariant:String = null;
+	public static var campaignSongCount:Int = 0;
+	/** 周目逐曲判定快照（结算页左右切换打击图表用）。项：{ song:String, judgments:Array<Dynamic> }，judgment = [hitDiff, rating, strumTime] */
+	public static var campaignCharts:Array<{song:String, judgments:Array<Dynamic>}> = [];
 	public static var seenCutscene:Bool = false;
 	public static var deathCounter:Int = 0;
 
@@ -3477,8 +3491,12 @@ public function reloadCounterColors()
 		seenCutscene = false;
 
 		#if ACHIEVEMENTS_ALLOWED
-		var weekNoMiss:String = WeekData.getWeekFileName() + '_nomiss';
-		checkForAchievement([weekNoMiss, 'ur_bad', 'ur_good', 'hype', 'two_keys', 'toastie' #if BASE_GAME_FILES, 'debugger' #end]);
+		// 回放不该解锁任何成就（周回放会连触发 3-7 次）
+		if (!loadRep && !inReplay)
+		{
+			var weekNoMiss:String = WeekData.getWeekFileName() + '_nomiss';
+			checkForAchievement([weekNoMiss, 'ur_bad', 'ur_good', 'hype', 'two_keys', 'toastie' #if BASE_GAME_FILES, 'debugger' #end]);
+		}
 		#end
 
 		var ret:Dynamic = callOnScripts('onEndSong', null, true);
@@ -3553,11 +3571,14 @@ public function reloadCounterColors()
 				statsRecorded = true;
 				recordSongStats();
 				accumulateCampaignStats();
+				// 周目逐曲图表快照（结算页左右切换用）；回放被上面的 guard 挡住，不会混进来
+				if (isStoryMode) snapshotCampaignChart();
 			}
 
 			// ========== 根据模式显示结算界面 ==========
-			// 周目只在最后一首歌结束时结算，中途直接进下一首
-			var showResults:Bool = ClientPrefs.data.scoreScreen && (!isStoryMode || storyPlaylist.length <= 1);
+			// 周目只在最后一首歌结束时结算，中途直接进下一首；周回放全程不弹结算
+			var showResults:Bool = ClientPrefs.data.scoreScreen && (!isStoryMode || storyPlaylist.length <= 1)
+				&& !WeekReplay.isActive();
 			if (showResults)
 			{	
 				if (ClientPrefs.data.blurEffects)
@@ -3660,6 +3681,66 @@ public function reloadCounterColors()
 		campaignGoods += ratingsData[2].hits;
 		campaignBads += ratingsData[3].hits;
 		campaignShits += ratingsData[4].hits;
+		// 周准确率直接用本曲的累计值，口径与结算页 ratingPercent 完全一致
+		campaignNotesHit += totalNotesHit;
+		campaignPlayed += totalPlayed;
+	}
+
+	/**
+	 * 周目每首歌结束时抓一份判定历史，供结算页左右切换各曲打击图表。
+	 * 结构对齐 HitGraph.history：[hitDiff, rating, strumTime]。
+	 * 必须在 endSong 统计块里调 —— 此时 finishRecording() 已跑完，frameData 是全的。
+	 */
+	function snapshotCampaignChart():Void
+	{
+		var judgments:Array<Dynamic> = [];
+		if (frameRep != null && frameRep.replay != null && frameRep.replay.frameData != null)
+		{
+			for (frame in frameRep.replay.frameData)
+			{
+				if (frame.noteJudgments == null) continue;
+				for (judgment in frame.noteJudgments)
+					judgments.push([judgment.hitDiff, judgment.rating, judgment.strumTime]);
+			}
+		}
+		var songName:String = Song.loadedSongName;
+		if (songName == null || songName.length == 0) songName = SONG.song;
+		campaignCharts.push({song: songName, judgments: judgments});
+	}
+
+	/** 开始新周目时清空全部周目累加器（含身份快照）。 */
+	public static function resetCampaignStats():Void
+	{
+		campaignScore = 0;
+		campaignMisses = 0;
+		campaignMarvelous = 0;
+		campaignSicks = 0;
+		campaignGoods = 0;
+		campaignBads = 0;
+		campaignShits = 0;
+		campaignNotesHit = 0;
+		campaignPlayed = 0;
+		campaignWeekFile = null;
+		campaignModFolder = null;
+		campaignVariant = null;
+		campaignSongCount = 0;
+		campaignCharts = [];
+	}
+
+	/**
+	 * 整周 FC 判定。
+	 *
+	 * 单曲口径：miss == 0 才算 FC，miss >= 10 记 Clear。
+	 * 周目按物量放大：miss 阈值 = 歌曲数 × 10（单歌 Clear 的 10 个 miss）。
+	 */
+	public static function computeWeekRatingFC(misses:Int, bads:Int, shits:Int, goods:Int, songCount:Int):String
+	{
+		if (songCount <= 0) return 'Clear';
+		if (misses >= songCount * 10) return 'Clear';
+		if (misses > 0) return 'SDCB';
+		if (bads > 0 || shits > 0) return 'FC';
+		if (goods > 0) return 'GFC';
+		return 'SFC';
 	}
 
 	/**
@@ -3719,6 +3800,15 @@ public function reloadCounterColors()
 		if (vocals != null) vocals.stop();
 		if (opponentVocals != null) opponentVocals.stop();
 		if (FlxG.sound.music != null) FlxG.sound.music.stop();
+
+		// 周回放接管：必须在下面的"清理回放变量"之前，也必须在 story 分支之前。
+		// transitioning 必写 —— 舞台脚本会二次调 endSong()，不设会连跳两首。
+		if (WeekReplay.isActive())
+		{
+			transitioning = true;
+			WeekReplay.advance();
+			return;
+		}
 		
 		// 清理回放相关变量
 		if (loadRep || inReplay)
@@ -3747,8 +3837,18 @@ public function reloadCounterColors()
 				MusicBeatState.switchState(new StoryMenuState());
 
 				if(!ClientPrefs.getGameplaySetting('practice') && !ClientPrefs.getGameplaySetting('botplay')) {
-					StoryMenuState.weekCompleted.set(WeekData.weeksList[storyWeek], true);
-					Highscore.saveWeekScore(WeekData.getWeekFileName(), campaignScore, storyDifficulty, Mods.currentModDirectory);
+					var weekFile:String = (campaignWeekFile != null && campaignWeekFile.length > 0)
+						? campaignWeekFile : WeekData.getWeekFileName();
+
+					StoryMenuState.weekCompleted.set(weekFile, true);
+
+					var diffName:String = (storyDifficulty >= 0 && storyDifficulty < Difficulty.list.length)
+						? Difficulty.list[storyDifficulty] : Difficulty.getDefault();
+					var weekAcc:Float = (campaignPlayed > 0) ? (campaignNotesHit / campaignPlayed) : 0;
+					if (Math.isNaN(weekAcc)) weekAcc = 0;
+					var weekFC:String = computeWeekRatingFC(campaignMisses, campaignBads, campaignShits, campaignGoods, campaignSongCount);
+
+					Highscore.saveWeekResult(weekFile, campaignScore, diffName, campaignModFolder, campaignVariant, weekAcc, weekFC);
 
 					FlxG.save.data.weekCompleted = StoryMenuState.weekCompleted;
 					FlxG.save.flush();

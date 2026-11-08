@@ -4,6 +4,7 @@ import objects.Character;
 import flixel.FlxObject;
 import flixel.math.FlxPoint;
 
+import backend.WeekReplay;
 import states.StoryMenuState;
 import states.OldFreeplayState;
 import states.FreeplayState;
@@ -192,8 +193,12 @@ class GameOverSubstate extends MusicBeatSubstate
 				PlayState.seenCutscene = false;
 				PlayState.chartingMode = false;
 	
+				// 周回放中途死亡退出：不清队列的话 active 会泄漏，之后任何一局的 endSong 都会被它劫持
+				var wasWeekReplay:Bool = WeekReplay.isActive();
+				WeekReplay.abort();
+
 				Mods.loadTopMod();
-				if (PlayState.isStoryMode)
+				if (PlayState.isStoryMode || wasWeekReplay)
 					MusicBeatState.switchState(new StoryMenuState());
 				else if (!ClientPrefs.data.oldFreeplay)
 					MusicBeatState.switchState(new FreeplayState());
@@ -273,10 +278,14 @@ class GameOverSubstate extends MusicBeatSubstate
 			FlxG.sound.play(Paths.music(endSoundName));
 			new FlxTimer().start(0.7, function(tmr:FlxTimer)
 			{
-				FlxG.camera.fade(FlxColor.BLACK, 2, false, function()
-				{
-					MusicBeatState.resetState();
-				});
+			FlxG.camera.fade(FlxColor.BLACK, 2, false, function()
+			{
+				// 回放中死亡重试：旧 PlayState destroy 会清掉 static frameRep，不重挂
+				// pendingReplay 的话重试会退化成手动游玩（周回放还会整条链错位）。
+				if (PlayState.inReplay && PlayState.replayFileName != null && PlayState.replayFileName.length > 0)
+					PlayState.pendingReplay = backend.Replay.LoadReplay(PlayState.replayFileName);
+				MusicBeatState.resetState();
+			});
 			});
 			PlayState.instance.callOnScripts('onGameOverConfirm', [true]);
 		}

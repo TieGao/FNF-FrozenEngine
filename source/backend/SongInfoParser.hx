@@ -3,6 +3,7 @@ package backend;
 import openfl.utils.Assets;
 import sys.io.File;
 import sys.FileSystem;
+import haxe.Json;
 import backend.Song;
 import backend.DiffRating;
 
@@ -21,7 +22,10 @@ typedef ParsedSongInfo = {
     ratingText:String,
     ratingColor:FlxColor,
     // 专辑 id，取自谱面 JSON 的 album 字段。null = 这首歌没有封面。
-    album:String
+    album:String,
+    // 官方星数，取自官方式 metadata JSON（<歌>-metadata[-<变体>].json）的 playData.ratings。
+    // -1 = 没有官方数据（第三方模组 / 自定义谱面 / 该难度没写键）；Freeplay 星星只认 >=1 的值。
+    starRating:Int
 }
 
 class SongInfoParser
@@ -116,7 +120,8 @@ class SongInfoParser
      */
     public static function parseChartObject(chart:SwagSong, ?difficulty:String = null,
                                             ?splitCustomTracks:Bool = false, ?mirrorNotes:Null<Bool> = null,
-                                            ?gameplayMode:String = null, ?silent:Bool = false):ParsedSongInfo
+                                            ?gameplayMode:String = null, ?silent:Bool = false,
+                                            ?starRating:Null<Int> = null):ParsedSongInfo
     {
         if (chart == null) return getDefaultInfo();
 
@@ -221,7 +226,8 @@ class SongInfoParser
             difficultyRatingCoop: coopRating,
             ratingText: DiffRating.formatRating(difficultyRating),
             ratingColor: DiffRating.getColorFromRating(difficultyRating),
-            album: chart.album
+            album: chart.album,
+            starRating: (starRating != null) ? starRating : -1
         };
     }
 
@@ -263,7 +269,8 @@ class SongInfoParser
 
         try
         {
-            return parseChartObject(Song.parseJSON(chartData, null, 'psych_v1', true), difficulty);
+            return parseChartObject(Song.parseJSON(chartData, null, 'psych_v1', true), difficulty,
+                null, null, null, false, readStarRating(songName, folder, difficulty, weekData));
         }
         catch (e:Dynamic)
         {
@@ -371,7 +378,10 @@ class SongInfoParser
         #end
 
         if (swagSong == null) return getDefaultInfo();
-        return parseChartObject(swagSong, diffName, false, null, difficultyMode);
+
+        // 官方星数跟着这一档一起取（-1 = 无官方数据，Freeplay 星星隐藏）
+        var starRating:Int = readStarRating(songName, folder, diffName, weekData);
+        return parseChartObject(swagSong, diffName, false, null, difficultyMode, false, starRating);
     }
 
     /**
@@ -412,9 +422,14 @@ class SongInfoParser
     /**
      * **可在后台线程调用**：从已解析好的磁盘路径读出谱面并算信息。
      * 只碰 File / Json / 纯运算，不读任何全局；返回 null 表示「线程里搞不定，请回主线程」。
+     *
+     * @param metadataPath 官方式 metadata JSON 的路径（主线程提前解析好传进来），
+     *                     线程内同样只做 File.getContent + Json.parse，线程安全。
+     * @param diffName     metadata ratings 的键查找用（'Pico Easy' 这类变体名会取尾段再试）。
      */
     public static function parseChartFile(path:String, ?gameplayMode:String = null,
-                                          ?splitCustomTracks:Bool = false, ?mirrorNotes:Null<Bool> = null):ParsedSongInfo
+                                          ?splitCustomTracks:Bool = false, ?mirrorNotes:Null<Bool> = null,
+                                          ?metadataPath:String = null, ?diffName:String = null):ParsedSongInfo
     {
         #if sys
         if (path == null || path.length == 0) return null;
@@ -429,7 +444,20 @@ class SongInfoParser
         try swagSong = Song.parseJSON(raw, null, 'psych_v1', true) catch (e:Dynamic) return null;
         if (swagSong == null) return null;
 
-        return parseChartObject(swagSong, null, splitCustomTracks, mirrorNotes, gameplayMode, true);
+        var starRating:Int = -1;
+        if (metadataPath != null && metadataPath.length > 0 && FileSystem.exists(metadataPath))
+        {
+            try
+            {
+                starRating = extractStarRating(File.getContent(metadataPath), diffName);
+            }
+            catch (e:Dynamic)
+            {
+                starRating = -1;
+            }
+        }
+
+        return parseChartObject(swagSong, null, splitCustomTracks, mirrorNotes, gameplayMode, true, starRating);
         #else
         return null;
         #end
@@ -570,6 +598,118 @@ class SongInfoParser
         return minutes + ':' + (secs < 10 ? "0" + secs : Std.string(secs));
     }
 
+    // ===================== 官方星数（Freeplay 星星显示） =====================
+    // 数据源是搬官方曲目时一起进仓库的官方式 metadata JSON：
+    //   assets/base_game/shared/data/<歌>/<歌>-metadata.json          （easy/normal/hard）
+    //   content/VanillaSongs/Erect/.../<歌>-metadata-erect.json       （erect/nightmare 共用一份）
+    //   content/VanillaSongs/PicoMix|BFMix/.../<歌>-metadata-<变体>.json
+    // 里面的 playData.ratings 就是官方 Freeplay 星星的 0~15 整数。
+
+    /**
+     * metadata 文件名后缀候选，按优先级排。谱面文件名怎么拼，metadata 就照着变：
+     * 变体包（weekData.variant，如 "BF"/"Pico"）→ 'metadata-<小写变体>'；
+     * erect / nightmare 难度 → 'metadata-erect'（nightmare 的键也在这一份里）；
+     * 兜底 → 'metadata'。
+     */
+    static function getMetadataFileSuffixes(difficulty:String, ?weekData:WeekData):Array<String>
+    {
+        var suffixes:Array<String> = [];
+
+        if (weekData != null && weekData.variant != null && weekData.variant.length > 0)
+            suffixes.push('metadata-' + Paths.formatToSongPath(weekData.variant));
+
+        var lowerDiff:String = difficulty.toLowerCase();
+        if (lowerDiff == 'erect' || lowerDiff == 'nightmare' || lowerDiff == 'hmnf')
+            suffixes.push('metadata-erect');
+
+        suffixes.push('metadata');
+        return suffixes;
+    }
+
+    /**
+     * **主线程**：解析出某档难度的 metadata JSON 路径（后台线程解析用）。
+     * 查找顺序与谱面一致（resolveChartPath），找不到返回 null。
+     */
+    public static function resolveMetadataPathFor(songName:String, folder:String, difficulty:String,
+                                                  ?weekData:WeekData):String
+    {
+        var oldModDir:String = Mods.currentModDirectory;
+        Mods.currentModDirectory = folder;
+        var oldContentRoot:String = Paths.currentContentRoot;
+        if (weekData != null) Paths.currentContentRoot = weekData.contentRoot;
+
+        var path:String = null;
+        try
+        {
+            var songLowercase:String = Paths.formatToSongPath(songName);
+            for (suffix in getMetadataFileSuffixes(difficulty, weekData))
+            {
+                path = resolveChartPath(songLowercase, songLowercase + '-' + suffix);
+                if (path != null) break;
+            }
+        }
+        catch (e:Dynamic)
+        {
+            path = null;
+        }
+
+        Mods.currentModDirectory = oldModDir;
+        Paths.currentContentRoot = oldContentRoot;
+        return path;
+    }
+
+    /**
+     * **线程安全**：从 metadata JSON 文本里取 playData.ratings 中当前难度的官方星数。
+     * 没有文件 / 没有该难度的键都返回 -1（调用方视作「无官方数据」）。
+     */
+    public static function extractStarRating(raw:String, difficulty:String):Int
+    {
+        if (raw == null || raw.length == 0 || difficulty == null || difficulty.length == 0) return -1;
+
+        var meta:Dynamic = null;
+        try meta = Json.parse(raw) catch (e:Dynamic) return -1;
+        if (meta == null) return -1;
+
+        var playData:Dynamic = Reflect.field(meta, 'playData');
+        if (playData == null) return -1;
+        var ratings:Dynamic = Reflect.field(playData, 'ratings');
+        if (ratings == null) return -1;
+
+        var lowerDiff:String = difficulty.toLowerCase();
+        // 变体难度（'Pico Easy' 那类）的 ratings 键是标准名 —— 全名试不到就取空格后的尾段再试
+        var tail:String = lowerDiff;
+        var spaceIdx:Int = lowerDiff.lastIndexOf(' ');
+        if (spaceIdx != -1) tail = lowerDiff.substr(spaceIdx + 1);
+
+        for (key in Reflect.fields(ratings))
+        {
+            var lowerKey:String = key.toLowerCase();
+            if (lowerKey == lowerDiff || lowerKey == tail)
+            {
+                var value:Dynamic = Reflect.field(ratings, key);
+                return (value == null) ? -1 : Std.int(value);
+            }
+        }
+        return -1;
+    }
+
+    /** **主线程**：读官方 metadata 并取当前难度星数；任何一步失败都返回 -1。 */
+    static function readStarRating(songName:String, folder:String, difficulty:String, ?weekData:WeekData):Int
+    {
+        try
+        {
+            var metaPath:String = resolveMetadataPathFor(songName, folder, difficulty, weekData);
+            if (metaPath == null) return -1;
+            var raw:String = loadChartDataFromPath(metaPath);
+            if (raw == null) return -1;
+            return extractStarRating(raw, difficulty);
+        }
+        catch (e:Dynamic)
+        {
+            return -1;
+        }
+    }
+
     private static function getDefaultInfo():ParsedSongInfo
     {
         return {
@@ -586,7 +726,8 @@ class SongInfoParser
             difficultyRatingCoop: 0,
             ratingText: "BEGINNER",
             ratingColor: FlxColor.fromRGB(150, 150, 150),
-            album: null
+            album: null,
+            starRating: -1
         };
     }
 }

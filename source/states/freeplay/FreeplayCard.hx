@@ -96,7 +96,7 @@ class FreeplayCard extends FlxTypedGroup<FlxSprite>
         add(keysText);
         
         Mods.currentModDirectory = this.folder;
-        
+
         icon = new HealthIcon(songCharacter, false, true, this.folder);
         icon.setPosition(x + 30, y + 5);
         icon.scale.set(0.6, 0.6);

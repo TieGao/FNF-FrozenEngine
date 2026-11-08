@@ -45,8 +45,8 @@ class LimoErect extends BaseStage
 
 	override function create()
 	{
-		var skyBG:BGSprite = new BGSprite('limo/erect/limoSunset', -220, -80, 0.1, 0.1);
-		skyBG.scale.set(0.9, 0.9);
+		var skyBG:BGSprite = new BGSprite('limo/erect/limoSunset', -100, -80, 0.1, 0.1);
+		skyBG.scale.set(1, 1);
 		skyBG.updateHitbox();
 		add(skyBG);
 

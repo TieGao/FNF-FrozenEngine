@@ -1,6 +1,7 @@
 package states.freeplay;
 
 import backend.Replay as FrameReplay;
+import backend.ReplayLauncher;
 import backend.MusicBeatState;
 import backend.MouseMove;
 import backend.Mods;
@@ -936,223 +937,21 @@ class LoadReplaySubState extends MusicBeatSubstate
 
     function loadReplay(filePath:String)
     {
-        trace('Loading replay: $filePath');
-        
-        var rep:FrameReplay = FrameReplay.LoadReplay(filePath);
-        if (rep == null || !rep.isValid())
+        // 加载逻辑抽到 backend.ReplayLauncher，周回放共用同一套内容包 / 变体解析
+        var err:String = ReplayLauncher.prepare(filePath, {
+            fallbackContentRoot: currentContentRoot,
+            fallbackVariant: currentVariant
+        });
+        if (err != null)
         {
             FlxG.sound.play(Paths.sound('cancelMenu'));
-            showError("Invalid replay file!");
+            showError(err);
             return;
         }
-        
-        #if MODS_ALLOWED
-        // 回放没记 mod 目录（base 歌 / 内容包歌）时要显式清空：
-        // 否则会把界面上一次浏览留下的 mod 目录带进去，资源先往 mods/<m>/ 里找。
-        Mods.currentModDirectory = (rep.replay.modDirectory != null && rep.replay.modDirectory.length > 0)
-            ? rep.replay.modDirectory : "";
-        #end
-        
-        PlayState.frameRep = rep;
-        PlayState.loadRep = true;
-        PlayState.inReplay = true;
-        PlayState.replayFileName = filePath;
-        
-        var difficultyID:Int = 1;
-        if (rep.replay.difficultyName != null)
-        {
-            // 先按名字在当前难度表里精确匹配：变体难度名（'Pico Normal'）只有这样才能拿到
-            // 正确下标，PlayState 侧 getAudioVariant() 才认得出音轨变体目录。
-            // 关键词分支会丢掉变体前缀（'Pico Normal' 里含 'normal' → 落到 1 = 普通 Normal），
-            // 变体回放就会静默放原曲音轨，所以只作为匹配不到时的兜底。
-            var listedIndex:Int = Difficulty.list.indexOf(rep.replay.difficultyName);
-            if (listedIndex >= 0)
-            {
-                difficultyID = listedIndex;
-            }
-            else
-            {
-                var diffLower = rep.replay.difficultyName.toLowerCase();
-                if (diffLower.indexOf('easy') >= 0) difficultyID = 0;
-                else if (diffLower.indexOf('normal') >= 0) difficultyID = 1;
-                else if (diffLower.indexOf('hard') >= 0) difficultyID = 2;
-                else difficultyID = rep.replay.songDiff;
-            }
-        }
-        else difficultyID = rep.replay.songDiff;
-        
-        PlayState.storyDifficulty = difficultyID;
-        PlayState.storyWeek = 0;
-        
-        var songName:String = rep.replay.songName;
-        var difficultyName:String = rep.replay.difficultyName;
 
-        // ---- 内容包上下文 ----
-        // 回放里的 chartContentRoot 是后加的字段，早期版本录的 PicoMix / Erect 存档没有它。
-        // 这时靠三层兜底把资源根找回来，否则谱面会去 assets/ 找（-pico-normal 不在那儿），
-        // 结果是"回放点了没反应 / 报缺谱面"。
-        //   1. 回放自带 chartContentRoot
-        //   2. Freeplay 传进来的当前浏览歌的资源根（回放列表本来就是按这首过滤的）
-        //   3. 扫 content/VanillaSongs/* 找哪份谱面真的存在
-        var replayContentRoot:String = normalizeRoot(rep.replay.chartContentRoot);
-        if (replayContentRoot.length == 0) replayContentRoot = normalizeRoot(currentContentRoot);
-        if (replayContentRoot.length == 0)
-        {
-            // 只有难度名自带变体前缀（旧 PicoMix 的 'Pico Normal'）才敢去包里翻谱面 ——
-            // 否则 base 的 Bopeebo Normal 会被误认成 PicoMix 里的同名谱面。
-            var diffVariantHint:String = difficultyVariantHint(difficultyName);
-            if (diffVariantHint != null)
-            {
-                var probed:String = findContentRootForChart(songName, difficultyName, diffVariantHint);
-                if (probed != null) replayContentRoot = probed;
-            }
-        }
-        if (replayContentRoot.length == 0) replayContentRoot = null;
-
-        var replayVariant:String = (replayContentRoot != null) ? WeekData.getVariantForContentRoot(replayContentRoot) : null;
-        // 周定义没登记（包被隐藏 / weeksLoaded 里查不到）时，只有当前浏览的正是同一个包，
-        // 才敢借用界面上那首歌的变体 —— 借错包会拼出别的包的音轨目录。
-        if (replayVariant == null && replayContentRoot != null && currentContentRoot != null
-            && normalizeRoot(currentContentRoot) == replayContentRoot)
-            replayVariant = currentVariant;
-
-        try
-        {
-            // 后缀一律交给 Difficulty 拼：它会按变体决定要不要带前缀，
-            // 也保证与存档键、SongInfoParser 拼出来的文件名一致。
-            // 旧 PicoMix 存档的难度名自带变体前缀（'Pico Normal'），先剥掉再拼，
-            // 否则会得到 -pico-pico-normal。
-            var diffSuffix:String = Difficulty.getFilePathForName(stripVariantPrefix(difficultyName, replayVariant), replayVariant);
-            var jsonToLoad = songName + diffSuffix;
-            trace('Loading JSON: $jsonToLoad (contentRoot=$replayContentRoot variant=$replayVariant)');
-            // 只有 CustomCharts 才走自定义谱面那套；内容包（VanillaSongs/*）不是自定义谱面，
-            // 以前只要 chartCategory 非空就往这边走，内容包回放会被判成"找不到自定义谱面"。
-            if (rep.replay.chartCategory != null && rep.replay.chartCategory.length > 0
-                && Paths.isCustomChartCategory(rep.replay.chartCategory))
-            {
-                var customSongs = CustomChartData.load(rep.replay.chartCategory);
-                var customSong:CustomChartSong = null;
-                for (candidate in customSongs)
-                {
-                    if (candidate.name == songName || Paths.formatToSongPath(candidate.name) == Paths.formatToSongPath(songName))
-                    {
-                        customSong = candidate;
-                        break;
-                    }
-                }
-                if (customSong == null)
-                    throw 'Custom chart not found: $songName';
-
-                // 资源根 / 曲师谱师按谱面目录重新推导；回放里存的 chartContentRoot 只作兜底
-                // （内容包目录被挪走时仍能定位到 songs/ 下的变体音轨）。
-                var contentRoot:String = customSong.contentRoot;
-                if ((contentRoot == null || contentRoot.length == 0) && rep.replay.chartContentRoot != null)
-                    contentRoot = rep.replay.chartContentRoot;
-
-                Paths.setChartContext(rep.replay.chartCategory, customSong.directory,
-                    rep.replay.chartHasVSliceMetadata, rep.replay.chartAudioSuffix,
-                    contentRoot, customSong.artist, customSong.charter);
-                PlayState.chartCategory = Paths.currentChartCategory;
-                PlayState.chartDirectory = Paths.currentChartDirectory;
-                PlayState.chartHasVSliceMetadata = Paths.currentChartHasVSliceMetadata;
-                PlayState.chartAudioSuffix = Paths.currentChartAudioSuffix;
-                PlayState.chartContentRoot = Paths.currentContentRoot;
-                PlayState.chartMetadataArtist = Paths.currentChartMetaArtist;
-                PlayState.chartMetadataCharter = Paths.currentChartMetaCharter;
-
-                PlayState.SONG = cast CustomChartData.loadChart(customSong, difficultyName);
-                StageData.loadDirectory(PlayState.SONG); // 同上：内容包回放也要定下舞台目录
-            }
-            else
-            {
-                // 普通歌 / 内容包回放：清掉上一次 content 浏览留下的谱面上下文，
-                // 否则 PlayState.create() 会把普通歌误判成 content 模式。
-                // 内容包回放要把资源根（连同变体）带回去 —— 谱面与变体音轨都在包里。
-                Paths.setChartContext(null, null, false, null, replayContentRoot, null, null, replayVariant);
-                PlayState.clearChartContext();
-                PlayState.SONG = Song.loadFromJson(jsonToLoad, songName);
-            }
-            
-            if (PlayState.SONG == null) throw 'Failed to load song';
-            
-            PlayState.isStoryMode = false;
-            ClientPrefs.data.downScroll = rep.replay.isDownscroll;
-            
-            FlxG.sound.music.stop();
-            close();
-            LoadingState.loadAndSwitchState(new PlayState());
-        }
-        catch(e:Dynamic)
-        {
-            trace('Error loading song: $e');
-            FlxG.sound.play(Paths.sound('cancelMenu'));
-            showError("Failed to load song!\nMissing: ${songName + diffSuffix}.json");
-        }
-    }
-
-    /** 旧 PicoMix 存档的难度名自带变体前缀（'Pico Normal'），拼文件名前先剥掉。 */
-    static function stripVariantPrefix(diffName:String, variant:String):String
-    {
-        if (diffName == null) return null;
-        if (variant == null || variant.length == 0) return diffName;
-
-        var lower:String = diffName.toLowerCase();
-        var v:String = variant.toLowerCase();
-        if (lower.indexOf(v) != 0) return diffName;
-
-        var rest:String = diffName.substring(variant.length);
-        while (rest.length > 0 && (rest.charAt(0) == ' ' || rest.charAt(0) == '-'))
-            rest = rest.substring(1);
-        // 整个难度名就是变体名（'Pico'）时保留原样，别剥成空串
-        return rest.length > 0 ? rest : diffName;
-    }
-
-    /**
-     * 兜底：回放没有 chartContentRoot（早期版本录的）时，去 content 各包里找这首歌这一档的谱面，
-     * 找到就返回它所属的资源根（content/VanillaSongs/PicoMix）。
-     */
-    static function findContentRootForChart(songName:String, difficultyName:String, variant:String):String
-    {
-        #if sys
-        if (songName == null) return null;
-
-        var songPath:String = Paths.formatToSongPath(songName);
-        var diffSlug:String = (difficultyName != null)
-            ? Paths.formatToSongPath(stripVariantPrefix(difficultyName, variant)) : null;
-
-        var groupRoot:String = '${Paths.CONTENT_ROOT}/VanillaSongs';
-        if (!FileSystem.exists(groupRoot)) return null;
-
-        for (pack in FileSystem.readDirectory(groupRoot))
-        {
-            if (pack.startsWith('.')) continue;
-            var root:String = '$groupRoot/$pack';
-            if (!FileSystem.isDirectory(root)) continue;
-
-            for (dataDir in ['$root/shared/data/$songPath', '$root/data/$songPath', '$root/songs/$songPath'])
-            {
-                if (!FileSystem.exists(dataDir) || !FileSystem.isDirectory(dataDir)) continue;
-                for (file in FileSystem.readDirectory(dataDir))
-                {
-                    if (!file.endsWith('.json')) continue;
-                    var chartName:String = file.substr(0, file.length - 5).toLowerCase();
-
-                    // 无后缀 = 普通 Normal
-                    if (chartName == songPath)
-                    {
-                        if (diffSlug == null || diffSlug.length == 0 || diffSlug == 'normal') return root;
-                        continue;
-                    }
-
-                    if (chartName.indexOf(songPath) != 0) continue;
-                    if (diffSlug == null || diffSlug.length == 0) continue;
-                    // <歌>-<变体>-<档位> 或 <歌>-<档位>，都靠"以 -<档位> 结尾"命中
-                    if (chartName.endsWith('-' + diffSlug)) return root;
-                }
-            }
-        }
-        #end
-        return null;
+        FlxG.sound.music.stop();
+        close();
+        LoadingState.loadAndSwitchState(new PlayState());
     }
 
     function showError(message:String)

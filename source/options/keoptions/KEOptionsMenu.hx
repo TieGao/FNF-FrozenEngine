@@ -1280,6 +1280,9 @@ function onScrollChange()
 			[
 				KEOption.create("Old Freeplay Menu", "Use Psych Engine Default Freeplay Menu", "oldFreeplay", "bool"),
 				KEOption.create("Card Glow", "Enable breathing glow under selected card", "cardGlow", "bool"),
+				KEOption.create("Difficulty Stars", "Show the official star rating above the album cover", "freeplayStars", "bool"),
+				KEOption.create("Album Cover", "Show the album cover on the right side of Freeplay", "freeplayAlbumArt", "bool"),
+				KEOption.create("Difficulty Blocks", "Show the clickable difficulty blocks in Freeplay", "freeplayDiffCarousel", "bool"),
 				KEOption.create("Freeplay ToolBar", "Show tool bar in freeplay", "toolBar", "bool"),
 				KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool"),
 				KEOption.create("Save Freeplay Cache", "Save freeplay song metadata cache to disk", "saveFreeplayCache", "bool"),

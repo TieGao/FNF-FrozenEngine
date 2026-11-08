@@ -351,6 +351,24 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			['blur', 'win8', 'win10']);
 		addOption(option);
 
+		var option:Option = new Option('Difficulty Stars',
+			"Show the official star rating above the album cover",
+			'freeplayStars',
+			BOOL);
+		addOption(option);
+
+		var option:Option = new Option('Album Cover',
+			"Show the album cover on the right side of Freeplay",
+			'freeplayAlbumArt',
+			BOOL);
+		addOption(option);
+
+		var option:Option = new Option('Difficulty Blocks',
+			"Show the clickable difficulty blocks in Freeplay",
+			'freeplayDiffCarousel',
+			BOOL);
+		addOption(option);
+
 		var option:Option = new Option('Custom Color',
 			"If checked, timeBar and Scoretxt will change to opponent's icon color",
 			'customColor',

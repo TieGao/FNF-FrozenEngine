@@ -1,6 +1,7 @@
 package substates;
 
 import backend.WeekData;
+import backend.WeekReplay;
 import backend.Highscore;
 import backend.Song;
 import backend.SongCredits;
@@ -550,8 +551,10 @@ class PauseSubState extends MusicBeatSubstate
 				PlayState.instance.canResync = false;
 				PlayState.inReplay = false;
 				PlayState.loadRep = false;
+				var wasWeekReplay:Bool = WeekReplay.isActive();
+				WeekReplay.abort();
 				Mods.loadTopMod();
-				if(PlayState.isStoryMode)
+				if(PlayState.isStoryMode || wasWeekReplay)
 					MusicBeatState.switchState(new StoryMenuState());
 				else if(!ClientPrefs.data.oldFreeplay) MusicBeatState.switchState(new FreeplayState());
 				else MusicBeatState.switchState(new OldFreeplayState());
@@ -577,6 +580,11 @@ class PauseSubState extends MusicBeatSubstate
 
 	public static function restartSong(noTrans:Bool = false)
 	{
+		// 回放中重开：把当前回放重新挂回 pendingReplay。
+		// 否则 resetState() 之后会变成手动游玩，播完还会写真实分数。
+		if (PlayState.inReplay && PlayState.replayFileName != null && PlayState.replayFileName.length > 0)
+			PlayState.pendingReplay = backend.Replay.LoadReplay(PlayState.replayFileName);
+
 		PlayState.instance.paused = true;
 		FlxG.sound.music.volume = 0;
 		PlayState.instance.vocals.volume = 0;

@@ -7,35 +7,51 @@ import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import backend.Difficulty;
 import backend.Paths;
+import shapeEx.SlantQuad;
 
 /**
- * Freeplay 的难度方块 carousel。
+ * Freeplay 的难度条：**最多 3 块斜切平行四边形，边对边拼成一条**（和 StoryMode 右下角同一套做法）。
  *
- * 横向一排方块，每块里上面是难度名、下面是评级数字；选中的那块放大并染成该难度的颜色，
- * 离选中太远的块直接隐藏（滑动窗口），所以 1 个到十几个难度都能容纳。
+ * - 每块里面上面是难度名、下面是评级数字；选中的那块染成该难度的颜色，其余是深灰。
+ * - 只要超过 3 个难度就开滑动窗口：左右方向键 / 点击右侧方块都会让窗口整体挪一格，
+ *   窗口里的三块始终紧贴，不会因为切换被拉开缝。
+ * - 只负责画和"点到第几块"。切换本身由宿主驱动（宿主自己管 changeDiff 和音效）。
  *
- * 只负责画和"点到第几块"。切换本身由宿主驱动（宿主自己管 changeDiff 和音效）。
+ * ⚠ 这里**不能**像旧版那样给每块单独缩放/插值 x：三块是共边的，任一块的 scale 或
+ * x 只要和邻居不同步，接缝立刻就散了。所以"选中"只靠颜色区分，滑动也只整体位移。
  */
 class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 {
-	// 4 块 × 75px = 300px，正好等于专辑封面的宽度（262×262 缩到高 300）
-	public static inline var BLOCK_SIZE:Int = 75;
-	public static inline var BLOCK_SPACING:Int = 75;
+	// 3 块：3*96 - 2*18 = 252，和专辑封面宽度（262）基本对齐
+	public static inline var BLOCK_W:Float = 96;
+	public static inline var BLOCK_H:Float = 66;
+	public static inline var BLOCK_SKEW:Float = 18;
+	public static inline var BLOCK_BORDER:Float = 2;
 
-	private static inline var MAX_VISIBLE:Int = 4; // 一次最多显示几块（整行与专辑封面同宽）
+	/** 每块往四周各胀 1px，两块拼起来就是 2px 重叠（同 StoryActionButton.SEAM_OVERLAP） */
+	private static inline var SEAM_OVERLAP:Float = 1;
+
+	private static inline var MAX_VISIBLE:Int = 3;
 	private static inline var UNSELECTED_COLOR:Int = 0xFF1A1A1A;
 	private static inline var LERP_SPEED:Float = 15;
 
 	private var centerX:Float;
 	private var centerY:Float;
 
-	private var blocks:Array<FlxSprite> = [];
+	private var outlines:Array<SlantQuad> = [];
+	private var blocks:Array<SlantQuad> = [];
 	private var labels:Array<FlxText> = [];
 	private var ratings:Array<FlxText> = [];
 
+	/** 每块在条带里的基准左边缘（不含 slideX） */
+	private var baseX:Array<Float> = [];
+	private var shown:Array<Bool> = [];
+
 	private var diffCount:Int = 0;
 	private var selected:Int = 0;
-	private var targetXs:Array<Float> = [];
+	private var startIndex:Int = -1;
+	/** 整条一起滑动的偏移：窗口换格时给它一个 ±步长，再 lerp 回 0，这样三块永远同步 */
+	private var slideX:Float = 0;
 
 	public function new(centerX:Float, centerY:Float)
 	{
@@ -58,29 +74,46 @@ class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 				m.destroy();
 			}
 		}
+		outlines = [];
 		blocks = [];
 		labels = [];
 		ratings = [];
-		targetXs = [];
+		baseX = [];
+		shown = [];
 
 		diffCount = (list == null) ? 0 : list.length;
 		selected = (curIndex < 0 || curIndex >= diffCount) ? 0 : curIndex;
 
+		var grow:Float = SEAM_OVERLAP;
+		var top:Float = centerY - BLOCK_H * 0.5;
+		var ox:Float = outlineX();
+
+		// 先铺所有形状，再铺所有文字：否则后一块的白色描边会盖住前一块的标签
 		for (i in 0...diffCount)
 		{
-			var block:FlxSprite = new FlxSprite();
-			block.makeGraphic(BLOCK_SIZE, BLOCK_SIZE, FlxColor.WHITE);
-			// origin 放中心：缩放绕中心做，视觉中心恒为 x + BLOCK_SIZE/2。
-			// 不能用 updateHitbox 那套补偿 —— 它会把 offset 挪走，命中区反而和画面对不上。
+			var outline:SlantQuad = new SlantQuad(0, top - grow - BLOCK_BORDER, BLOCK_W + ox * 2,
+				BLOCK_H + (grow + BLOCK_BORDER) * 2, BLOCK_SKEW, FlxColor.WHITE, 1);
+			outline.antialiasing = ClientPrefs.data.antialiasing;
+			outline.scrollFactor.set();
+			outline.visible = false;
+			add(outline);
+			outlines.push(outline);
+
+			var block:SlantQuad = new SlantQuad(0, top - grow, BLOCK_W + grow * 2, BLOCK_H + grow * 2,
+				BLOCK_SKEW, UNSELECTED_COLOR, 1);
 			block.antialiasing = ClientPrefs.data.antialiasing;
-			block.origin.set(BLOCK_SIZE * 0.5, BLOCK_SIZE * 0.5);
 			block.scrollFactor.set();
-			block.y = centerY - BLOCK_SIZE * 0.5;
 			block.visible = false;
 			add(block);
 			blocks.push(block);
 
-			var label:FlxText = new FlxText(0, 0, BLOCK_SIZE, Difficulty.getString(i), 11);
+			baseX.push(0);
+			shown.push(false);
+		}
+
+		for (i in 0...diffCount)
+		{
+			var label:FlxText = new FlxText(0, top + 8, BLOCK_W, Difficulty.getString(i), 11);
 			label.antialiasing = ClientPrefs.data.antialiasing;
 			label.setFormat(Paths.font('vcr.ttf'), 11, FlxColor.WHITE, CENTER);
 			label.scrollFactor.set();
@@ -88,17 +121,17 @@ class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 			add(label);
 			labels.push(label);
 
-			var rating:FlxText = new FlxText(0, 0, BLOCK_SIZE, '--', 18);
+			var rating:FlxText = new FlxText(0, top + 30, BLOCK_W, '--', 20);
 			rating.antialiasing = ClientPrefs.data.antialiasing;
-			rating.setFormat(Paths.font('vcr.ttf'), 18, FlxColor.WHITE, CENTER);
+			rating.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.WHITE, CENTER);
 			rating.scrollFactor.set();
 			rating.visible = false;
 			add(rating);
 			ratings.push(rating);
-
-			targetXs.push(centerX);
 		}
 
+		startIndex = -1;
+		slideX = 0;
 		applyLayout(true);
 	}
 
@@ -141,62 +174,118 @@ class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 		var mx:Float = FlxG.mouse.x;
 		var my:Float = FlxG.mouse.y;
 
+		// 从右往左判，最后一个命中的胜出：接缝那 2px 归画在上层的右块，和 StoryMode 一致
+		var hit:Int = -1;
 		for (i in 0...diffCount)
 		{
 			var block = blocks[i];
-			// 判 exists：销毁过的 sprite 上取字段会空指针，而且它还留在数组里。
-			if (block == null || !block.exists || !block.visible)
+			if (block == null || !block.exists || !shown[i])
 				continue;
-
-			// 自己算命中区。方块是 origin=中心 缩放的，视觉中心 = x + BLOCK_SIZE/2，
-			// 半宽随 scale 变 —— 用 FlxG.mouse.overlaps 反而会因为 offset 语义对不上。
-			var cx:Float = block.x + BLOCK_SIZE * 0.5;
-			var half:Float = BLOCK_SIZE * 0.5 * block.scale.x;
-
-			if (mx >= cx - half && mx <= cx + half && my >= centerY - half && my <= centerY + half)
-				return i;
+			if (block.containsScreen(mx, my))
+				hit = i;
 		}
-		return -1;
+		return hit;
+	}
+
+	/** 斜边按"垂直方向 2px"折算成水平外扩；直接按 x 外扩会让斜边比上下边粗 */
+	private function outlineX():Float
+	{
+		var slant:Float = Math.sqrt(BLOCK_SKEW * BLOCK_SKEW + BLOCK_H * BLOCK_H);
+		return SEAM_OVERLAP + BLOCK_BORDER * (slant / BLOCK_H);
 	}
 
 	private function applyLayout(instant:Bool):Void
 	{
-		// 可见窗口整体以 centerX 居中，而不是「选中块居中」—— 窗口是偶数格（4），
-		// 选中块本来就不可能正好落在中心。整行宽度恒为 MAX_VISIBLE * BLOCK_SPACING，
-		// 和专辑封面同宽同轴，选中块在窗口内滑动。
+		if (diffCount < 1)
+		{
+			startIndex = 0;
+			return;
+		}
+
 		var visibleCount:Int = (diffCount < MAX_VISIBLE) ? diffCount : MAX_VISIBLE;
-		var startIndex:Int = selected - 1;
-		if (startIndex < 0) startIndex = 0;
-		if (startIndex > diffCount - visibleCount) startIndex = diffCount - visibleCount;
+
+		// 选中项尽量落在中间那格；贴边时窗口整体退让
+		var newStart:Int = selected - 1;
+		if (newStart < 0) newStart = 0;
+		if (newStart > diffCount - visibleCount) newStart = diffCount - visibleCount;
+
+		if (instant || startIndex < 0)
+		{
+			startIndex = newStart;
+			slideX = 0;
+		}
+		else if (newStart != startIndex)
+		{
+			// 窗口前进一格 → 整条先往右错一格再滑回来，读起来就是"内容从右边推进来"
+			slideX += (newStart - startIndex) * step();
+			startIndex = newStart;
+		}
+
+		var stripW:Float = visibleCount * BLOCK_W - (visibleCount - 1) * BLOCK_SKEW;
+		var left:Float = centerX - stripW * 0.5;
 
 		for (i in 0...diffCount)
 		{
-			var block = blocks[i];
-			if (block == null)
-				continue;
-
 			var inRange:Bool = (i >= startIndex && i < startIndex + visibleCount);
+			shown[i] = inRange;
 
-			block.visible = inRange;
-			labels[i].visible = inRange;
-			ratings[i].visible = inRange;
+			var outline = outlines[i];
+			var block = blocks[i];
+			if (outline != null) outline.visible = inRange;
+			if (block != null) block.visible = inRange;
+			if (labels[i] != null) labels[i].visible = inRange;
+			if (ratings[i] != null) ratings[i].visible = inRange;
 
 			if (!inRange)
-			{
-				targetXs[i] = centerX;
 				continue;
+
+			baseX[i] = left + (i - startIndex) * step();
+			if (block != null)
+				block.color = (i == selected) ? Difficulty.getColor(i) : UNSELECTED_COLOR;
+		}
+
+		applyPositions();
+	}
+
+	/** 相邻两块的水平间距：正好等于一块的宽度减一个 skew，两条斜边才能完全重合 */
+	private inline function step():Float
+	{
+		return BLOCK_W - BLOCK_SKEW;
+	}
+
+	private function applyPositions():Void
+	{
+		var grow:Float = SEAM_OVERLAP;
+		var top:Float = centerY - BLOCK_H * 0.5;
+		var ox:Float = outlineX();
+
+		for (i in 0...diffCount)
+		{
+			if (!shown[i])
+				continue;
+
+			var bx:Float = baseX[i] + slideX;
+
+			if (outlines[i] != null)
+			{
+				outlines[i].x = bx - ox;
+				outlines[i].y = top - grow - BLOCK_BORDER;
 			}
-
-			var slot:Float = (i - startIndex) - (visibleCount - 1) * 0.5;
-			var isSel:Bool = (i == selected);
-			var s:Float = isSel ? 1.0 : 0.85;
-
-			targetXs[i] = centerX + slot * BLOCK_SPACING - BLOCK_SIZE * 0.5;
-			block.scale.set(s, s);
-			block.color = isSel ? Difficulty.getColor(i) : UNSELECTED_COLOR;
-
-			if (instant)
-				block.x = targetXs[i];
+			if (blocks[i] != null)
+			{
+				blocks[i].x = bx - grow;
+				blocks[i].y = top - grow;
+			}
+			if (labels[i] != null)
+			{
+				labels[i].x = bx;
+				labels[i].y = top + 8;
+			}
+			if (ratings[i] != null)
+			{
+				ratings[i].x = bx;
+				ratings[i].y = top + 30;
+			}
 		}
 	}
 
@@ -204,37 +293,12 @@ class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 	{
 		super.update(elapsed);
 
-		var k:Float = Math.min(1, elapsed * LERP_SPEED);
-
-		for (i in 0...diffCount)
+		if (slideX != 0)
 		{
-			var block = blocks[i];
-			if (block == null)
-				continue;
-
-			if (Math.abs(block.x - targetXs[i]) > 0.05)
-				block.x = FlxMath.lerp(block.x, targetXs[i], k);
-			else
-				block.x = targetXs[i];
-
-			if (!block.visible)
-				continue;
-
-			// 文字跟着方块的当前 x 走（方块在滑动，不能只按目标位置摆一次）
-			var cx:Float = block.x + BLOCK_SIZE * 0.5;
-			var label = labels[i];
-			var rating = ratings[i];
-
-			if (label != null)
-			{
-				label.x = cx - BLOCK_SIZE * 0.5;
-				label.y = centerY - BLOCK_SIZE * 0.5 + 4;
-			}
-			if (rating != null)
-			{
-				rating.x = cx - BLOCK_SIZE * 0.5;
-				rating.y = centerY - 2;
-			}
+			slideX = FlxMath.lerp(slideX, 0, Math.min(1, elapsed * LERP_SPEED));
+			if (Math.abs(slideX) < 0.5)
+				slideX = 0;
+			applyPositions();
 		}
 	}
 
@@ -252,11 +316,14 @@ class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 					m.destroy();
 		}
 
+		outlines = [];
 		blocks = [];
 		labels = [];
 		ratings = [];
-		targetXs = [];
+		baseX = [];
+		shown = [];
 		diffCount = 0;
+		startIndex = -1;
 
 		super.destroy();
 	}

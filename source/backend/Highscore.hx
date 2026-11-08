@@ -3,6 +3,10 @@ package backend;
 class Highscore
 {
 	public static var weekScores:Map<String, Int> = new Map();
+	/** 周目整周准确率（0..1，显示时 *100）。键与 weekScores 同构。老存档没有这张表。 */
+	public static var weekRating:Map<String, Float> = new Map<String, Float>();
+	/** 周目整周 FC 档位（SFC/GFC/FC/SDCB/Clear）。键与 weekScores 同构。老存档没有这张表。 */
+	public static var weekRatingFC:Map<String, String> = new Map<String, String>();
 	public static var songScores:Map<String, Int> = new Map<String, Int>();
 	public static var songRating:Map<String, Float> = new Map<String, Float>();
 	/** 游玩次数（歌曲+难度+模组+模式 分档），键与 songScores 同构 */
@@ -24,6 +28,25 @@ class Highscore
 	{
 		var daWeek:String = formatSong(week, diff, modFolder);
 		setWeekScore(daWeek, 0);
+		resetWeekStats(daWeek);
+	}
+
+	static function resetWeekStats(weekKey:String):Void
+	{
+		var changed:Bool = false;
+		if (weekRating.exists(weekKey))
+		{
+			weekRating.remove(weekKey);
+			FlxG.save.data.weekRating = weekRating;
+			changed = true;
+		}
+		if (weekRatingFC.exists(weekKey))
+		{
+			weekRatingFC.remove(weekKey);
+			FlxG.save.data.weekRatingFC = weekRatingFC;
+			changed = true;
+		}
+		if (changed) FlxG.save.flush();
 	}
 
 	public static function saveScore(song:String, score:Int = 0, ?diff:Int = 0, ?rating:Float = -1, ?modFolder:String = null, ?mode:String = null, ?fc:String = null):Void
@@ -57,6 +80,59 @@ class Highscore
 				setWeekScore(daWeek, score);
 		}
 		else setWeekScore(daWeek, score);
+	}
+
+	/**
+	 * 周目结算：一次写入分数 / 整周准确率 / 整周 FC。
+	 *
+	 * 语义：
+	 *  - 分数取历史最大；
+	 *  - 准确率**独立**取历史最大（和单曲 saveScore 的口径一致），
+	 *    并且准确率刷新时 FC 必须跟着一起写 —— 否则会出现"上一把的 FC + 这一把的准确率"。
+	 *
+	 * @param diffName 原始难度名（Difficulty.list[i]），不是翻译名
+	 * @param rating   0..1
+	 */
+	public static function saveWeekResult(week:String, score:Int, diffName:String, ?modFolder:String = null,
+			?variant:String = null, ?rating:Float = -1, ?fc:String = null):Void
+	{
+		if (week == null || week.length == 0 || diffName == null) return;
+
+		var key:String = weekKey(week, diffName, modFolder, variant);
+
+		var oldScore:Null<Int> = weekScores.get(key);
+		if (oldScore == null || oldScore < score) setWeekScore(key, score);
+
+		if (rating >= 0)
+		{
+			var oldAcc:Null<Float> = weekRating.get(key);
+			if (oldAcc == null || rating > oldAcc)
+			{
+				setWeekRating(key, rating);
+				if (fc != null && fc.length > 0) setWeekRatingFC(key, fc);
+			}
+		}
+	}
+
+	/** 周目键：显式变体版，不依赖全局 Paths.currentContentVariant。 */
+	public static function weekKey(week:String, diffName:String, ?modFolder:String = null, ?variant:String = null):String
+	{
+		return formatSongByName(week, diffName, modFolder, null, variant);
+	}
+
+	static function setWeekRating(key:String, rating:Float):Void
+	{
+		weekRating.set(key, rating);
+		FlxG.save.data.weekRating = weekRating;
+		FlxG.save.flush();
+	}
+
+	static function setWeekRatingFC(key:String, fc:String):Void
+	{
+		if (key == null || fc == null || fc.length == 0) return;
+		weekRatingFC.set(key, fc);
+		FlxG.save.data.weekRatingFC = weekRatingFC;
+		FlxG.save.flush();
 	}
 
 	static function setScore(song:String, score:Int):Void
@@ -196,13 +272,35 @@ class Highscore
 		return (value == null) ? 0 : value;
 	}
 
+	/**
+	 * 读周分数（兼容旧调用）。缺失返回 0 且**不写回存档** —— 旧实现会 setWeekScore(0)+flush，
+	 * 等于每切一次周就往存档灌一个 0 值键。
+	 */
 	public static function getWeekScore(week:String, diff:Int, ?modFolder:String = null):Int
 	{
-		var daWeek:String = formatSong(week, diff, modFolder);
-		if (!weekScores.exists(daWeek))
-			setWeekScore(daWeek, 0);
+		var value:Null<Int> = weekScores.get(formatSong(week, diff, modFolder));
+		return (value == null) ? 0 : value;
+	}
 
-		return weekScores.get(daWeek);
+	/** 只读周分数（显式难度名 + 变体，StoryMenu 用这个）。 */
+	public static function peekWeekScore(week:String, diffName:String, ?modFolder:String = null, ?variant:String = null):Int
+	{
+		var value:Null<Int> = weekScores.get(weekKey(week, diffName, modFolder, variant));
+		return (value == null) ? 0 : value;
+	}
+
+	/** 只读周准确率（0..1）。 */
+	public static function peekWeekRating(week:String, diffName:String, ?modFolder:String = null, ?variant:String = null):Float
+	{
+		var value:Null<Float> = weekRating.get(weekKey(week, diffName, modFolder, variant));
+		return (value == null) ? 0 : value;
+	}
+
+	/** 只读周 FC 档位。缺失返回 ""。 */
+	public static function peekWeekRatingFC(week:String, diffName:String, ?modFolder:String = null, ?variant:String = null):String
+	{
+		var value:Null<String> = weekRatingFC.get(weekKey(week, diffName, modFolder, variant));
+		return (value == null) ? "" : value;
 	}
 
 	/**
@@ -260,5 +358,12 @@ class Highscore
 
 		if (FlxG.save.data.songRatingFC != null)
 			songRatingFC = FlxG.save.data.songRatingFC;
+
+		// 老存档没有这两张表：保持空 Map，读取走 peek 返回 0 / ""，不写回。
+		if (FlxG.save.data.weekRating != null)
+			weekRating = FlxG.save.data.weekRating;
+
+		if (FlxG.save.data.weekRatingFC != null)
+			weekRatingFC = FlxG.save.data.weekRatingFC;
 	}
 }

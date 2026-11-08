@@ -1,6 +1,7 @@
 package states.freeplay;
 
 import flixel.FlxSprite;
+import flixel.math.FlxRect;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import backend.AlbumConfig;
@@ -18,6 +19,11 @@ class AlbumArtDisplay extends FlxSprite
 	private var currentModFolder:String = "";
 	private var currentAlbumId:String = "";
 	private var isTweening:Bool = false;
+
+	/** 封面"落定"位置（tween 的目标点）。星星评级靠它对齐 —— 不能读 x，
+	 *  滑入动画期间 x 还在屏幕外，读到的位置会让评级跟着飞出屏幕。 */
+	public var restX(default, null):Float = 0;
+	public var restY(default, null):Float = 0;
 
 	public function new()
 	{
@@ -81,6 +87,8 @@ class AlbumArtDisplay extends FlxSprite
 
 		currentModFolder = folder;
 		currentAlbumId = albumId;
+		restX = targetX;
+		restY = targetY;
 
 		y = targetY;
 
@@ -114,5 +122,22 @@ class AlbumArtDisplay extends FlxSprite
 		visible = false;
 		currentModFolder = "";
 		currentAlbumId = "";
+	}
+
+	/**
+	 * 封面落定后真正占的矩形（世界坐标）。星星火焰评级就压在它的顶边上。
+	 *
+	 * 别直接传 (x, y, width, height)：flixel 的 updateHitbox 会把 offset 设成
+	 * -(width - frameWidth)/2，绘制时再减掉 offset，所以可见左上角是 (x - offset.x, y - offset.y)。
+	 * 读的是 restX/restY 而不是 x —— 滑入动画期间 x 还在屏幕右侧外面。
+	 * 封面还没加载过时回退成槽位常数，让评级在元数据到达前也有个落点。
+	 */
+	public function getShowRect():FlxRect
+	{
+		if (graphic != null && width > 0)
+			return FlxRect.get(restX - offset.x, restY - offset.y, width, height);
+
+		var slotSize:Float = 300;
+		return FlxRect.get(FlxG.width - slotSize - 50, (FlxG.height - slotSize) / 2, slotSize, slotSize);
 	}
 }

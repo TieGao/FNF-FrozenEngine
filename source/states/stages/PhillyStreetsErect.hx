@@ -170,6 +170,13 @@ class PhillyStreetsErect extends PhillyStreets
 			gf.x += GF_OFFSET[0];
 			gf.y += GF_OFFSET[1];
 		}
+		var gfChar:String = PlayState.SONG.gfVersion;
+		if (gfChar == null || gfChar.length < 1) gfChar = 'gf';
+		if (gfChar.toLowerCase().startsWith('nene'))
+		{
+			gf.y -= 200;
+		}
+		
 		if (abot != null) // nene 的音箱跟着 gf 走
 		{
 			abot.x += GF_OFFSET[0];

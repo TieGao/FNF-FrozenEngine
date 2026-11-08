@@ -7,12 +7,14 @@ import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 import flixel.util.FlxColor;
 import flixel.sound.FlxSound;
+import flixel.util.FlxSpriteUtil;
 #if sys
 import sys.FileSystem;
 #end
 
 import backend.Replay as FrameReplay;
 import backend.HitGraph;
+import backend.MetroEase;
 import backend.OFLSprite;
 
 enum ResultsMode {
@@ -47,6 +49,13 @@ class ResultsScreen extends MusicBeatSubstate
     
     // 存储游戏统计数据
     var gameStats:Dynamic = null;
+
+    // 周目结算：逐曲打击图表切换（数据源 = PlayState.campaignCharts）
+    var chartSources:Array<{song:String, judgments:Array<Dynamic>}> = null;
+    var curChart:Int = 0;
+    var chartTitle:FlxText;
+    var chartArrowL:FlxSprite;
+    var chartArrowR:FlxSprite;
 
     // 构造函数 - 支持两种模式
     public function new(?mode:ResultsMode, ?replayFile:String = null)
@@ -202,6 +211,37 @@ class ResultsScreen extends MusicBeatSubstate
         graphSprite.scrollFactor.set();
         graphSprite.alpha = 0;
         add(graphSprite);
+
+        // 周目结算：图表上方的当前歌名 + 左右切换箭头。
+        // 单曲结算（非 story）不显示 —— 见 updateChartUIVisibility()。
+        chartTitle = new FlxText(FlxG.width - 500, 16, 450, "", 18);
+        chartTitle.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.GRAY, CENTER, OUTLINE, FlxColor.BLACK);
+        chartTitle.borderSize = 2;
+        chartTitle.scrollFactor.set();
+        chartTitle.cameras = [camResults];
+        chartTitle.antialiasing = ClientPrefs.data.antialiasing;
+        chartTitle.alpha = 0;
+        chartTitle.visible = false;
+        add(chartTitle);
+
+        // vcr 无箭头字形，三角用画的（drawTriangle 朝上画，按需旋转）
+        chartArrowL = new FlxSprite(FlxG.width - 524, 158).makeGraphic(14, 14, FlxColor.TRANSPARENT);
+        FlxSpriteUtil.drawTriangle(chartArrowL, 0, 0, 14, FlxColor.WHITE);
+        chartArrowL.angle = -90;
+        chartArrowL.scrollFactor.set();
+        chartArrowL.cameras = [camResults];
+        chartArrowL.alpha = 0;
+        chartArrowL.visible = false;
+        add(chartArrowL);
+
+        chartArrowR = new FlxSprite(FlxG.width - 40, 158).makeGraphic(14, 14, FlxColor.TRANSPARENT);
+        FlxSpriteUtil.drawTriangle(chartArrowR, 0, 0, 14, FlxColor.WHITE);
+        chartArrowR.angle = 90;
+        chartArrowR.scrollFactor.set();
+        chartArrowR.cameras = [camResults];
+        chartArrowR.alpha = 0;
+        chartArrowR.visible = false;
+        add(chartArrowR);
         
         // 创建通用的comboText，稍后根据模式填充内容
         comboText = new FlxText(20, FlxG.height + 100, 400, "");
@@ -265,6 +305,11 @@ class ResultsScreen extends MusicBeatSubstate
             case NORMAL, REPLAY_END:
                 if (mode == REPLAY_END && PlayState.frameRep != null) {
                     loadReplayData();
+                } else if (mode == NORMAL && PlayState.isStoryMode && PlayState.campaignCharts.length > 0) {
+                    // 周目结算：逐曲图表，左右切换（应用统计仍是整个周目的累计值）
+                    chartSources = PlayState.campaignCharts;
+                    curChart = 0;
+                    applyChart();
                 } else if (PlayState.frameRep != null && PlayState.frameRep.replay != null) {
                     loadHitData();
                 }
@@ -533,6 +578,14 @@ class ResultsScreen extends MusicBeatSubstate
                 ease: FlxEase.quartInOut,
                 startDelay: 0.5
             });
+
+            // 周目图表的标题与切换箭头跟图表一起淡入（visible 在 create 的 applyChart 里已定）
+            if (chartTitle != null && chartTitle.visible)
+                FlxTween.tween(chartTitle, {alpha: 1}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.5});
+            if (chartArrowL != null && chartArrowL.visible)
+                FlxTween.tween(chartArrowL, {alpha: 1}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.5});
+            if (chartArrowR != null && chartArrowR.visible)
+                FlxTween.tween(chartArrowR, {alpha: 1}, 0.4, {ease: FlxEase.quartInOut, startDelay: 0.5});
         });
     }
 
@@ -550,7 +603,9 @@ class ResultsScreen extends MusicBeatSubstate
         // 根据模式处理输入
         switch(mode) {
             case NORMAL, REPLAY_END:
-                if (controls.BACK || controls.ACCEPT || FlxG.mouse.justPressed) {
+                // 周目图表切换先行处理；点在箭头上的那一下不算"点击关闭"
+                handleChartSwitch();
+                if (controls.BACK || controls.ACCEPT || (FlxG.mouse.justPressed && !mouseOnChartArrows())) {
                     closeResults();
                 }
         }
@@ -595,6 +650,74 @@ class ResultsScreen extends MusicBeatSubstate
         FlxTween.tween(anotherBackground, {alpha: 0}, 0.3);
         FlxTween.tween(graph, {alpha: 0}, 0.3);
         FlxTween.tween(graphSprite, {alpha: 0}, 0.3);
+        if (chartTitle != null && chartTitle.visible) FlxTween.tween(chartTitle, {alpha: 0}, 0.3);
+        if (chartArrowL != null && chartArrowL.visible) FlxTween.tween(chartArrowL, {alpha: 0}, 0.3);
+        if (chartArrowR != null && chartArrowR.visible) FlxTween.tween(chartArrowR, {alpha: 0}, 0.3);
+    }
+
+    // ========== 周目逐曲打击图表切换 ==========
+
+    /** 把第 curChart 首的判定历史灌进图表并刷新标题/箭头可见性。 */
+    function applyChart():Void
+    {
+        if (chartSources == null || chartSources.length == 0) return;
+        if (curChart < 0) curChart = chartSources.length - 1;
+        if (curChart >= chartSources.length) curChart = 0;
+
+        var entry = chartSources[curChart];
+        graph.history = (entry.judgments != null) ? entry.judgments.copy() : [];
+        graph.update();
+        if (graphSprite != null) graphSprite.updateDisplay();
+        updateChartUIVisibility();
+    }
+
+    /** 只有周目结算（NORMAL + isStoryMode）才显示标题；多于一首才显示切换箭头。 */
+    function updateChartUIVisibility():Void
+    {
+        var isWeek:Bool = (mode == NORMAL && PlayState.isStoryMode && chartSources != null && chartSources.length > 0);
+        var multi:Bool = isWeek && chartSources.length > 1;
+        if (chartTitle != null)
+        {
+            chartTitle.visible = isWeek;
+            chartTitle.text = isWeek ? chartSources[curChart].song : '';
+        }
+        if (chartArrowL != null) chartArrowL.visible = multi;
+        if (chartArrowR != null) chartArrowR.visible = multi;
+    }
+
+    function handleChartSwitch():Void
+    {
+        if (chartArrowL == null || !chartArrowL.visible) return;
+
+        if (controls.UI_LEFT_P || (FlxG.mouse.overlaps(chartArrowL) && FlxG.mouse.justPressed))
+            switchChart(-1);
+        else if (controls.UI_RIGHT_P || (FlxG.mouse.overlaps(chartArrowR) && FlxG.mouse.justPressed))
+            switchChart(1);
+
+        var hl:Bool = FlxG.mouse.overlaps(chartArrowL);
+        var hr:Bool = FlxG.mouse.overlaps(chartArrowR);
+        chartArrowL.color = hl ? 0xFFF9CF51 : FlxColor.WHITE;
+        chartArrowR.color = hr ? 0xFFF9CF51 : FlxColor.WHITE;
+    }
+
+    function switchChart(dir:Int):Void
+    {
+        curChart += dir;
+        applyChart();
+        FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+
+        // 快速落定脉冲（win8 entrance：先快后慢）
+        graph.alpha = 0.35;
+        graphSprite.alpha = 0.35;
+        FlxTween.tween(graph, {alpha: 1}, 0.18, {ease: MetroEase.ENTRANCE});
+        FlxTween.tween(graphSprite, {alpha: 1}, 0.18, {ease: MetroEase.ENTRANCE});
+    }
+
+    /** 点在可见切换箭头上时，这次点击不触发"点击任意处关闭"。 */
+    function mouseOnChartArrows():Bool
+    {
+        if (chartArrowL == null || !chartArrowL.visible) return false;
+        return FlxG.mouse.overlaps(chartArrowL) || FlxG.mouse.overlaps(chartArrowR);
     }
 
     function finishClose()
@@ -707,6 +830,9 @@ class ResultsScreen extends MusicBeatSubstate
         FlxTween.tween(anotherBackground, {alpha: 0}, 0.3);
         FlxTween.tween(graph, {alpha: 0}, 0.3);
         FlxTween.tween(graphSprite, {alpha: 0}, 0.3);
+        if (chartTitle != null && chartTitle.visible) FlxTween.tween(chartTitle, {alpha: 0}, 0.3);
+        if (chartArrowL != null && chartArrowL.visible) FlxTween.tween(chartArrowL, {alpha: 0}, 0.3);
+        if (chartArrowR != null && chartArrowR.visible) FlxTween.tween(chartArrowR, {alpha: 0}, 0.3);
     }
 
     function finishRestart()

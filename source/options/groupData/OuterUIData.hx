@@ -14,6 +14,9 @@ class OuterUIData
 
         sub.add(new Option('Old Freeplay Menu', 'Use Psych Engine Default Freeplay Menu', 'oldFreeplay', BOOL));
         sub.add(new Option('Card Glow', 'Enable breathing glow under selected card', 'cardGlow', BOOL));
+        sub.add(new Option('Difficulty Stars', 'Show the official star rating above the album cover', 'freeplayStars', BOOL));
+        sub.add(new Option('Album Cover', 'Show the album cover on the right side of Freeplay', 'freeplayAlbumArt', BOOL));
+        sub.add(new Option('Difficulty Blocks', 'Show the clickable difficulty blocks in Freeplay', 'freeplayDiffCarousel', BOOL));
         sub.add(new Option('Freeplay ToolBar', 'Show tool bar in freeplay', 'toolBar', BOOL));
         sub.add(new Option('New Freeplay Space BackGround', 'Just a cool background lol', 'freeplayspace', BOOL));
         sub.add(new Option('Save Freeplay Cache', 'Save freeplay song metadata cache to disk', 'saveFreeplayCache', BOOL));

@@ -42,7 +42,7 @@ class TankErect extends BaseStage
 			tankGuy.animation.addByPrefix('idle', 'BLTank2 instance ', 24, false);
 			tankGuy.animation.play('idle');
 			tankGuy.setGraphicSize(Std.int(tankGuy.width * 1.15));
-			sniper.antialiasing = ClientPrefs.data.antialiasing;
+			tankGuy.antialiasing = ClientPrefs.data.antialiasing;
 			tankGuy.updateHitbox();
 			add(tankGuy);
 		}
@@ -66,18 +66,13 @@ class TankErect extends BaseStage
 		// 边缘光朝上、强度 1、距离 15、阈值 0.1，颜色 #DFEF3C；dad 改成 135 度、阈值 0.3
 		attachShadow(boyfriend, -38, -20, -46, -25, 90, 15, 0.1);
 		attachShadow(dad, -38, -20, -46, -25, 135, 15, 0.3);
-		var gfShadow:DropShadowShader = attachShadow(gf, -38, -20, -46, -25, 90, 15, 0.1);
+		attachShadow(gf, -38, -20, -46, -25, 90, 15, 0.1);
 
-		// 官方 tankmanBattlefieldErect.hxc：gf-tankmen / nene-tankmen 进歌立即启用 rim 蒙版（threshold 0.4）
-		if (gf != null && gfShadow != null
-			&& (gf.curCharacter == 'gf-tankmen' || gf.curCharacter == 'nene-tankmen'))
-		{
-			var maskKey:String = (gf.curCharacter == 'gf-tankmen')
-				? 'erect/masks/gfTankmen_mask' : 'erect/masks/neneTankmen_mask';
-			var maskImg = Paths.image(maskKey);
-			if (maskImg != null && maskImg.bitmap != null)
-				gfShadow.setAltMask(maskImg.bitmap, 0.4);
-		}
+		// 官方 tankmanBattlefieldErect.hxc 会给 gf-tankmen / nene-tankmen 挂 rim 蒙版（threshold 0.4），
+		// 把音箱上那两个 tankmen 的边缘光压掉。但那张 mask 是按 animateatlas 的整帧画布导出的，
+		// FE 走 sparrow 图集，两边帧网格对不上：换帧时命中区在 thr / thr2 之间来回切，
+		// 坦克人的轮廓光就会逐帧闪。这里不挂 mask，让它和 gf 本体用同一套参数
+		// （坦克人会多一点轮廓光，但完全稳定）。要复刻原版得按图集逐帧重烘一张 mask。
 	}
 
 	static inline var RIM_COLOR:Int = 0xFFDFEF3C;

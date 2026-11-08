@@ -1444,3 +1444,11 @@ chart_export_difficulty: "难度名:"
 chart_export_hint: "提示：.sm 兼容性最广，.ssc 保留标签与变速，\n.osu / .qua 只导出玩家侧、供 osu! / Quaver 使用。"
 chart_export: "导出"
 chart_convert_cancel: "取消"
+
+// ---- Freeplay 右侧展示开关（OuterUIData / KE / Psych 三套菜单共用）----
+setting_difficulty_stars: "难度星星"
+description_difficulty_stars: "在专辑封面上方显示官方星级"
+setting_album_cover: "专辑封面"
+description_album_cover: "在自由游玩右侧显示专辑封面"
+setting_difficulty_blocks: "难度方块"
+description_difficulty_blocks: "在自由游玩右下角显示可点击的难度方块"

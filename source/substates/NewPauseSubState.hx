@@ -1,6 +1,7 @@
 package substates;
 
 import backend.Highscore;
+import backend.WeekReplay;
 import backend.Song;
 import backend.SongCredits;
 
@@ -931,6 +932,10 @@ class NewPauseSubState extends MusicBeatSubstate
 	public function restartSong(noTrans:Bool = false):Void
 	{
 		FlxG.sound.play(Paths.sound('confirmMenu'));
+
+		// 回放中重开：把当前回放重新挂回 pendingReplay，否则会变成手动游玩并写真实分数
+		if (PlayState.inReplay && PlayState.replayFileName != null && PlayState.replayFileName.length > 0)
+			PlayState.pendingReplay = backend.Replay.LoadReplay(PlayState.replayFileName);
 	
 		PlayState.instance.paused = true;
 		FlxG.sound.music.volume = 0;
@@ -968,8 +973,11 @@ class NewPauseSubState extends MusicBeatSubstate
 		PlayState.inReplay = false;
 		PlayState.loadRep = false;
 		
+		var wasWeekReplay:Bool = WeekReplay.isActive();
+		WeekReplay.abort();
+
 		Mods.loadTopMod();
-		if(PlayState.isStoryMode)
+		if(PlayState.isStoryMode || wasWeekReplay)
 			MusicBeatState.switchState(new StoryMenuState());
 		else if(!ClientPrefs.data.oldFreeplay)
 			MusicBeatState.switchState(new FreeplayState());

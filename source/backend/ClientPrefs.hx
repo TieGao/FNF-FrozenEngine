@@ -163,6 +163,10 @@ import states.TitleState;
 	public var freeplaySearch:Bool = true;
 	// Freeplay 右下角补充信息（音乐人 / 谱师 / 游玩次数）
 	public var freeplaySongMeta:Bool = true;
+	// Freeplay 右侧展示元素开关（默认全开）
+	public var freeplayStars:Bool = true;        // 官方星星评级（压在专辑封面上沿）
+	public var freeplayAlbumArt:Bool = true;     // 专辑封面（没配角色立绘时顶在右侧同一个槽位）
+	public var freeplayDiffCarousel:Bool = true; // 难度方块（右下角可点的难度条）
 	// 练习模式 / botplay 是否计入游玩次数（默认不计）
 	public var countPracticePlays:Bool = false;
 	public var charmPause:Bool = false;
