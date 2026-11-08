@@ -116,10 +116,32 @@ class ModsMenuState extends MusicBeatState
 		bg.color = 0xFF665AFF;
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		if(ClientPrefs.data.blurEffects)bg.filters = [new BlurFilter(4, 4, BitmapFilterQuality.HIGH)];
+		// menuDesat 原尺寸 1286×730，只在 1280×720 画布下恰好盖满；
+		// 宽屏/高分辨率画布直接居中会露黑边，这里按"覆盖"比例放大（裁掉超出部分）
+		var coverScale:Float = Math.max(FlxG.width / bg.width, FlxG.height / bg.height);
+		bg.setGraphicSize(Std.int(bg.width * coverScale), Std.int(bg.height * coverScale));
+		bg.updateHitbox();
 		add(bg);
 		bg.screenCenter();
 
-		bgList = FlxSpriteUtil.drawRoundRect(new FlxSprite(40, 40).makeGraphic(340, 650, FlxColor.TRANSPARENT), 0, 0, 340, 650, 15, 15, FlxColor.BLACK);
+		// ---- 布局全部由逻辑画布尺寸推导，不写死 1280 ----
+		// 1280×720 下每个数值都与旧版逐像素一致；宽屏 21:9（1680×720）、移动端宽屏
+		// （随屏幕比例 1280~1760，且宽度恒 ≥1280）、桌面高分辨率渲染档位（1080p+，
+		// 纵向跟着拉伸）自动适配。右栏最多加宽到 1080，再宽转成两侧对称留白。
+		var listW:Int = 340;
+		var panelW:Int = Std.int(Math.max(840, Math.min(1080, FlxG.width - 440)));
+		var offX:Float = Math.max(0, (FlxG.width - (40 + listW + 20 + panelW + 40)) / 2);
+		var listX:Float = 40 + offX;
+		var listY:Float = 40;
+		var listH:Int = Std.int(FlxG.height - 70);
+		var panelX:Float = listX + listW + 20;
+		var titleH:Int = 180;
+		var descY:Float = listY + titleH + 20;
+		var buttonsH:Int = 200;
+		var buttonsY:Float = FlxG.height - 30 - buttonsH;
+		var descH:Int = Std.int(buttonsY + buttonsH - descY);
+
+		bgList = FlxSpriteUtil.drawRoundRect(new FlxSprite(listX, listY).makeGraphic(listW, listH, FlxColor.TRANSPARENT), 0, 0, listW, listH, 15, 15, FlxColor.BLACK);
 		bgList.alpha = 0.6;
 
 		// 两组卡片一次建好：页签切换只换指针，避免重建时丢掉滚动位置 / 拖拽状态
@@ -157,7 +179,7 @@ class ModsMenuState extends MusicBeatState
 		if(mod != null) bg.color = mod.bgColor;
 		//
 
-		bgTitle = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgList.x + bgList.width + 20, 40).makeGraphic(840, 180, FlxColor.TRANSPARENT), 0, 0, 840, 180, 15, 15, 0, 0, FlxColor.BLACK);
+		bgTitle = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(panelX, listY).makeGraphic(panelW, titleH, FlxColor.TRANSPARENT), 0, 0, panelW, titleH, 15, 15, 0, 0, FlxColor.BLACK);
 		bgTitle.alpha = 0.6;
 		add(bgTitle);
 
@@ -169,7 +191,7 @@ class ModsMenuState extends MusicBeatState
 		modName.scaleY = 0.8;
 		add(modName);
 
-		bgDescription = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgTitle.x, bgTitle.y + 200).makeGraphic(840, 450, FlxColor.TRANSPARENT), 0, 0, 840, 450, 0, 0, 15, 15, FlxColor.BLACK);
+		bgDescription = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(panelX, descY).makeGraphic(panelW, descH, FlxColor.TRANSPARENT), 0, 0, panelW, descH, 0, 0, 15, 15, FlxColor.BLACK);
 		bgDescription.alpha = 0.6;
 		add(bgDescription);
 		
@@ -182,30 +204,34 @@ class ModsMenuState extends MusicBeatState
 		modRestartText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT);
 		add(modRestartText);
 
-		bgButtons = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(bgDescription.x, bgDescription.y + bgDescription.height - myHeight).makeGraphic(840, myHeight, FlxColor.TRANSPARENT), 0, 0, 840, myHeight, 0, 0, 15, 15, FlxColor.WHITE);
+		bgButtons = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(panelX, buttonsY).makeGraphic(panelW, buttonsH, FlxColor.TRANSPARENT), 0, 0, panelW, buttonsH, 0, 0, 15, 15, FlxColor.WHITE);
 		bgButtons.color = FlxColor.BLACK;
 		bgButtons.alpha = 0.2;
 		add(bgButtons);
 
-		var buttonsX = bgButtons.x + 230;
-		var buttonsY = bgButtons.y + 10;
+		// 第一行 8 个图标按钮（上/下选择、置顶/置底/上移/下移、设置、开关）：
+		// 从 bgButtons.x + 30 起等距排开，840 宽面板时 pitch 恰为 100（与旧版逐像素一致）；
+		// 面板不足 840 时等比压缩间距，保证窄画布下也不出屏。
+		var row1Y:Float = bgButtons.y + 10;
+		var row1Pitch:Float = Math.min(100, (panelW - 130) / 7);
+		function btnX(i:Int):Float return bgButtons.x + 30 + i * row1Pitch;
 
 		// ---- 置顶 / 置底 放一起（画风统一：置底 = 置顶图标垂直翻转） ----
 
 		// Move to the top
-		var button = new MenuButton(buttonsX, buttonsY, 80, 80, null, makeModTopIcon(), function() moveModToPosition(0));
+		var button = new MenuButton(btnX(2), row1Y, 80, 80, null, makeModTopIcon(), function() moveModToPosition(0));
 		add(button);
 		buttons.push(button);
 		moveButtons.push(button);
 
 		// Move to the bottom
-		var button = new MenuButton(buttonsX + 100, buttonsY, 80, 80, null, makeModBottomIcon(), function() moveModToPosition(curList().all.length - 1));
+		var button = new MenuButton(btnX(3), row1Y, 80, 80, null, makeModBottomIcon(), function() moveModToPosition(curList().all.length - 1));
 		add(button);
 		buttons.push(button);
 		moveButtons.push(button);
 
 		// Move up
-		var button = new MenuButton(buttonsX + 200, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod - 1), 54, 54);
+		var button = new MenuButton(btnX(4), row1Y, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod - 1), 54, 54);
 		button.icon.animation.add('icon', [1]);
 		button.icon.animation.play('icon', true);
 		add(button);
@@ -213,7 +239,7 @@ class ModsMenuState extends MusicBeatState
 		moveButtons.push(button);
 
 		// Move down
-		var button = new MenuButton(buttonsX + 300, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod + 1), 54, 54);
+		var button = new MenuButton(btnX(5), row1Y, 80, 80, Paths.image('modsMenuButtons'), function() moveModToPosition(curSelectedMod + 1), 54, 54);
 		button.icon.animation.add('icon', [2]);
 		button.icon.animation.play('icon', true);
 		add(button);
@@ -222,39 +248,44 @@ class ModsMenuState extends MusicBeatState
 
 		// 第二行：页签切换 / Reload / Enable-Disable All。
 		// 都用大号 VCR 文字（原来是 Alphabet —— 字形推进量太大，长标签会顶到隔壁按钮上），
-		// 三个按钮等距摆开，标签按按钮内宽自动缩放，任何语言都不会互相顶撞。
-		buttonSwitchList = new MenuButton(440, 590, 240, 80, listSwitchLabel(), null, function() switchList(!usingContent), 0, 0, 28);
+		// 标签按按钮内宽自动缩放，任何语言都不会互相顶撞。
+		// 横向随面板宽自适应：840 宽时与旧版逐像素一致（40/20/20/20/20 间距）；
+		// 更宽则把富余平摊进两个按钮间距，右侧始终留 20。
+		var row2Y:Float = bgButtons.y + 100;
+		var row2X:Float = bgButtons.x + 40;
+		var row2Gap:Float = 20 + Math.max(0, (panelW - 840) / 2);
+		buttonSwitchList = new MenuButton(row2X, row2Y, 240, 80, listSwitchLabel(), null, function() switchList(!usingContent), 0, 0, 28);
 		add(buttonSwitchList);
 
-		buttonReload = new MenuButton(700, 590, 260, 80, Language.getPhrase('reload_button', 'RELOAD'), null, reload, 0, 0, 32);
+		buttonReload = new MenuButton(row2X + 240 + row2Gap, row2Y, 260, 80, Language.getPhrase('reload_button', 'RELOAD'), null, reload, 0, 0, 32);
 		add(buttonReload);
 
-		buttonEnableAll = new MenuButton(980, 590, 240, 80, Language.getPhrase('enable_all_button', 'ENABLE ALL'), null, function() setAllDisabled(false), 0, 0, 30);
+		buttonEnableAll = new MenuButton(row2X + 500 + row2Gap * 2, row2Y, 240, 80, Language.getPhrase('enable_all_button', 'ENABLE ALL'), null, function() setAllDisabled(false), 0, 0, 30);
 		buttonEnableAll.bg.color = FlxColor.GREEN;
 		buttonEnableAll.focusChangeCallback = function(focus:Bool) if(!focus) buttonEnableAll.bg.color = FlxColor.GREEN;
 		add(buttonEnableAll);
 
-		buttonDisableAll = new MenuButton(980, 590, 240, 80, Language.getPhrase('disable_all_button', 'DISABLE ALL'), null, function() setAllDisabled(true), 0, 0, 30);
+		buttonDisableAll = new MenuButton(row2X + 500 + row2Gap * 2, row2Y, 240, 80, Language.getPhrase('disable_all_button', 'DISABLE ALL'), null, function() setAllDisabled(true), 0, 0, 30);
 		buttonDisableAll.bg.color = 0xFFFF6666;
 		buttonDisableAll.focusChangeCallback = function(focus:Bool) if(!focus) buttonDisableAll.bg.color = 0xFFFF6666;
 		add(buttonDisableAll);
 		checkToggleButtons();
 
 		// 两个"上/下选择"按钮，等价于焦点在卡片列表上时按一次键盘上/下键。
-		// 摆在整排最左边（buttonsX 左侧那 200px 空档里）。
+		// 摆在整排最左边（排序按钮左侧的空档里）。
 		//
 		// ⚠️ 这两个**故意不 push 进 buttons 数组**：
 		//   buttons 的下标就是 changeSelectedButton() 的左右切换顺序；不进数组 = 现有键盘
 		//   导航路径一个字都不用动（键盘用户本来就有上下键，没必要再绕一圈）。
-		buttonSelectPrev = new MenuButton(buttonsX - 200, buttonsY, 80, 80, null, makeModNavIcon(true), function() selectModByArrow(-1));
+		buttonSelectPrev = new MenuButton(btnX(0), row1Y, 80, 80, null, makeModNavIcon(true), function() selectModByArrow(-1));
 		add(buttonSelectPrev);
 
-		buttonSelectNext = new MenuButton(buttonsX - 100, buttonsY, 80, 80, null, makeModNavIcon(false), function() selectModByArrow(1));
+		buttonSelectNext = new MenuButton(btnX(1), row1Y, 80, 80, null, makeModNavIcon(false), function() selectModByArrow(1));
 		add(buttonSelectNext);
 
 		updateMoveButtonsEnabled();
 
-		settingsButton = new MenuButton(buttonsX + 400, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //Settings
+		settingsButton = new MenuButton(btnX(6), row1Y, 80, 80, Paths.image('modsMenuButtons'), function() //Settings
 		{
 			var curMod:ModItem = modsGroup.members[curSelectedMod];
 			if(curMod != null && curMod.settings != null && curMod.settings.length > 0)
@@ -272,7 +303,7 @@ class ModsMenuState extends MusicBeatState
 		if(curItem == null || curItem.settings == null || curItem.settings.length < 1)
 			settingsButton.enabled = false;
 
-		var button = new MenuButton(buttonsX + 500, buttonsY, 80, 80, Paths.image('modsMenuButtons'), function() //On/Off
+		var button = new MenuButton(btnX(7), row1Y, 80, 80, Paths.image('modsMenuButtons'), function() //On/Off
 		{
 			toggleSelected();
 		}, 54, 54);
@@ -918,7 +949,9 @@ class ModsMenuState extends MusicBeatState
 
 		if(modName.scaleX != 0.8) modName.setScale(0.8);
 		modName.text = curMod.name;
-		var newScale = Math.min(620 / (modName.width / 0.8), 0.8);
+		// 名字限宽随标题面板走（旧版写死 620）：面板加宽后长名字也能用上空间
+		var maxNameW:Float = bgTitle.x + bgTitle.width - modName.x - 30;
+		var newScale = Math.min(maxNameW / (modName.width / 0.8), 0.8);
 		modName.setScale(newScale, Math.min(newScale * 1.35, 0.8));
 		modName.y = modNameInitialY - (modName.height / 2);
 
