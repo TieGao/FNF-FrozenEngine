@@ -15,6 +15,11 @@
 	<!-- <app preloader="Preloader" resizable="true" /> -->
 	<app preloader="flixel.system.FlxPreloader" />
 
+	<!-- Win-on-ARM64 构建输出隔离：arm64 产物整树进 export-arm64/，与 x64 的 export/ 互不覆盖。
+	     lime 拷 ndll/dll 是 copyIfNewer（目标比源新就跳过）——同目录时 x64 重编刷不掉 arm64 残留，
+	     exe/ndll 架构混装启动即 0xc000007b（2026-11-08 实锤）。hxcpp 的 obj 目录本来就按架构分目录，只有最终 bin 共享。 -->
+	<app path="export-arm64" if="HXCPP_ARM64" />
+
 	<!--Minimum without FLX_NO_GAMEPAD: 11.8, without FLX_NO_NATIVE_CURSOR: 11.2-->
 	<set name="SWF_VERSION" value="11.8" />
 	
