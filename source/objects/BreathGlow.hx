@@ -81,7 +81,7 @@ class BreathGlow extends FlxSprite
         graphic.destroyOnNoUse = false;
         glowCache.set(_cacheKey, graphic);
         Paths.currentTrackedAssets.set(_cacheKey, graphic);
-        Paths.localTrackedAssets.push(_cacheKey);
+        Paths.markAssetUsed(_cacheKey);
         this.loadGraphic(graphic);
         this.dirty = true;
         

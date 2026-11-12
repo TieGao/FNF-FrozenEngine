@@ -128,8 +128,8 @@ class NewPauseSubState extends MusicBeatSubstate
 		var pauseSong:String = getPauseSong();
 		if(pauseSong == null) return;
 
-		// 使用新的 API，直接通过 load 方法设置 looped = true
-		pauseMusic = FlxG.sound.load(Paths.music(pauseSong), 0, true);
+		// create() 链式 API（flixel 6.2.0+）：setup 设音量与循环
+		pauseMusic = FlxG.sound.create(Paths.music(pauseSong)).setup(0, true);
 		
 		pauseMusic.volume = 0;
 		// play 方法现在不需要传参来设置循环了

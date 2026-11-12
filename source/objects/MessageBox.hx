@@ -263,8 +263,7 @@ class MessageBox extends Sprite
 		t.updateHitbox();
 
 		var h:Float = t.height;
-		t.graphic.bitmap.dispose();
-		t.graphic.bitmap.disposeImage();
+		Paths.disposeGraphicData(t.graphic);
 		t.destroy();
 		return h;
 	}
@@ -282,8 +281,7 @@ class MessageBox extends Sprite
 		graphics.drawRect(x, y, t.width, t.height);
 		graphics.endFill();
 		// 源 bitmap 在 flixel 全局缓存里按唯一 key 常驻，不释放会随 toast 数量无限堆积
-		t.graphic.bitmap.dispose();
-		t.graphic.bitmap.disposeImage();
+		Paths.disposeGraphicData(t.graphic);
 		t.destroy();
 	}
 

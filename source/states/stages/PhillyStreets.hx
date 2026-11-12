@@ -206,7 +206,7 @@ class PhillyStreets extends BaseStage
 
 		if(gf != null)
 		{
-			gf.animation.callback = function(name:String, frameNumber:Int, frameIndex:Int)
+			gf.animation.onFrameChange.add(function(name:String, frameNumber:Int, frameIndex:Int)
 			{
 				switch(currentNeneState)
 				{
@@ -219,7 +219,7 @@ class PhillyStreets extends BaseStage
 					default:
 						// Ignore.
 				}
-			}
+			});
 		}
 	}
 
@@ -283,24 +283,24 @@ class PhillyStreets extends BaseStage
 		FlxG.sound.list.add(neneLaugh);
 
 		camHUD.alpha = 0;
-		gf.animation.finishCallback = function(name:String)
+		gf.animation.onFinish.add(function(name:String)
 		{
 			switch(name)
 			{
 				case 'danceLeft', 'danceRight':
 					gf.dance();
 			}
-		}
+		});
 		gf.dance();
-			
-		dad.animation.finishCallback = function(name:String)
+
+		dad.animation.onFinish.add(function(name:String)
 		{
 			switch(name)
 			{
 				case 'idle':
 					dad.dance();
 			}
-		}
+		});
 		dad.dance();
 
 		final cutsceneDelay = 2.0;
@@ -357,7 +357,7 @@ class PhillyStreets extends BaseStage
 		// darnell laughs
 		cutsceneHandler.timer(cutsceneDelay + 5.9, function()
 		{
-			dad.animation.finishCallback = null;
+			dad.animation.onFinish.removeAll();
 			dad.playAnim('laughCutscene', true);
 			darnellLaugh.play(true);
 		});
@@ -365,7 +365,7 @@ class PhillyStreets extends BaseStage
 		// nene spits and laughs
 		cutsceneHandler.timer(cutsceneDelay + 6.2, function()
 		{
-			gf.animation.finishCallback = null;
+			gf.animation.onFinish.removeAll();
 			gf.playAnim('laughCutscene', true);
 			neneLaugh.play(true);
 		});
@@ -391,8 +391,8 @@ class PhillyStreets extends BaseStage
 			dad.dance();
 			gf.dance();
 			boyfriend.dance();
-			dad.animation.finishCallback = null;
-			gf.animation.finishCallback = null;
+			dad.animation.onFinish.removeAll();
+			gf.animation.onFinish.removeAll();
 			
 			game.moveCameraSection();
 			game.cameraSpeed = 1;
@@ -418,7 +418,8 @@ class PhillyStreets extends BaseStage
 	override function startSong()
 	{
 		if (abot != null) abot.snd = FlxG.sound.music;
-		gf.animation.finishCallback = onNeneAnimationFinished;
+		gf.animation.onFinish.removeAll(); // 覆盖语义等价迁移：清残留再挂
+		gf.animation.onFinish.add(onNeneAnimationFinished);
 	}
 	
 	function onNeneAnimationFinished(name:String)
@@ -829,19 +830,20 @@ class PhillyStreets extends BaseStage
 				boyfriend.specialAnim = true;
 				gunPrepSnd.play();
 
-				boyfriend.animation.callback = function(name:String, frameNumber:Int, frameIndex:Int)
+				// 一次性监听：条件满足后自清（旧 callback = null 置空的信号等价写法）
+				boyfriend.animation.onFrameChange.add(function(name:String, frameNumber:Int, frameIndex:Int)
 				{
 					switch(name)
 					{
 						case 'cock':
 							if(frameNumber == 3)
 							{
-								boyfriend.animation.callback = null;
+								boyfriend.animation.onFrameChange.removeAll();
 								createCasing();
 							}
-						default: boyfriend.animation.callback = null;
+						default: boyfriend.animation.onFrameChange.removeAll();
 					}
-				}
+				});
 
 				game.notes.forEachAlive(function(note:Note)
 				{
@@ -957,7 +959,8 @@ class PhillyStreets extends BaseStage
 				}
 				picoFlicker = null;
 
-				boyfriend.animation.finishCallback = function(name:String)
+				// 一次性监听：播完自清（旧 finishCallback = null 置空的信号等价写法）
+				boyfriend.animation.onFinish.add(function(name:String)
 				{
 					if (name == 'shootMISS' && game.health > 0.0 && !game.practiceMode && game.gameOverTimer == null)
 					{
@@ -981,8 +984,8 @@ class PhillyStreets extends BaseStage
 						}, 30);
 						//trace('test');
 					}
-					boyfriend.animation.finishCallback = null;
-				}
+					boyfriend.animation.onFinish.removeAll();
+				});
 				
 				game.health -= 0.4;
 				if(game.health <= 0.0 && !game.practiceMode)

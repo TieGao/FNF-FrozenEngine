@@ -21,6 +21,7 @@ import states.freeplay.*;
 
 import backend.AlbumConfig;
 import options.psychoptions.GameplayChangersSubstate;
+import options.objects.win10.Win10SearchBar;
 import substates.ResetScoreSubState;
 
 import flixel.math.FlxMath;
@@ -278,8 +279,34 @@ class FreeplayState extends MusicBeatState
      */
     var cardsNeedRefresh:Bool = false;
 
-    var searchHitbox:FlxSprite;
-    var searchLabel:FlxText;
+    /**
+     * 顶部搜索栏（Win10 手感）。
+     * SubState 模式：只读，点击只当入口打开 SearchSubState。
+     * 过滤器模式：直接可输入，边打边过滤 songs 本身。
+     */
+    var searchBar:Win10SearchBar;
+    /** 过滤器模式下的命中计数（"12 / 340"）；SubState 模式下为 null */
+    var searchCountText:FlxText = null;
+    /**
+     * 过滤视图的基准列表（= 应用来源 / 内容包筛选之后的那份）。
+     * 非 null 表示 songs 是它按关键词过滤出来的子集；关键词清空时整份还原。
+     */
+    var filterBaseSongs:Array<NewSongMetaData> = null;
+    /** 已生效的关键词，避免同一串字符反复重建列表 */
+    var filterAppliedQuery:String = '';
+    /**
+     * 搜索框 onChange 只把关键词记在这里，真正的列表重建留到下一帧 update 开头。
+     * 输入事件是在帧末（成员 update）派发的，当场重建会先销毁全部卡片、新卡要等下一帧才建，
+     * 连续打字时列表会一直闪空白。放到帧首就紧跟 updateCardScroll，同帧建卡。
+     */
+    var pendingFilterQuery:String = null;
+    /**
+     * 搜索框刚把键盘交回来的那一帧，按键不能同时被当成菜单操作。
+     * PsychUIInputText 是在 ESC / 回车里**自己**清 focusOn 的，等 handleKeyboardInput 跑到时
+     * 那句 `focusOn == null` 已经成立 —— 一次 ESC 会退到主菜单、一次回车会直接开歌。
+     * 这个短窗口把那一帧的 BACK / ENTER / SPACE 统统吞掉（同 OptionsState 的 searchEnterHandled）。
+     */
+    var searchKeyGuard:Float = 0;
 
     /**
      * 是否处于 Content（自定义谱面）浏览模式。
@@ -662,65 +689,36 @@ class FreeplayState extends MusicBeatState
         }
     }
 
-    /** 顶部搜索入口（图标 / 提示文字 / 下划线 / 高亮线）。 */
+    /** 顶部搜索栏（Win10 风格搜索框）。过滤器模式常驻可输入，SubState 模式只当入口。 */
     private function buildSearchBar():Void
     {
         if (!ClientPrefs.data.freeplaySearch) return;
 
-        // 隐藏背景（增大点击区域）
-        searchHitbox = new FlxSprite(0, 0);
-        searchHitbox.makeGraphic(240, 50, FlxColor.TRANSPARENT);
-        searchHitbox.x = (FlxG.width - searchHitbox.width) / 2;
-        searchHitbox.y = 6;
-        searchHitbox.scrollFactor.set();
-        add(searchHitbox);
+        var barW:Float = 320;
+        var barH:Float = 34;
+        searchBar = new Win10SearchBar((FlxG.width - barW) * 0.5, 8, barW, barH, 15, true, true, Paths.font('vcr.ttf'));
+        searchBar.setPlaceholder(Language.getPhrase('freeplay_search_placeholder', 'Search songs...'));
+        searchBar.readOnly = !ClientPrefs.data.freeplaySearchInline;
+        searchBar.onChange = function(_oldText:String, newText:String) pendingFilterQuery = newText;
+        // 失焦 / 回车都要让 BACK 让位一帧，否则同帧的 controls.BACK 会直接退到主菜单
+        searchBar.onUnfocus = function() searchKeyGuard = 0.1;
+        searchBar.onSubmit = function(_) searchKeyGuard = 0.1;
+        if (searchBar.readOnly)
+            searchBar.onClick = function() openSearchSubstate();
+        add(searchBar);
 
-        // 搜索图标（放大镜）
-        var searchIcon:FlxSprite = new FlxSprite(0, 0);
-        searchIcon.loadGraphic(Paths.image('freeplay/search_icon'));
-        if (searchIcon.graphic == null)
+        // 命中计数只服务过滤器模式；SubState 模式下没有"列表被筛掉"这回事
+        if (ClientPrefs.data.freeplaySearchInline)
         {
-            // 没有图标资源时用文本替代
-            var iconText:FlxText = new FlxText(0, 8, 0, "🔍", 20);
-            iconText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER);
-            iconText.x = (FlxG.width - 240) / 2 + 10;
-            iconText.y = 10;
-            iconText.scrollFactor.set();
-            add(iconText);
+            searchCountText = new FlxText(0, 0, 0, '', 14);
+            searchCountText.antialiasing = ClientPrefs.data.antialiasing;
+            searchCountText.setFormat(Paths.font('vcr.ttf'), 14, FlxColor.GRAY, LEFT);
+            searchCountText.x = (FlxG.width + barW) * 0.5 + 12;
+            searchCountText.y = 8 + (barH - 14) * 0.5;
+            searchCountText.scrollFactor.set();
+            searchCountText.visible = false;
+            add(searchCountText);
         }
-        else
-        {
-            searchIcon.setGraphicSize(20, 20);
-            searchIcon.updateHitbox();
-            searchIcon.x = (FlxG.width - 240) / 2 + 12;
-            searchIcon.y = 14;
-            searchIcon.scrollFactor.set();
-            add(searchIcon);
-        }
-
-        searchLabel = new FlxText(0, 0, 0, "Search songs...", 18);
-        searchLabel.antialiasing = ClientPrefs.data.antialiasing;
-        searchLabel.setFormat(Paths.font("vcr.ttf"), 18, 0xFFAAAAAA, LEFT);
-        searchLabel.x = (FlxG.width - 240) / 2 + 38;
-        searchLabel.y = 13;
-        searchLabel.scrollFactor.set();
-        add(searchLabel);
-
-        var lineBg:FlxSprite = new FlxSprite(0, 0);
-        lineBg.makeGraphic(200, 1, FlxColor.WHITE);
-        lineBg.alpha = 0.25;
-        lineBg.x = (FlxG.width - lineBg.width) / 2;
-        lineBg.y = 42;
-        lineBg.scrollFactor.set();
-        add(lineBg);
-
-        var highlightLine:FlxSprite = new FlxSprite(0, 0);
-        highlightLine.makeGraphic(200, 2, FlxColor.WHITE);
-        highlightLine.alpha = 0;
-        highlightLine.x = (FlxG.width - highlightLine.width) / 2;
-        highlightLine.y = 42;
-        highlightLine.scrollFactor.set();
-        add(highlightLine);
     }
 
     /** 左上角来源标签（谱面加载失败改用 MessageBox 提示，不再铺全屏黑幕）。 */
@@ -769,8 +767,10 @@ class FreeplayState extends MusicBeatState
                     : defaultEmptyReason();
 
                 emptyHint.text = Language.getPhrase('freeplay_empty_title', 'NO SONGS AVAILABLE')
-                    + '\n\n' + reason
-                    + '\n\n' + Language.getPhrase('freeplay_empty_hint',
+                    + '\n\n' + reason;
+                // 搜索把列表筛空时，玩家该改的是关键词而不是模组 —— 别再提示去左上角换包
+                if (filterAppliedQuery.length == 0)
+                    emptyHint.text += '\n\n' + Language.getPhrase('freeplay_empty_hint',
                         'Pick another mod or content pack from the folder name in the top-left corner.');
                 emptyHint.screenCenter(X);
             }
@@ -1710,7 +1710,7 @@ class FreeplayState extends MusicBeatState
             card.ratingSprite.color = 0xFFFFFFFF;
             card.ratingSprite.alpha = 1;
             card.ratingSprite.animation.play(pending.oldRank.animName, true, false, 0);
-            card.ratingSprite.animation.finishCallback = null; // 旧徽章定格在最后一帧
+            card.ratingSprite.animation.onFinish.removeAll(); // 旧徽章定格在最后一帧（旧 finishCallback = null 的信号等价写法）
             card.ratingSprite.animation.curAnim.finish();
         }
         else
@@ -1725,10 +1725,11 @@ class FreeplayState extends MusicBeatState
             card.ratingSprite.color = 0xFFFFFFFF;
             card.ratingSprite.alpha = 1;
             card.ratingSprite.animation.play(pending.newRank.animName, true, false, 0);
-            card.ratingSprite.animation.finishCallback = function(name:String)
+            card.ratingSprite.animation.onFinish.removeAll(); // 覆盖语义等价迁移：清残留再挂
+            card.ratingSprite.animation.onFinish.add(function(name:String)
             {
                 // 官方徽章是非循环闪烁，播完停帧即可
-            };
+            });
             // 放大到 20 倍时故意不 updateHitbox：offset 留在 1 倍的值，视觉中心就钉在
             // 卡片的徽章槽上，于是看起来是"从巨幅缩进槽里"；结尾补一次 updateHitbox 收正。
             card.ratingSprite.scale.set(20, 20);
@@ -1828,12 +1829,12 @@ class FreeplayState extends MusicBeatState
         function hideWhenDone(spr:FlxSprite, anim:String):Void
         {
             spr.animation.play(anim, true, false, 0);
-            spr.animation.finishCallback = function(name:String)
+            spr.animation.onFinish.add(function(name:String)
             {
                 // 这里绝不能 destroy：回调返回后 flixel 还会继续 onFinish.dispatch，
                 // 销毁过的动画控制器会在信号分发上炸空引用（flixel #2782 同类坑）
                 spr.visible = false;
-            };
+            });
         }
         hideWhenDone(rankSparks, 'sparks');
         hideWhenDone(rankSparksAdd, 'sparks add');
@@ -2312,6 +2313,7 @@ class FreeplayState extends MusicBeatState
             return;
 
         updateBackgroundScroll();
+        if (searchKeyGuard > 0) searchKeyGuard -= elapsed;
 
         if (rankAnimActive)
         {
@@ -2331,6 +2333,15 @@ class FreeplayState extends MusicBeatState
         if (FlxG.sound.music != null && FlxG.sound.music.volume < 0.7 && !musicPlayer.playingMusic)
             FlxG.sound.music.volume += 0.5 * elapsed;
 
+        // 搜索框输入 → 列表重建。必须排在 updateCardScroll 之前：卡片刚被全部销毁时，
+        // 同一帧的摆位就能把新卡建出来，不会闪出一帧空列表。
+        if (pendingFilterQuery != null)
+        {
+            var appliedQuery:String = pendingFilterQuery;
+            pendingFilterQuery = null;
+            applySongFilter(appliedQuery);
+        }
+
         // 来源 / 文件夹切换后的卡片重建：选择器关掉后第一帧补上，
         // 不让卡片停在旧列表（或占位 BPM/LENGTH）的状态上。
         if (cardsNeedRefresh && !inModFolderSelector)
@@ -2346,12 +2357,14 @@ class FreeplayState extends MusicBeatState
         updateCardScroll(elapsed);
         updateTextsThrottled(elapsed);
         processPreloadQueue(elapsed);
+        // 搜索框拿着键盘焦点时，拖选输入框里的文字不该把列表也拖着滚
+        if (cardScroller != null)
+            cardScroller.inputAllow = (searchBar == null || !searchBar.isFocused());
         handleMouseInput();
         handleKeyboardInput(elapsed);
 
-        if (ClientPrefs.data.toolBar && toolBar != null)
-            toolBar.update(elapsed);
-
+        // toolBar 已经 add() 进了 state，末尾的 super.update() 会更新它；
+        // 这里再手动调一次等于一帧走两遍 —— 按钮输入的锁定计时会被对半砍，别再加回来。
         if (!musicPlayer.playingMusic && toolBar != null)
             toolBar.setNormalMode();
 
@@ -2986,8 +2999,10 @@ class FreeplayState extends MusicBeatState
             replayButton.scale.set(REPLAY_BTN_SCALE, REPLAY_BTN_SCALE);
         }
 
-        if (searchHitbox != null && FlxG.mouse.justPressed && FlxG.mouse.overlaps(searchHitbox) && !musicPlayer.playingMusic)
-            openSearchSubstate();
+        // 点空白处 / 点列表：先把键盘焦点从搜索框收回来（Win10 的行为）。
+        // 不吞这次点击 —— 卡片才是主要交互，逼玩家点两次会很烦。
+        if (searchBar != null && FlxG.mouse.justPressed && !searchBar.isHovered())
+            searchBar.unfocus();
 
         // 松手生效：按下时指针在按钮上（replayPressed）且松手时仍在上面才算点击
         if (FlxG.mouse.justReleased && replayPressed && FlxG.mouse.overlaps(replayButton)
@@ -3109,8 +3124,19 @@ class FreeplayState extends MusicBeatState
 
         if (!inModFolderSelector && (controls.BACK || FlxG.mouse.justPressedRight))
         {
-            if (PsychUIInputText.focusOn != null)
+            // 搜索框还吃键盘时这一下属于「退出输入」，不是「返回主菜单」。
+            // searchKeyGuard 覆盖 ESC 已经清掉 focusOn 的那一帧（见字段注释）。
+            if (PsychUIInputText.focusOn != null || searchKeyGuard > 0)
                 return;
+
+            // 过滤中：这一下先退出过滤视图（回到完整列表），别一步退到主菜单
+            if (filterBaseSongs != null && filterAppliedQuery.length > 0)
+            {
+                pendingFilterQuery = '';
+                if (searchBar != null) searchBar.setText('');
+                FlxG.sound.play(Paths.sound('cancelMenu'));
+                return;
+            }
 
             if (musicPlayer.playingMusic)
             {
@@ -3134,11 +3160,11 @@ class FreeplayState extends MusicBeatState
                 persistentUpdate = false;
                 openSubState(new GameplayChangersSubstate());
             }
-            else if (FlxG.keys.justPressed.ENTER && !musicPlayer.playingMusic)
+            else if (FlxG.keys.justPressed.ENTER && !musicPlayer.playingMusic && searchKeyGuard <= 0)
             {
                 selectSong();
             }
-            else if (FlxG.keys.justPressed.SPACE)
+            else if (FlxG.keys.justPressed.SPACE && searchKeyGuard <= 0)
             {
                 togglePlaySong();
             }
@@ -3441,6 +3467,7 @@ class FreeplayState extends MusicBeatState
     function openSearchSubstate()
     {
         if (musicPlayer.playingMusic || songs.length == 0) return;
+        if (searchBar != null) searchBar.unfocus();
         persistentUpdate = false;
         openSubState(new SearchSubState(songs, function(song:NewSongMetaData) {
             // ★ 打开搜索界面的那一帧，MouseMove 已经把本次鼠标按下记成了“待拖拽”，
@@ -3458,6 +3485,159 @@ class FreeplayState extends MusicBeatState
             }
             persistentUpdate = true;
         }));
+    }
+
+    // ===================== 过滤器模式（搜索直接筛 Freeplay 本体） =====================
+
+    /**
+     * 关键词是否命中一首歌。
+     * 支持空格分隔的多词 AND（"bope pico" 能命中 'Bopeebo (Pico Mix)'），
+     * 匹配域与老 SearchSubState 一致：路径歌名 / 展示名 / 模组目录，外加变体标签。
+     */
+    private function songMatchesQuery(song:NewSongMetaData, query:String):Bool
+    {
+        if (song == null) return false;
+
+        var hay:String = '';
+        if (song.songName != null) hay += song.songName.toLowerCase();
+        if (song.displayName != null) hay += '\n' + song.displayName.toLowerCase();
+        if (song.folder != null) hay += '\n' + song.folder.toLowerCase();
+        if (song.variantLabel != null) hay += '\n' + song.variantLabel.toLowerCase();
+
+        for (token in query.split(' '))
+        {
+            if (token.length == 0) continue;
+            if (hay.indexOf(token) < 0) return false;
+        }
+        return true;
+    }
+
+    /** 过滤器模式下每次输入都走这里：重建 songs 子集并把界面同步过去。 */
+    private function applySongFilter(rawQuery:String):Void
+    {
+        if (!ClientPrefs.data.freeplaySearchInline) return;
+
+        var query:String = (rawQuery == null) ? '' : rawQuery.toLowerCase().trim();
+        if (query == filterAppliedQuery) return;
+        filterAppliedQuery = query;
+
+        // 试听中筛选：列表换了，试听索引会指到别的歌上，先停掉
+        if (musicPlayer != null && musicPlayer.playingMusic)
+            releasePreviewAudio();
+
+        if (filterBaseSongs == null)
+        {
+            // 关键词本来就是空的：没进过滤状态，什么都不用做
+            if (query.length == 0)
+            {
+                updateSearchCount();
+                return;
+            }
+            filterBaseSongs = songs.copy();
+        }
+
+        // 记住当前选中的歌（对象引用），过滤后它还在结果里就继续保持选中
+        var keep:NewSongMetaData = (curSelected >= 0 && curSelected < songs.length) ? songs[curSelected] : null;
+
+        var matched:Array<NewSongMetaData> = [];
+        for (song in filterBaseSongs)
+            if (query.length == 0 || songMatchesQuery(song, query)) matched.push(song);
+        songs = matched;
+
+        // 已物化的卡片全部摘掉重建（它们按旧下标摆位，留着会显示错歌）
+        for (i in 0...cards.length)
+            releaseCard(i);
+        cards = [];
+        mouseOverCard = -1;
+        cardPressedIndex = -1;
+        visibleCardMin = 0;
+        visibleCardMax = -1;
+
+        var target:Int = 0;
+        var sameSelection:Bool = false;
+        if (keep != null)
+        {
+            for (i in 0...songs.length)
+            {
+                if (songs[i] == keep)
+                {
+                    target = i;
+                    sameSelection = true;
+                    break;
+                }
+            }
+        }
+        curSelected = target;
+
+        initializeCardSlots();
+
+        // 列表被筛空就收掉滚动控制器；从空恢复到非空时重建；只是长度变了就改上限。
+        // 不整体重建 —— 重建会把拖拽 / 惯性状态一起清掉，边打字边重建会明显顿。
+        if (songs.length == 0)
+        {
+            resetCardScroller();
+        }
+        else if (cardScroller == null)
+        {
+            cardScroller = createCardScroller();
+            add(cardScroller);
+        }
+        else
+        {
+            cardScroller.moveLimit = [0, Math.max(0, (songs.length - 1) * CARD_SPACING)];
+            cardScroller.resetInputState();
+        }
+
+        lerpSelected = target;
+        cardScrollPos = target * CARD_SPACING;
+        if (cardScroller != null)
+            cardScroller.tweenData = cardScrollPos;
+
+        emptyReason = (songs.length == 0 && query.length > 0)
+            ? Language.getPhrase('freeplay_empty_no_match', 'No songs match your search.')
+            : '';
+        updateEmptyState();
+        updateSearchCount();
+
+        if (songs.length == 0)
+            return;
+
+        // 选中歌没变时只需要重摆卡片：背景 / 封面 / 难度 / 成绩都是同一首的，别重复读盘
+        if (sameSelection)
+        {
+            updateCardsPosition();
+            updateCardsRating();
+            return;
+        }
+
+        // 换了一首：走完整的切歌流程（难度表 / 难度记忆 / 背景色 / 封面立绘 / 难度轮盘全在里面）
+        changeSelection(0, false);
+    }
+
+    /**
+     * 清掉过滤视图、把 songs 还原成基准列表。
+     * 换来源 / 换模组文件夹时必须调 —— 否则新列表会被旧基准整片盖回去。
+     */
+    private function resetSearchFilter():Void
+    {
+        filterBaseSongs = null;
+        filterAppliedQuery = '';
+        pendingFilterQuery = null;
+        if (searchBar != null) searchBar.setText('');
+        if (searchCountText != null) searchCountText.visible = false;
+    }
+
+    /** 右上角"命中 / 总数"提示。只在过滤器模式、且确实有关键词时显示。 */
+    private function updateSearchCount():Void
+    {
+        if (searchCountText == null) return;
+
+        var active:Bool = filterBaseSongs != null && filterAppliedQuery.length > 0;
+        searchCountText.visible = active;
+        if (!active) return;
+
+        searchCountText.text = '${songs.length} / ${filterBaseSongs.length}';
+        searchCountText.color = (songs.length == 0) ? FlxColor.fromRGB(220, 90, 90) : FlxColor.GRAY;
     }
 
     function changeSelection(change:Int = 0, playSound:Bool = true)
@@ -3853,6 +4033,8 @@ class FreeplayState extends MusicBeatState
 
     public function onModFolderChanged()
     {
+        // 换来源就退出过滤视图，否则下面重设的 songs 会被旧基准整片盖回去。
+        resetSearchFilter();
         // 队列项持有旧歌曲元数据；筛选变化后必须丢弃，不能让旧任务继续占内存。
         clearPreloadQueue();
         // 换分类后进度条的前提（总数）也作废，连同提示一起清掉
@@ -4025,6 +4207,10 @@ class FreeplayState extends MusicBeatState
     {
         if (freeplayCacheDirty)
             saveFreeplaySongCache();
+
+        // 焦点还挂在搜索框上就交还回去，否则下一个界面收不到键盘输入
+        if (searchBar != null && PsychUIInputText.focusOn == searchBar.input)
+            PsychUIInputText.focusOn = null;
 
         releasePreviewAudio();
         clearPreloadQueue();

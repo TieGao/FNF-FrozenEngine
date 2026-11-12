@@ -73,10 +73,10 @@ class PauseSubState extends MusicBeatSubstate
 
 		var pauseSong:String = getPauseSong();
 		if(pauseSong != null) {
-			pauseMusic = FlxG.sound.load(Paths.music(pauseSong), 0, true);  // volume=0, looped=true
+			pauseMusic = FlxG.sound.create(Paths.music(pauseSong)).setup(0, true);  // volume=0, looped=true
 			pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
 		} else {
-			pauseMusic = FlxG.sound.load(null, 0, false);  // 空对象防止后续调用报错
+			pauseMusic = null;  // 无暂停曲占位；原 load(null) 本就返回 null，后续使用处均有 null 守卫
 		}
 
 		if(ClientPrefs.data.coolBackdrop)
@@ -304,6 +304,10 @@ class PauseSubState extends MusicBeatSubstate
 			PlayState.nextReloadAll = true;
 			MusicBeatState.resetState();
 		}
+
+		// 内存快照：把 GC 四口径 / RSS / 贴图记账写到 logs/memory-*.txt（只读，不动任何缓存）
+		if(FlxG.keys.justPressed.F9)
+			backend.MemoryStats.dumpReport();
 
 		updateSkipTextStuff();
 		

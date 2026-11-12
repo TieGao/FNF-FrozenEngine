@@ -321,12 +321,12 @@ class NoteHoldCover extends FlxTypedSpriteGroup<FlxSprite>
                     sprite.antialiasing = false;
                 }
                 
-                sprite.animation.finishCallback = function(name:String) {
+                sprite.animation.onFinish.add(function(name:String) {
                     if (name == 'End')
                     {
                         sprite.visible = false;
                     }
-                };
+                });
                 
                 sprite.visible = false;
             }

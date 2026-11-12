@@ -167,7 +167,7 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 		updateHealthBar();
 		character.finishAnimation();
 
-		if(ClientPrefs.data.cacheOnGPU) Paths.clearUnusedMemory();
+		if(ClientPrefs.data.gpuCaching != 'disabled') Paths.clearUnusedMemory();
 
 		super.create();
 	}
@@ -840,7 +840,10 @@ class CharacterEditorState extends EditorMusicState implements PsychUIEventHandl
 		character.color = FlxColor.WHITE;
 		character.alpha = 1;
 
-		if(Paths.fileExists('images/' + character.imageFile + '/Animation.json', TEXT))
+		// 与 Character.loadCharacterFile 同口径判定：图集必须是「定义这个角色的资源树」自己提供的，
+		// 否则 base（或 content 包）里的同名图集会把 mod 的 sparrow 角色顶掉
+		var charJsonPath:String = (_char != null && _char.length > 0) ? Paths.getPath('characters/$_char.json', TEXT) : null;
+		if(Paths.isAnimateAtlasImage(character.imageFile, charJsonPath))
 		{
 			character.atlas = new FlxAnimate();
 			character.atlas.showPivot = false;

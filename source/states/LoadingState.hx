@@ -13,6 +13,7 @@ import flixel.FlxState;
 
 import flash.media.Sound;
 
+import backend.MemoryStats;
 import backend.Song;
 import backend.StageData;
 import backend.LuaScriptPreload;
@@ -516,7 +517,15 @@ class LoadingState extends MusicBeatState
 	{
 		for (key => bitmap in requestedBitmaps)
 		{
-			if (bitmap != null && Paths.cacheBitmap(originalBitmapKeys.get(key), bitmap) != null) {} //trace('finished preloading image $key');
+			// pin：预载出来的图此刻还没有任何 sprite 引用（useCount 还是 0），
+			// 不额外加一道引用的话，进 PlayState 时那次 clearStoredMemory 会把它当垃圾收掉。
+			//
+			// 预载是否上传显存按显卡分档（MemoryStats.shouldPreloadToVRAM）：
+			//   auto → 显存 >= 10GB 才传（12GB 卡进歌不用现传，峰值也放得下）；
+			//   off  → 一律不上传，运行期第一次索取时再传（6GB 卡必须这样，否则预载就溢出）。
+			var preloadGPU:Bool = MemoryStats.shouldPreloadToVRAM();
+			var graphic:FlxGraphic = (bitmap != null) ? Paths.cacheBitmap(originalBitmapKeys.get(key), null, bitmap, preloadGPU) : null;
+			if (graphic != null) Paths.pinGraphic(graphic);
 			else trace('failed to cache image $key');
 		}
 		requestedBitmaps.clear();
@@ -894,9 +903,8 @@ class LoadingState extends MusicBeatState
 			var img:String = character.image;
 			img = img.trim();
 			#if flxanimate
-			var animToFind:String = Paths.getPath('images/$img/Animation.json', TEXT);
-			if (Paths.assetExists(animToFind))
-				isAnimateAtlas = true;
+			// 与 Character.loadCharacterFile 同口径：按资源根优先级判定，别用 getPath 全链探测
+			isAnimateAtlas = Paths.isAnimateAtlasImage(img, path);
 			#end
 
 			if(!isAnimateAtlas)
@@ -910,15 +918,17 @@ class LoadingState extends MusicBeatState
 			#if flxanimate
 			else
 			{
+				// 图集角色只会有一个 image（多图集是 sparrow 的机制），取首键避免逗号串拼出无效路径
+				var atlasKey:String = img.split(',')[0].trim();
 				for (i in 0...10)
 				{
 					var st:String = '$i';
 					if(i == 0) st = '';
 	
-					if(Paths.fileExists('images/$img/spritemap$st.png', IMAGE))
+					if(Paths.fileExists('images/$atlasKey/spritemap$st.png', IMAGE))
 					{
 						//trace('found Sprite PNG');
-						imagesToPrepare.push('$img/spritemap$st');
+						imagesToPrepare.push('$atlasKey/spritemap$st');
 						break;
 					}
 				}
@@ -956,11 +966,12 @@ class LoadingState extends MusicBeatState
 			{
 				trace('SOUND NOT FOUND: $key, PATH: $path');
 				FlxG.log.error('SOUND NOT FOUND: $key, PATH: $path');
-				return FlxAssets.getSound('flixel/sounds/beep');
+				return FlxAssets.getSoundAddExtension('flixel/sounds/beep');
 			}
 		}
 		mutex.acquire();
-		Paths.localTrackedAssets.push(file);
+		Paths.markAssetUsed(file);
+		Paths.pinSound(file);
 		mutex.release();
 
 		return Paths.currentTrackedSounds.get(file);
@@ -974,9 +985,14 @@ class LoadingState extends MusicBeatState
 			#if TRANSLATIONS_ALLOWED requestKey = Language.getFileTranslation(requestKey); #end
 			if(requestKey.lastIndexOf('.') < 0) requestKey += '.png';
 
-			if (!Paths.currentTrackedAssets.exists(requestKey))
+			// 与 Paths.image() 共用同一套解析：缓存键 = 实际文件路径。
+			// 这样预加载写进去的东西，运行期 Paths.image() 才真的能命中（旧键带 mod/content 后缀，永远 miss）。
+			var resolved = Paths.resolveImage(requestKey);
+			var cacheKey:String = resolved.key;
+
+			if (!Paths.currentTrackedAssets.exists(cacheKey))
 			{
-				var file:String = Paths.getPath(requestKey, IMAGE);
+				var file:String = resolved.file;
 				if (Paths.assetExists(file, IMAGE))
 				{
 					#if sys
@@ -987,14 +1003,15 @@ class LoadingState extends MusicBeatState
 
 					mutex.acquire();
 					requestedBitmaps.set(file, bitmap);
-					originalBitmapKeys.set(file, requestKey);
+					originalBitmapKeys.set(file, cacheKey);
 					mutex.release();
 					return bitmap;
 				}
 				else trace('no such image $key exists');
 			}
 
-			return Paths.currentTrackedAssets.get(requestKey).bitmap;
+			var cached = Paths.currentTrackedAssets.get(cacheKey);
+			return cached == null ? null : cached.bitmap;
 		}
 		catch(e:haxe.Exception)
 		{

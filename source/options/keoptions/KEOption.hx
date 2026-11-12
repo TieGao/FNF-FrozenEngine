@@ -677,6 +677,9 @@ class KEOption
 				// 当语言选项更改时，保存并触发语言重载以便立即生效
 				ClientPrefs.saveSettings();
 				backend.Language.reloadPhrases();
+			case "sessionLogMax":
+				// 保留上限改动立即清理旧日志档案
+				debug.LogFile.trimArchives();
 			case "keyboardBGColor", "keyboardEdgeColor", "keyboardRainColor", "keyboardTextColor":
 				// 颜色按目标拆开（主体 / 边缘 / 键雨 / 文字），统一交给 KeyboardViewer 自己刷，
 				// 别再对 members 无脑 color = col —— 会把按压高亮层和按键文字一起染掉。

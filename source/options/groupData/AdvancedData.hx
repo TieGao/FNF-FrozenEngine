@@ -25,6 +25,7 @@ class AdvancedData
         sub.add(new Option('Loading Screen', 'Show loading screen', 'loadingScreen', BOOL));
         sub.add(new Option('Lua Text Antialiasing', 'Enable antialiasing on lua texts', 'luatextantialiasing', BOOL));
         sub.add(new Option('Disable GC While Playing', 'Disable hxcpp garbage collection during gameplay', 'disablePlayStateGC', BOOL));
+        sub.add(new Option('Frequent GC', 'Full GC + heap compact on every state transition: returns freed textures to the OS, may cause short hitches', 'frequentGC', BOOL));
         sub.add(new Option('Discord RPC', 'Enable Discord Rich Presence', 'discordRPC', BOOL));
         sub.add(new Option('Options Style', 'Choose which options menu style to use', 'optionstype', STRING, ['new', 'psych', 'ke']));
         sub.add(new Option('Use Default Mouse Cursor', 'Use ur system\'s default mouse cursor in game', 'useSystemCursor', BOOL));
@@ -39,7 +40,11 @@ class AdvancedData
         logLifetime.minValue = 1; logLifetime.maxValue = 30; logLifetime.decimals = 0;
         dbg.add(logLifetime);
 
-        dbg.add(new Option('Save Session Log', 'Write trace output to crash/latest.log; the previous session is kept as crash/latest.1.log', 'sessionLog', BOOL));
+        dbg.add(new Option('Save Session Log', 'Write trace output to crash/latest.log; past sessions are kept as timestamped files in crash/', 'sessionLog', BOOL));
+
+        var logFiles = new Option('Session Log Files', 'How many past session logs to keep in crash/ (0 = none, 50 = unlimited)', 'sessionLogMax', INT);
+        logFiles.minValue = 0; logFiles.maxValue = 50; logFiles.decimals = 0;
+        dbg.add(logFiles);
         dbg.add(new Option('Blue Screen Crash Handler', 'Show a Windows-style blue screen when the game hits an uncaught error; off = native popup', 'blueScreen', BOOL));
 
         var bsDuration = new Option('Blue Screen Duration', 'Seconds before the blue screen returns to the title screen (0 = wait for a key)', 'blueScreenTime', INT);

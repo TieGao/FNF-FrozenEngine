@@ -193,7 +193,7 @@ var santaSound:FlxSound;
 		santaZoomTo(0.73, 2, FlxEase.quadInOut);
 
 		santaSound = FlxG.sound.play(Paths.sound('santa_emotion'), 1, false, null, false);
-		shootSound = FlxG.sound.load(Paths.sound('santa_shot_n_falls'), 1, false, null, false, false);
+		shootSound = FlxG.sound.create(Paths.sound('santa_shot_n_falls')).setup(1, false);
 
 		santaTimer(2.8, function(_) {
 			santaCamTo(santaDeadSpr.x + 1050, santaDeadSpr.y + 300, 9, FlxEase.quartInOut);

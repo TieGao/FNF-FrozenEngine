@@ -369,6 +369,12 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			BOOL);
 		addOption(option);
 
+		var option:Option = new Option('Inline Search Filter',
+			"Type into the Freeplay search bar to filter the song list in place instead of opening the search popup",
+			'freeplaySearchInline',
+			BOOL);
+		addOption(option);
+
 		var option:Option = new Option('Custom Color',
 			"If checked, timeBar and Scoretxt will change to opponent's icon color",
 			'customColor',

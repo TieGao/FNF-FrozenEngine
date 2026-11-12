@@ -24,16 +24,14 @@ class DifficultyStars extends FlxSpriteGroup
 	static inline var ZERO_STARS_FRAME:Int = 1500; // 官方 0 星定格帧
 
 	// ==== 星星行的内容盒（相对 stars.x / stars.y，**已含 ROW_LEVEL_ANGLE 的摆正旋转**）====
-	// 下面四个数只是"还没量到之前"的初始估计，真正落地靠 measureContentOffset() 实测校正 ——
-	// 旋转轴心在不同 flxanimate 版本里不一样（drawLimb 里 translate(-origin) + _point+=origin
-	// 是否真把 origin 抵消掉，取决于 origin 有没有被重置），估错了整条会偏几十像素。
-	//
-	// 估计值按"轴心 = 内容坐标原点"算：内容 = R(angle)·(AN.STI.MX + 层内平移)，
-	// STI.MX = (497.25, 320.95)，10 星满排的层内平移 x 318.30→610.39、y −121.84→−40.19，
-	// 星图 44.5px，整排原图是右低左高 8.543° 的斜排，转平后包围盒 = 下面这四个数。
-	// （若按"轴心 = origin"算会是 794/146 —— 实测偏右上就说明是这一版，让校正去收。）
-	static inline var CONTENT_LEFT:Float = 836;
-	static inline var CONTENT_TOP:Float = 69;
+	// 旋转后的内容位置 = origin + R(angle)·(rootMX + 层内平移)，rootMX = AN.STI.MX = (497.25, 320.95)。
+	// 关键在 origin：`PsychFlxAnimate.loadAtlasEx` 里那句 `origin = symbol.transformationPoint`
+	// 在 `origin(default, null)` 下其实没生效，draw 时用的是 resetHelpers → centerOrigin() 留下的
+	// **帧尺寸一半** (55.5, 114)（spritemap 111×228）。按这个轴心算 10 星满排的包围盒才是下面这个，
+	// 用 AN.STI.MX 当轴心会整体偏右上（实测过，别再用）。
+	// 这些值只负责"第一帧看着就不离谱"，真正落地靠 measureContentOffset() 实测校正。
+	static inline var CONTENT_LEFT:Float = 820;
+	static inline var CONTENT_TOP:Float = 78;
 	static inline var CONTENT_W:Float = 301;
 	static inline var CONTENT_H:Float = 52;
 
@@ -86,6 +84,9 @@ class DifficultyStars extends FlxSpriteGroup
 
 	/** 下一次 update 里要不要取一次实测偏移。 */
 	var measurePending:Bool = false;
+
+	/** 还要等几帧才采信 relativeX/relativeY（draw 在本帧 update 之后才跑）。 */
+	var measureCountdown:Int = 0;
 
 	public function new()
 	{
@@ -152,7 +153,9 @@ class DifficultyStars extends FlxSpriteGroup
 		placeStars();
 		placeFlames(rowLeft, rowTop);
 
+		// 位置变了就重新量一次（偏移是图集属性，量的结果每次都一样，幂等）
 		measurePending = true;
+		measureCountdown = 3;
 	}
 
 	/** 内容盒左上角顶到 (targetLeft, targetTop)：偏移优先用实测值，没量到就用估计值。 */
@@ -180,16 +183,28 @@ class DifficultyStars extends FlxSpriteGroup
 	/**
 	 * 用 flxanimate 自己量出来的 relativeX/relativeY 校正内容盒偏移。
 	 *
-	 * draw() 里 `relativeX = 内容屏幕左缘 − sprite.x`，是唯一可信的真值 —— 旋转轴心到底在哪、
-	 * 根平移有没有被抵消，全都不用再猜。必须等一帧（draw 在 update 之后），而且只取一次。
-	 * 取不到可靠值（被视口裁掉一截 / 相机在动）就跳过，下次再试。
+	 * `draw()` 里 `relativeX = 内容屏幕左缘 − sprite.x`，是唯一可信的真值 —— 旋转轴心到底在哪、
+	 * 根平移有没有被抵消，全都不用再猜。
+	 *
+	 * 两个坑：
+	 * - draw 在本帧 update 之后才跑，所以**不能**用 `stars.width` 判断"量到了没"：drawLimb 收尾时
+	 *   会把 width/height 改写成**最后一块 limb** 的尺寸（几十像素），不是内容并集的宽度，
+	 *   拿它跟 CONTENT_W 比对会永远判失败（上一版校正就是这么被静默跳过的）。
+	 *   改用帧计数：layout 之后等 3 帧，期间 visible 的每一帧都必然走过一次 draw。
+	 * - 内容整块在视口外时 `_flashRect` 是空的，relativeX 会退化成 −x，值离谱，丢掉重试。
 	 */
 	function measureContentOffset():Void
 	{
-		if (!measurePending || !visible || stars.width <= 0) return;
-		// 有 limb 被视口裁掉时 _flashRect 只是部分并集，量出来会偏
-		if (Math.abs(stars.width - CONTENT_W) > CONTENT_W * 0.1) return;
+		if (!measurePending || !visible || !atlasOK) return;
 		if (FlxG.camera.zoom != 1) return; // 评级升级动画会拉 zoom
+
+		if (measureCountdown > 0)
+		{
+			measureCountdown--;
+			return;
+		}
+
+		if (Math.abs(stars.relativeX) > 3000 || Math.abs(stars.relativeY) > 3000) return;
 
 		measuredLeft = stars.relativeX;
 		measuredTop = stars.relativeY;

@@ -448,7 +448,7 @@ class ResultsScreen extends MusicBeatSubstate
         
         var pauseSong:String = getPauseSong();
         var musicPath = (pauseSong != null) ? Paths.music(pauseSong) : Paths.music('breakfast');
-        pauseMusic = FlxG.sound.load(musicPath, 0, true);  // volume=0, looped=true
+        pauseMusic = FlxG.sound.create(musicPath).setup(0, true);  // volume=0, looped=true
         pauseMusic.play(false, FlxG.random.int(0, Std.int(pauseMusic.length / 2)));
         FlxTween.tween(pauseMusic, {volume: 1}, 0.8);
     }

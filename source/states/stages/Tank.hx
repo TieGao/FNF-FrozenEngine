@@ -165,8 +165,8 @@ class Tank extends BaseStage
 
 			dadGroup.alpha = 1;
 			camHUD.visible = true;
-			boyfriend.animation.finishCallback = null;
-			gf.animation.finishCallback = null;
+			boyfriend.animation.onFinish.removeAll(); // 旧 finishCallback = null 的信号等价写法
+			gf.animation.onFinish.removeAll();
 			gf.dance();
 		};
 
@@ -180,8 +180,8 @@ class Tank extends BaseStage
 			if(audioPlaying != null)
 				audioPlaying.stop();
 
-			boyfriend.animation.finishCallback = null;
-			gf.animation.finishCallback = null;
+			boyfriend.animation.onFinish.removeAll(); // 旧 finishCallback = null 的信号等价写法
+			gf.animation.onFinish.removeAll();
 			gf.dance();
 			dad.dance();
 			boyfriend.dance();
@@ -275,10 +275,10 @@ class Tank extends BaseStage
 		cutsceneHandler.timer(4, function()
 		{
 			gf.playAnim('sad', true);
-			gf.animation.finishCallback = function(name:String)
+			gf.animation.onFinish.add(function(name:String)
 			{
 				gf.playAnim('sad', true);
-			};
+			});
 		});
 	}
 	var dualWieldAnimPlayed = 0;
@@ -317,14 +317,15 @@ class Tank extends BaseStage
 					boyfriendGroup.alpha = 1;
 					boyfriendCutscene.visible = false;
 					boyfriend.playAnim('bfCatch', true);
-					boyfriend.animation.finishCallback = function(name:String)
+					boyfriend.animation.onFinish.removeAll(); // picoStressCycle 可能重入，先清再挂（等价旧覆盖语义）
+					boyfriend.animation.onFinish.add(function(name:String)
 					{
 						if(name != 'idle')
 						{
 							boyfriend.playAnim('idle', true);
 							boyfriend.animation.curAnim.finish(); //Instantly goes to last frame
 						}
-					};
+					});
 				case "picoAppears", "Pico Saves them sequence":
 					pico.anim.play('picoEnd', true);
 				case "picoEnd", "Pico Dual Wield on Speaker idle":
@@ -383,14 +384,14 @@ class Tank extends BaseStage
 		cutsceneHandler.timer(31.2, function()
 		{
 			boyfriend.playAnim('singUPmiss', true);
-			boyfriend.animation.finishCallback = function(name:String)
+			boyfriend.animation.onFinish.add(function(name:String)
 			{
 				if (name == 'singUPmiss')
 				{
 					boyfriend.playAnim('idle', true);
 					boyfriend.animation.curAnim.finish(); //Instantly goes to last frame
 				}
-			};
+			});
 
 			camFollow.setPosition(boyfriend.x + 280, boyfriend.y + 200);
 			FlxG.camera.snapToTarget();

@@ -293,10 +293,12 @@ class NoteSplash extends FlxSprite
 			offset.y += offsets[1];
 		}
 
-		animation.finishCallback = function(name:String) {
+		// 对象池复用：先清旧监听再挂新回调（旧 finishCallback 赋值是覆盖语义，等价迁移）
+		animation.onFinish.removeAll();
+		animation.onFinish.add(function(name:String) {
 			kill();
 			spawned = false;
-		}
+		});
 
 		alpha = ClientPrefs.data.splashAlpha;
 		if (note != null) alpha = note.noteSplashData.a;

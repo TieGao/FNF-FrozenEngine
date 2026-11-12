@@ -59,7 +59,7 @@ class CreditsVideoSubState extends MusicBeatSubstate
 		video.onSkip = closeVideo;
 
 		var bmp = video.videoSprite.bitmap;
-		if (bmp != null) bmp.onFormatSetup.add(fitVideo);
+		if (bmp != null) bmp.onVideoFormatSetup.add(fitVideo); // hxvlc 2.3.2 改名（旧 onFormatSetup 已弃用）
 
 		add(video);
 		video.play();

@@ -47,7 +47,7 @@ class VideoSprite extends FlxSpriteGroup {
 		// callbacks
 		if(!shouldLoop) videoSprite.bitmap.onEndReached.add(finishVideo);
 
-		videoSprite.bitmap.onFormatSetup.add(function()
+		videoSprite.bitmap.onVideoFormatSetup.add(function() // hxvlc 2.3.2 改名（旧 onFormatSetup 已弃用）
 		{
 			/*
 			#if hxvlc

@@ -131,6 +131,35 @@ class MusicBeatState extends FlxState
 		curStep = lastChange.stepTime + Math.floor(shit);
 	}
 
+	/**
+	 * 把「已经造好的状态实例」包成 flixel 的 NextState。
+	 *
+	 * **不能**直接写 `() -> inst`：flixel 会把这个闭包原样存进 `state._constructor`，
+	 * 之后任何 `FlxG.resetState()`（死亡重试 / 暂停重开）都调它 → 拿回**同一个**已经 destroy
+	 * 过的对象再 create 一遍。PlayState.destroy() 里把 luaArray 置了 null，第二次 create
+	 * 走到 setOnScripts('playbackRate') 就空引用（实测栈 5614/5607/1301/659）。
+	 * 首次切换照样返回这个实例（预加载和 song 数据都挂在它身上），之后再要就给同类的新实例。
+	 */
+	public static function wrapNextState(inst:FlxState):()->FlxState
+	{
+		var handed:Bool = false;
+		return function():FlxState {
+			if (!handed)
+			{
+				handed = true;
+				return inst;
+			}
+
+			try
+			{
+				return cast Type.createInstance(Type.getClass(inst), []);
+			}
+			catch (e:Dynamic) {}
+
+			return inst; // 构造带必填参数的 state：只能退回原实例（即旧行为）
+		};
+	}
+
 	public static function switchState(nextState:FlxState = null) {
 		if(nextState == null) nextState = FlxG.state;
 		if(nextState == FlxG.state)
@@ -139,7 +168,7 @@ class MusicBeatState extends FlxState
 			return;
 		}
 
-		if(FlxTransitionableState.skipNextTransIn) FlxG.switchState(nextState);
+		if(FlxTransitionableState.skipNextTransIn) FlxG.switchState(wrapNextState(nextState));
 		else startTransition(nextState);
 		FlxTransitionableState.skipNextTransIn = false;
 	}
@@ -160,7 +189,7 @@ class MusicBeatState extends FlxState
 		if(nextState == FlxG.state)
 			CustomFadeTransition.finishCallback = function() FlxG.resetState();
 		else
-			CustomFadeTransition.finishCallback = function() FlxG.switchState(nextState);
+			CustomFadeTransition.finishCallback = function() FlxG.switchState(wrapNextState(nextState));
 	}
 
 	public static function getState():MusicBeatState {

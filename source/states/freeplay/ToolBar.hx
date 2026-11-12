@@ -20,7 +20,6 @@ import options.keoptions.KEOptionsMenu;
 import options.psychoptions.PsychOptionsState;
 import options.OptionsState;
 import options.keoptions.KEExtraSettingsSubState;
-import backend.ui.PsychUIButton; 
 import objects.AudioDisplay;
 
 
@@ -39,10 +38,22 @@ class ToolBar extends FlxSpriteGroup
     public var textDisplay:FlxText;
     public var musicPlayer:MusicPlayerLegacy;
     
-    // 按钮相关
-    public var buttons:Array<PsychUIButton> = [];
+    // 按钮相关（自造的斜切按钮，见 ToolBarButton —— 不再依赖 PsychUIButton）
+    public var buttons:Array<ToolBarButton> = [];
     public var buttonWidth:Int = 200;
-    public var buttonSpacing:Int = 5;
+    public var buttonHeight:Int = 32;
+    /** 斜度：和 StoryMode 的 BTN_SKEW/BTN_H（28/70）同量级的角度，平行四边形才看得出来 */
+    public var buttonSkew:Int = 12;
+
+    /** 需要"当前有选中歌"才有意义的几块（RESET / LISTEN / EDITOR）：没歌时置灰禁用 */
+    private var songButtons:Array<ToolBarButton> = [];
+
+    /**
+     * 触发后锁输入的剩余时长。
+     * 防误触：按钮一触发就上锁，同一次松手不会被第二块再消费一次，连点也不会重复触发。
+     */
+    public var inputLock:Float = 0;
+    static inline var INPUT_LOCK_TIME:Float = 0.18;
     
     // 播放器控制相关
     public var playPauseButton:FlxButton;
@@ -124,8 +135,9 @@ class ToolBar extends FlxSpriteGroup
         // 创建播放器控件
         createPlayerControls();
         
-        // 默认显示按钮模式
-        setNormalMode();
+        // 默认显示按钮模式。force 必须带上：此刻 isMusicPlayerMode 和栏高都已是"常态"，
+        // 不带的话 setNormalMode 会判定成"没变化"直接返回，播放器控件就留在屏幕上
+        setNormalMode(true);
     }
     
     // ===== 可视化参数加载 =====
@@ -218,47 +230,103 @@ class ToolBar extends FlxSpriteGroup
     {
         for (button in buttons)
         {
-            remove(button);
+            if (button == null) continue;
+            remove(button, true);
             button.destroy();
         }
         buttons = [];
+        songButtons = [];
 
-        // 导航按钮在"当前栏高"里垂直居中。不要用 background.height —— 那是按最大栏高造的，
-        // 比可见栏高多 50px 的模糊出血
-        var btnH:Int = 32;
-        var buttonY:Float = FlxG.height - barHeight / 2 - btnH / 2;
-        var buttonData:Array<{label:String, action:Void->Void}> = [
-            {label: Language.getPhrase("options", "OPTIONS"), action: openOptions},
-            {label: Language.getPhrase("gameplay", "GAMEPLAY"), action: openGameplayChangers},
-            {label: Language.getPhrase("reset", "RESET"), action: resetScore},
-            {label: Language.getPhrase("listen", "LISTEN"), action: toggleListenMode},
-            {label: Language.getPhrase("editor", "EDITOR"), action: openChartEditor}
+        // action 返回"这次点击有没有真的做事"：false 就走取消音，点了没反应也能听见。
+        // needsSong = true 的那几块在没有歌时会置灰禁用，连"点了没反应"都不会发生。
+        var buttonData:Array<{label:String, needsSong:Bool, action:Void->Bool}> = [
+            {label: Language.getPhrase("options", "OPTIONS"), needsSong: false, action: openOptions},
+            {label: Language.getPhrase("gameplay", "GAMEPLAY"), needsSong: false, action: openGameplayChangers},
+            {label: Language.getPhrase("reset", "RESET"), needsSong: true, action: resetScore},
+            {label: Language.getPhrase("listen", "LISTEN"), needsSong: true, action: toggleListenMode},
+            {label: Language.getPhrase("editor", "EDITOR"), needsSong: true, action: openChartEditor}
         ];
         hasExtraButton = Paths.isCustomChartCategory();
         if (hasExtraButton)
-			buttonData.insert(1, {label: "EXTRA", action: openExtraSettings});
-		var startX:Float = (FlxG.width - (buttonWidth * buttonData.length + buttonSpacing * (buttonData.length - 1))) / 2;
-        
+            buttonData.insert(1, {label: "EXTRA", needsSong: false, action: openExtraSettings});
+
         for (i in 0...buttonData.length)
         {
-            var btn = new PsychUIButton(
-                startX + i * (buttonWidth + buttonSpacing),
-                buttonY,
-                buttonData[i].label,
-                buttonData[i].action,
-                buttonWidth,
-                btnH
-            );
-            btn.scrollFactor.set();
-            btn.text.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER);
-            btn.text.fieldWidth = buttonWidth;
-            
-            btn.normalStyle = {bgColor: 0xFF333333, textColor: FlxColor.WHITE, bgAlpha: 0.9};
-            btn.hoverStyle = {bgColor: 0xFF555577, textColor: FlxColor.WHITE, bgAlpha: 1};
-            btn.clickStyle = {bgColor: 0xFF8888AA, textColor: FlxColor.WHITE, bgAlpha: 1};
-            
+            var data = buttonData[i];
+            // 先按 (0,0) 造，位置统一由 layoutButtons() 摆 —— 位置只会有一处算，
+            // 不会出现"创建时算一次、setXY 再算一次"两套公式打架
+            var btn = new ToolBarButton(0, 0, buttonWidth, buttonHeight, buttonSkew, data.label, 20,
+                makeButtonAction(data.action));
             add(btn);
             buttons.push(btn);
+            if (data.needsSong) songButtons.push(btn);
+        }
+
+        layoutButtons();
+    }
+
+    /**
+     * 把这一排斜切块摆成一条：相邻两块的水平步长 = 宽 - skew，两条斜边正好重合。
+     * 整条宽度 = n*W - (n-1)*skew，比"n*W + 间距"窄，6 块也不会顶到屏幕边。
+     */
+    private function layoutButtons():Void
+    {
+        var count:Int = buttons.length;
+        if (count < 1) return;
+
+        var step:Float = buttonWidth - buttonSkew;
+        var stripW:Float = buttonWidth + (count - 1) * step;
+        var left:Float = (FlxG.width - stripW) * 0.5;
+        // 只按"可见栏高"垂直居中：不要用 background.height，那是按最大栏高造的，多 50px 模糊出血
+        var top:Float = FlxG.height - barHeight * 0.5 - buttonHeight * 0.5;
+
+        for (i in 0...count)
+        {
+            var btn = buttons[i];
+            if (btn == null) continue;
+            btn.x = left + i * step;
+            btn.y = top;
+        }
+    }
+
+    /** 把按钮动作包一层：上锁 + 成功/失败音 */
+    private function makeButtonAction(action:Void->Bool):Void->Void
+    {
+        return function()
+        {
+            // 一触发就上锁：同一次松手不会再喂给别的块，连点也不会把同一块点两下。
+            // 触发块自己在 fireClick 里已经把 pressing 解掉了，这里不用再清别的块。
+            inputLock = INPUT_LOCK_TIME;
+
+            var ok:Bool = (action != null) && action();
+            FlxG.sound.play(Paths.sound(ok ? 'confirmMenu' : 'cancelMenu'), ok ? 0.5 : 0.35);
+        };
+    }
+
+    /** 常态栏的悬停 / 按下裁决。多个斜切块共用接缝：命中取"最后一个命中的"，接缝那 2px 归右块。 */
+    private function updateNormalButtons():Void
+    {
+        if (buttons.length < 1) return;
+
+        // 没有歌的时候 RESET / LISTEN / EDITOR 点了也不可能做事：直接置灰不接输入，
+        // 比"点了没反应"清楚得多。OPTIONS / GAMEPLAY 跟选歌无关，永远可用。
+        var hasSong:Bool = freeplayState != null && freeplayState.songs != null && freeplayState.songs.length > 0;
+        for (btn in songButtons)
+            if (btn != null) btn.enabled = hasSong;
+
+        var hoverIdx:Int = -1;
+        for (i in 0...buttons.length)
+        {
+            var btn = buttons[i];
+            if (btn != null && btn.visible && btn.enabled && btn.containsPoint(FlxG.mouse.x, FlxG.mouse.y))
+                hoverIdx = i;
+        }
+
+        var canInput:Bool = (inputLock <= 0);
+        for (i in 0...buttons.length)
+        {
+            var btn = buttons[i];
+            if (btn != null && btn.visible) btn.updateButton(i == hoverIdx, canInput);
         }
     }
 
@@ -503,16 +571,25 @@ class ToolBar extends FlxSpriteGroup
         if (voiceToggleButton != null) { voiceToggleButton.visible = visible; voiceToggleButton.active = visible; }
     }
     
-    public function setNormalMode():Void
+    public function setNormalMode(force:Bool = false):Void
     {
+        // FreeplayState 在不放歌时每帧都会调一次；状态没变就别重摆 / 重清（每次重摆都要
+        // 跟着 transformChildren 走一遍成员，白烧）
+        var changed:Bool = force || isMusicPlayerMode || barHeight != BAR_HEIGHT_NORMAL;
+
         isMusicPlayerMode = false;
         applyBarHeight(BAR_HEIGHT_NORMAL);
         if (textDisplay != null) textDisplay.visible = false;
-        
+
+        if (!changed) return;
+
+        layoutButtons();
+
         for (btn in buttons)
         {
             if (btn != null)
             {
+                btn.cancelInput();
                 btn.visible = true;
                 btn.active = true;
             }
@@ -535,6 +612,7 @@ class ToolBar extends FlxSpriteGroup
         {
             if (btn != null)
             {
+                btn.cancelInput();
                 btn.visible = false;
                 btn.active = false;
             }
@@ -609,7 +687,9 @@ class ToolBar extends FlxSpriteGroup
     override public function update(elapsed:Float):Void
     {
         super.update(elapsed);
-        
+
+        if (inputLock > 0) inputLock -= elapsed;
+
         if (isMusicPlayerMode)
         {
             syncMusicPlayer();
@@ -665,78 +745,84 @@ class ToolBar extends FlxSpriteGroup
                 if (FreeplayState.opponentVocals != null && FreeplayState.opponentVocals.volume > 0)
                     updateVoiceVolume();
             }
+            return;
         }
+
+        // 常态栏：导航按钮的悬停 / 按下全在这里裁决（按钮自己不碰鼠标状态）
+        updateNormalButtons();
     }
     
     // ===== 按钮回调函数 =====
-    
-    private function openOptions():Void
+    // 统一返回 Bool："这次点击有没有真的做事" —— false 由 makeButtonAction 换成取消音，
+    // 点了没反应也能听见，不会像以前那样按钮响一声、后台什么都不发生。
+
+    private function openOptions():Bool
     {
-        if (freeplayState != null)
+        if (freeplayState == null) return false;
+
+        if (ClientPrefs.data.optionstype == 'new')
         {
-            if (ClientPrefs.data.optionstype == 'new')
-            {
-                MusicBeatState.switchState(new OptionsState());
-                OptionsState.stateType = 1;
-            }
-            else if (ClientPrefs.data.optionstype == 'ke')
-            MusicBeatState.switchState(new KEOptionsMenu());
-            else
-            MusicBeatState.switchState(new PsychOptionsState());
-            FlxG.sound.play(Paths.sound('scrollMenu'));
+            MusicBeatState.switchState(new OptionsState());
+            OptionsState.stateType = 1;
         }
+        else if (ClientPrefs.data.optionstype == 'ke')
+            MusicBeatState.switchState(new KEOptionsMenu());
+        else
+            MusicBeatState.switchState(new PsychOptionsState());
+
+        return true;
     }
     
-    private function openGameplayChangers():Void
+    private function openGameplayChangers():Bool
     {
-        if (freeplayState != null && freeplayState.persistentUpdate)
-        {
-            freeplayState.persistentUpdate = false;
-            freeplayState.openSubState(new GameplayChangersSubstate());
-        }
+        if (freeplayState == null || !freeplayState.persistentUpdate) return false;
+
+        freeplayState.persistentUpdate = false;
+        freeplayState.openSubState(new GameplayChangersSubstate());
+        return true;
     }
 
-    private function openExtraSettings():Void
+    private function openExtraSettings():Bool
     {
-        if (freeplayState != null && freeplayState.persistentUpdate)
-        {
-            freeplayState.persistentUpdate = false;
-            freeplayState.openSubState(new KEExtraSettingsSubState());
-        }
+        if (freeplayState == null || !freeplayState.persistentUpdate) return false;
+
+        freeplayState.persistentUpdate = false;
+        freeplayState.openSubState(new KEExtraSettingsSubState());
+        return true;
     }
     
-    private function resetScore():Void
+    private function resetScore():Bool
     {
-        if (freeplayState != null && FreeplayState.curSelected >= 0 && FreeplayState.curSelected < freeplayState.songs.length)
-        {
-            freeplayState.persistentUpdate = false;
-            var song = freeplayState.songs[FreeplayState.curSelected];
-            freeplayState.openSubState(new ResetScoreSubState(song.songName, freeplayState.curDifficulty, song.songCharacter, -1, song.folder));
-            FlxG.sound.play(Paths.sound('scrollMenu'));
-        }
+        if (freeplayState == null || FreeplayState.curSelected < 0
+            || FreeplayState.curSelected >= freeplayState.songs.length) return false;
+
+        freeplayState.persistentUpdate = false;
+        var song = freeplayState.songs[FreeplayState.curSelected];
+        freeplayState.openSubState(new ResetScoreSubState(song.songName, freeplayState.curDifficulty, song.songCharacter, -1, song.folder));
+        return true;
     }
     
-    private function toggleListenMode():Void
+    private function toggleListenMode():Bool
     {
-        if (freeplayState != null)
-        {
-            freeplayState.togglePlaySong();
-            // 延迟重建音频谱
-            needsAudioDisplayRebuild = true;
-        }
+        if (freeplayState == null) return false;
+
+        freeplayState.togglePlaySong();
+        // 延迟重建音频谱
+        needsAudioDisplayRebuild = true;
+        return true;
     }
 
     /**
      * 直接用当前选中的歌曲打开谱面编辑器。
      * ChartingState 读的是 PlayState.SONG，加载由 FreeplayState.openChartEditor() 负责。
      */
-    private function openChartEditor():Void
+    private function openChartEditor():Bool
     {
-        if (freeplayState == null) return;
-        if (FreeplayState.curSelected < 0 || FreeplayState.curSelected >= freeplayState.songs.length) return;
+        if (freeplayState == null) return false;
+        if (FreeplayState.curSelected < 0 || FreeplayState.curSelected >= freeplayState.songs.length) return false;
 
-        FlxG.sound.play(Paths.sound('confirmMenu'));
         freeplayState.openChartEditor();
+        return true;
     }
     
     public function setText(message:String):Void
@@ -760,18 +846,8 @@ class ToolBar extends FlxSpriteGroup
             textDisplay.y = y + 4;
         }
         
-        var buttonY:Float = y + (barHeight - 40) / 2;
-        var startX:Float = (FlxG.width - (buttonWidth * buttons.length + buttonSpacing * (buttons.length - 1))) / 2;
-        
-        for (i in 0...buttons.length)
-        {
-            if (buttons[i] != null)
-            {
-                buttons[i].x = startX + i * (buttonWidth + buttonSpacing);
-                buttons[i].y = buttonY;
-            }
-        }
-        
+        // 摆位公式只有 layoutButtons() 一份，这里不要另算一套
+        layoutButtons();
         updatePlayerPositions();
     }
     

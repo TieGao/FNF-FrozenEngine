@@ -160,7 +160,7 @@
 	<haxelib name="flixel-addons"/>
 	<!-- 强制编进 FlxSkewedSprite（引擎源码没引用它，不 include 的话 hscript 里 resolveClass 拿不到） -->
 	<haxeflag name="--macro" value="include('flixel.addons.effects.FlxSkewedSprite')"/>
-	<haxelib name="tjson" version="1.4.0"/>
+	<!-- tjson 已 vendor 进 source/tjson/（BSD，原库停更，修过时警告见文件头注释），不再走 haxelib -->
 
 	<!--Psych stuff needed-->
 	<haxelib name="linc_luajit" if="LUA_ALLOWED"/>
@@ -220,8 +220,8 @@
 	<haxedef name="HXCPP_STACK_LINE" if="CRASH_HANDLER" />
 	<haxedef name="HXCPP_STACK_TRACE" if="CRASH_HANDLER" />
 	
-	<!--Disable deprecated warnings-->
-	<haxedef name='no-deprecation-warnings' />  
+	<!--Disable deprecated warnings (已取消勾选：过时警告放开，2026-11-10)-->
+	<!--<haxedef name='no-deprecation-warnings' />-->
 
 	<!-- Haxe 4.3.0+: Enable pretty syntax errors and stuff. -->
 	<!-- pretty (haxeflixel default), indent, classic (haxe compiler default) -->

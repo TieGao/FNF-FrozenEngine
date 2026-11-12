@@ -649,7 +649,12 @@ class BlueScreenCrashHandler extends Sprite
 		// 下一次崩溃（哪怕消息一模一样）也要能重新弹出来
 		lastMessage = null;
 
-		try FlxG.switchState(new states.TitleState()) catch (_:Dynamic) {}
+		try
+		{
+			final nextState = new states.TitleState(); // 先急切构造，异常仍由本 try 捕获
+			FlxG.switchState(MusicBeatState.wrapNextState(nextState));
+		}
+		catch (_:Dynamic) {}
 	}
 
 	function onFrame(e:Event):Void

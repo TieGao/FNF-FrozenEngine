@@ -228,12 +228,6 @@ class MainMenuState extends MusicBeatState
 			if (controls.UI_DOWN_P)
 				changeItem(1);
 
-		    if (FlxG.keys.justPressed.F3)
-    		{
-				persistentUpdate = false;
-				//openSubState(new substates.StatsSubState());
-    		}
-
 			var allowMouse:Bool = allowMouse;
 			if (allowMouse && ((FlxG.mouse.deltaViewX != 0 && FlxG.mouse.deltaViewY != 0) || FlxG.mouse.justPressed)) //FlxG.mouse.deltaViewX/Y checks is more accurate than FlxG.mouse.justMoved
 			{

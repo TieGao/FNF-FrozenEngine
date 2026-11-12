@@ -175,7 +175,7 @@ class PixelDialogueBox extends FlxSpriteGroup
 		txt.borderStyle = SHADOW;
 		txt.borderColor = 0xFFD89494;
 		txt.setBorderStyle(SHADOW_XY(2, 2));
-		txt.sounds = [FlxG.sound.load(Paths.sound('pixelText'), 0.6)];
+		txt.sounds = [FlxG.sound.create(Paths.sound('pixelText')).setup(0.6)];
 		txt.scrollFactor.set();
 		txt.completeCallback = onTextComplete;
 		add(txt);

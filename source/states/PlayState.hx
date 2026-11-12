@@ -1243,9 +1243,10 @@ class PlayState extends MusicBeatState
 		// 使用新的 JudgementCounter 模块替代旧的 createCounterUI
 		if (judgementCounterObj == null && !isSplitCoopMode()) judgementCounterObj = new objects.JudgementCounter(this);
 
-		// 不调 Paths.clearUnusedMemory()：它按 localTrackedAssets 判断存活，而该表跨歌只增不减、
-		// key 还带 contentRoot 后缀。同一进程第二次进歌时判定失准，会把角色分尸图集当成未使用
-		// 销毁掉，紧接着 cacheCountdown 重建同 key 图集时闪退。移动版同样去掉了这一步。
+		// 这里不再补 Paths.clearUnusedMemory()：释放已经在上面那次 clearStoredMemory() 做过了 ——
+		// 它按「代际 + useCount」挑图，有 sprite 引用的、以及本次刚预载还没被接管的（pin 住的）
+		// 都不会被收走。到这里本局的图都已经挂在对象上，再扫一遍没有收益；
+		// cacheCountdown / cachePopUpScore 随后还要用预载好的 note 图，更不能提前清。
 
 		cacheCountdown();
 		cachePopUpScore();
@@ -5347,6 +5348,26 @@ public function reloadCounterColors()
 		// 回收仍在场/待场的 Note 进静态池（跨歌复用），必须在 super.destroy() 之前
 		reclaimAllNotes();
 
+		// 脚本用 makeLuaSprite 建过、但没有 addLuaSprite 的精灵只登记在 variables 里（MusicBeatState 的
+		// 实例字段，不是 static）：state 销毁时它们只会变成垃圾，而 FlxSprite 的引用计数只有在 destroy()
+		// 里才减 —— 不显式销毁，这些图集就永远挂在 useCount=1 上，Paths 的待释放队列再也收不走
+		// （Fatal Finale 实测：舞台脚本建了 112 个精灵只 add 了几个，退出后 104 张 / 2.61GB 卡在待释放）。
+		if (variables != null && variables.keys().hasNext())
+		{
+			var luaSprites:Array<FlxBasic> = [];
+			for (obj in variables)
+			{
+				// 只碰精灵：这张表里还混着 FlxTween / FlxTimer / Sound，销毁它们会坏别人的事
+				if (Std.isOfType(obj, FlxSprite)) luaSprites.push(cast obj);
+			}
+			for (spr in luaSprites)
+			{
+				if (spr != null && members != null && !members.contains(spr))
+					spr.destroy();   // 已经 add 进 state 的由 super.destroy() 负责
+			}
+			variables.clear();
+		}
+
 		// 兜底：任何离开 PlayState 的路径都恢复 GC（含切歌、退回菜单、异常退出）
 		#if cpp
 		if (ClientPrefs.data.disablePlayStateGC) cpp.vm.Gc.enable(true);
@@ -5716,7 +5737,7 @@ public function reloadCounterColors()
 						unlock = (!usedPractice && keysPressed.length <= 2);
 
 					case 'toastie':
-						unlock = (!ClientPrefs.data.cacheOnGPU && !ClientPrefs.data.shaders && ClientPrefs.data.lowQuality && !ClientPrefs.data.antialiasing);
+						unlock = (ClientPrefs.data.gpuCaching == 'disabled' && !ClientPrefs.data.shaders && ClientPrefs.data.lowQuality && !ClientPrefs.data.antialiasing);
 
 					#if BASE_GAME_FILES
 					case 'debugger':

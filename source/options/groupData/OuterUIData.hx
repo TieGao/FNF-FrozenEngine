@@ -23,6 +23,8 @@ class OuterUIData
         sub.add(new Option('Threaded Song Conversion', 'Parse chart info on a background thread (turn off if Freeplay stutters)', 'freeplayThreadedParse', BOOL));
         sub.add(new Option('Space Back Ground EveryWhere', 'Show space background everywhere', 'globalspace', BOOL));
         sub.add(new Option('Mod Folder Manager', 'Organize mods in Freeplay using folder selector', 'freeplayModFolder', BOOL));
+        sub.add(new Option('Inline Search Filter', 'Type into the Freeplay search bar to filter the song list in place instead of opening the search popup',
+            'freeplaySearchInline', BOOL));
 
         var relaxAudioNumber = new Option('Audio Display Number', 'Change the relax audio number', 'relaxAudioNumber', INT);
         relaxAudioNumber.minValue = 1;

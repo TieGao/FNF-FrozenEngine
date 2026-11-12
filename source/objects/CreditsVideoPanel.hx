@@ -61,7 +61,7 @@ class CreditsVideoPanel extends FlxGroup
 			if (sprite.videoSprite.bitmap != null)
 			{
 				sprite.videoSprite.bitmap.volumeAdjust = 0;
-				sprite.videoSprite.bitmap.onFormatSetup.add(fit);
+				sprite.videoSprite.bitmap.onVideoFormatSetup.add(fit); // hxvlc 2.3.2 改名（旧 onFormatSetup 已弃用）
 			}
 			sprite.alpha = 0;
 			add(sprite);

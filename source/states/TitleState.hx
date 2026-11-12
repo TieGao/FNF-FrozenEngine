@@ -226,6 +226,11 @@ class TitleState extends MusicBeatState
 		}
 		titleText.animation.play('idle');
 		titleText.updateHitbox();
+		// "Press Enter" 水平居中：无视 JSON startx（左锚定的历史遗留），按 FlxG 宽度动态居中，
+		// 16:9 / 宽屏通用。titleEnter 的 XML 帧宽已修正对齐实际图幅，updateHitbox 后宽宽即文字宽。
+		titleText.screenCenter(X);
+		// X 坐标以居中为准，enterPosition 只取 Y
+		titleText.y = enterPosition.y;
 
 		blackScreen = new FlxSprite().makeGraphic(1, 1, FlxColor.BLACK);
 		blackScreen.scale.set(FlxG.width, FlxG.height);
@@ -261,6 +266,10 @@ class TitleState extends MusicBeatState
 	var characterImage:String = 'gfDanceTitle';
 	var animationName:String = 'gfDance';
 
+	// 标题页布局基准：gfDanceTitle.json 里的坐标一律按 16:9 的 1280 宽画布书写。
+	inline static var BASE_WIDTH:Int = 1280;
+
+	// 无 JSON 时的默认锚点（本身已按 FlxG 动态计算）：GF 右缘锚定、logo 左上、enter 居中偏下
 	var gfPosition:FlxPoint = FlxPoint.get(FlxG.width - 768, 40);
 	var logoPosition:FlxPoint = FlxPoint.get(-150, -100);
 	var enterPosition:FlxPoint = FlxPoint.get(FlxG.width /2, 576);
@@ -283,6 +292,13 @@ class TitleState extends MusicBeatState
 					gfPosition.set(titleJSON.gfx, titleJSON.gfy);
 					logoPosition.set(titleJSON.titlex, titleJSON.titley);
 					enterPosition.set(titleJSON.startx, titleJSON.starty);
+
+					// 宽屏适配：JSON 坐标按 1280 宽基准书写，宽屏时把右缘锚定的 GF
+					// 平移多出来的宽度，保持它到屏幕右边的边距和 16:9 一致。
+					// logo（左上）和 enter 文本（左下）本来就贴左缘，无需移动；
+					// 16:9 下 FlxG.width - BASE_WIDTH = 0，布局完全不变。
+					gfPosition.x += FlxG.width - BASE_WIDTH;
+
 					musicBPM = titleJSON.bpm;
 					
 					if(titleJSON.animation != null && titleJSON.animation.length > 0) animationName = titleJSON.animation;

@@ -71,8 +71,7 @@ class AchievementPopup extends openfl.display.Sprite {
 		drawTextAt(text, desc, textX, textY + 30);
 		graphics.endFill();
 
-		text.graphic.bitmap.dispose();
-		text.graphic.bitmap.disposeImage();
+		Paths.disposeGraphicData(text.graphic);
 		text.destroy();
 
 		// other stuff

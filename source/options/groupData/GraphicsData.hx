@@ -64,7 +64,8 @@ class GraphicsData
         };
         sub.add(wideOpt);
 
-        sub.add(new Option('GPU Caching', 'Use GPU for texture caching', 'cacheOnGPU', BOOL));
+        sub.add(new Option('GPU Caching', 'Texture caching mode: disabled = RAM only; auto = drop the CPU copy after the first draw; full = upload and drop the CPU copy at load (least RAM, risky on low VRAM)', 'gpuCaching', STRING, ['disabled', 'auto', 'full']));
+        sub.add(new Option('Preload to VRAM', 'Upload textures to VRAM during preload. auto = only when the GPU has 10GB+ dedicated memory; on = always; off = never (upload on first use). Only matters when GPU Caching is set to full', 'preloadTextureToVRAM', STRING, ['auto', 'on', 'off']));
         sub.add(new Option('Divide Draw And Update', 'Draw and Update in separate threads', 'devideDrawAndUpdate', BOOL));
 
         var fps = new Option('Framerate', 'Target framerate', 'framerate', INT);

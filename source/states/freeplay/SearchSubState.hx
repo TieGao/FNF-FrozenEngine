@@ -9,6 +9,7 @@ import flixel.math.FlxMath;
 import flixel.util.FlxColor;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
+import options.objects.win10.Win10SearchBar;
 import states.FreeplayState;
 
 class SearchSubState extends MusicBeatSubstate
@@ -20,12 +21,12 @@ class SearchSubState extends MusicBeatSubstate
     // ---- UI 元素（需添加 Fade 效果） ----
     var bg:FlxSprite;
     var title:FlxText;
-    var searchIcon:FlxText;
-    var inputText:PsychUIInputText;
-    var searchLabel:FlxText;
-    var inputLine:FlxSprite;
+    var searchBar:Win10SearchBar;
     var noResultText:FlxText;
     var hint:FlxText;
+
+    /** ESC 退出输入框那一帧的 BACK 要吞掉，别当成"关闭搜索窗"（同 Freeplay 本体的守卫） */
+    var backGuard:Float = 0;
 
     // 卡片容器（不参与 Fade）
     var cardContainer:FlxTypedGroup<SearchCard>;
@@ -87,53 +88,23 @@ class SearchSubState extends MusicBeatSubstate
         add(title);
         registerFadeElement(title, 1);
 
-        var searchContainerX:Float = (FlxG.width - 400) / 2;
-        var searchContainerY:Float = 70;
+        var searchContainerY:Float = 66;
+        var barW:Float = 420;
+        var barH:Float = 36;
 
-        searchIcon = new FlxText(searchContainerX, searchContainerY + 2, 30, "🔍", 22);
-        searchIcon.setFormat(Paths.font("vcr.ttf"), 22, FlxColor.GRAY, CENTER);
-        searchIcon.scrollFactor.set();
-        add(searchIcon);
-        registerFadeElement(searchIcon, 1);
-
-        inputText = new PsychUIInputText(Std.int(searchContainerX + 34), Std.int(searchContainerY), Std.int(360), "", 22);
-        inputText.bg.visible = false;
-        inputText.behindText.visible = false;
-        inputText.textObj.color = FlxColor.WHITE;
-        inputText.textObj.alignment = LEFT;
-        inputText.forceCase = backend.ui.CaseMode.LOWER_CASE;
-        inputText.maxLength = 50;
-        inputText.text = "";
-        inputText.onChange = function(oldText:String, newText:String) {
-            updateFilter(newText);
-        };
-        inputText.unfocus = function() { /* do nothing */ };
-        inputText.scrollFactor.set();
-        add(inputText);
-        registerFadeElement(inputText, 1);
-
-        searchLabel = new FlxText(searchContainerX + 34, searchContainerY + 4, 360, "Type to search songs...", 18);
-        searchLabel.antialiasing = ClientPrefs.data.antialiasing;
-        searchLabel.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.GRAY, LEFT);
-        searchLabel.scrollFactor.set();
-        add(searchLabel);
-        registerFadeElement(searchLabel, 1);
-
-        inputLine = new FlxSprite(searchContainerX + 30, searchContainerY + 38);
-        inputLine.makeGraphic(370, 2, FlxColor.WHITE);
-        inputLine.alpha = 0.4;               // 目标透明度
-        inputLine.scrollFactor.set();
-        add(inputLine);
-        registerFadeElement(inputLine, 0.4);
-
-        var originalOnChange = inputText.onChange;
-        inputText.onChange = function(oldText:String, newText:String) {
-            searchLabel.visible = (newText.length == 0);
-            inputLine.alpha = (newText.length > 0) ? 0.8 : 0.4;
-            // 如果尚未关闭，更新搜索
+        // 跟 Freeplay 顶部同款 Win10 搜索框（放大镜 / 蓝色下划线 / × 清除 / 点击聚焦）
+        searchBar = new Win10SearchBar((FlxG.width - barW) * 0.5, searchContainerY, barW, barH, 16, true, true, Paths.font('vcr.ttf'));
+        searchBar.setPlaceholder(Language.getPhrase('freeplay_search_placeholder', 'Search songs...'));
+        searchBar.onChange = function(_oldText:String, newText:String) {
             if (!isClosing) updateFilter(newText);
-            if (originalOnChange != null) originalOnChange(oldText, newText);
         };
+        // ESC 退出输入框时 PsychUIInputText 会先自己清 focusOn，同一帧的 controls.BACK
+        // 会顺手把它当「关闭搜索窗」—— 开个短窗口吞掉那一次。
+        searchBar.onUnfocus = function() backGuard = 0.1;
+        searchBar.onSubmit = function(_) backGuard = 0.1;
+        searchBar.scrollFactor.set();
+        add(searchBar);
+        registerFadeElement(searchBar, 1);
 
         cardContainer = new FlxTypedGroup<SearchCard>();
         add(cardContainer);
@@ -159,7 +130,7 @@ class SearchSubState extends MusicBeatSubstate
         scrollStartY = 130;
         scrollEndY = FlxG.height - 20;
 
-        PsychUIInputText.focusOn = inputText;
+        PsychUIInputText.focusOn = searchBar.input;
 
         // ---------- 执行 FadeIn ----------
         for (obj in fadeUI) {
@@ -284,6 +255,7 @@ class SearchSubState extends MusicBeatSubstate
         super.update(elapsed);
 
         if (isClosing) return; // 关闭过程中不再响应交互
+        if (backGuard > 0) backGuard -= elapsed;
 
         // ---- 滚轮 ----
         if (FlxG.mouse.wheel != 0 && filteredSongs.length > 0)
@@ -301,7 +273,7 @@ class SearchSubState extends MusicBeatSubstate
         // ---- 拖拽 ----
         if (FlxG.mouse.justPressed)
         {
-            var isOverInput = FlxG.mouse.overlaps(inputText) || FlxG.mouse.overlaps(searchLabel) || FlxG.mouse.overlaps(searchIcon);
+            var isOverInput = searchBar.isHovered();
             var isOverCard = false;
             for (card in cardPool)
             {
@@ -479,7 +451,8 @@ class SearchSubState extends MusicBeatSubstate
 
         if (controls.BACK)
         {
-            if (PsychUIInputText.focusOn != null) return;
+            // 输入框正在吃键盘 / 刚被 ESC 退出：这一下属于「退出输入」，不是「关窗口」
+            if (PsychUIInputText.focusOn != null || backGuard > 0) return;
             closeSubstate();
         }
     }

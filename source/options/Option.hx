@@ -274,6 +274,9 @@ class Option
 				FlxG.autoPause = ClientPrefs.data.autoPause;
 			case 'language':
 				backend.Language.reloadPhrases();
+			case 'sessionLogMax':
+				// 保留上限改动立即清理旧日志档案
+				debug.LogFile.trimArchives();
 			case 'colorMode':
 				// 深浅色切换：刷新调色板，界面会收到通知后重建
 				backend.UITheme.refresh();

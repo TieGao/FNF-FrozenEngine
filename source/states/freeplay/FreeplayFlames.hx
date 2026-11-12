@@ -41,11 +41,11 @@ class FreeplayFlames extends FlxSpriteGroup
 			flame.visible = false;
 			flame.scrollFactor.set();
 
-			// 播完从帧 2 重播，跳过点燃帧实现循环（Psych 的 finishCallback 惯例）
-			flame.animation.finishCallback = function(_:String)
+			// 播完从帧 2 重播，跳过点燃帧实现循环
+			flame.animation.onFinish.add(function(_:String)
 			{
 				flame.animation.play('flame', true, false, 2);
-			};
+			});
 			add(flame);
 		}
 	}

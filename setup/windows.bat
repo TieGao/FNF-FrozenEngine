@@ -10,9 +10,9 @@ REM 缓存、之后每轮都命中它。
 haxelib git flixel https://github.com/TieGao/flixel --skip-dependencies || exit /b 1
 haxelib git flixel-addons https://github.com/TieGao/flixel-addons --skip-dependencies || exit /b 1
 haxelib install flixel-tools 1.5.1 --skip-dependencies || exit /b 1
-haxelib install hscript-iris 1.1.3 --skip-dependencies || exit /b 1
-haxelib install tjson 1.4.0 --skip-dependencies || exit /b 1
-haxelib install hxdiscord_rpc 1.2.4 --skip-dependencies || exit /b 1
+	haxelib install hscript-iris 1.1.3 --skip-dependencies || exit /b 1
+	rem tjson 已 vendor 进 source/tjson/，不再走 haxelib（2026-11-11）
+	haxelib install hxdiscord_rpc 1.2.4 --skip-dependencies || exit /b 1
 haxelib git hxvlc https://github.com/IceTheAxe/hxvlc --skip-dependencies --always || exit /b 1
 haxelib git lime https://github.com/IceTheAxe/lime haxelib --always || exit /b 1
 haxelib git openfl https://github.com/TieGao/openfl --skip-dependencies --always || exit /b 1

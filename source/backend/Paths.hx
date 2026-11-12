@@ -7,7 +7,6 @@ import flixel.math.FlxRect;
 import flixel.system.FlxAssets;
 
 import openfl.display.BitmapData;
-import openfl.display3D.textures.RectangleTexture;
 import openfl.utils.AssetType;
 import openfl.utils.Assets as OpenFlAssets;
 import openfl.system.System;
@@ -42,46 +41,197 @@ class Paths
 	// haya I love you for the base cache dump I took to the max
 	public static function clearUnusedMemory()
 	{
-		// clear non local assets in the tracked assets list
-		for (key in currentTrackedAssets.keys())
-		{
-			// if it is not currently contained within the used local assets
-			if (!localTrackedAssets.contains(key) && !dumpExclusions.contains(key))
-			{
-				destroyGraphic(currentTrackedAssets.get(key)); // get rid of the graphic
-				currentTrackedAssets.remove(key); // and remove the key from local cache map
-			}
-		}
+		releaseUnusedTrackedAssets();
+		flushReleasedGraphics();
+		destroyedSinceGc = 0;
 
-		// run the garbage collector for good measure lmfao
-		System.gc();
+		if (ClientPrefs.data.frequentGC)
+		{
+			// Impostor 的做法（Advanced 里的「Frequent GC」，默认关）：full GC 之后再 compact。
+			// hxcpp 的 Gc.compact() 就是「反复 full collect 直到堆不再缩小」，只有这样才能把
+			// 贴图 ByteArray 释放掉的那几百 MB 真正还给系统（单纯 System.gc() 之后 RSS 往往纹丝不动）。
+			#if cpp
+			cpp.vm.Gc.compact();
+			#else
+			System.gc();
+			#end
+		}
+		else System.gc();
 	}
 
-	// define the locally tracked assets
-	public static var localTrackedAssets:Array<String> = [];
+	// ---------- 资源记账 / 释放 ----------
+	//
+	// 旧实现是「硬销毁 + 只增不减的本地记账表」：销毁不看 useCount，存活判定又永远为真
+	// （该表只在 clearStoredMemory 末尾清空），所以只能在 PlayState 里整个禁用（见
+	// docs/memory-optimization-handover.md §4）。现在拆成三件事：
+	//   1. 记账 = key -> 代际（哪一代被请求过），每次 clearStoredMemory 递增；
+	//   2. 释放 = releaseGraphic()：useCount 归零才真销毁，否则排队等下一次 flush；
+	//   3. 销毁 = destroyGraphic()：唯一出口，先 dispose GL 纹理再摘缓存。
+
+	/** 资源代际：每次 clearStoredMemory() 递增，用来判断「这一代还用过它没有」。 */
+	public static var assetEpoch(default, null):Int = 0;
+
+	/** key -> 最后一次被请求的代际（贴图与声音共用一套记账）。 */
+	static var trackedEpochs:Map<String, Int> = new Map();
+
+	/** 已请求释放、但还有对象引用（useCount > 0）的图，等引用掉光再销毁。 */
+	static var pendingReleases:Array<FlxGraphic> = [];
+
+	/** 自上次 GC 以来真正销毁掉的贴图张数：用来决定切歌时要不要补一次 full GC。 */
+	static var destroyedSinceGc:Int = 0;
+
+	/**
+	 * 预加载的临时引用：LoadingState 预载完就 +1，撑过紧接着那次 clearStoredMemory 的释放。
+	 * 否则「已经解码好、但角色还没接管」（useCount 还是 0）的图会在进 PlayState 时被当成垃圾收掉，
+	 * 预加载等于白做。
+	 */
+	static var pinnedGraphics:Array<FlxGraphic> = [];
+
+	/** 预加载的声音 key：同理撑过紧接着那次清理，否则预载完进 PlayState 就被清掉、白解一遍。 */
+	static var pinnedSounds:Array<String> = [];
+
+	/** 标记该 key 在「当前代」被请求过（贴图命中、新加载、声音加载都要走这里）。 */
+	public static function markAssetUsed(key:String):Void
+	{
+		trackedEpochs.set(key, assetEpoch);
+	}
+
+	/** 丢掉某个 key 的记账（编辑器换歌时手动清声音缓存用）。 */
+	public static function forgetAsset(key:String):Void
+	{
+		trackedEpochs.remove(key);
+	}
+
+	static inline function isCurrentAsset(key:String):Bool
+	{
+		return trackedEpochs.exists(key) && trackedEpochs.get(key) == assetEpoch;
+	}
+
+	/** 给预加载的图加一道临时引用（重复 pin 只算一次，避免和 unpin 配不上）。 */
+	public static function pinGraphic(graphic:FlxGraphic):Void
+	{
+		if (graphic == null || graphic.isDestroyed || pinnedGraphics.contains(graphic))
+			return;
+		pinnedGraphics.push(graphic);
+		graphic.incrementUseCount();
+	}
+
+	/** 给预加载的声音加一道保护（重复 pin 无害）。 */
+	public static function pinSound(key:String):Void
+	{
+		if (key != null && !pinnedSounds.contains(key))
+			pinnedSounds.push(key);
+	}
+
+	/** 放下所有预加载临时引用。**不要**在这之后立刻 flush，否则刚预载的图会被当场收掉。 */
+	public static function unpinGraphics():Void
+	{
+		for (graphic in pinnedGraphics)
+		{
+			if (graphic != null && !graphic.isDestroyed)
+				graphic.decrementUseCount();
+		}
+		pinnedGraphics = [];
+	}
 
 	@:access(flixel.system.frontEnds.BitmapFrontEnd._cache)
 	public static function clearStoredMemory()
 	{
-		// clear anything not in the tracked assets list
+		// 新一代从这里开始：上一代请求过的东西都算「待释放候选」
+		assetEpoch++;
+
+		// FlxG.bitmap 里不属于 Paths 记账的图（makeGraphic / FlxG.bitmap.create 现画的）：
+		// 有 sprite 还在用就留到下一次，别在别人的 update/draw 中间把它抽掉。
+		// 先把 key 拷出来：releaseGraphic 失败路径会改 _cache。
+		var cacheKeys:Array<String> = [];
 		for (key in FlxG.bitmap._cache.keys())
+			cacheKeys.push(key);
+		for (key in cacheKeys)
 		{
 			if (!currentTrackedAssets.exists(key))
-				destroyGraphic(FlxG.bitmap.get(key));
+				releaseGraphic(FlxG.bitmap.get(key));
 		}
 
+		releaseUnusedTrackedAssets();
+
 		// clear all sounds that are cached
-		for (key => asset in currentTrackedSounds)
+		var soundKeys:Array<String> = [];
+		for (key in currentTrackedSounds.keys())
+			soundKeys.push(key);
+		for (key in soundKeys)
 		{
-			if (!localTrackedAssets.contains(key) && !dumpExclusions.contains(key) && asset != null)
+			var asset:Sound = currentTrackedSounds.get(key);
+			if (!isCurrentAsset(key) && !pinnedSounds.contains(key) && !dumpExclusions.contains(key) && asset != null)
 			{
 				Assets.cache.clear(key);
 				currentTrackedSounds.remove(key);
+				trackedEpochs.remove(key);
 			}
 		}
-		// flags everything to be cleared out next unused memory clear
-		localTrackedAssets = [];
+
+		flushReleasedGraphics();
+		// 预加载引用必须最后放：放完不再 flush，让它们活到下一次切场景，
+		// 这中间真正用到它们的角色/舞台才能把引用接过去。
+		unpinGraphics();
+		pinnedSounds = [];
+		pruneTrackedEpochs();
 		#if !html5 openfl.Assets.cache.clear("songs"); #end
+
+		// 释放完立刻回收：hxcpp 的大对象块要等 full GC 才还给系统，否则「已经销毁」的贴图
+		// 还挂在进程工作集里，RSS 看起来只涨不跌。只有真销毁过东西才付这次 GC 的钱。
+		if (destroyedSinceGc > 0)
+		{
+			destroyedSinceGc = 0;
+			// 频繁 GC 是 Advanced 里的可选项（默认关）：不做的话释放掉的贴图要等下一次
+			// clearUnusedMemory 的 System.gc() 才会真正还给系统。
+			if (ClientPrefs.data.frequentGC) System.gc();
+		}
+	}
+
+	/**
+	 * 释放「这一代没被请求过、且没有对象引用」的图。
+	 * 有引用的进待释放队列 —— 旧实现在这里直接 destroy，会抽掉精灵池/角色还攥着的图集
+	 * （PlayState 里那条禁用注释说的就是这件事）。
+	 */
+	static function releaseUnusedTrackedAssets():Int
+	{
+		var keys:Array<String> = [];
+		for (key in currentTrackedAssets.keys())
+			keys.push(key);
+
+		var count:Int = 0;
+		for (key in keys)
+		{
+			if (dumpExclusions.contains(key) || isCurrentAsset(key))
+				continue;
+
+			var graphic:FlxGraphic = currentTrackedAssets.get(key);
+			// 本次刚预载进来、还没被任何 sprite 接管的图：算作这一代，留着给角色/舞台用
+			if (graphic != null && pinnedGraphics.contains(graphic))
+			{
+				markAssetUsed(key);
+				continue;
+			}
+
+			currentTrackedAssets.remove(key);
+			releaseGraphic(graphic);
+			count++;
+		}
+		return count;
+	}
+
+	/** 记账表别无限涨：只保留还可能被重新请求到的 key。 */
+	static function pruneTrackedEpochs():Void
+	{
+		var stale:Array<String> = [];
+		for (key => epoch in trackedEpochs)
+		{
+			if (epoch >= assetEpoch - 1) continue;
+			if (currentTrackedAssets.exists(key) || currentTrackedSounds.exists(key)) continue;
+			stale.push(key);
+		}
+		for (key in stale)
+			trackedEpochs.remove(key);
 	}
 
 	public static function freeGraphicsFromMemory()
@@ -123,7 +273,11 @@ class Paths
 			for (member in FlxG.state.subState.members)
 				checkForGraphics(member);
 
+		var trackedKeys:Array<String> = [];
 		for (key in currentTrackedAssets.keys())
+			trackedKeys.push(key);
+
+		for (key in trackedKeys)
 		{
 			// if it is not currently contained within the used local assets
 			if (!dumpExclusions.contains(key))
@@ -131,19 +285,114 @@ class Paths
 				var graphic:FlxGraphic = currentTrackedAssets.get(key);
 				if(!protectedGfx.contains(graphic))
 				{
-					destroyGraphic(graphic); // get rid of the graphic
 					currentTrackedAssets.remove(key); // and remove the key from local cache map
+					releaseGraphic(graphic); // 延迟释放：别的地方还在用就先留着
 					//trace('deleted $key');
 				}
 			}
 		}
 	}
 
-	inline static function destroyGraphic(graphic:FlxGraphic)
+	/**
+	 * 请求释放一张图：没有对象引用（useCount <= 0）就立刻销毁，否则排队，
+	 * 等最后一个引用消失后的下一次 flush 再收。
+	 *
+	 * 为什么不能直接 destroy：FlxGraphic.destroy() 会把 frames.frames 置 null，
+	 * 而精灵池 / 角色对象可能还攥着这套 frames（见 objects/Note.hx 的 prepareForPool）。
+	 * 为什么不交给 flixel 的 destroyOnNoUse：那条销毁路径走 BitmapData.dispose()，
+	 * 里面 gl.deleteTexture 是注释掉的（openfl 9.6），显存会漏 —— 销毁必须统一走 destroyGraphic()。
+	 */
+	public static function releaseGraphic(graphic:FlxGraphic):Void
 	{
-		// free some gpu memory
-		if (graphic != null && graphic.bitmap != null && graphic.bitmap.__texture != null)
+		if (graphic == null || graphic.isDestroyed)
+			return;
+
+		if (graphic.useCount <= 0)
+		{
+			destroyGraphic(graphic);
+			return;
+		}
+
+		if (!pendingReleases.contains(graphic))
+			pendingReleases.push(graphic);
+	}
+
+	/** 把待释放队列里引用已经掉光的图真正销毁，返回本次销毁张数。 */
+	public static function flushReleasedGraphics():Int
+	{
+		if (pendingReleases.length < 1)
+			return 0;
+
+		// 先摘下来再遍历：destroyGraphic 会顺手把这张图从队列里删掉，
+		// 边遍历边改会让后面几张被漏掉（漏掉就永远回收不到）。
+		var snapshot:Array<FlxGraphic> = pendingReleases.copy();
+		pendingReleases = [];
+
+		var destroyed:Int = 0;
+		for (graphic in snapshot)
+		{
+			if (graphic == null || graphic.isDestroyed)
+				continue;
+			if (graphic.useCount <= 0)
+			{
+				destroyGraphic(graphic);
+				destroyed++;
+			}
+			else pendingReleases.push(graphic);
+		}
+		return destroyed;
+	}
+
+	/** 排队中、还没销毁的张数（MemoryStats 观测用）。 */
+	public static function pendingReleaseCount():Int
+	{
+		return pendingReleases.length;
+	}
+
+	/** 待释放队列的快照（只读，给内存报告列明细用：谁还攥着它）。 */
+	public static function pendingReleaseGraphics():Array<FlxGraphic>
+	{
+		return pendingReleases.copy();
+	}
+
+	/**
+	 * 释放一张图自己的像素 + 显存，但**不**动 FlxG.bitmap 的登记。
+	 * FlxText 那种「建完就扔」的临时图用它：openfl 的 BitmapData.dispose() 不删 GL 纹理，
+	 * 只调 dispose() 的话每建一次文本就漏一张纹理。
+	 */
+	public static function disposeGraphicData(graphic:FlxGraphic):Void
+	{
+		if (graphic == null || graphic.isDestroyed || graphic.bitmap == null)
+			return;
+		if (graphic.bitmap.__texture != null)
 			graphic.bitmap.__texture.dispose();
+		graphic.bitmap.dispose();
+	}
+
+	/**
+	 * 唯一的销毁出口。openfl 的 BitmapData.dispose() 只把 __texture 置 null，
+	 * 真正的 gl.deleteTexture 在源码里是注释掉的 → 不在这里显式 dispose，显存就漏。
+	 */
+	static function destroyGraphic(graphic:FlxGraphic):Void
+	{
+		if (graphic == null || graphic.isDestroyed)
+			return;
+
+		// free some gpu memory
+		if (graphic.bitmap != null && graphic.bitmap.__texture != null)
+			graphic.bitmap.__texture.dispose();
+
+		var key:String = graphic.key;
+		if (key != null)
+		{
+			if (currentTrackedAssets.get(key) == graphic)
+				currentTrackedAssets.remove(key);
+			trackedEpochs.remove(key);
+		}
+		if (pendingReleases.contains(graphic))
+			pendingReleases.remove(graphic);
+
+		destroyedSinceGc++;
 		FlxG.bitmap.remove(graphic);
 	}
 
@@ -254,6 +503,109 @@ class Paths
 		}
 		#end
 		return OpenFlAssets.exists(path, BINARY) ? OpenFlAssets.getBytes(path) : null;
+	}
+
+	/**
+	 * 按 getPath() 的实际查找顺序列出「资源根」（不带结尾斜杠）：
+	 * `mods/<当前mod>` → `mods/<全局mod…>` → `content/<包>{/<level>|/shared}`（含依赖包）→ `assets/<level>` → `assets/shared`。
+	 * 用于「同一个资源键在不同根里格式不同」的场景（角色 image：sparrow 散图 vs flxanimate 图集），
+	 * 只有知道谁先提供资源，才能判断该用哪种格式。
+	 * @param parentfolder 与 getPath 同义：非空时直接拼这个子目录，不再套 level/shared。
+	 */
+	public static function getResourceRoots(?parentfolder:String = null):Array<String>
+	{
+		var roots:Array<String> = [];
+		#if MODS_ALLOWED
+		if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0)
+			roots.push(mods(Mods.currentModDirectory));
+		for (mod in Mods.getGlobalMods())
+		{
+			var root:String = mods(mod);
+			if (!roots.contains(root)) roots.push(root);
+		}
+		#end
+
+		if (currentContentRoot != null && currentContentRoot.length > 0)
+		{
+			var packs:Array<String> = [currentContentRoot];
+			for (dependencyRoot in currentContentDependencyRoots) packs.push(dependencyRoot);
+			for (pack in packs)
+			{
+				if (parentfolder != null) roots.push('$pack/$parentfolder');
+				else
+				{
+					if (currentLevel != null && currentLevel != 'shared') roots.push('$pack/$currentLevel');
+					roots.push('$pack/shared');
+				}
+			}
+		}
+
+		if (parentfolder != null) roots.push('assets/$parentfolder');
+		else
+		{
+			if (currentLevel != null && currentLevel != 'shared') roots.push('assets/$currentLevel');
+			roots.push('assets/shared');
+		}
+		return roots;
+	}
+
+	/**
+	 * 从资源路径反推它所属的资源根：`<root>/characters/x.json` → `<root>`。
+	 * 认不出（相对路径 / 层级不全）时返回 null。
+	 */
+	public static function getRootOf(path:String, folder:String):String
+	{
+		if (path == null || folder == null) return null;
+		var needle:String = '/' + folder + '/';
+		var idx:Int = path.lastIndexOf(needle);
+		if (idx < 1) return null;
+		return path.substr(0, idx);
+	}
+
+	/** 某个资源根里有没有这个 image 的散图（sparrow / packer / texturepacker 都算）。 */
+	static function hasSparrowImage(root:String, key:String):Bool
+	{
+		return assetExists('$root/images/$key.png', IMAGE)
+			|| assetExists('$root/images/$key.xml', TEXT)
+			|| assetExists('$root/images/$key.txt', TEXT)
+			|| assetExists('$root/images/$key.json', TEXT);
+	}
+
+	/**
+	 * 角色的 `image` 是否为 flxanimate 图集（文件夹形式，内含 Animation.json）。
+	 *
+	 * 不能直接用 `getPath('images/<image>/Animation.json')` 一票判定：getPath 是**全链回退**，
+	 * mod 只提供同名 sparrow 散图（png+xml）时，它仍会一路回退到 content / assets 里的同名图集目录，
+	 * 结果 mod 角色被 base 的 atlas 顶掉（`Erect Mode` 的 nene：json 走 assets 的 Nene.png/xml，
+	 * 却被 PicoMix 的 characters/nene/Animation.json 判成图集，实机变成另一套角色）。
+	 *
+	 * 正确做法：先看**定义这个角色的那棵资源树**提供的是哪种格式（谁写 json 谁决定画法）；
+	 * 那棵树自己不带图（mod 只写 json、美术沿用 base）时，才回到全局链 —— 此时只要有任何一根
+	 * 提供散图就按 sparrow 算（图集是新机制，必须由定义方显式提供，不能被别人"顺手"命中）。
+	 *
+	 * @param characterJsonPath 角色 json 的已解析路径（`Paths.getPath('characters/x.json')` 的结果），可为空。
+	 */
+	public static function isAnimateAtlasImage(image:String, ?characterJsonPath:String):Bool
+	{
+		if (image == null) return false;
+		var key:String = image.split(',')[0].trim(); // 多图集只按首个判定，图集和散图不可能混在同一个角色里
+		if (key.length < 1) return false;
+
+		var jsonRoot:String = getRootOf(characterJsonPath, 'characters');
+		if (jsonRoot != null)
+		{
+			if (assetExists('$jsonRoot/images/$key/Animation.json', TEXT)) return true;
+			if (hasSparrowImage(jsonRoot, key)) return false;
+		}
+
+		var roots:Array<String> = getResourceRoots();
+		for (root in roots)
+			if (hasSparrowImage(root, key)) return false;
+
+		for (root in roots)
+			if (assetExists('$root/images/$key/Animation.json', TEXT)) return true;
+
+		return false;
 	}
 
 	inline static public function txt(key:String, ?folder:String)
@@ -388,7 +740,7 @@ class Paths
 			var sound:Sound = loadSoundCandidate(candidate);
 			if (sound != null)
 			{
-				localTrackedAssets.push(candidate);
+				markAssetUsed(candidate);
 				return sound;
 			}
 		}
@@ -550,7 +902,7 @@ class Paths
 			var sound:Sound = loadSoundCandidate(candidate);
 			if (sound != null)
 			{
-				localTrackedAssets.push(candidate);
+				markAssetUsed(candidate);
 				return sound;
 			}
 		}
@@ -561,81 +913,202 @@ class Paths
 		return sound(key + FlxG.random.int(min, max), modsAllowed);
 
 	public static var currentTrackedAssets:Map<String, FlxGraphic> = [];
-	static public function image(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxGraphic
-{
-    key = Language.getFileTranslation('images/$key') + '.png';
-    
-    // 关键修改：如果当前有模组目录，使用模组隔离的缓存键
-    var cacheKey = key;
-    #if MODS_ALLOWED
-    if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0 && Mods.currentModDirectory != "base")
-    {
-        cacheKey = Mods.currentModDirectory + ":" + key;
-    }
-    #end
 
-    if (currentContentRoot != null && currentContentRoot.length > 0)
-    {
-        var level:String = (currentLevel != null && currentLevel.length > 0) ? currentLevel : 'shared';
-        cacheKey = '$cacheKey|$currentContentRoot/$level|${currentContentDependencyRoots.join(":")}';
-    }
-    
-    // 检查全局缓存（使用模组隔离的键）
-    if (currentTrackedAssets.exists(cacheKey))
-    {
-        localTrackedAssets.push(cacheKey);
-        return currentTrackedAssets.get(cacheKey);
-    }
-    
-    // 加载位图
-    var bitmap:BitmapData = null;
-    var file:String = getPath(key, IMAGE, parentFolder, true);
-    
-    #if sys
-    if (FileSystem.exists(file))
-        bitmap = BitmapData.fromFile(file);
-    else #end if (OpenFlAssets.exists(file, IMAGE))
-        bitmap = OpenFlAssets.getBitmapData(file);
-    
-    if (bitmap == null)
-    {
-        trace('Bitmap not found: $file | key: $key');
-        return null;
-    }
-    
-    if (allowGPU && ClientPrefs.data.cacheOnGPU && bitmap.image != null)
-    {
-        bitmap.lock();
-        if (bitmap.__texture == null)
-        {
-            bitmap.image.premultiplied = true;
-            bitmap.getTexture(FlxG.stage.context3D);
-        }
-        bitmap.getSurface();
-        bitmap.disposeImage();
-        bitmap.image.data = null;
-        bitmap.image = null;
-        bitmap.readable = true;
-    }
-    
-    var graph:FlxGraphic = FlxGraphic.fromBitmapData(bitmap, false, cacheKey);
-    graph.persist = true;
-    graph.destroyOnNoUse = false;
-    
-    currentTrackedAssets.set(cacheKey, graph);
-    localTrackedAssets.push(cacheKey);
-    return graph;
-}
+	/**
+	 * 把图片键解析成「缓存键 + 实际文件」。
+	 *
+	 * 缓存键直接用 `getPath()` 解析出来的文件路径 —— 旧键是"查找上下文"
+	 * （`<mod>:<key>|<contentRoot>/<level>|<依赖根>`），同一个文件换个入口、换个层级、
+	 * 或者换条预加载路径就会算出不同的键，于是同一个文件被解码多份
+	 * （Fatal Finale 实测：94~97 组、1.9~2.6GB）。
+	 *
+	 * 文件路径里已经包含 mod 目录 / 内容包 / 层级，天然唯一；找不到文件时退回旧键，
+	 * 保持原有的报错与回退行为不变。
+	 */
+	public static function resolveImage(fullKey:String, ?parentFolder:String):ImageResolve
+	{
+		var file:String = getPath(fullKey, IMAGE, parentFolder, true);
+		#if sys
+		if (file != null && FileSystem.exists(file))
+			return {key: file, file: file};
+		#end
+		return {key: contextCacheKey(fullKey), file: file};
+	}
+
+	/** 旧式上下文缓存键，只在文件解析失败时兜底 */
+	static function contextCacheKey(key:String):String
+	{
+		var cacheKey:String = key;
+		#if MODS_ALLOWED
+		if (Mods.currentModDirectory != null && Mods.currentModDirectory.length > 0 && Mods.currentModDirectory != "base")
+			cacheKey = Mods.currentModDirectory + ":" + key;
+		#end
+
+		if (currentContentRoot != null && currentContentRoot.length > 0)
+		{
+			var level:String = (currentLevel != null && currentLevel.length > 0) ? currentLevel : 'shared';
+			cacheKey = '$cacheKey|$currentContentRoot/$level|${currentContentDependencyRoots.join(":")}';
+		}
+		return cacheKey;
+	}
+
+	/**
+	 * 开了「GPU Caching」时把 CPU 像素标记为不可读：openfl 在第一次 `getTexture()` 上传后会自己把
+	 * `image` / `__surface` 置 null。**不要**手动 `image = null` 再 `readable = true`——
+	 * 那样会留下悬垂的 cairo surface（`getSurface()` 只拿裸指针、不拷贝），
+	 * 并且让 `getPixel32` 落到空引用上。
+	 */
+	static inline function disposeCPUImage(bitmap:BitmapData):Void
+	{
+		if (bitmap != null && bitmap.image != null)
+			bitmap.disposeImage();
+	}
+
+	/**
+	 * 把一张图的像素当场交给 GPU，并丢掉 CPU 副本（`gpuCaching = full` 用）。
+	 *
+	 * 走 openfl 自己的上传路径：先 `disposeImage()` 把 readable 置 false，再 `getTexture()` 让它
+	 * 建纹理、premultiply 上传；末尾的 `if (!readable && image != null)` 会由 openfl 自己把 `image` 置 null。
+	 *
+	 * **不要**改回 createRectangleTexture + uploadFromBitmapData + BitmapData.fromTexture：
+	 * ① 第 4 参 `optimizeForRenderToTexture` 传 true 会给每张图多建 FBO + DEPTH24_STENCIL8
+	 *    renderbuffer（≈ +100% 显存），openfl 自己传的是 false；
+	 * ② `fromTexture` 内部先 `new BitmapData(w, h, true, 0)` 再丢弃，每张图多一份 w*h*4 临时分配；
+	 * ③ 新建的 BitmapData 与任何 clone 共享同一张纹理，所有权语义脆弱（改副本会写穿原图）。
+	 *
+	 * 必须在**主线程**调用（GL 上下文不是线程安全的）。拿不到 context3D 时退化成「只标记不可读」
+	 * （readable=false 但 image 还在），不影响正确性，只是没省到内存。
+	 */
+	static function makeHardwareOnly(bitmap:BitmapData):BitmapData
+	{
+		if (bitmap == null || bitmap.image == null)
+			return bitmap;
+
+		try
+		{
+			var stage = FlxG.stage;
+			var context = (stage != null) ? stage.context3D : null;
+			if (context != null)
+			{
+				bitmap.disposeImage();
+				// 上传成功后 openfl 自己把 image / __surface 置 null，CPU 像素当场释放
+				bitmap.getTexture(context);
+			}
+		}
+		catch (e:Dynamic)
+		{
+			// 上传失败：最坏停在「readable=false + image 还在」，不影响绘制
+		}
+
+		return bitmap;
+	}
+
+	static public function image(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxGraphic
+	{
+		key = Language.getFileTranslation('images/$key') + '.png';
+
+		var resolved = resolveImage(key, parentFolder);
+		var cacheKey:String = resolved.key;
+		var file:String = resolved.file;
+
+		// 检查全局缓存（键 = 实际文件路径）
+		if (currentTrackedAssets.exists(cacheKey))
+		{
+			var cached:FlxGraphic = currentTrackedAssets.get(cacheKey);
+			if (cached != null && !cached.isDestroyed)
+			{
+				// 预载路径现在传 allowGPU=false（见 LoadingState.checkLoaded），所以「模式」要在这里补：
+				//   full → 这一局真要用它，就地转显存（之前是预载即传，会把 6GB 卡挤爆）；
+				//   auto → 补一次 disposeImage()，否则预载的图永远 readable=true，
+				//          首次绘制上传后也不会丢 CPU 副本，白白双份。
+				if (allowGPU && cached.bitmap != null)
+				{
+					if (ClientPrefs.data.gpuCaching == 'full')
+					{
+						if (cached.bitmap.image != null && cached.bitmap.__texture == null)
+							makeHardwareOnly(cached.bitmap);
+					}
+					else if (ClientPrefs.data.gpuCaching == 'auto')
+						disposeCPUImage(cached.bitmap);
+				}
+
+				markAssetUsed(cacheKey);
+				return cached;
+			}
+			currentTrackedAssets.remove(cacheKey);
+		}
+
+		// 被释放过、但还留在 flixel 缓存里的同 key 图（说明还有别的对象在用）：直接接管，别再解码一份
+		var reused:FlxGraphic = FlxG.bitmap.get(cacheKey);
+		if (reused != null)
+		{
+			if (!reused.isDestroyed)
+				return adoptGraphic(cacheKey, reused);
+			FlxG.bitmap.remove(reused);
+		}
+
+		// 加载位图
+		var bitmap:BitmapData = null;
+
+		#if sys
+		if (file != null && FileSystem.exists(file))
+			bitmap = BitmapData.fromFile(file);
+		else #end if (file != null && OpenFlAssets.exists(file, IMAGE))
+			bitmap = OpenFlAssets.getBitmapData(file);
+
+		if (bitmap == null)
+		{
+			trace('Bitmap not found: $file | key: $key');
+			return null;
+		}
+
+		if (allowGPU)
+		{
+			if (ClientPrefs.data.gpuCaching == 'full') bitmap = makeHardwareOnly(bitmap);
+			else if (ClientPrefs.data.gpuCaching == 'auto') disposeCPUImage(bitmap);
+		}
+
+		var graph:FlxGraphic = FlxGraphic.fromBitmapData(bitmap, false, cacheKey);
+		// persist 保持 true：销毁时机必须捏在 Paths 手里（destroyGraphic 会先 dispose GL 纹理）。
+		// 交给 flixel 的 destroyOnNoUse / clearCache 销毁，显存不会跟着释放。
+		graph.persist = true;
+		graph.destroyOnNoUse = false;
+
+		currentTrackedAssets.set(cacheKey, graph);
+		markAssetUsed(cacheKey);
+		return graph;
+	}
 
 	public static function cacheBitmap(key:String, ?parentFolder:String = null, ?bitmap:BitmapData, ?allowGPU:Bool = true):FlxGraphic
 	{
+		// key 可能是「图片键」（images/x.png），也可能已经是文件路径（ModsMenu / ModFolder 的图标）。
+		// 与 image() 共用同一套解析，保证预加载写进去的键和运行期查的键是同一个。
+		var cacheKey:String = key;
+		var file:String = key;
+		#if sys
+		if (!FileSystem.exists(cacheKey))
+		#end
+		{
+			var resolved = resolveImage(key, parentFolder);
+			cacheKey = resolved.key;
+			file = resolved.file;
+		}
+
 		if (bitmap == null)
 		{
-			var file:String = getPath(key, IMAGE, parentFolder, true);
+			// 同一个文件已经解过（被释放但还有引用 / 预加载先到）：接管，别再解一份
+			var reused:FlxGraphic = FlxG.bitmap.get(cacheKey);
+			if (reused != null)
+			{
+				if (!reused.isDestroyed)
+					return adoptGraphic(cacheKey, reused);
+				FlxG.bitmap.remove(reused);
+			}
+
 			#if sys
-			if (FileSystem.exists(file))
+			if (file != null && FileSystem.exists(file))
 				bitmap = BitmapData.fromFile(file);
-			else #end if (OpenFlAssets.exists(file, IMAGE))
+			else #end if (file != null && OpenFlAssets.exists(file, IMAGE))
 				bitmap = OpenFlAssets.getBitmapData(file);
 
 			if (bitmap == null)
@@ -645,28 +1118,33 @@ class Paths
 			}
 		}
 
-		if (allowGPU && ClientPrefs.data.cacheOnGPU && bitmap.image != null)
+		// full 模式一次预载几十上百张图会全传显存（Fatal Finale 预载 8.88GB → 6GB 卡上会溢出），
+		// 这是用户显式选的取舍；auto 模式只标记不可读，等首次绘制再丢 CPU 副本。
+		if (allowGPU)
 		{
-			bitmap.lock();
-			if (bitmap.__texture == null)
-			{
-				bitmap.image.premultiplied = true;
-				bitmap.getTexture(FlxG.stage.context3D);
-			}
-			bitmap.getSurface();
-			bitmap.disposeImage();
-			bitmap.image.data = null;
-			bitmap.image = null;
-			bitmap.readable = true;
+			if (ClientPrefs.data.gpuCaching == 'full') bitmap = makeHardwareOnly(bitmap);
+			else if (ClientPrefs.data.gpuCaching == 'auto') disposeCPUImage(bitmap);
 		}
 
-		var graph:FlxGraphic = FlxGraphic.fromBitmapData(bitmap, false, key);
+		var graph:FlxGraphic = FlxGraphic.fromBitmapData(bitmap, false, cacheKey);
 		graph.persist = true;
 		graph.destroyOnNoUse = false;
 
-		currentTrackedAssets.set(key, graph);
-		localTrackedAssets.push(key);
+		currentTrackedAssets.set(cacheKey, graph);
+		markAssetUsed(cacheKey);
 		return graph;
+	}
+
+	/** 接管一张已存在的图（被释放过 / 预加载先到 / 别处缓存的同 key），重新纳入 Paths 记账。 */
+	static function adoptGraphic(key:String, graphic:FlxGraphic):FlxGraphic
+	{
+		graphic.persist = true;
+		graphic.destroyOnNoUse = false;
+		if (pendingReleases.contains(graphic))
+			pendingReleases.remove(graphic);
+		currentTrackedAssets.set(key, graphic);
+		markAssetUsed(key);
+		return graphic;
 	}
 
 	inline static public function getTextFromFile(key:String, ?ignoreMods:Bool = false):String
@@ -719,11 +1197,17 @@ class Paths
 
 		var xmlText:String = assetText(getPath('images/$key.xml', TEXT, parentFolder, true));
 		if (xmlText != null)
-			return FlxAtlasFrames.fromSparrow(imageLoaded, xmlText);
+		{
+			var frames:FlxAtlasFrames = FlxAtlasFrames.fromSparrow(imageLoaded, xmlText);
+			return frames;
+		}
 
 		var jsonText:String = assetText(getPath('images/$key.json', TEXT, parentFolder, true));
 		if (jsonText != null)
-			return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, jsonText);
+		{
+			var frames:FlxAtlasFrames = FlxAtlasFrames.fromTexturePackerJson(imageLoaded, jsonText);
+			return frames;
+		}
 
 		return getPackerAtlas(key, parentFolder);
 	}
@@ -757,7 +1241,8 @@ class Paths
 			FlxG.log.error('Atlas XML not found: images/$key.xml (parent=$parentFolder)');
 			return null;
 		}
-		return FlxAtlasFrames.fromSparrow(imageLoaded, xmlText);
+		var frames:FlxAtlasFrames = FlxAtlasFrames.fromSparrow(imageLoaded, xmlText);
+		return frames;
 	}
 
 	inline static public function getPackerAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
@@ -769,7 +1254,8 @@ class Paths
 			FlxG.log.error('Atlas TXT not found: images/$key.txt (parent=$parentFolder)');
 			return null;
 		}
-		return FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, txtText);
+		var frames:FlxAtlasFrames = FlxAtlasFrames.fromSpriteSheetPacker(imageLoaded, txtText);
+		return frames;
 	}
 
 	inline static public function getAsepriteAtlas(key:String, ?parentFolder:String = null, ?allowGPU:Bool = true):FlxAtlasFrames
@@ -781,7 +1267,8 @@ class Paths
 			FlxG.log.error('Atlas JSON not found: images/$key.json (parent=$parentFolder)');
 			return null;
 		}
-		return FlxAtlasFrames.fromTexturePackerJson(imageLoaded, jsonText);
+		var frames:FlxAtlasFrames = FlxAtlasFrames.fromTexturePackerJson(imageLoaded, jsonText);
+		return frames;
 	}
 
 	inline static public function formatToSongPath(path:String) {
@@ -983,7 +1470,7 @@ class Paths
 				return FlxAssets.getSoundAddExtension('flixel/sounds/beep');
 			}
 		}
-		localTrackedAssets.push(file);
+		markAssetUsed(file);
 		return currentTrackedSounds.get(file);
 	}
 
@@ -1101,4 +1588,10 @@ class Paths
 		spr.loadAtlasEx(folderOrImg, spriteJson, animationJson);
 	}
 	#end
+}
+
+/** `resolveImage()` 的结果：`key` 是缓存键（通常是文件路径），`file` 是磁盘路径（找不到时为推测路径） */
+typedef ImageResolve = {
+	var key:String;
+	var file:String;
 }

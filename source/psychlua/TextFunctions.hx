@@ -14,6 +14,9 @@ class TextFunctions
 			if(PlayState.instance != null) leText.cameras = [PlayState.instance.camHUD];
 			leText.scrollFactor.set();
 			leText.borderSize = 2;
+			// 「Lua Text Antialiasing」应该在创建时生效，而不是等 addLuaText：
+			// 有些脚本用 setProperty / runHaxeCode 直接加文本，根本不走 addLuaText。
+			leText.antialiasing = ClientPrefs.data.luatextantialiasing;
 			MusicBeatState.getVariables().set(tag, leText);
 		});
 
@@ -186,8 +189,18 @@ class TextFunctions
 
 		Lua_helper.add_callback(lua, "addLuaText", function(tag:String) {
 			var text:FlxText = MusicBeatState.getVariables().get(tag);
+			if(text == null)
+			{
+				// 老 mod 常有 addLuaText('未创建的 tag')（Fatal Finale 的 'thing' 就是）。
+				// 绝不能在这里抛异常：CallbackHandler 会转成 LuaL.error，直接中断整个
+				// onCreatePost，后面所有 setProperty 都不执行（血条就是这样露出来的）。
+				// 与 setTextSize / setTextBorder 一致：只给 luaDebugMode 下可见的提示。
+				FunkinLua.luaTrace("addLuaText: Object " + tag + " doesn't exist!", false, false, FlxColor.RED);
+				return;
+			}
+			// makeLuaText 创建时已应用设置；这里兜底覆盖 runHaxeCode / setVar 塞进来的文本。
 			text.antialiasing = ClientPrefs.data.luatextantialiasing;
-			if(text != null) LuaUtils.getTargetInstance().add(text);
+			LuaUtils.getTargetInstance().add(text);
 		});
 		Lua_helper.add_callback(lua, "removeLuaText", function(tag:String, destroy:Bool = true) {
 			var variables = MusicBeatState.getVariables();

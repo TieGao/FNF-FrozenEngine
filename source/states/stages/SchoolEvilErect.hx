@@ -117,10 +117,10 @@ class SchoolEvilErect extends BaseStage
 				bgGhouls.updateHitbox();
 				bgGhouls.visible = false;
 				bgGhouls.antialiasing = false;
-				bgGhouls.animation.finishCallback = function(name:String)
+				bgGhouls.animation.onFinish.add(function(name:String)
 				{
 					if (name == 'BG freaks glitch instance') bgGhouls.visible = false;
-				}
+				});
 				addBehindGF(bgGhouls);
 		}
 	}

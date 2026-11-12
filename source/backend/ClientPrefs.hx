@@ -41,7 +41,19 @@ import states.TitleState;
 	public var holdcoverAlpha:Float = 0.8;//FE
 	public var lowQuality:Bool = false;
 	public var shaders:Bool = true;
-	public var cacheOnGPU:Bool = #if !switch false #else true #end; // GPU Caching made by Raltyro
+	/**
+	 * GPU 贴图缓存（Raltyro 的 GPU Caching），三态：
+	 *   disabled = 只用内存，CPU 像素常驻；
+	 *   auto     = 加载时只把像素标记为不可读，首次绘制上传后由 openfl 丢 CPU 副本；
+	 *   full     = 加载时立刻上传成纹理并丢掉 CPU 副本（NovaFlare 式，最省内存，显存小的卡慎用）。
+	 */
+	public var gpuCaching:String = 'disabled';
+
+	/**
+	 * 预载阶段是否把贴图直接传进显存：`auto` = 显存 >= 10GB 时传，`on` = 总是，`off` = 从不。
+	 * 只有配合 `gpuCaching = full` 才有意义（`auto`/`disabled` 本来就不在预载时上传）。
+	 */
+	public var preloadTextureToVRAM:String = 'auto';
 	public var framerate:Int = 60;
 	public var updaterate:Int = 60;
 	public var unlimitedFPS:Bool = false;
@@ -161,6 +173,12 @@ import states.TitleState;
 	public var modInfoBox:Bool = true;
 	public var toolBar:Bool = true;
 	public var freeplaySearch:Bool = true;
+	/**
+	 * Freeplay 搜索的两种形态：
+	 *   false → 顶部搜索框只当入口，点开独立的 SearchSubState
+	 *   true  → 输入直接过滤 Freeplay 列表本身（不弹窗）
+	 */
+	public var freeplaySearchInline:Bool = false;
 	// Freeplay 右下角补充信息（音乐人 / 谱师 / 游玩次数）
 	public var freeplaySongMeta:Bool = true;
 	// Freeplay 右侧展示元素开关（默认全开）
@@ -258,6 +276,8 @@ import states.TitleState;
 	public var screenLog:Bool = false;
 	// 把 trace 同时写进 crash/latest.log
 	public var sessionLog:Bool = true;
+	// 保留多少份历史会话日志（crash/log_时间戳.log）；0 = 不留、50 = 不限制
+	public var sessionLogMax:Int = 30;
 	// 崩溃时用全屏蓝屏界面呈现（关 = 保持原生弹窗）
 	public var blueScreen:Bool = false;
 	// 蓝屏停留秒数，到点自动回标题界面（0 = 只等按键）
@@ -304,6 +324,9 @@ import states.TitleState;
 	public var skipResultExitAnim:Bool = false;
 	// 游玩期间禁用 hxcpp 的 GC：只关掉分配器的主动回收，堆真不够时仍会回收，不会 OOM
 	public var disablePlayStateGC:Bool = false;
+
+	/** 每次场景切换都做一次 full GC（+堆整理）：把已经释放的贴图真正还给系统，代价是切换时可能有几十毫秒停顿。 */
+	public var frequentGC:Bool = false;
 
 	public var songText:Bool = true;
 	public var songInfoTextSize:Float = 1.0;
@@ -821,12 +844,27 @@ class ClientPrefs {
 		}
 	}
 
+	/** GPU Caching 取值归一化：老存档是 Bool，现在只认 disabled / auto / full。 */
+	public static function normalizeGpuCaching(?value:Dynamic):String
+	{
+		if (Std.isOfType(value, Bool)) return (cast value) ? 'auto' : 'disabled';
+		var s:String = (value == null) ? '' : Std.string(value).toLowerCase();
+		return (s == 'auto' || s == 'full') ? s : 'disabled';
+	}
+
 	public static function loadPrefs() {
 		#if ACHIEVEMENTS_ALLOWED Achievements.load(); #end
 
 		for (key in Reflect.fields(data))
 			if (key != 'gameplaySettings' && Reflect.hasField(FlxG.save.data, key))
 				Reflect.setField(data, key, Reflect.field(FlxG.save.data, key));
+
+		// GPU Caching 从 Bool 换成三态字符串（disabled/auto/full）。老存档里还是 cacheOnGPU:Bool，
+		// 新键缺失时读老键做一次映射，别把老用户的选择重置掉。
+		var savedGpu:Dynamic = Reflect.hasField(FlxG.save.data, 'gpuCaching')
+			? Reflect.field(FlxG.save.data, 'gpuCaching')
+			: Reflect.field(FlxG.save.data, 'cacheOnGPU');
+		data.gpuCaching = normalizeGpuCaching(savedGpu);
 
 		if (!Reflect.hasField(FlxG.save.data, 'customChartTrackSplit')
 			&& Reflect.hasField(FlxG.save.data, 'customChart8KTo4K'))

@@ -49,7 +49,7 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		boyfriend.setGraphicSize(Std.int(boyfriend.width * 0.75));
 		boyfriend.updateHitbox();
 		boyfriend.dance();
-		boyfriend.animation.finishCallback = function (name:String) boyfriend.dance();
+		boyfriend.animation.onFinish.add(function (name:String) boyfriend.dance());
 		boyfriend.visible = false;
 
 		var option:Option = new Option('Low Quality',
@@ -95,10 +95,17 @@ class GraphicsSettingsSubState extends BaseOptionsMenu
 		addOption(option);
 
 		var option:Option = new Option('GPU Caching',
-			"If checked, allows the GPU to be used for caching textures, decreasing RAM usage.\nDon't turn this on if you have a shitty Graphics Card.",
-			'cacheOnGPU',
-			BOOL);
+			"Texture caching mode://ndisabled = RAM only\nauto = drop the CPU copy after the first draw\nfull = upload and drop the CPU copy at load (least RAM, risky on low VRAM)",
+			'gpuCaching',
+			STRING, ['disabled', 'auto', 'full']);
 		addOption(option);
+
+		var option:Option = new Option('Preload to VRAM',
+			"Upload textures to VRAM during preload. auto = only when the GPU has 10GB+ dedicated memory; on = always; off = never (upload on first use). Only matters when GPU Caching is set to full",
+			'preloadTextureToVRAM',
+			STRING, ['auto', 'on', 'off']);
+		addOption(option);
+
 
 		#if !html5
 		var option:Option = new Option('Framerate',

@@ -210,11 +210,16 @@ class FPSCounter extends TextField
 		lines.push(fpsTpsLine);
 		
 		// 第二行：内存信息
+		// 注意 `memoryMegas` 实际是字节，且来自 Gc.MEM_INFO_USAGE ——「上次 GC 时估算的活对象」，
+		// 不含 native 分配和显存，新分配要等下一次 GC 才会反映。需要真实占用看 showMEMPeak 打开后的 RSS。
 		var memLine = 'Memory: ${flixel.util.FlxStringUtil.formatBytes(memoryMegas)}';
 		if (ClientPrefs.data.showMEMPeak)
 		{
 			updatePeakMemory();
 			memLine += ' (${flixel.util.FlxStringUtil.formatBytes(peakMemoryMegas)} Peak)';
+			var rss:Float = backend.MemoryStats.processRSS();
+			if (rss > 0)
+				memLine += ' | RSS: ${flixel.util.FlxStringUtil.formatBytes(rss)}';
 		}
 		lines.push(memLine);
 		
