@@ -389,8 +389,15 @@ class FreeplayState extends MusicBeatState
     override function create()
     {
         // 状态边界先清掉上一界面留下的非本地资源，再建立本界面的局部缓存。
-        Paths.clearStoredMemory();
-        Paths.clearUnusedMemory();
+        //
+        // 例外：「保留上一首贴图」开着时不动手 —— 从 PlayState 回来时，上一首的角色/舞台图还在，
+        // 立刻重开同一首能全部命中缓存。真正换歌由 PlayState.create() 里那次 clearStoredMemory
+        // 按 key 的代际判定清掉，回主菜单则由本类的 destroy() 清，等于「再次切换且曲目不同再清」。
+        if (!ClientPrefs.data.keepSongAssetsOnFreeplay)
+        {
+            Paths.clearStoredMemory();
+            Paths.clearUnusedMemory();
+        }
         persistentUpdate = true;
         PlayState.isStoryMode = false;
         freeplaySongCache = loadFreeplaySongCache();

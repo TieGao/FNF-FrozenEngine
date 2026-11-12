@@ -66,6 +66,7 @@ class GraphicsData
 
         sub.add(new Option('GPU Caching', 'Texture caching mode: disabled = RAM only; auto = drop the CPU copy after the first draw; full = upload and drop the CPU copy at load (least RAM, risky on low VRAM)', 'gpuCaching', STRING, ['disabled', 'auto', 'full']));
         sub.add(new Option('Preload to VRAM', 'Upload textures to VRAM during preload. auto = only when the GPU has 10GB+ dedicated memory; on = always; off = never (upload on first use). Only matters when GPU Caching is set to full', 'preloadTextureToVRAM', STRING, ['auto', 'on', 'off']));
+        sub.add(new Option('Keep Song on Freeplay', 'Keep textures of the last played song loaded when returning to Freeplay, so replaying the same song skips decoding entirely. They are freed when you pick a different song or leave the menu. Costs RAM while you sit in the menu', 'keepSongAssetsOnFreeplay', BOOL));
         sub.add(new Option('Divide Draw And Update', 'Draw and Update in separate threads', 'devideDrawAndUpdate', BOOL));
 
         var fps = new Option('Framerate', 'Target framerate', 'framerate', INT);

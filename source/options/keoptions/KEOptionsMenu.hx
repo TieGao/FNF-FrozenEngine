@@ -1159,6 +1159,7 @@ function onScrollChange()
 			KEOption.create("Wide Screen", "Enable 21:9 widescreen mode", "wideScreen", "bool"),
 			KEOption.createStringOption("GPU Caching", "Texture caching mode: disabled = RAM only; auto = drop the CPU copy after the first draw; full = upload and drop the CPU copy at load (least RAM, risky on low VRAM)", "gpuCaching", ["disabled", "auto", "full"], "disabled"),
 			KEOption.createStringOption("Preload to VRAM", "Upload textures to VRAM during preload. auto = only when the GPU has 10GB+ dedicated memory; on = always; off = never (upload on first use). Only matters when GPU Caching is set to full", "preloadTextureToVRAM", ["auto", "on", "off"], "auto"),
+			KEOption.create("Keep Song on Freeplay", "Keep textures of the last played song loaded when returning to Freeplay, so replaying the same song skips decoding entirely. They are freed when you pick a different song or leave the menu. Costs RAM while you sit in the menu", "keepSongAssetsOnFreeplay", "bool"),
 			KEOption.create("Divide Draw And Update", "Draw and Update in separate threads", "devideDrawAndUpdate", "bool"),
 			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 480, 1),
 			KEOption.create("Update Rate", "Target update rate", "updaterate", "int", 60, 60, 480, 1),

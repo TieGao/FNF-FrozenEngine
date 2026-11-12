@@ -34,7 +34,10 @@ haxelib run lime build windows
 - 构建日志末尾的 `reg.exe BLOCKED BY SECURITY POLICY` 是**正常现象**，只要前面出现 `Link: ApplicationMain.exe` 就是成功。
 - **不要 taskkill 游戏进程**；游戏在跑时构建会报 `Cannot copy to lime.ndll, is the file in use`，等用户关。
 - 产物：`export/release/windows/bin/FrozenEngine.exe`；运行时读 `export/release/windows/bin/content/`，
-  改 `content/` 或 `assets/` 后要 cp 到 `bin/` 下（本轮只改源码，没动资源）。
+  改 `content/` 或 `assets/` 后要 cp 到 `bin/` 下（构建会自动拷 `assets/`，手改资源后不构建则要手动 cp）。
+- `assets/translations/shared/data/*.lang` 是**运行时读**的，改文案不必重编 exe，但要确保拷进 `bin/`。
+- 注意：`*.lang` 曾被外部进程/会话改动过（`preload_texture_to_vram` 四条译文一度消失）。
+  改文案前先 `grep` 确认锚点还在，别假定上次写的还在。
 - Haxe/haxelib 在 `E:/HaxeToolkit`，**别设 `HAXELIB_PATH` 指向 C 盘**。
 
 ---
@@ -53,6 +56,7 @@ haxelib run lime build windows
 | — | 预载 `cacheBitmap(..., false)`；`image()` 命中时按模式补 full/auto | `LoadingState.hx`、`Paths.hx` | **未实机** |
 | — | **按显存分档**：`MemoryStats.dedicatedVRAM()` 走 DXGI；新设置 `preloadTextureToVRAM`（auto/on/off，auto = 独占显存 ≥10GB） | `MemoryStats.hx`、`ClientPrefs.hx`、三套菜单 | **未实机** |
 | — | `MemoryStats.hasGpuTexture()`：判活用 `__texture.__textureID != null` | `MemoryStats.hx` | 已构建 |
+| — | **保留歌曲缓存**：`FreeplayState.create()` 可按开关跳过清理，回 Freeplay 不立刻清，重开同曲零解码 | `FreeplayState.hx`、`ClientPrefs.hx`、三套菜单 | **未实机** |
 
 **回退掉的**：P3 纹理降采样（v1 改 `FlxFrame.frame`，实机角色全炸）。原因见 §4。
 源码备份在 `.workbuddy-ai/backup/2026-11-12-p3-downscale/`。
@@ -65,6 +69,7 @@ haxelib run lime build windows
 |---|---|---|
 | `gpuCaching` | `disabled` / `auto` / `full` | disabled = 纯内存；auto = 首次绘制上传后丢 CPU；full = 加载即上传并丢 CPU |
 | `preloadTextureToVRAM` | `auto` / `on` / `off` | 预载阶段是否上传显存。auto = 独占显存 ≥10GB 才开（6GB 卡 off，12GB 卡 on） |
+| `keepSongAssetsOnFreeplay` | bool，默认 false | 回 Freeplay 不立刻清贴图。重开同一首全部命中缓存；选别的歌由 `PlayState.create()` 按代际清，回主菜单由 `FreeplayState.destroy()` 清 |
 | `frequentGC` | bool，默认 false | 每次切场景做 full GC + compact |
 
 F9 报告（`PauseSubState` 导出到 `bin/logs/memory-*.txt`）现在包含：

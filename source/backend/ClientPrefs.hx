@@ -49,11 +49,8 @@ import states.TitleState;
 	 */
 	public var gpuCaching:String = 'disabled';
 
-	/**
-	 * 预载阶段是否把贴图直接传进显存：`auto` = 显存 >= 10GB 时传，`on` = 总是，`off` = 从不。
-	 * 只有配合 `gpuCaching = full` 才有意义（`auto`/`disabled` 本来就不在预载时上传）。
-	 */
 	public var preloadTextureToVRAM:String = 'auto';
+	public var keepSongAssetsOnFreeplay:Bool = true; //打完歌回到 Freeplay 时**不立刻**清理贴图缓存。
 	public var framerate:Int = 60;
 	public var updaterate:Int = 60;
 	public var unlimitedFPS:Bool = false;
