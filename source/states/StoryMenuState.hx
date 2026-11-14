@@ -12,7 +12,7 @@ import objects.MenuItem;
 import objects.MenuCharacter;
 import objects.story.StoryActionButton;
 
-import options.psychoptions.GameplayChangersSubstate;
+import options.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
 import substates.WeekReplaySubState;
 

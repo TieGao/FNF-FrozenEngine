@@ -4,6 +4,9 @@ import backend.animation.PsychAnimationController;
 
 import shaders.RGBPalette;
 import shaders.RGBPalette.RGBShaderReference;
+import shaders.NoteHSV;
+
+import backend.NoteSkinStyle;
 
 class StrumNote extends FlxSprite
 {
@@ -25,12 +28,17 @@ class StrumNote extends FlxSprite
 	}
 
 	public var useRGBShader:Bool = true;
-	public function new(x:Float, y:Float, leData:Int, player:Int) {
+	public var noteStyle:String = NoteSkinStyle.RGB;
+	// legacy 体系的 HSV 只在生成时挂一次（0.6.x 行为），之后 playAnim 不再碰 shader 槽位
+	var hsvAttached:Bool = false;
+	// auto + 谱面 disableNoteRGB：RGB、HSV 都不挂
+	var shaderDisabled:Bool = false;
+	/** forceSkin：直接指定贴图（编辑器预览用，绕过谱面 arrowSkin / 玩家皮肤解析） */
+	public function new(x:Float, y:Float, leData:Int, player:Int, ?forceSkin:String = null) {
 		animation = new PsychAnimationController(this);
 
 		rgbShader = new RGBShaderReference(this, Note.initializeGlobalRGBShader(leData));
 		rgbShader.enabled = false;
-		if(PlayState.SONG != null && PlayState.SONG.disableNoteRGB) useRGBShader = false;
 		
 		var colorSets:Array<Array<FlxColor>> = PlayState.isPixelStage ? ClientPrefs.data.arrowRGBPixel : ClientPrefs.data.arrowRGB;
 		var arr:Array<FlxColor> = null;
@@ -56,10 +64,7 @@ class StrumNote extends FlxSprite
 		this.ID = noteData;
 		super(x, y);
 
-		var skin:String = null;
-		if(PlayState.SONG != null && PlayState.SONG.arrowSkin != null && PlayState.SONG.arrowSkin.length > 1) skin = PlayState.SONG.arrowSkin;
-		else skin = Note.defaultNoteSkin;
-
+		var skin:String = (forceSkin != null && forceSkin.length > 0) ? forceSkin : Note.getNoteSkinPath();
 		var customSkin:String = skin + Note.getNoteSkinPostfix();
 		if(Paths.fileExists('images/$customSkin.png', IMAGE)) skin = customSkin;
 
@@ -72,6 +77,13 @@ class StrumNote extends FlxSprite
 	{
 		var lastAnim:String = null;
 		if(animation.curAnim != null) lastAnim = animation.curAnim.name;
+
+		// 贴图换了就重新判定着色体系（与 Note 同一套判据）
+		noteStyle = Note.getNoteStyle(texture);
+		useRGBShader = (noteStyle != NoteSkinStyle.LEGACY);
+		// auto + 谱面 disableNoteRGB：谱面说啥就是啥，RGB、HSV 都不挂（与 Note.updateNoteShader 同一条规则）
+		shaderDisabled = (NoteSkinStyle.noteMode() == NoteSkinStyle.AUTO
+			&& PlayState.SONG != null && PlayState.SONG.disableNoteRGB);
 
 		var dirIdx:Int = Note.getNoteDirectionIndex(Note.getColumnsPerPlayer(), noteData);
 
@@ -178,6 +190,22 @@ class StrumNote extends FlxSprite
 			centerOffsets();
 			centerOrigin();
 		}
-		if(useRGBShader) rgbShader.enabled = (animation.curAnim != null && animation.curAnim.name != 'static');
+
+		if (shaderDisabled) return;
+
+		if (useRGBShader)
+		{
+			// RGB 体系保持 0.7+ 行为：静态箭头是灰色占位不染色，按下/确认帧才挂 RGB。
+			// 模组中途把 sprite.shader 换成自己的（Pibby 的 strum glitch 之类）是模组自己的事，
+			// confirm 时 set_enabled 会把槽位要回来 —— 那是 0.7 的固有语义，模组自己兼容。
+			rgbShader.enabled = (animation.curAnim != null && animation.curAnim.name != 'static');
+		}
+		else if (!hsvAttached)
+		{
+			// legacy 体系保持 0.6.x 行为：HSV 只在生成时挂这一次（static 也挂），全 0 不挂；
+			// 之后 playAnim 不再碰槽位，模组换 shader 引擎不抢。
+			hsvAttached = true;
+			NoteHSV.apply(this, noteData);
+		}
 	}
 }

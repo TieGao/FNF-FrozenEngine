@@ -8,6 +8,10 @@ import flixel.tweens.FlxEase;
 class Win10NaviItem extends FlxSpriteGroup
 {
     public var bg:Rect;
+    /**
+     * 选中指示条：贴选项左边缘的竖条，收起态 scale.y = 0 + alpha 0，
+     * 选中时从**中心**向上下展开（origin 放在竖条中点，只动 scale.y）。
+     */
     public var accent:Rect;
     public var label:FlxText;
 
@@ -27,9 +31,6 @@ class Win10NaviItem extends FlxSpriteGroup
      */
     public var isFocused:Bool = false;
 
-    var mainW:Float;
-    var mainH:Float;
-
     // 渐变用：记录当前目标基础色（active 时也要保留悬停反馈）
     var baseColor:FlxColor = 0;
     var pressing:Bool = false;
@@ -48,7 +49,6 @@ class Win10NaviItem extends FlxSpriteGroup
 
         this.category = cat;
         this.onClick = onClick;
-        mainW = w; mainH = h;
         baseColor = UITheme.navItem;
 
         // 方角
@@ -57,8 +57,12 @@ class Win10NaviItem extends FlxSpriteGroup
         add(bg);
 
         accent = new Rect(0, 0, 3, h, 0, 0, UITheme.accent, 1);
-        accent.scale.y = 0;
         accent.antialiasing = ClientPrefs.data.antialiasing;
+        // 原点放竖条中点：scale.y 0→1 就是"从中间往上下长"。
+        // （原来那种每帧重算 accent.y 的写法在无限 FPS 下还会快到看不见，见 animateAccent）
+        accent.origin.set(1.5, h * 0.5);
+        accent.scale.y = 0;
+        accent.alpha = 0;
         add(accent);
 
         label = new FlxText(16, 0, w - 24, cat.displayName, Std.int(h * 0.34));
@@ -166,11 +170,7 @@ class Win10NaviItem extends FlxSpriteGroup
             }
         }
 
-        // 选中项的高亮（accent 条 + 文字颜色），保留原有即时插值
-        var targetScale = isActive ? 1.0 : 0.0;
-        accent.scale.y += (targetScale - accent.scale.y) * 0.25;
-        accent.y = (mainH - accent.height * accent.scale.y) * 0.5;
-
+        // 选中项的强调条 + 文字颜色，条的展开动画在 animateAccent() 里（setActive 时触发）
         label.color = isActive ? UITheme.accent
             : ((isHover || isFocused) ? UITheme.textPrimary : UITheme.textMuted);
     }
@@ -218,5 +218,27 @@ class Win10NaviItem extends FlxSpriteGroup
         // 选中状态切换时也做渐变，避免生硬跳变
         FlxTween.cancelTweensOf(bg);
         FlxTween.color(bg, 0.12, bg.color, computeTargetColor(), {ease: FlxEase.quadOut});
+
+        animateAccent();
+    }
+
+    /**
+     * 左侧强调条的展开 / 收起：从中心向上下。
+     *
+     * 用 tween 而不是每帧 `scale += (target - scale) * 0.25`：引擎支持无限 FPS，
+     * 按帧逼近的比例在 240Hz 下会快到看不见（这段原来就是那么写的）。
+     * 原点在竖条中点，所以只动 scale.y 就够，不用每帧重算 y。
+     */
+    function animateAccent():Void
+    {
+        if (accent == null) return;
+
+        var target:Float = isActive ? 1.0 : 0.0;
+
+        FlxTween.cancelTweensOf(accent);
+        FlxTween.cancelTweensOf(accent.scale);
+
+        FlxTween.tween(accent.scale, {y: target}, 0.22, {ease: FlxEase.quadOut});
+        FlxTween.tween(accent, {alpha: target}, 0.22, {ease: FlxEase.quadOut});
     }
 }

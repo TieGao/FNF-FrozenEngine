@@ -1,21 +1,22 @@
 package options.keoptions;
 
-import flixel.math.FlxRect;
+import flixel.FlxBasic;
+import flixel.FlxObject;
 import flixel.math.FlxMath;
 import flixel.tweens.FlxTween;
-import flixel.util.FlxTimer;
+import flixel.tweens.FlxEase;
 import states.MainMenuState;
 import backend.MusicBeatState;
 import backend.StageData;
 
 import objects.BiosDateDisplay;
 import objects.DraggableBar;
+import objects.MessageBox;
 
 import backend.MouseMove;
-import backend.MouseEvent;
-
-#if !flash
-#end
+import options.objects.OptionInput;
+import options.groupData.GraphicsData;
+import shapeEx.Rect;
 
 class KEOptionsMenu extends MusicBeatState
 {
@@ -29,15 +30,16 @@ class KEOptionsMenu extends MusicBeatState
 	public var selectedOptionIndex:Int = 0;
 	public var options:Array<KEOptionCata>;
 	public static var isInPause:Bool = false;
-	public var shownStuff:FlxTypedGroup<FlxText>;
-	public static var visibleRange:Array<Int> = [164, 640];
 	public static var onPlayState:Bool = false;
 	public static var onMainMenuState:Bool = false;
 	public static var isFreeplay:Bool = false;
 
+	/** 行高：行 y 网格与滚动/裁剪都基于它 */
+	public static inline var ROW_H:Float = 46;
+
 	var space:FlxSprite;
-    var starsBG:FlxBackdrop;
-    var starsFG:FlxBackdrop;
+	var starsBG:FlxBackdrop;
+	var starsFG:FlxBackdrop;
 
 	public var dateDisplay:BiosDateDisplay;
 
@@ -47,29 +49,54 @@ class KEOptionsMenu extends MusicBeatState
 	var ratings:Array<String> = Mods.mergeAllTextsNamed('images/ratings/list.txt');
 	var pauseMusicList:Array<String> = Mods.mergeAllTextsNamed('music/list.txt');
 	var hitsoundList:Array<String> = Mods.mergeAllTextsNamed('sounds/hitsounds/HitSound.txt');
-	
-	var changedOption:Bool = false;
-	public var descText:FlxText;
-	public var descBack:FlxFilteredSprite;
+
+	var descText:FlxText;
 	var valueBar:DraggableBar;
 	var valueBarText:FlxText;
 
-	var scrollOffset:Int = 0;
-	var maxScrollOffset:Int = 0;
-	
-	var isClosing:Bool = false;
-	var closeTimer:FlxTimer;
+	// ---- 行系统（根列表 / 子视图共用） ----
+	/** 当前行列表：根视图 = 分类选项；子视图 = [BACK 行] + 分组选项 */
+	var selectedList:Array<KEOption> = [];
+	var rows:Array<KEOptionRow> = [];
+	var rowGroup:FlxTypedGroup<FlxBasic>;
+	/** 下拉弹层挂这层，永远画在内容与描述框之上、不参与列表裁剪 */
+	var overlay:FlxSpriteGroup;
+
+	// ---- 主界面内子视图（原 KESubMenu 的替代） ----
+	var inSubView:Bool = false;
+	var subReturnIndex:Int = 0;
+	var backOption:KEOption;
+	/** 子视图首行：不可选中的标题（type="title"） */
+	var titleOption:KEOption;
+
+	var optionScroller:MouseMove;
 
 	var langReloadCb:Void->Void;
-	
+
 	var holdUpTime:Float = 0;
 	var holdDownTime:Float = 0;
 	var scrollHoldTime:Float = 0;
-	
+
 	var optionClickCooldown:Float = 0;
 	var optionClickProtected:Bool = false;
-	
-	static var VISIBLE_OPTIONS:Int = 11;
+
+	// ---- 按压候选（拖拽防误触 + 点击先选择）----
+	var pressRow:Int = -1;
+	var pressWasSelected:Bool = false;
+	var pressY:Float = 0;
+	var pressTarget:Float = 0;
+
+	// ---- 数值直接输入 ----
+	var numericInput:Bool = false;
+	var numericBuf:String = "";
+
+	// ---- 选项卡下划线动效状态：0 隐藏 / 1 悬停半展 / 2 选中全展 ----
+	var catUnderlines:Array<Rect> = [];
+	var underlineStates:Array<Int> = [];
+
+	var isClosing:Bool = false;
+
+	var hoveredCatIndex:Int = -1;
 
 	public static var SCREEN_WIDTH:Int = FlxG.width;
 	public static var SCREEN_HEIGHT:Int = FlxG.height;
@@ -79,32 +106,10 @@ class KEOptionsMenu extends MusicBeatState
 	public static var CATEGORY_WIDTH:Int = Std.int(SCREEN_WIDTH / CATEGORY_COUNT);
 	public static var CATEGORY_HEIGHT:Int = 50;
 	public static var OPTION_LEFT_MARGIN:Int = 20;
-	public static var OPTION_WIDTH:Int = 550;
 	public static var TAB_ALPHA:Float = 0.8;
 	public static var OPTION_ALPHA:Float = 0.6;
-	public static var DESC_ALPHA:Float = 0.8;
 
 	public static var optionScrollPos:Float = 0;
-    
-    var optionScroller:MouseMove;
-
-    var _lastResolution:Int = -1;
-    
-    // 普通分辨率名称
-    var _resolutionNames:Array<String> = [
-        "1280x720 (720p)",
-        "1920x1080 (1080p)",
-        "2560x1440 (1440p)",
-        "3840x2160 (2160p)"
-    ];
-    
-    // 普通分辨率
-    var _normalResolutions:Array<Array<Int>> = [
-        [1280, 720],
-        [1920, 1080],
-        [2560, 1440],
-        [3840, 2160]
-    ];
 
 	public static function updateLayout():Void
 	{
@@ -115,85 +120,22 @@ class KEOptionsMenu extends MusicBeatState
 		CATEGORY_WIDTH = Std.int(SCREEN_WIDTH / CATEGORY_COUNT);
 		CATEGORY_HEIGHT = Std.int(Math.max(40, Std.int(SCREEN_HEIGHT * 0.07)));
 		OPTION_LEFT_MARGIN = Std.int(Math.max(16, Std.int(SCREEN_WIDTH * 0.015)));
-		OPTION_WIDTH = Std.int(SCREEN_WIDTH * 0.43);
-	}
-    
-    // 21:9 宽屏分辨率
-    var _wideResolutions:Array<Array<Int>> = [
-        [Math.round(720 * 21.0 / 9.0), 720],   // 1680x720
-        [Math.round(1080 * 21.0 / 9.0), 1080], // 2520x1080
-        [Math.round(1440 * 21.0 / 9.0), 1440], // 3360x1440
-        [Math.round(2160 * 21.0 / 9.0), 2160]  // 5040x2160
-    ];
-    
-    // 宽屏分辨率名称
-    var _wideResolutionNames:Array<String> = [
-        "1680x720 (21:9)",
-        "2520x1080 (21:9)",
-        "3360x1440 (21:9)",
-        "5040x2160 (21:9)"
-    ];
-    
-    // 获取当前分辨率列表
-    function getCurrentResolutions():Array<Array<Int>>
-    {
-        var wideScreen:Bool = ClientPrefs.data != null && ClientPrefs.data.wideScreen;
-        return wideScreen ? _wideResolutions : _normalResolutions;
-    }
-    
-    // 获取当前分辨率名称列表
-    function getCurrentResolutionNames():Array<String>
-    {
-        var wideScreen:Bool = ClientPrefs.data != null && ClientPrefs.data.wideScreen;
-        return wideScreen ? _wideResolutionNames : _resolutionNames;
-    }
-
-	function getResolutionName(index:Int):String
-	{
-		var names = getCurrentResolutionNames();
-		if (index >= 0 && index < names.length) return names[index];
-		return "Unknown";
 	}
 
-	function refreshResolutionText():Void
+	// ---- 布局辅助 ----
+	function contentStartY():Float
 	{
-		if (selectedCat == null || selectedCat.optionObjects == null) return;
-		for (i in 0...selectedCat.options.length)
-		{
-			var opt = selectedCat.options[i];
-			if (opt != null && opt.variable == "renderResolution" && opt.type == "int")
-			{
-				var idx = Std.int(opt.value);
-				var text = "Resolution: < " + getResolutionName(idx) + " >";
-				var optionText = selectedCat.optionObjects.members[i];
-				if (optionText != null) optionText.text = text;
-			}
-		}
+		return MARGIN_TOP + CATEGORY_HEIGHT + 10;
 	}
 
-	function applyRenderResolution(index:Int):Void
+	function visibleHeight():Float
 	{
-		var resolutions = getCurrentResolutions();
-		if (index < 0 || index >= resolutions.length) return;
-		if (index == _lastResolution) return;
-		if (ClientPrefs.data.useDpiSettings) return;
-		
-		var res = resolutions[index];
-		var w = res[0];
-		var h = res[1];
-		
-		#if (cpp || hl)
-		try {
-			var window = openfl.Lib.current.stage.window;
-			window.resize(w, h);
-			var displayBounds = window.display.bounds;
-			window.x = Std.int(displayBounds.x + (displayBounds.width - w) / 2);
-			window.y = Std.int(displayBounds.y + (displayBounds.height - h) / 2);
-		} catch(e:Dynamic) {}
-		#end
-		flixel.FlxG.resizeGame(w, h);
-		flixel.FlxG.scaleMode = new flixel.system.scaleModes.RatioScaleMode(false);
-		_lastResolution = index;
+		return SCREEN_HEIGHT - MARGIN_BOTTOM - contentStartY();
+	}
+
+	function maxScrollPixels():Float
+	{
+		return Math.max(0, selectedList.length * ROW_H - visibleHeight());
 	}
 
 	public function new(pauseMenu:Bool = false)
@@ -211,7 +153,6 @@ class KEOptionsMenu extends MusicBeatState
 		{
 			if (!hitsoundList[i].contains('/')) hitsoundList[i] = 'hitsounds/' + hitsoundList[i];
 		}
-		//if (!hitsoundList.contains('hitsound')) hitsoundList.insert(0, 'hitsound');
 	}
 
 	override function create()
@@ -227,11 +168,6 @@ class KEOptionsMenu extends MusicBeatState
 			new KEOptionCata(CATEGORY_WIDTH * 4, MARGIN_TOP, "Advanced", getAdvancedOptions())
 		];
 
-		shownStuff = new FlxTypedGroup<FlxText>();
-		/*for(text in shownStuff.members)
-			text.antialiasing = ClientPrefs.data.antialiasing;*/
-
-		
 		background = new FlxSprite(0, 0).makeGraphic(SCREEN_WIDTH, SCREEN_HEIGHT, FlxColor.BLACK);
 		background.alpha = 0;
 		background.scrollFactor.set();
@@ -247,70 +183,71 @@ class KEOptionsMenu extends MusicBeatState
 		add(optionBg);
 
 		space = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, FlxColor.BLACK);
-        space.antialiasing = ClientPrefs.data.antialiasing;
-        space.updateHitbox();
-        space.scrollFactor.set();
-        space.alpha = 0;
-        add(space);
+		space.antialiasing = ClientPrefs.data.antialiasing;
+		space.updateHitbox();
+		space.scrollFactor.set();
+		space.alpha = 0;
+		add(space);
 
-        starsBG = new FlxBackdrop(Paths.image('starBG'));
-        starsBG.setPosition(111.3, 67.95);
-        starsBG.antialiasing = true;
-        starsBG.updateHitbox();
-        starsBG.scrollFactor.set();
-        starsBG.alpha = 0;
-        add(starsBG);
+		starsBG = new FlxBackdrop(Paths.image('starBG'));
+		starsBG.setPosition(111.3, 67.95);
+		starsBG.antialiasing = true;
+		starsBG.updateHitbox();
+		starsBG.scrollFactor.set();
+		starsBG.alpha = 0;
+		add(starsBG);
 
-        starsFG = new FlxBackdrop(Paths.image('starFG'));
-        starsFG.setPosition(54.3, 59.45);
-        starsFG.updateHitbox();
-        starsFG.antialiasing = true;
-        starsFG.scrollFactor.set();
-        starsFG.alpha = 0;
-        add(starsFG);
+		starsFG = new FlxBackdrop(Paths.image('starFG'));
+		starsFG.setPosition(54.3, 59.45);
+		starsFG.updateHitbox();
+		starsFG.antialiasing = true;
+		starsFG.scrollFactor.set();
+		starsFG.alpha = 0;
+		add(starsFG);
 
 		if (ClientPrefs.data.globalspace)
 		{
-			space.alpha = 1; 
+			space.alpha = 1;
 			starsBG.alpha = 1;
 			starsFG.alpha = 1;
 		}
 
-		var contentStartY:Int = MARGIN_TOP + CATEGORY_HEIGHT;
 		var contentHeight:Int = SCREEN_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM - CATEGORY_HEIGHT;
-		
-		bg = new FlxFilteredSprite(0, contentStartY);
-		bg.makeGraphic(SCREEN_WIDTH, contentHeight, FlxColor.BLACK);
-		bg.alpha = 0.6;
+
+		bg = new FlxFilteredSprite(0, MARGIN_TOP + CATEGORY_HEIGHT);
+		bg.makeGraphic(SCREEN_WIDTH, contentHeight, FlxColor.GRAY);
+		bg.alpha = 0.8;
 		bg.scrollFactor.set();
 		bg.antialiasing = ClientPrefs.data.antialiasing;
 		add(bg);
 
-		descBack = new FlxFilteredSprite(0, SCREEN_HEIGHT - MARGIN_BOTTOM);
-		descBack.makeGraphic(SCREEN_WIDTH, 32, FlxColor.BLACK);
-		descBack.alpha = DESC_ALPHA;
-		descBack.scrollFactor.set();
-		descBack.antialiasing = ClientPrefs.data.antialiasing;
-		//descBack.filters = [blurFilter];
-		add(descBack);
-
-		add(shownStuff);
-
+		// 选项卡 + 选中下划线
 		for (i in 0...options.length)
 		{
 			var cat = options[i];
-			
+
 			cat.makeGraphic(CATEGORY_WIDTH, CATEGORY_HEIGHT, FlxColor.BLACK);
 			cat.x = i * CATEGORY_WIDTH;
 			cat.y = MARGIN_TOP;
 			cat.alpha = TAB_ALPHA;
-			
+
 			cat.titleObject.x = cat.x + (CATEGORY_WIDTH / 2) - (cat.titleObject.fieldWidth / 2);
 			cat.titleObject.y = cat.y + (CATEGORY_HEIGHT / 2) - (cat.titleObject.height / 2);
 			cat.titleObject.alpha = 1.0;
-			
+
 			add(cat);
 			add(cat.titleObject);
+
+			// 下划线：默认收起（scaleX=0），选中时从中心展开
+			var underlineW:Float = Math.min(cat.titleObject.width + 24, CATEGORY_WIDTH - 20);
+			var underline = new Rect(cat.x + (CATEGORY_WIDTH - underlineW) / 2, MARGIN_TOP + CATEGORY_HEIGHT - 4,
+				Std.int(underlineW), 3, 2, 2, FlxColor.WHITE, 0);
+			underline.scrollFactor.set();
+			underline.origin.set(underlineW / 2, 1.5);
+			underline.scale.x = 0;
+			catUnderlines.push(underline);
+			underlineStates.push(0);
+			add(underline);
 		}
 
 		descText = new FlxText(10, SCREEN_HEIGHT - MARGIN_BOTTOM + 5, SCREEN_WIDTH - 20);
@@ -320,28 +257,29 @@ class KEOptionsMenu extends MusicBeatState
 		descText.antialiasing = ClientPrefs.data.antialiasing;
 		add(descText);
 
-	valueBar = new DraggableBar(0, SCREEN_HEIGHT - MARGIN_BOTTOM + 20, 'healthBar', function() return getSelectedOptionValue(), 0, 1);
-	valueBar.scrollFactor.set();
-	valueBar.visible = false;
-	valueBar.cameras = [FlxG.camera];
-	valueBar.screenCenter(X);
-	valueBar.onValueChanged = function(percentValue:Float) {
-		if (selectedOption == null || !isNumericOption(selectedOption)) return;
-		var rawValue:Float = FlxMath.lerp(selectedOption.minValue, selectedOption.maxValue, percentValue / 100);
-		var newValue:Float = snapOptionValue(rawValue, selectedOption);
-		selectedOption.value = newValue;
-		selectedOption.saveCurrentValue();
-		ClientPrefs.saveSettings();
-		doSelectCurrentOption();
-	};
-	valueBarText = new FlxText(0, valueBar.y - 32, SCREEN_WIDTH, "");
-	valueBarText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-	valueBarText.borderSize = 2;
-	valueBarText.visible = false;
-	valueBarText.cameras = [FlxG.camera];
-	valueBarText.antialiasing = ClientPrefs.data.antialiasing;
-	add(valueBar);
-	add(valueBarText);
+		valueBar = new DraggableBar(0, SCREEN_HEIGHT - MARGIN_BOTTOM + 20, 'healthBar', function() return getSelectedOptionValue(), 0, 1);
+		valueBar.scrollFactor.set();
+		valueBar.visible = false;
+		valueBar.cameras = [FlxG.camera];
+		valueBar.screenCenter(X);
+		valueBar.onValueChanged = function(percentValue:Float) {
+			if (selectedOption == null || !isNumericOption(selectedOption)) return;
+			commitNumericPending();
+			var rawValue:Float = FlxMath.lerp(selectedOption.minValue, selectedOption.maxValue, percentValue / 100);
+			var newValue:Float = snapOptionValue(rawValue, selectedOption);
+			selectedOption.value = newValue;
+			selectedOption.saveCurrentValue();
+			ClientPrefs.saveSettings();
+			doSelectCurrentOption();
+		};
+		valueBarText = new FlxText(0, valueBar.y - 32, SCREEN_WIDTH, "");
+		valueBarText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		valueBarText.borderSize = 2;
+		valueBarText.visible = false;
+		valueBarText.cameras = [FlxG.camera];
+		valueBarText.antialiasing = ClientPrefs.data.antialiasing;
+		add(valueBar);
+		add(valueBarText);
 
 		dateDisplay = new BiosDateDisplay(FlxG.width/2 , 30, 20, FlxColor.WHITE, true);
 		dateDisplay.setShowSeconds(true);
@@ -349,6 +287,20 @@ class KEOptionsMenu extends MusicBeatState
 		dateDisplay.scrollFactor.set();
 		dateDisplay.antialiasing = ClientPrefs.data.antialiasing;
 		add(dateDisplay);
+
+		// 行画在描述框之后（被裁剪不会越过描述框区域），弹层最后、永远在最上
+		rowGroup = new FlxTypedGroup<FlxBasic>();
+		add(rowGroup);
+		overlay = new FlxSpriteGroup();
+		add(overlay);
+
+		// 主界面内子视图的固定行
+		titleOption = new KEOption();
+		titleOption.name = "";
+		titleOption.type = "title";
+		backOption = new KEOption();
+		backOption.name = "Back";
+		backOption.type = "back";
 
 		selectedCat = options[0];
 		doSwitchToCat(selectedCat, false);
@@ -405,7 +357,7 @@ class KEOptionsMenu extends MusicBeatState
 		}
 
 		instance = this;
-		
+
 		startColorCycle();
 		startBgColorCycle();
 
@@ -415,65 +367,47 @@ class KEOptionsMenu extends MusicBeatState
 		};
 		backend.Language.addReloadCallback(langReloadCb);
 
-		var totalOptionsHeight:Float = selectedCat.options.length * 46;
-        var visibleHeight:Float = SCREEN_HEIGHT - MARGIN_TOP - CATEGORY_HEIGHT - MARGIN_BOTTOM - 20;
-        var minScroll:Float = 0;
-        var maxScroll:Float = Math.max(0, totalOptionsHeight - visibleHeight);
-        
-        var contentStartY:Float = MARGIN_TOP + CATEGORY_HEIGHT + 10;
-        var contentHeight:Float = SCREEN_HEIGHT - MARGIN_TOP - CATEGORY_HEIGHT - MARGIN_BOTTOM - 20;
-        
-        optionScroller = new MouseMove(
-            KEOptionsMenu,
-            'optionScrollPos',
-            [minScroll, maxScroll],
-            [
-                [0, SCREEN_WIDTH],
-                [contentStartY, contentStartY + contentHeight]
-            ],
-            onScrollChange
-        );
-        optionScroller.useLerp = true;
-        optionScroller.lerpSmooth = 10;
-        optionScroller.dragSensitivity = 1.5;
-        optionScroller.deceleration = 0.96;
-        optionScroller.enableMouseWheel = false;
-        add(optionScroller);
+		var contentHeightScroller:Float = SCREEN_HEIGHT - MARGIN_TOP - CATEGORY_HEIGHT - MARGIN_BOTTOM - 20;
+
+		optionScroller = new MouseMove(
+			KEOptionsMenu,
+			'optionScrollPos',
+			[0, maxScrollPixels()],
+			[
+				[0, SCREEN_WIDTH],
+				[contentStartY(), contentStartY() + contentHeightScroller]
+			],
+			null
+		);
+		optionScroller.useLerp = true;
+		optionScroller.lerpSmooth = 5; // 滑动动画放慢（10 → 5）
+		optionScroller.dragSensitivity = 1.5;
+		optionScroller.deceleration = 0.96;
+		// 滚轮统一交给 MouseMove（velocity 惯性滚动，与模组界面同参），不再自配音效
+		optionScroller.enableMouseWheel = true;
+		optionScroller.mouseWheelSensitivity = -200.0;
+		add(optionScroller);
 	}
-	
-	
+
 	function onLanguageReload():Void
 	{
-		for (i in 0...options.length) {
+		// 选项卡标题 + 重新居中
+		for (i in 0...options.length)
+		{
 			var cat = options[i];
-			if (cat.titleObject != null) cat.titleObject.text = backend.Language.getPhrase(cat.title, cat.title);
-			for (j in 0...cat.optionObjects.members.length) {
-				var txt = cat.optionObjects.members[j];
-				if (txt != null && j < cat.options.length) txt.text = cat.options[j].getValue();
+			if (cat.titleObject != null)
+			{
+				cat.titleObject.text = backend.Language.getPhrase(cat.title, cat.title);
+				cat.titleObject.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+				cat.titleObject.x = cat.x + (CATEGORY_WIDTH / 2) - (cat.titleObject.fieldWidth / 2);
 			}
 		}
 
-		for (i in 0...options.length) {
-			var cat = options[i];
-			if (cat.titleObject != null) cat.titleObject.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
-			for (j in 0...cat.optionObjects.members.length) {
-				var txt = cat.optionObjects.members[j];
-				if (txt != null) txt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
-			}
-		}
-
-		if (selectedCat != null && selectedCat.optionObjects != null) {
-			for (i in selectedCat.optionObjects) {
-				if (i != null) i.text = selectedCat.options[selectedCat.optionObjects.members.indexOf(i)].getValue();
-			}
-		}
-		if (selectedOption != null) {
-			descText.text = selectedOption.getDescription();
-			descText.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
-		}
+		// 行全部重建（名字/值重新走翻译链）
+		rebuildRows();
+		doSelectCurrentOption();
 	}
-	
-	
+
 	override function destroy()
 	{
 		super.destroy();
@@ -483,652 +417,854 @@ class KEOptionsMenu extends MusicBeatState
 		instance = null;
 	}
 
+	// ==================== 行构建与视图切换 ====================
+
+	/** 按 selectedList 重建全部行（视图切换/语言重载时） */
+	function rebuildRows():Void
+	{
+		for (row in rows)
+			row.destroyAll();
+		rows = [];
+		rowGroup.clear();
+
+		// BIOS 式统一列：下拉/输入框宽 0.2×宽、右缘固定 0.85×宽（右侧留白 0.15×宽）
+		var widgetW:Float = SCREEN_WIDTH * 0.20;
+
+		for (i in 0...selectedList.length)
+		{
+			var opt = selectedList[i];
+			if (opt == null) continue;
+			var row = new KEOptionRow(opt, i, widgetW, FlxColor.WHITE, overlay);
+			row.attachTo(rowGroup);
+			row.refreshTexts(valueTextFor);
+			rows.push(row);
+		}
+
+		pressRow = -1; // 行已重建，进行中的按压候选作废
+
+		if (optionScroller != null)
+			optionScroller.moveLimit = [0, maxScrollPixels()];
+	}
+
 	public function doSwitchToCat(cat:KEOptionCata, checkForOutOfBounds:Bool = true)
 	{
-    scrollOffset = 0;
-    optionScrollPos = 0;
-    
-    if (selectedCat != null && selectedCat.optionObjects != null)
-    {
-        for (i in 0...selectedCat.optionObjects.members.length)
-        {
-            var object = selectedCat.optionObjects.members[i];
-            if(object != null && i < selectedCat.options.length) {
-                object.text = selectedCat.options[i].getValue();
-                object.color = FlxColor.WHITE;
-            }
-        }
-    }
+		closeWidgetPopups();
+		commitNumericPending();
+		inSubView = false;
 
-    if (checkForOutOfBounds && selectedCatIndex > options.length - 1)
-        selectedCatIndex = 0;
+		if (checkForOutOfBounds && selectedCatIndex > options.length - 1)
+			selectedCatIndex = 0;
 
-    if (selectedCat != null && selectedCat.middle)
-        remove(selectedCat.titleObject);
+		if (selectedCat != null) {
+			selectedCat.changeColor(FlxColor.BLACK);
+			selectedCat.alpha = TAB_ALPHA;
+			if (selectedCat.titleObject != null)
+			{
+				selectedCat.titleObject.color = FlxColor.WHITE;
+				selectedCat.titleObject.alpha = 1.0;
+			}
+		}
 
-    if (selectedCat != null) {
-        selectedCat.changeColor(FlxColor.BLACK);
-        selectedCat.alpha = TAB_ALPHA;
-        if (selectedCat.titleObject != null)
-        {
-            selectedCat.titleObject.color = FlxColor.WHITE;
-            selectedCat.titleObject.alpha = 1.0;
-        }
-    }
+		selectedCat = cat;
+		selectedCat.alpha = OPTION_ALPHA;
+		selectedCat.changeColor(FlxColor.BLACK);
 
-    shownStuff.clear();
-    
-    selectedCat = cat;
-    selectedCat.alpha = OPTION_ALPHA;
-    selectedCat.changeColor(FlxColor.BLACK);
+		selectedList = selectedCat.options;
+		selectedOptionIndex = 0;
 
-    if (selectedCat.middle)
-        add(selectedCat.titleObject);
+		optionScrollPos = 0;
+		if (optionScroller != null)
+		{
+			optionScroller.target = 0;
+			optionScroller.velocity = 0;
+		}
 
-    for (i in selectedCat.optionObjects)
-    {
-        if(i != null) 
-        {
-            shownStuff.add(i);
-            i.color = FlxColor.WHITE;
-        }
-    }
+		rebuildRows();
+		updateUnderlines(false); // 点击切换也走 tween，展开条有过渡而不是直接变长
+		doSelectCurrentOption();
+	}
 
-    if(selectedCat.options.length > 0) {
-        selectedOption = selectedCat.options[0];
-        selectedOptionIndex = 0;
-    }
+	/** 进入分组子视图：首行 = 不可选中标题，次行 = BACK，其后是组内选项 */
+	function enterSubView(group:KEOption):Void
+	{
+		closeWidgetPopups();
+		commitNumericPending();
 
-    var totalOptionsHeight = selectedCat.options.length * 46;
-    var visibleHeight = SCREEN_HEIGHT - MARGIN_TOP - CATEGORY_HEIGHT - MARGIN_BOTTOM - 20;
-    maxScrollOffset = Std.int(Math.max(0, (totalOptionsHeight - visibleHeight) / 46));
-    
-    if (optionScroller != null) {
-        optionScroller.moveLimit = [0, maxScrollOffset * 46];
-    }
-    
-    updateOptionPositions();
-    refreshResolutionText();
-    doSelectCurrentOption();
-}
+		subReturnIndex = selectedOptionIndex;
+		titleOption.name = backend.Language.getPhrase(group.subMenuTitle, group.subMenuTitle);
+		backOption.name = backend.Language.getPhrase('back', 'BACK');
+
+		selectedList = [titleOption, backOption].concat(group.subMenuOptions);
+		inSubView = true;
+		selectedOptionIndex = 1; // 光标落在 BACK 上
+
+		resetScroll();
+		rebuildRows();
+		doSelectCurrentOption();
+		FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+	}
+
+	function exitSubView():Void
+	{
+		closeWidgetPopups();
+		commitNumericPending();
+
+		inSubView = false;
+		selectedList = selectedCat.options;
+		selectedOptionIndex = Std.int(FlxMath.bound(subReturnIndex, 0, selectedList.length - 1));
+
+		resetScroll();
+		rebuildRows();
+		doSelectCurrentOption();
+		FlxG.sound.play(Paths.sound('cancelMenu'), 0.5);
+	}
+
+	function resetScroll():Void
+	{
+		optionScrollPos = 0;
+		if (optionScroller != null)
+		{
+			optionScroller.target = 0;
+			optionScroller.velocity = 0;
+		}
+	}
+
+	function closeWidgetPopups():Void
+	{
+		for (row in rows)
+		{
+			if (row.widget != null && row.widget.isOpen)
+				row.widget.closePopup();
+		}
+	}
+
+	function findOpenWidget():StringSelect
+	{
+		for (row in rows)
+		{
+			if (row.widget != null && row.widget.isOpen)
+				return row.widget;
+		}
+		return null;
+	}
+
+	// ==================== 选中 / 描述 / 值条 ====================
+
+	function getSelectedRow():KEOptionRow
+	{
+		if (selectedOptionIndex < 0 || selectedOptionIndex >= rows.length) return null;
+		return rows[selectedOptionIndex];
+	}
 
 	public function doSelectCurrentOption()
 	{
-		for (i in 0...selectedCat.optionObjects.members.length)
+		if (selectedOptionIndex >= selectedList.length) selectedOptionIndex = selectedList.length - 1;
+		if (selectedOptionIndex < 0) selectedOptionIndex = 0;
+		selectedOption = (selectedList.length > 0) ? selectedList[selectedOptionIndex] : null;
+
+		for (i in 0...rows.length)
 		{
-			var object = selectedCat.optionObjects.members[i];
-			if(object != null && i < selectedCat.options.length) {
-				var currentValue = selectedCat.options[i].getValue();
-				if (currentValue.startsWith("> ")) {
-					object.text = currentValue.substring(2);
-				} else {
-					object.text = currentValue;
-				}
-			}
+			var row = rows[i];
+			row.setSelected(i == selectedOptionIndex);
+			row.nameText.color = FlxColor.WHITE;
+			if (row.valueText != null) row.valueText.color = FlxColor.WHITE;
+			if (row.widget != null) row.widget.setKeyboardHighlight(i == selectedOptionIndex);
+			row.refreshTexts(valueTextFor);
 		}
-		
-		var object = selectedCat.optionObjects.members[selectedOptionIndex];
-		if(object != null) {
-			var currentValue = selectedOption.getValue();
-			if (!currentValue.startsWith("> ")) {
-				object.text = "> " + currentValue;
-			} else {
-				object.text = currentValue;
-			}
-			descText.text = selectedOption.getDescription();
-			descText.color = FlxColor.WHITE;
+
+		if (selectedOption != null)
+		{
+			descText.text = (selectedOption.type == "back") ? "" : selectedOption.getDescription();
 		}
-		refreshResolutionText();
+		else
+		{
+			descText.text = "";
+		}
+		descText.color = FlxColor.WHITE;
 		updateValueBar();
-		
 		ensureOptionVisible();
 	}
 
-function updateOptionPositions()
-{
-    if (selectedCat == null || selectedCat.optionObjects == null) return;
-    
-    var contentStartY = MARGIN_TOP + CATEGORY_HEIGHT + 10;
-    
-    for (i in 0...selectedCat.optionObjects.members.length)
-    {
-        var optionText = selectedCat.optionObjects.members[i];
-        if(optionText == null) continue;
-        
-        var displayIndex = i - scrollOffset;
-        
-        optionText.y = contentStartY + (46 * displayIndex);
-        
-        optionText.x = OPTION_LEFT_MARGIN;
-        
-        var isVisible = (displayIndex >= 0 && displayIndex < VISIBLE_OPTIONS);
-        
-        if (isVisible)
-        {
-            optionText.alpha = (i == selectedOptionIndex) ? 1.0 : OPTION_ALPHA;
-        }
-        else
-        {
-            optionText.alpha = 0;
-        }
-    }
-}
-
-function isNumericOption(option:KEOption):Bool
-{
-	return option != null && (option.type == "int" || option.type == "float");
-}
-
-function getSelectedOptionValue():Float
-{
-	if (!isNumericOption(selectedOption)) return 0;
-	return snapOptionValue(Std.parseFloat(Std.string(selectedOption.value)), selectedOption);
-}
-
-function updateValueBar():Void
-{
-	if (selectedOption != null && isNumericOption(selectedOption))
+	function updateValueBar():Void
 	{
-		valueBar.visible = true;
-		valueBarText.visible = true;
-		valueBar.setBounds(selectedOption.minValue, selectedOption.maxValue);
-		var currentValue:Float = snapOptionValue(Std.parseFloat(Std.string(selectedOption.value)), selectedOption);
-		valueBar.setPercent(FlxMath.remapToRange(currentValue, selectedOption.minValue, selectedOption.maxValue, 0, 100), false);
-		valueBarText.text = selectedOption.getValue();
+		if (selectedOption != null && isNumericOption(selectedOption))
+		{
+			valueBar.visible = true;
+			valueBarText.visible = true;
+			valueBar.setBounds(selectedOption.minValue, selectedOption.maxValue);
+			var currentValue:Float = snapOptionValue(Std.parseFloat(Std.string(selectedOption.value)), selectedOption);
+			valueBar.setPercent(FlxMath.remapToRange(currentValue, selectedOption.minValue, selectedOption.maxValue, 0, 100), false);
+			valueBarText.text = valueTextFor(selectedOption);
+		}
+		else
+		{
+			valueBar.visible = false;
+			valueBarText.visible = false;
+		}
 	}
-	else
+
+	/** 行右侧值文本（数值 / 分组 ">" 标记；string/color/bool 走 widget 下拉框） */
+	function valueTextFor(opt:KEOption):String
 	{
-		valueBar.visible = false;
-		valueBarText.visible = false;
+		if (opt.hasSubMenu) return ">";
+		switch(opt.type)
+		{
+			case "bool":
+				return backend.Language.getPhrase(opt.value ? "on" : "off", opt.value ? "on" : "off");
+			case "int", "float":
+				return Std.string(opt.value);
+			default:
+				return "";
+		}
 	}
-}
 
-function getStepDecimals(step:Float):Int
-{
-	var s:String = Std.string(step);
-	var index:Int = s.indexOf('.');
-	if (index == -1) return 0;
-	return s.length - index - 1;
-}
+	function isNumericOption(option:KEOption):Bool
+	{
+		return option != null && (option.type == "int" || option.type == "float");
+	}
 
-function roundToDecimals(value:Float, decimals:Int):Float
-{
-	var factor:Float = Math.pow(10, decimals);
-	return Math.round(value * factor) / factor;
-}
+	function getSelectedOptionValue():Float
+	{
+		if (!isNumericOption(selectedOption)) return 0;
+		return snapOptionValue(Std.parseFloat(Std.string(selectedOption.value)), selectedOption);
+	}
 
-function snapOptionValue(value:Float, option:KEOption):Float
-{
-	if (option == null) return value;
-	var step:Float = option.changeValue;
-	if (step <= 0) return value;
-	var relative:Float = (value - option.minValue) / step;
-	var snapped:Float = option.minValue + Math.round(relative) * step;
-	if (option.type == "int") snapped = Math.round(snapped);
-	else if (option.type == "float") snapped = roundToDecimals(snapped, getStepDecimals(step));
-	if (snapped < option.minValue) snapped = option.minValue;
-	if (snapped > option.maxValue) snapped = option.maxValue;
-	return snapped;
-}
+	function getStepDecimals(step:Float):Int
+	{
+		var s:String = Std.string(step);
+		var index:Int = s.indexOf('.');
+		if (index == -1) return 0;
+		return s.length - index - 1;
+	}
 
-private function ensureOptionVisible()
-{
-    var oldOffset = scrollOffset;
-    
-    if (selectedOptionIndex < scrollOffset) {
-        scrollOffset = selectedOptionIndex;
-    } else if (selectedOptionIndex >= scrollOffset + VISIBLE_OPTIONS) {
-        scrollOffset = selectedOptionIndex - (VISIBLE_OPTIONS - 1);
-    }
-    
-    if (scrollOffset < 0) scrollOffset = 0;
-    if (scrollOffset > maxScrollOffset) scrollOffset = maxScrollOffset;
-    
-    if (oldOffset != scrollOffset) {
-        optionScrollPos = scrollOffset * 46;
-        if (optionScroller != null) {
-            optionScroller.target = optionScrollPos;
-        }
-        updateOptionPositions();
-    }
-}
+	function roundToDecimals(value:Float, decimals:Int):Float
+	{
+		var factor:Float = Math.pow(10, decimals);
+		return Math.round(value * factor) / factor;
+	}
 
-function scrollOptions(change:Int, isLongPress:Bool = false)
-{
-    if (selectedCat == null) return;
-    
-    var newOffset = scrollOffset + change;
-    
-    if (newOffset < 0) newOffset = 0;
-    if (newOffset > maxScrollOffset) newOffset = maxScrollOffset;
-    
-    if (newOffset == scrollOffset) return;
-    
-    scrollOffset = newOffset;
-    
-    optionScrollPos = scrollOffset * 46;
-    if (optionScroller != null) {
-        optionScroller.target = optionScrollPos;
-    }
-    
-    updateOptionPositions();
-    
-    if (!isLongPress) {
-        FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
-    } else if (scrollHoldTime % 2 == 0) {
-        FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
-    }
-}
+	function snapOptionValue(value:Float, option:KEOption):Float
+	{
+		if (option == null) return value;
+		var step:Float = option.changeValue;
+		if (step <= 0) return value;
+		var relative:Float = (value - option.minValue) / step;
+		var snapped:Float = option.minValue + Math.round(relative) * step;
+		if (option.type == "int") snapped = Math.round(snapped);
+		else if (option.type == "float") snapped = roundToDecimals(snapped, getStepDecimals(step));
+		if (snapped < option.minValue) snapped = option.minValue;
+		if (snapped > option.maxValue) snapped = option.maxValue;
+		return snapped;
+	}
+
+	private function ensureOptionVisible()
+	{
+		if (optionScroller == null || rows.length == 0) return;
+
+		var visH:Float = visibleHeight();
+		var top:Float = selectedOptionIndex * ROW_H;
+		var bottom:Float = top + ROW_H;
+
+		// 目标：整行落进可视区（贴边即可，不强制居中）
+		var minTarget:Float = Math.max(0, bottom - visH);
+		var maxTarget:Float = Math.min(maxScrollPixels(), top);
+
+		if (optionScroller.target < minTarget)
+			optionScroller.target = minTarget;
+		else if (optionScroller.target > maxTarget)
+			optionScroller.target = maxTarget;
+	}
+
+	// ==================== 下划线动效 ====================
+
+	function updateUnderlines(immediate:Bool):Void
+	{
+		for (i in 0...options.length)
+		{
+			var st:Int = (i == selectedCatIndex) ? 2 : (i == hoveredCatIndex ? 1 : 0);
+			if (st == underlineStates[i]) continue;
+			underlineStates[i] = st;
+
+			var underline = catUnderlines[i];
+			if (underline == null) continue;
+
+			var targetScale:Float = (st == 2) ? 1.0 : ((st == 1) ? 0.5 : 0.0);
+			var targetAlpha:Float = (st == 2) ? 1.0 : ((st == 1) ? 0.4 : 0.0);
+
+			FlxTween.cancelTweensOf(underline.scale);
+			FlxTween.cancelTweensOf(underline);
+			if (immediate)
+			{
+				underline.scale.x = targetScale;
+				underline.alpha = targetAlpha;
+			}
+			else
+			{
+				FlxTween.tween(underline.scale, {x: targetScale}, 0.22, {ease: FlxEase.quadOut});
+				FlxTween.tween(underline, {alpha: targetAlpha}, 0.22, {ease: FlxEase.quadOut});
+			}
+		}
+	}
+
+	// ==================== 数值直接输入 ====================
+
+	function startNumericInput():Void
+	{
+		numericInput = true;
+		numericBuf = "";
+		descText.text = backend.Language.getPhrase("type_number_hint", "Type a number, Enter to apply, Esc to cancel");
+	}
+
+	function handleNumericInput():Void
+	{
+		var opt = selectedOption;
+		if (opt == null || !isNumericOption(opt))
+		{
+			cancelNumericInput(true);
+			return;
+		}
+
+		var d:Int = digitJustPressed();
+		if (d >= 0 && numericBuf.length < 9)
+			numericBuf += Std.string(d);
+
+		var j = FlxG.keys.justPressed;
+		if ((j.MINUS || j.NUMPADMINUS) && numericBuf.length == 0 && opt.minValue < 0)
+			numericBuf = "-";
+		if ((j.PERIOD || j.NUMPADPERIOD) && opt.type == "float" && numericBuf.length > 0 && numericBuf.indexOf(".") < 0)
+			numericBuf += ".";
+		if (j.BACKSPACE)
+		{
+			numericBuf = numericBuf.substring(0, numericBuf.length - 1);
+			if (numericBuf.length == 0)
+			{
+				cancelNumericInput(true);
+				return;
+			}
+		}
+
+		// 预览：值文本实时显示缓冲
+		var row = getSelectedRow();
+		if (row != null && row.valueText != null)
+			row.setPreviewValue(numericBuf + "_");
+	}
+
+	/** 0-9 / 小键盘 0-9 → 数字，否则 -1 */
+	function digitJustPressed():Int
+	{
+		var j = FlxG.keys.justPressed;
+		if (j.ZERO || j.NUMPADZERO) return 0;
+		if (j.ONE || j.NUMPADONE) return 1;
+		if (j.TWO || j.NUMPADTWO) return 2;
+		if (j.THREE || j.NUMPADTHREE) return 3;
+		if (j.FOUR || j.NUMPADFOUR) return 4;
+		if (j.FIVE || j.NUMPADFIVE) return 5;
+		if (j.SIX || j.NUMPADSIX) return 6;
+		if (j.SEVEN || j.NUMPADSEVEN) return 7;
+		if (j.EIGHT || j.NUMPADEIGHT) return 8;
+		if (j.NINE || j.NUMPADNINE) return 9;
+		return -1;
+	}
+
+	function commitNumericInput():Void
+	{
+		var opt = selectedOption;
+		var buf:String = numericBuf;
+		cancelNumericInput(true);
+
+		if (opt == null || buf.length == 0) return;
+
+		var f:Float = Std.parseFloat(buf);
+		if (Math.isNaN(f))
+		{
+			MessageBox.show(
+				backend.Language.getPhrase("invalid_number", "Invalid number"),
+				backend.Language.getPhrase("value_not_parsed", "Could not parse the value you typed"),
+				MessageBoxType.MESSAGE, null, 2.5);
+			return;
+		}
+
+		var warned:Bool = false;
+		if (f < opt.minValue) { f = opt.minValue; warned = true; }
+		if (f > opt.maxValue) { f = opt.maxValue; warned = true; }
+		f = snapOptionValue(f, opt);
+
+		opt.value = (opt.type == "int") ? Math.round(f) : f;
+		opt.saveCurrentValue();
+		ClientPrefs.saveSettings();
+
+		if (warned)
+		{
+			MessageBox.show(
+				backend.Language.getPhrase("value_out_of_range", "Value out of range"),
+				backend.Language.getPhrase("clamped_to_bounds", "Clamped to allowed range") + ": " + opt.minValue + " ~ " + opt.maxValue,
+				MessageBoxType.MESSAGE, null, 2.5);
+		}
+		doSelectCurrentOption();
+	}
+
+	function cancelNumericInput(restoreDesc:Bool):Void
+	{
+		if (!numericInput) return;
+		numericInput = false;
+		numericBuf = "";
+		if (restoreDesc) doSelectCurrentOption();
+	}
+
+	/** 有未提交缓冲就提交（离开该行/切分类/进子视图/拖值条时走这里） */
+	inline function commitNumericPending():Void
+	{
+		if (numericInput) commitNumericInput();
+	}
+
+	/** PC F9：恢复全部设置到默认值（等同 BIOS load defaults） */
+	function resetAllSettings():Void
+	{
+		closeWidgetPopups();
+		cancelNumericInput(false);
+
+		ClientPrefs.data = ClientPrefs.defaultData;
+		ClientPrefs.saveSettings();
+		ClientPrefs.loadPrefs();
+
+		// 分辨率随默认值重新应用（string 标签走 Main 的 Dynamic 入口）
+		Main.applyRenderResolution(ClientPrefs.data.renderResolution, ClientPrefs.data.wideScreen, !ClientPrefs.data.useDpiSettings);
+
+		// 重建行 + 复位滚动 + 选中刷新（值全变默认了）
+		doSwitchToCat(options[selectedCatIndex], false);
+
+		MessageBox.show(
+			backend.Language.getPhrase("settings_restored", "Settings restored"),
+			backend.Language.getPhrase("all_settings_reset_hint", "All settings have been reset to defaults (F9)"),
+			MessageBoxType.MESSAGE, null, 2.5);
+	}
+
+	// ==================== 行激活 ====================
+
+	/** Enter / 点击共用的「确认这一行」 */
+	function activateRow(idx:Int):Void
+	{
+		if (idx < 0 || idx >= selectedList.length) return;
+		var opt = selectedList[idx];
+		if (opt == null) return;
+
+		if (opt.type == "title") return; // 标题行不可交互
+
+		if (opt.type == "back")
+		{
+			exitSubView();
+			return;
+		}
+		if (opt.hasSubMenu)
+		{
+			enterSubView(opt);
+			return;
+		}
+		if (opt.type == "confirm")
+		{
+			// 阻塞式确认对话框：菜单输入被 subState 门禁挡住，Yes 才执行
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+			openSubState(new KEConfirmDialog(opt.getDisplayName(), opt.getWarning(), function() {
+				opt.executeWarningAction();
+			}));
+			return;
+		}
+		if ((opt.type == "string" || opt.type == "color" || opt.type == "bool") && rows[idx] != null && rows[idx].widget != null)
+		{
+			rows[idx].widget.openPopup(true);
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.6);
+			return;
+		}
+
+		var shouldKeepState = opt.press();
+		if (shouldKeepState)
+		{
+			ClientPrefs.saveSettings();
+			doSelectCurrentOption();
+		}
+	}
+
+	function selectRow(idx:Int, silent:Bool = false):Void
+	{
+		if (idx < 0 || idx >= selectedList.length) return;
+		var target:KEOption = selectedList[idx];
+		if (target != null && target.type == "title") return; // 标题行不可选中
+		// 输入中离开本行 → 先提交缓冲再走（"离开即保存"）
+		if (numericInput && idx != selectedOptionIndex)
+			commitNumericInput();
+		selectedOptionIndex = idx;
+		ensureOptionVisible();
+		doSelectCurrentOption();
+		if (!silent)
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
+		else if (scrollHoldTime == 0)
+			FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
+	}
+
+	/** 鼠标点是否落在 widget 主条上（用矩形探针，别用组包围盒） */
+	function mouseInWidget(widget:StringSelect, widgetW:Float):Bool
+	{
+		var probe = new FlxObject(widget.x, widget.y, widgetW, 32);
+		probe.scrollFactor.set();
+		return OptionInput.overlaps(probe);
+	}
+
+	// ==================== 主循环 ====================
 
 	override function update(elapsed:Float)
-{
-    starsBG.x -= 0.05;
-    starsFG.x -= 0.15;
-    
-    if (starsBG.x < -starsBG.width) starsBG.x = 0;
-    if (starsFG.x < -starsFG.width) starsFG.x = 0;
-
-    super.update(elapsed);
-    
-    // 检查分辨率是否需要更新 - 使用当前分辨率列表
-    var curRes = ClientPrefs.data.renderResolution;
-    var resolutions = getCurrentResolutions();
-    if (curRes >= 0 && curRes < resolutions.length && curRes != _lastResolution && !FlxG.save.data.fullscreen) {
-        applyRenderResolution(curRes);
-    }
-    
-    if (optionClickCooldown > 0) {
-        optionClickCooldown -= elapsed;
-        if (optionClickCooldown <= 0) {
-            optionClickProtected = false;
-        }
-    }
-    
-    FlxG.mouse.visible = true;
-    FlxG.mouse.useSystemCursor = ClientPrefs.data.useSystemCursor;
-
-    if (!isClosing && (controls.BACK || FlxG.mouse.justPressedRight))
-    {
-        if(onMainMenuState && !onPlayState)
-        {
-            MusicBeatState.switchState(new MainMenuState());
-            onMainMenuState = false;
-        }
-        else if(onPlayState)
-        {
-            StageData.loadDirectory(PlayState.SONG);
-            LoadingState.loadAndSwitchState(new PlayState());
-            FlxG.sound.music.volume = 0;
-        }
-		else if (isFreeplay)
-			MusicBeatState.switchState(new states.FreeplayState());
-		else
-			MusicBeatState.switchState(new MainMenuState());
-    }
-
-    if (isClosing) return;
-
-    var hoveredOptionIndex = -1;
-    var hoveredCatIndex = -1;
-    
-    for (i in 0...options.length)
-    {
-        var cat = options[i];
-        if (cat != null && cat.titleObject != null && FlxG.mouse.overlaps(cat.titleObject))
-        {
-            hoveredCatIndex = i;
-            break;
-        }
-    }
-    
-    if (selectedCat != null && selectedCat.optionObjects != null)
-    {
-        for (i in 0...selectedCat.optionObjects.members.length)
-        {
-            var optionText = selectedCat.optionObjects.members[i];
-            if (optionText == null || optionText.alpha == 0) continue;
-            
-            if (FlxG.mouse.overlaps(optionText))
-            {
-                hoveredOptionIndex = i;
-                break;
-            }
-        }
-    }
-    
-    for (i in 0...options.length)
-    {
-        var cat = options[i];
-        if (cat != null && cat.titleObject != null)
-        {
-            if (i == selectedCatIndex)
-            {
-                cat.titleObject.color = FlxColor.WHITE;
-                cat.titleObject.alpha = 1;
-                cat.alpha = 0.6;
-            }
-            else if (i == hoveredCatIndex)
-            {
-                cat.titleObject.color = FlxColor.YELLOW;
-                cat.titleObject.alpha = 0.8;
-                cat.alpha = 0.5;
-            }
-            else
-            {
-                cat.titleObject.color = FlxColor.WHITE;
-                cat.titleObject.alpha = 0.6;
-                cat.alpha = 0.8;
-            }
-        }
-    }
-    
-    updateOptionPositions();
-    
-    if (selectedCat != null && selectedCat.optionObjects != null)
-    {
-        for (i in 0...selectedCat.optionObjects.members.length)
-        {
-            var optionText = selectedCat.optionObjects.members[i];
-            if (optionText == null || optionText.alpha == 0) continue;
-            
-            if (i == selectedOptionIndex)
-            {
-                optionText.color = FlxColor.WHITE;
-            }
-            else if (i == hoveredOptionIndex)
-            {
-                optionText.color = FlxColor.YELLOW;
-            }
-            else
-            {
-                optionText.color = FlxColor.WHITE;
-            }
-        }
-    }
-    
-    if (FlxG.mouse.wheel != 0)
-    {
-        var wheelDelta = - FlxG.mouse.wheel;
-        scrollOptions(wheelDelta, false);
-    }
-
-    var accept = controls.ACCEPT;
-    var right = controls.UI_RIGHT_P;
-    var left = controls.UI_LEFT_P;
-    var up = controls.UI_UP_P;
-    var down = controls.UI_DOWN_P;
-    var rightPressed = controls.UI_RIGHT;
-    var leftPressed = controls.UI_LEFT;
-    var upPressed = controls.UI_UP;
-    var downPressed = controls.UI_DOWN;
-
-    for (i in 0...options.length)
-    {
-        var cat = options[i];
-        if (FlxG.mouse.overlaps(cat.titleObject) && FlxG.mouse.justPressed)
-        {
-            FlxG.sound.play(Paths.sound('scrollMenu'));
-            selectedCatIndex = i;
-            doSwitchToCat(options[selectedCatIndex]);
-            break;
-        }
-    }
-
-    if (selectedCat != null && selectedCat.optionObjects != null && FlxG.mouse.justPressed && !optionClickProtected)
-    {
-        for (i in 0...selectedCat.optionObjects.members.length)
-        {
-            var optionText = selectedCat.optionObjects.members[i];
-            if (optionText == null || optionText.alpha == 0) continue;
-            
-            var option = selectedCat.options[i];
-            if (option == null) continue;
-            
-            if (FlxG.mouse.overlaps(optionText))
-            {
-                selectedOptionIndex = i;
-                selectedOption = option;
-                
-                ensureOptionVisible();
-                updateOptionPositions();
-                doSelectCurrentOption();
-                
-                option.press();
-                ClientPrefs.saveSettings();
-                doSelectCurrentOption();
-                
-                optionClickProtected = true;
-                optionClickCooldown = 0.2;
-                break;
-            }
-        }
-    }
-    
-    if (up)
-    {
-        if (selectedOptionIndex > 0) {
-            selectedOptionIndex--;
-            selectedOption = selectedCat.options[selectedOptionIndex];
-            ensureOptionVisible();
-            updateOptionPositions();
-            doSelectCurrentOption();
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
-        } else if (scrollOffset > 0) {
-            scrollOptions(-1, false);
-        }
-    }
-    
-    if (down)
-    {
-        if (selectedOptionIndex < selectedCat.options.length - 1) {
-            selectedOptionIndex++;
-            selectedOption = selectedCat.options[selectedOptionIndex];
-            ensureOptionVisible();
-            updateOptionPositions();
-            doSelectCurrentOption();
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
-        } else if (scrollOffset < maxScrollOffset) {
-            scrollOptions(1, false);
-        }
-    }
-    
-    if (upPressed) {
-        holdUpTime += elapsed;
-        if (holdUpTime > 0.3) {
-            scrollHoldTime += elapsed;
-            if (scrollHoldTime >= 0.05) {
-                scrollHoldTime = 0;
-                if (selectedOptionIndex > 0) {
-                    selectedOptionIndex--;
-                    selectedOption = selectedCat.options[selectedOptionIndex];
-                    ensureOptionVisible();
-                    updateOptionPositions();
-                    doSelectCurrentOption();
-                    FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
-                } else if (scrollOffset > 0) {
-                    scrollOptions(-1, true);
-                }
-            }
-        }
-    } else {
-        holdUpTime = 0;
-    }
-    
-    if (downPressed) {
-        holdDownTime += elapsed;
-        if (holdDownTime > 0.3) {
-            scrollHoldTime += elapsed;
-            if (scrollHoldTime >= 0.05) {
-                scrollHoldTime = 0;
-                if (selectedOptionIndex < selectedCat.options.length - 1) {
-                    selectedOptionIndex++;
-                    selectedOption = selectedCat.options[selectedOptionIndex];
-                    ensureOptionVisible();
-                    updateOptionPositions();
-                    doSelectCurrentOption();
-                    FlxG.sound.play(Paths.sound('scrollMenu'), 0.3);
-                } else if (scrollOffset < maxScrollOffset) {
-                    scrollOptions(1, true);
-                }
-            }
-        }
-    } else {
-        holdDownTime = 0;
-    }
-    
-    if (!upPressed && !downPressed) {
-        scrollHoldTime = 0;
-    }
-
-    if (selectedOption != null && selectedOption.getAccept())
-    {
-        var optionChangedByHold = selectedOption.updateHold(elapsed, leftPressed, rightPressed);
-        if (optionChangedByHold)
-        {
-            ClientPrefs.saveSettings();
-            doSelectCurrentOption();
-        }
-        
-        if (right && !optionChangedByHold)
-        {
-            selectedOption.right();
-            ClientPrefs.saveSettings();
-            doSelectCurrentOption();
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
-        }
-        else if (left && !optionChangedByHold)
-        {
-            selectedOption.left();
-            ClientPrefs.saveSettings();
-            doSelectCurrentOption();
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
-        }
-    }
-    else
-    {
-        if (right)
-        {
-            selectedCatIndex++;
-            if (selectedCatIndex >= options.length) selectedCatIndex = 0;
-            doSwitchToCat(options[selectedCatIndex]);
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
-        }
-        else if (left)
-        {
-            selectedCatIndex--;
-            if (selectedCatIndex < 0) selectedCatIndex = options.length - 1;
-            doSwitchToCat(options[selectedCatIndex]);
-            FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
-        }
-    }
-
-    if (accept)
-    {
-        var shouldKeepState = selectedOption.press();
-        if (shouldKeepState)
-        {
-            ClientPrefs.saveSettings();
-            doSelectCurrentOption();
-        }
-    }
-}
-	
-	private function handleUpKey(isLongPress:Bool = false)
 	{
-		if (selectedCat == null || selectedCat.options.length == 0) return;
-		
-		if (selectedOptionIndex > 0) {
-			selectedOptionIndex--;
-			selectedOption = selectedCat.options[selectedOptionIndex];
-			
-			ensureOptionVisible();
-			
-			doSelectCurrentOption();
-			
-			if (!isLongPress) {
-				FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
+		starsBG.x -= 0.05;
+		starsFG.x -= 0.15;
+
+		if (starsBG.x < -starsBG.width) starsBG.x = 0;
+		if (starsFG.x < -starsFG.width) starsFG.x = 0;
+
+		super.update(elapsed);
+
+		if (optionClickCooldown > 0) {
+			optionClickCooldown -= elapsed;
+			if (optionClickCooldown <= 0) {
+				optionClickProtected = false;
 			}
-		} else if (isLongPress && scrollOffset > 0) {
-			scrollOptions(-1, isLongPress);
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
 		}
-	}
-	
-	private function handleDownKey(isLongPress:Bool = false)
-	{
-		if (selectedCat == null || selectedCat.options.length == 0) return;
-		
-		if (selectedOptionIndex < selectedCat.options.length - 1) {
-			selectedOptionIndex++;
-			selectedOption = selectedCat.options[selectedOptionIndex];
-			
-			ensureOptionVisible();
-			
-			doSelectCurrentOption();
-			
-			if (!isLongPress) {
-				FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
+
+		FlxG.mouse.visible = true;
+		FlxG.mouse.useSystemCursor = ClientPrefs.data.useSystemCursor;
+
+		// ---- 有 substate 挡在前（确认对话框 / 键位编辑器等）：主菜单不再吃任何输入 ----
+		if (this.subState != null)
+		{
+			optionScroller.inputAllow = false;
+			positionRows();
+			return;
+		}
+
+		// ---- PC：F9 恢复全部设置（BIOS load defaults 便捷键） ----
+		#if desktop
+		if (FlxG.keys.justPressed.F9)
+		{
+			resetAllSettings();
+		}
+		#end
+
+		// ---- 弹层展开时先让下拉接管键盘（上下选/回车/ESC/R） ----
+		var openWidget = findOpenWidget();
+
+		// ---- BACK：输入中仅 ESC/右键取消（BACKSPACE 绑在 BACK 上，归删字符管） > 子视图返回 > 关闭菜单 ----
+		if (!isClosing && (controls.BACK || FlxG.mouse.justPressedRight))
+		{
+			if (numericInput)
+			{
+				if (FlxG.keys.justPressed.ESCAPE || FlxG.mouse.justPressedRight)
+					cancelNumericInput(true);
 			}
-		} else if (isLongPress && scrollOffset < maxScrollOffset) {
-			scrollOptions(1, isLongPress);
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
+			else if (openWidget != null)
+			{
+				// 键盘 BACK 由弹层 handleKeyNav 收起；鼠标右键这里就地收起
+				if (FlxG.mouse.justPressedRight) openWidget.closePopup();
+			}
+			else if (inSubView)
+			{
+				exitSubView();
+			}
+			else if(onMainMenuState && !onPlayState)
+			{
+				MusicBeatState.switchState(new MainMenuState());
+				onMainMenuState = false;
+			}
+			else if(onPlayState)
+			{
+				StageData.loadDirectory(PlayState.SONG);
+				LoadingState.loadAndSwitchState(new PlayState());
+				FlxG.sound.music.volume = 0;
+			}
+			else if (isFreeplay)
+				MusicBeatState.switchState(new states.FreeplayState());
+			else
+				MusicBeatState.switchState(new MainMenuState());
 		}
+
+		if (isClosing) return;
+
+		var popupConsumesKeys:Bool = openWidget != null;
+		if (popupConsumesKeys)
+			openWidget.handleKeyNav();
+
+		// 弹层展开时让出列表拖动与滚轮（wheel 由 MouseMove 在 inputAllow 门内处理）；数值输入不屏蔽
+		optionScroller.inputAllow = (openWidget == null);
+
+		// ---- 选项卡悬停/点击 + 下划线动效 ----
+		var tabHoverIndex = -1;
+		for (i in 0...options.length)
+		{
+			var cat = options[i];
+			if (cat != null && cat.titleObject != null && FlxG.mouse.overlaps(cat.titleObject))
+			{
+				tabHoverIndex = i;
+				break;
+			}
+		}
+		hoveredCatIndex = tabHoverIndex;
+		updateUnderlines(false);
+
+		for (i in 0...options.length)
+		{
+			var cat = options[i];
+			if (cat != null && cat.titleObject != null)
+			{
+				if (i == selectedCatIndex)
+				{
+					cat.titleObject.color = FlxColor.WHITE;
+					cat.titleObject.alpha = 1;
+					cat.alpha = 0.6;
+				}
+				else if (i == tabHoverIndex)
+				{
+					cat.titleObject.color = FlxColor.YELLOW;
+					cat.titleObject.alpha = 0.8;
+					cat.alpha = 0.5;
+				}
+				else
+				{
+					cat.titleObject.color = FlxColor.WHITE;
+					cat.titleObject.alpha = 0.6;
+					cat.alpha = 0.8;
+				}
+			}
+		}
+
+		if (FlxG.mouse.justPressed && openWidget == null && !numericInput)
+		{
+			for (i in 0...options.length)
+			{
+				var cat = options[i];
+				if (FlxG.mouse.overlaps(cat.titleObject))
+				{
+					FlxG.sound.play(Paths.sound('scrollMenu'));
+					selectedCatIndex = i;
+					doSwitchToCat(options[selectedCatIndex]);
+					break;
+				}
+			}
+		}
+
+		// ---- 行悬停 / 点击 ----
+		var hoveredOptionIndex = -1;
+		for (i in 0...rows.length)
+		{
+			var row = rows[i];
+			if (row == null || !row.rowVisible) continue;
+			if (OptionInput.overlaps(row.hitbox))
+			{
+				hoveredOptionIndex = i;
+				break;
+			}
+		}
+
+		for (i in 0...rows.length)
+		{
+			var row = rows[i];
+			if (row == null) continue;
+			if (i == selectedOptionIndex)
+			{
+				row.nameText.color = FlxColor.WHITE;
+			}
+			else if (i == hoveredOptionIndex && row.option.type != "title") // 标题行不响应悬停高亮
+			{
+				row.nameText.color = FlxColor.YELLOW;
+			}
+			else
+			{
+				row.nameText.color = FlxColor.WHITE;
+			}
+		}
+
+		// ---- 行点击：按下记候选，松开时先做拖拽防误触判定，再"先选择、再执行" ----
+		if (FlxG.mouse.justPressed && openWidget == null && !optionClickProtected)
+		{
+			pressRow = -1;
+			if (hoveredOptionIndex >= 0)
+			{
+				var row = rows[hoveredOptionIndex];
+				var widgetW:Float = SCREEN_WIDTH * 0.20;
+
+				if (row.widget != null && mouseInWidget(row.widget, widgetW))
+				{
+					// 点在下拉条上：只移动选中，打开/关闭由控件自己的 update 处理
+					if (selectedOptionIndex != hoveredOptionIndex)
+						selectRow(hoveredOptionIndex);
+				}
+				else if (row.option.type != "title")
+				{
+					// 记录按压候选（不立即执行）：松开时未拖拽才结算
+					pressRow = hoveredOptionIndex;
+					pressWasSelected = (pressRow == selectedOptionIndex);
+					pressY = FlxG.mouse.y;
+					pressTarget = optionScroller.target;
+				}
+			}
+		}
+
+		if (FlxG.mouse.justReleased && pressRow >= 0)
+		{
+			// 拖拽防误触：指针位移 >8px 或按压期间滚动位移 >2 → 这次是拖拽，全部作废
+			var dragged:Bool = Math.abs(FlxG.mouse.y - pressY) > 8
+				|| Math.abs(optionScroller.target - pressTarget) > 2;
+
+			if (!dragged)
+			{
+				if (!pressWasSelected)
+				{
+					selectRow(pressRow); // 首点：只选中
+				}
+				else
+				{
+					activateRow(pressRow); // 已选中的行再点：才执行
+					optionClickProtected = true;
+					optionClickCooldown = 0.2;
+				}
+			}
+			pressRow = -1;
+		}
+
+		// ---- 数值直接输入：选中数值项时敲数字即开始（不屏蔽导航，离开该行自动保存） ----
+		var numericJustStarted:Bool = false;
+		if (!numericInput && openWidget == null && isNumericOption(selectedOption))
+		{
+			var d:Int = digitJustPressed();
+			if (d >= 0)
+			{
+				startNumericInput();
+				numericBuf = Std.string(d);
+				numericJustStarted = true; // 起手帧不再进 handleNumericInput，修掉首输必双写
+			}
+		}
+
+		// 缓冲编辑（数字/负号/小数点/退格）每帧跑；导航不受影响
+		if (numericInput && !numericJustStarted)
+		{
+			handleNumericInput();
+		}
+
+		// ---- 键盘导航（弹层展开时让位；数值输入期间照常导航，离开该行自动提交） ----
+		if (!popupConsumesKeys)
+		{
+			var accept = controls.ACCEPT;
+			var right = controls.UI_RIGHT_P;
+			var left = controls.UI_LEFT_P;
+			var up = controls.UI_UP_P;
+			var down = controls.UI_DOWN_P;
+			var upPressed = controls.UI_UP;
+			var downPressed = controls.UI_DOWN;
+
+			// 左右键始终切换选项卡（不再被 String/数值项拦截）
+			if (right)
+			{
+				selectedCatIndex++;
+				if (selectedCatIndex >= options.length) selectedCatIndex = 0;
+				doSwitchToCat(options[selectedCatIndex]);
+				FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
+			}
+			else if (left)
+			{
+				selectedCatIndex--;
+				if (selectedCatIndex < 0) selectedCatIndex = options.length - 1;
+				doSwitchToCat(options[selectedCatIndex]);
+				FlxG.sound.play(Paths.sound('scrollMenu'), 0.5);
+			}
+
+			if (up)
+			{
+				selectRow(selectedOptionIndex - 1);
+			}
+			else if (down)
+			{
+				selectRow(selectedOptionIndex + 1);
+			}
+
+			if (upPressed) {
+				holdUpTime += elapsed;
+				if (holdUpTime > 0.3) {
+					scrollHoldTime += elapsed;
+					if (scrollHoldTime >= 0.05) {
+						scrollHoldTime = 0;
+						selectRow(selectedOptionIndex - 1, true);
+					}
+				}
+			} else {
+				holdUpTime = 0;
+			}
+
+			if (downPressed) {
+				holdDownTime += elapsed;
+				if (holdDownTime > 0.3) {
+					scrollHoldTime += elapsed;
+					if (scrollHoldTime >= 0.05) {
+						scrollHoldTime = 0;
+						selectRow(selectedOptionIndex + 1, true);
+					}
+				}
+			} else {
+				holdDownTime = 0;
+			}
+
+			if (!upPressed && !downPressed) {
+				scrollHoldTime = 0;
+			}
+
+			// 数值输入中：Esc 取消；Enter 提交。其余导航照常（离开该行时 selectRow/doSwitchToCat 自动提交）
+			if (numericInput && FlxG.keys.justPressed.ESCAPE)
+			{
+				cancelNumericInput(true);
+			}
+			else if (accept)
+			{
+				if (numericInput)
+					commitNumericInput();
+				else
+					activateRow(selectedOptionIndex);
+			}
+		}
+
+		// ---- 行定位 + 边缘三态裁剪（每帧，跟随 lerp 后的滚动位） ----
+		positionRows();
 	}
-	
-	private function handleRightKey()
+
+	/** 每帧按 optionScrollPos 摆行：滚出视口隐藏、完全可见清裁剪、露半截逐叶子裁 */
+	function positionRows():Void
 	{
-		if (selectedOption.getAccept())
+		var csY:Float = contentStartY();
+		var cbY:Float = SCREEN_HEIGHT - MARGIN_BOTTOM;
+		var cam = FlxG.camera;
+
+		for (i in 0...rows.length)
 		{
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
-			selectedOption.right();
-			ClientPrefs.saveSettings();
-			doSelectCurrentOption();
-		}
-		else
-		{
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
-			selectedCatIndex++;
-			if (selectedCatIndex >= options.length)
-				selectedCatIndex = 0;
-			doSwitchToCat(options[selectedCatIndex]);
-		}
-	}
-	
-	private function handleLeftKey()
-	{
-		if (selectedOption.getAccept())
-		{
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
-			selectedOption.left();
-			ClientPrefs.saveSettings();
-			doSelectCurrentOption();
-		}
-		else
-		{
-			FlxG.sound.play(Paths.sound('scrollMenu'), 0.7);
-			selectedCatIndex--;
-			if (selectedCatIndex < 0)
-				selectedCatIndex = options.length - 1;
-			doSwitchToCat(options[selectedCatIndex]);
+			var row = rows[i];
+			if (row == null) continue;
+
+			var rowY:Float = csY + i * ROW_H - optionScrollPos;
+			row.setY(rowY);
+
+			if (rowY + ROW_H <= csY || rowY >= cbY)
+			{
+				row.setVisible(false);
+				row.clearClip();
+			}
+			else if (rowY >= csY && rowY + ROW_H <= cbY)
+			{
+				row.setVisible(true);
+				row.clearClip();
+			}
+			else
+			{
+				row.setVisible(true);
+				row.applyClip(-1000, csY, SCREEN_WIDTH + 1000, cbY, cam);
+			}
 		}
 	}
 
-function onScrollChange()
-{
-    if (selectedCat == null || selectedCat.options.length == 0) return;
-    
-    var newScrollOffset = Math.round(optionScrollPos / 46);
-    
-    if (newScrollOffset != scrollOffset)
-    {
-        scrollOffset = newScrollOffset;
-        if (scrollOffset < 0) scrollOffset = 0;
-        if (scrollOffset > maxScrollOffset) scrollOffset = maxScrollOffset;
-        updateOptionPositions();
-    }
-}
+	// ==================== 选项定义 ====================
 
-	// 修改 getAppearanceOptions 中的 Resolution 选项
 	function getAppearanceOptions():Array<KEOption>
 	{
 		var fpsOptions = KEOption.createSubMenu(
@@ -1141,25 +1277,19 @@ function onScrollChange()
 				KEOption.create("Show TPS", "Show ticks per second in FPS Counter", "showTPS", "bool"),
 				KEOption.create("Show Memory Peak", "Show peak memory usage in FPS Counter", "showMEMPeak", "bool"),
 			],
-			"",
 			"FPS Counter Settings"
 		);
-		
-		// 获取当前分辨率名称列表的最大索引
-		var maxResIdx = getCurrentResolutionNames().length - 1;
-		
+
 		return [
 			fpsOptions,
 			KEOption.create("Low Quality", "Reduce graphics for performance", "lowQuality", "bool"),
 			KEOption.create("Anti-Aliasing", "Smoother visuals", "antialiasing", "bool"),
-			// 修改 Resolution 选项 - 动态获取最大索引
-			KEOption.create("Resolution", "Change the game's render resolution.", "renderResolution", "int", 0, 0, maxResIdx, 1),
+			// Resolution：string 选择（与 Win10 页同一套标签），旧 Int 存档由 Main.getRenderResolutionIndex 兼容
+			KEOption.create("Resolution", "Change the game's render resolution.", "renderResolution", "string", GraphicsData.getResolutionLabels()),
 			KEOption.create("DPI Scale", "Scale the game based on your screen's DPI", "useDpiSettings", "bool"),
 			KEOption.create("Shaders", "Enable shader effects", "shaders", "bool"),
 			KEOption.create("Wide Screen", "Enable 21:9 widescreen mode", "wideScreen", "bool"),
 			KEOption.createStringOption("GPU Caching", "Texture caching mode: disabled = RAM only; auto = drop the CPU copy after the first draw; full = upload and drop the CPU copy at load (least RAM, risky on low VRAM)", "gpuCaching", ["disabled", "auto", "full"], "disabled"),
-			KEOption.createStringOption("Preload to VRAM", "Upload textures to VRAM during preload. auto = only when the GPU has 10GB+ dedicated memory; on = always; off = never (upload on first use). Only matters when GPU Caching is set to full", "preloadTextureToVRAM", ["auto", "on", "off"], "auto"),
-			KEOption.create("Keep Song on Freeplay", "Keep textures of the last played song loaded when returning to Freeplay, so replaying the same song skips decoding entirely. They are freed when you pick a different song or leave the menu. Costs RAM while you sit in the menu", "keepSongAssetsOnFreeplay", "bool"),
 			KEOption.create("Divide Draw And Update", "Draw and Update in separate threads", "devideDrawAndUpdate", "bool"),
 			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 480, 1),
 			KEOption.create("Update Rate", "Target update rate", "updaterate", "int", 60, 60, 480, 1),
@@ -1168,7 +1298,6 @@ function onScrollChange()
 		];
 	}
 
-	// 其他函数保持不变...
 	function getGameplayOptions():Array<KEOption>
 	{
 		var windowSettings = KEOption.createSubMenu(
@@ -1182,7 +1311,6 @@ function onScrollChange()
 				KEOption.create("Bad Window", "Timing window for BAD", "badWindow", "float", 135, 10, 135, 0.5),
 				KEOption.create("Safe Frames", "Frames for early/late hits", "safeFrames", "float", 10, 2, 10, 1)
 			],
-			"",
 			"Window Settings"
 		);
 
@@ -1224,15 +1352,12 @@ function onScrollChange()
 				KEOption.create("Force Number Color", "Force numbers to a specific color", "forceNumberColor", "bool"),
 				KEOption.create("showEarlyLate", "Show early/late text on hit", "showEarlyLate", "bool"),
 				KEOption.create("showCombo", "Show combo text when combo > 10", "showCombo", "bool"),
-				KEOption.create("Force Note Skin", "Force using the custom note skin", "forceNoteSkin", "bool"),
-				KEOption.create("Force Splash Skin", "Force using the custom splash skin", "forceSplashSkin", "bool"),
-				KEOption.create("Force RGB Shader", "Force using the RGB shader for notes and splashes", "forceRGBShader", "bool")
-
+				KEOption.create("Note System", "auto: detect | legacy: force HSV | new: force RGB + custom skin", "noteSystem", "string", ['auto', 'legacy', 'new']),
+				KEOption.create("Splash System", "auto: detect | legacy: force HSV | new: force RGB + custom skin", "splashSystem", "string", ['auto', 'legacy', 'new'])
 			],
-			"",
 			"Skin Settings"
 		);
-		
+
 		var hitErrorSettings = KEOption.createSubMenu(
 			"Hit Error Bar",
 			"Configure hit error bar display",
@@ -1246,7 +1371,6 @@ function onScrollChange()
 				KEOption.create("Hit Error Bar MS", "Show MS on hit error bar rather than on ratings", "msInErrorBar", "bool"),
 				KEOption.create("Hit Error Bar Block Counter", "Show hit counts under each hit error bar zone", "hitBarBlockCounter", "bool")
 			],
-			"",
 			"Hit Error Bar Settings"
 		);
 
@@ -1263,7 +1387,6 @@ function onScrollChange()
 				KEOption.create("Keyboard Time Display", "Change the keyboard time should display or not", "keyboardTimeDisplay", "bool"),
 				KEOption.create("Keyboard Time Length", "Change the how long the keyboard is displayed", "keyboardTime", "float", 300, 0 , 2000, 20)
 			],
-			"",
 			"Keyboard Display Settings"
 		);
 		var charthelperOptions = KEOption.createSubMenu(
@@ -1272,7 +1395,6 @@ function onScrollChange()
 			[
 				KEOption.create("Note Guide Line Opacity", "Transparency of the chart helper display", "guideLineAlpha", "float", 1.0, 0.0, 1.0, 0.1),
 			],
-			"",
 			"Chart Helper Settings"
 		);
 
@@ -1298,9 +1420,7 @@ function onScrollChange()
 				KEOption.create("Audio Display Quality", "Change the relax audio display quality", "relaxAudioDisplayQuality", "int", 4, 1, 8, 1),
 				KEOption.create("Audio Display Update Speed", "Change the relax audio display update speed", "audioDisplayUpdate", "int", 33, 33, 100, 1),
 				KEOption.create("Audio Gain", "Change the relax audio range", "audioGain", "float", 1.0, 0.1, 10.0, 0.5),
-
 			],
-			"",
 			"Freeplay Settings"
 		);
 
@@ -1316,7 +1436,6 @@ function onScrollChange()
 				KEOption.create("Show Total Notes Hit", "Show total notes in judgements counter", "showTNH", "bool"),
 				KEOption.create("Show Misses", "Show misses in judgements counter", "showMiss", "bool"),
 			],
-			"",
 			"Judgements Counter Settings"
 		);
 
@@ -1329,7 +1448,6 @@ function onScrollChange()
 				KEOption.create("Show Difficulty", "Show difficulty in song info text", "showDifficulty", "bool"),
 				KEOption.create("Song Engine Version", "Show engine version in song info text", "showEngineVer", "bool"),
 			],
-			"",
 			"Song Info Text Settings"
 		);
 
@@ -1343,9 +1461,9 @@ function onScrollChange()
 		pauseDoubleEnterOpt.translationKey = "pause_double_enter_skip";
 		var pauseUnlockInputOpt = KEOption.create("Control During Animation", "Allow using the pause menu while the intro animation is still playing", "pauseUnlockInputDuringAnim", "bool");
 		pauseUnlockInputOpt.translationKey = "pause_unlock_input";
-		
+
 		return [
-			skinSettings, 
+			skinSettings,
 			hitErrorSettings,
 			keyboardDisplayOptions,
 			charthelperOptions,
@@ -1383,6 +1501,7 @@ function onScrollChange()
 	{
 		return [
 			KEOption.create("Open Note Colors", "Customize note colors", "", "action"),
+			KEOption.create("Open Note HSV Colors", "Customize legacy note HSV colors", "", "action"),
 			KEOption.create("Open Controls", "Customize key bindings", "", "action"),
 			KEOption.create("Open EK Controls", "Customize key bindings for EK mode", "", "action"),
 			KEOption.create("Adjust Delay and Combo", "Customize ingame experience", "", "action"),

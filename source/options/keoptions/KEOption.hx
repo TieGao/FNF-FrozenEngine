@@ -1,12 +1,12 @@
 package options.keoptions;
 
 import backend.Language;
+import options.groupData.GraphicsData;
 
 import flixel.FlxG;
-import flixel.FlxSubState;
 import flixel.util.FlxColor;
 
-class KEOption
+class KEOption implements options.objects.backend.IStringValueSource
 {
 	public function new()
 	{
@@ -124,15 +124,15 @@ class KEOption
 	public var clickProtected:Bool = false;
 	public var clickProtectionTime:Float = 0.2; // 点击保护时间
 	
-	// 新增：二级菜单相关属性
+	// 二级分组属性：点击后由 KEOptionsMenu 在主界面内展开子列表（首行 BACK | 子标题），
+	// 不再打开独立 substate（KESubMenu 已删）。
 	public var hasSubMenu:Bool = false;
 	public var subMenuOptions:Array<KEOption> = [];
 	public var subMenuTitle:String = "";
 	public var subMenuDescription:String = "";
-	public var subMenuIcon:String = "";
-	public var subMenuParent:Null<KEOption> = null;
-	public var isInSubMenu:Bool = false;
-	public var subMenuDepth:Int = 0;
+
+	/** type == "action" 时的自定义动作：非空则 press() 直接调它，跳过按 name 的 switch */
+	public var onAction:Void->Void = null;
 
 	public final function getDisplay():String
 	{
@@ -202,9 +202,78 @@ class KEOption
 		return resolveTranslation("no description available", "No description available.");
 	}
 
-	public function getValue():String
+	/** IStringValueSource 契约：返回**裸值**（bool → "on"/"off"，string → 当前字符串，color → FlxColor Int）。展示文本走 getOptionText / updateDisplay */
+	public function getValue():Dynamic
 	{
-		return updateDisplay();
+		if (type == "bool") return value ? "on" : "off";
+		return value;
+	}
+
+	/** IStringValueSource 契约：裸值 → 展示文本（含 setting_<key>-<值> 翻译与 hitsound 前缀剥离） */
+	public function getOptionText(raw:Dynamic):String
+	{
+		var s:String = (raw == null) ? "" : Std.string(raw);
+		if (variable == "hitsound" && s.startsWith("hitsounds/"))
+			s = s.substring("hitsounds/".length);
+		return resolveOptionValue(s);
+	}
+
+	/** IStringValueSource 契约：写裸值 + 同步 curOption，不落盘（落盘由 saveCurrentValue 负责） */
+	public function setValue(raw:Dynamic):Void
+	{
+		if (type == "bool")
+		{
+			// 下拉栏传回 "on"/"off"（也可能直接传 Bool）
+			value = (raw == true || raw == "on" || raw == 1);
+			curOption = value ? 0 : 1;
+		}
+		else if (type == "string" && options.length > 0)
+		{
+			var s:String = Std.string(raw);
+			curOption = options.indexOf(s);
+			if (curOption < 0) curOption = 0;
+			value = options[curOption];
+		}
+		else if (type == "color")
+		{
+			if (Std.isOfType(raw, String))
+			{
+				var idx:Int = COLOR_NAMES.indexOf(Std.string(raw));
+				if (idx < 0) idx = 0;
+				curOption = idx;
+				value = COLOR_PALETTE[idx];
+			}
+			else
+			{
+				value = raw;
+				curOption = 0;
+				for (i in 0...COLOR_PALETTE.length)
+					if (COLOR_PALETTE[i] == value) { curOption = i; break; }
+			}
+		}
+		else
+		{
+			value = raw;
+		}
+		display = updateDisplay();
+	}
+
+	/** IStringValueSource 契约：改值后的即时生效副作用 */
+	public function change():Void
+	{
+		applyImmediateChanges();
+	}
+
+	/** 行左侧的选项名（含翻译），KEOptionsMenu 行组件用 */
+	public function getDisplayName():String
+	{
+		return resolveTranslation(getTranslationKey(), name);
+	}
+
+	/** description 是私有字段；主界面内确认子视图的 YES 行用这个注入警告文案 */
+	public function setDescription(d:String):Void
+	{
+		description = (d == null) ? "" : d;
 	}
 
 	public function onType(text:String)
@@ -229,71 +298,41 @@ class KEOption
 	public function press():Bool
 	{
 		if (!canPress()) return false;
-		
-		// 如果是二级菜单项，打开子菜单
-		if (hasSubMenu) {
-			openSubMenu();
-			return false;
-		}
 
-		// 如果是可选字符串选项，打开新的选择子界面
-		if(type == "string" && options.length > 0) {
-			openStringSelectMenu();
-			return false;
-		}
-		
-		if(type == "color") {
-			openColorSelectMenu();
-			return false;
-		}
-		
-		if(type == "confirm") {
-			openConfirmMenu();
-			return false;
-		}
 		if(type == "bool") {
 			value = !value;
+			curOption = value ? 0 : 1; // options = ["on","off"]，与下拉栏同步
 			saveValue();
 			return true;
 		}
 		else if(type == "action") {
-			// 处理特殊动作 - 现在包含警告检查
+			// 自定义动作（主界面内确认子视图的 YES 行走这里）
+			if (onAction != null) {
+				onAction();
+				return true;
+			}
+			// 处理特殊动作
 			switch(name) {
 				case "Open Note Colors":
 					KEOptionsMenu.instance.openSubState(new options.psychoptions.NotesColorSubState());
+					return false;
+				case "Open Note HSV Colors":
+					KEOptionsMenu.instance.openSubState(new options.psychoptions.NotesHSVSubState());
 					return false;
 				case "Open Controls":
 					KEOptionsMenu.instance.openSubState(new options.psychoptions.ControlsSubState());
 					return false;
 				case "Open EZ KeyBinds":
 					KEOptionsMenu.instance.openSubState(new KEKeyBindMenu());
-					return false;   
+					return false;
 				case "Open EK Controls":
 					KEOptionsMenu.instance.openSubState(new options.psychoptions.ExtraKeybindSubState());
 					return false;
 				case "Open Extra Settings":
-					openInCurrentSubState(new KEExtraSettingsSubState());
+					KEOptionsMenu.instance.openSubState(new KEExtraSettingsSubState());
 					return false;
-				//case "Replay Manager":
-				//	MusicBeatState.switchState(new states.LoadReplayState());
-				//	return false;  
-				// RIP LoadReplayState
-				case "Reset KeyBinds":
-					ClientPrefs.resetKeys();
-					ClientPrefs.saveSettings();
-					return true;
-				case "Reset Settings":
-					ClientPrefs.data = ClientPrefs.defaultData;
-					ClientPrefs.saveSettings();
-					ClientPrefs.loadPrefs();
-					return true;
-				case "Reset Scores":
-					#if desktop
-					// 重置分数逻辑
-					#end
-					return true;
 				case "Adjust Delay and Combo":
-					MusicBeatState.switchState(new options.psychoptions.NoteOffsetState());
+					MusicBeatState.switchState(new options.NoteOffsetState());
 					return false;
 				case "About":
 					KEOptionsMenu.instance.openSubState(new substates.AboutSubState());
@@ -308,50 +347,9 @@ class KEOption
 			waitingType = true;
 			return true;
 		}
+		// string/color：交互移交右侧 StringSelect（弹层/点击），press 不再开子界面
+		// confirm：由 KEOptionsMenu 进入主界面内的确认子视图（BACK + YES）
 		return false;
-	}
-
-	// 打开二级菜单
-	public function openSubMenu():Void
-	{
-		if (!hasSubMenu || subMenuOptions.length == 0) return;
-		
-		// 创建一个子菜单状态
-		var subMenu = new KESubMenu(this);
-		openInCurrentSubState(subMenu);
-	}
-
-	public function openStringSelectMenu():Void
-	{
-		if (type != "string" || options.length == 0) return;
-		var stringMenu = new KEConfirmMenu(this);
-		if (subMenuParent != null) stringMenu.closeParentSubMenu = true;
-		openInCurrentSubState(stringMenu);
-	}
-
-	public function openColorSelectMenu():Void
-	{
-		if (type != "color") return;
-		var stringMenu = new KEConfirmMenu(this);
-		if (subMenuParent != null) stringMenu.closeParentSubMenu = true;
-		openInCurrentSubState(stringMenu);
-	}
-
-	public function openConfirmMenu():Void
-	{
-		if (type != "confirm") return;
-		var confirmMenu = new KEConfirmMenu(this);
-		if (subMenuParent != null) confirmMenu.closeParentSubMenu = true;
-		openInCurrentSubState(confirmMenu);
-	}
-
-	private function openInCurrentSubState(subState:FlxSubState):Void
-	{
-		if (FlxG.state != null && FlxG.state.subState != null) {
-			cast(FlxG.state.subState, FlxSubState).openSubState(subState);
-		} else {
-			KEOptionsMenu.instance.openSubState(subState);
-		}
 	}
 
 	// 执行警告确认后的操作
@@ -579,6 +577,7 @@ class KEOption
 				return true;
 			case "bool":
 				value = !value;
+				curOption = value ? 0 : 1;
 				saveValue();
 				return true;
 			case "int", "float":
@@ -618,6 +617,7 @@ class KEOption
 				return true;
 			case "bool":
 				value = !value;
+				curOption = value ? 0 : 1;
 				saveValue();
 				return true;
 			case "int", "float":
@@ -680,6 +680,13 @@ class KEOption
 			case "sessionLogMax":
 				// 保留上限改动立即清理旧日志档案
 				debug.LogFile.trimArchives();
+			case "renderResolution":
+				// string 标签走 Main 的 Dynamic 入口（兼容旧 Int 存档）；DPI 模式不重调物理窗口
+				Main.applyRenderResolution(ClientPrefs.data.renderResolution, ClientPrefs.data.wideScreen, !ClientPrefs.data.useDpiSettings);
+			case "wideScreen":
+				// 宽屏切换：分辨率标签列表换血，掉列表的标签回落到第一档，再整体重应用
+				updateStringOptions(GraphicsData.getResolutionLabels());
+				Main.applyRenderResolution(ClientPrefs.data.renderResolution, ClientPrefs.data.wideScreen, !ClientPrefs.data.useDpiSettings);
 			case "keyboardBGColor", "keyboardEdgeColor", "keyboardRainColor", "keyboardTextColor":
 				// 颜色按目标拆开（主体 / 边缘 / 键雨 / 文字），统一交给 KeyboardViewer 自己刷，
 				// 别再对 members 无脑 color = col —— 会把按压高亮层和按键文字一起染掉。
@@ -796,10 +803,18 @@ class KEOption
 			if (val > maxValue) val = maxValue;
 			option.value = (type == "int") ? Math.round(val) : val;
 		}
+			// bool 也走下拉栏（BIOS 式统一）：options 固定 ["on","off"]，curOption 与当前值同步
+			if (type == "bool") {
+				option.options = ["on", "off"];
+				option.curOption = (option.value == true) ? 0 : 1;
+			}
+
 			// 颜色类型初始化与接受值
 			if (type == "color") {
 				if (option.value == null) option.value = (defaultValue != null ? defaultValue : FlxColor.WHITE);
 				option.acceptValues = true;
+				// 调色板名作为下拉项：右侧 StringSelect 弹层按名字列出色板
+				option.options = COLOR_NAMES;
 				option.curOption = 0;
 				for (i in 0...COLOR_PALETTE.length) {
 					if (COLOR_PALETTE[i] == option.value) {
@@ -885,8 +900,8 @@ class KEOption
 		return option;
 	}
 	
-	// 新增：创建二级菜单项
-	public static function createSubMenu(name:String, description:String, subMenuOptions:Array<KEOption>, icon:String = "", title:String = ""):KEOption
+	// 创建二级分组项：点击后由 KEOptionsMenu 在主界面内展开子列表
+	public static function createSubMenu(name:String, description:String, subMenuOptions:Array<KEOption>, title:String = ""):KEOption
 	{
 		var option = new KEOption();
 		option.name = name;
@@ -894,16 +909,9 @@ class KEOption
 		option.type = "action";
 		option.hasSubMenu = true;
 		option.subMenuOptions = subMenuOptions;
-		option.subMenuIcon = icon;
 		option.subMenuTitle = title != "" ? title : name;
 		option.subMenuDescription = description;
-		
-		// 设置子菜单项的父级引用
-		for (subOption in subMenuOptions) {
-			subOption.subMenuParent = option;
-			subOption.subMenuDepth = 1;
-		}
-		
+
 		return option;
 	}
 	// 更新字符串选项的列表

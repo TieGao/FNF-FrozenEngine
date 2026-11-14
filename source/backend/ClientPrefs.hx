@@ -103,6 +103,16 @@ import states.TitleState;
 		[0xFFFF80B0, 0xFFFFF0F5, 0xFF4A0020], // 15 - 玫瑰
 	];
 
+	// 旧版（legacy）音符贴图的 HSV 着色参数，[轨道][hue(-180~180), saturation(-100~100), brightness(-100~100)]。
+	// 只有被判定为 legacy 的音符贴图才会用到（见 backend.NoteSkinStyle / shaders.NoteHSV）；
+	// 全 0 = 不改色，连 shader 都不挂。
+	public var arrowHSV:Array<Array<Int>> = [
+		[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0],
+		[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0],
+		[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0],
+		[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]
+	];
+
 	public var ghostTapping:Bool = true;
 	// 对手模式专用：脚本 / 舞台回调名跟随 note 所属侧（打 dad 的 note 发 opponentNoteHit），
 	// 而不是跟随"谁在打"。只换回调名，计分 / 血量 / 动画不受影响。
@@ -191,9 +201,15 @@ import states.TitleState;
 	public var pauseDoubleEnterSkip:Bool = false;       // 关闭动画期间双击 accept 键瞬时关闭
 	public var pauseUnlockInputDuringAnim:Bool = false; // 开场动画期间也允许操作
 	public var legacyMouseWheelScroll:Bool = false; //是否启用旧版鼠标滚轮行为（滚轮滚动数值选项时改变数值，滚轮滚动选项列表时滚动列表）
-	public var forceSplashSkin:Bool = false;
-	public var forceNoteSkin:Bool = false;
-	public var forceRGBShader:Bool = false;
+	/**
+	 * 音符 / 溅射各自一套「体系」三态开关（注意两条互相独立）：
+	 *   auto   —— 引擎自己判：皮肤 json → 谱面声明 → 像素甄别，皮肤按"谱面 arrowSkin 优先"取；
+	 *   legacy —— 强制旧版：贴图沿用谱面指定的（旧谱通常自带），着色一律走 HSV；
+	 *   new    —— 强制新版：忽略谱面的 arrowSkin / splashSkin，改用玩家皮肤，着色一律走 RGB。
+	 * 取值见 backend.NoteSkinStyle 的 AUTO / LEGACY / RGB（存的是 'auto' / 'legacy' / 'new'）。
+	 */
+	public var noteSystem:String = 'auto';
+	public var splashSystem:String = 'auto';
 	public var customChartFolder:String = 'custom';
 	public var customChartModFolder:String = '';
 	public var customChartStage:String = 'audiostage';
@@ -855,6 +871,26 @@ class ClientPrefs {
 		for (key in Reflect.fields(data))
 			if (key != 'gameplaySettings' && Reflect.hasField(FlxG.save.data, key))
 				Reflect.setField(data, key, Reflect.field(FlxG.save.data, key));
+
+		// arrowHSV 是后加的键：老存档没有它（走默认值）。万一存的是短数组 / 空数组，
+		// 这里是唯一能补齐的地方 —— NoteHSV / 编辑器都会按下标 0~15 直接读，越界会炸。
+		var savedHSV:Array<Array<Int>> = data.arrowHSV;
+		if (savedHSV == null || savedHSV.length < 16)
+		{
+			var fixedHSV:Array<Array<Int>> = [];
+			for (i in 0...16)
+			{
+				var row:Array<Int> = (savedHSV != null && i < savedHSV.length) ? savedHSV[i] : null;
+				if (row != null && row.length >= 3) fixedHSV.push([row[0], row[1], row[2]]);
+				else fixedHSV.push([0, 0, 0]);
+			}
+			data.arrowHSV = fixedHSV;
+		}
+
+		// 三态体系开关只认 auto/legacy/new，老存档没这两个键（走默认 auto）、手改的 json 里
+		// 写错一个字母就会让整条判定链哑掉，这里统一收口。
+		data.noteSystem = NoteSkinStyle.normalizeMode(data.noteSystem);
+		data.splashSystem = NoteSkinStyle.normalizeMode(data.splashSystem);
 
 		// GPU Caching 从 Bool 换成三态字符串（disabled/auto/full）。老存档里还是 cacheOnGPU:Bool，
 		// 新键缺失时读老键做一次映射，别把老用户的选择重置掉。

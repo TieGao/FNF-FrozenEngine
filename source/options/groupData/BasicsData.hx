@@ -33,7 +33,7 @@ class BasicsData
         var adjustDelay = new Option('Adjust Delay and Combo', 'Customize ingame experience', '', ACTION);
         adjustDelay.actionLabel = 'Open';
         adjustDelay.action = function() {
-            MusicBeatState.switchState(new options.psychoptions.NoteOffsetState());
+            MusicBeatState.switchState(new options.NoteOffsetState());
         };
         cat.add(adjustDelay);
 

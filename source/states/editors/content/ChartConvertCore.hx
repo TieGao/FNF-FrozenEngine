@@ -6,10 +6,10 @@ import moonchart.formats.StepMania;
 import moonchart.formats.StepManiaShark;
 import moonchart.formats.OsuMania;
 import moonchart.formats.Quaver;
-import moonchart.formats.Midi;
 import moonchart.backend.Timing;
 import moonchart.parsers.QuaverParser.QuaverHitObject;
 import moonchart.parsers._internal.ZipFile;
+import states.editors.content.MidiTrackReader.MidiPart;
 
 using StringTools;
 
@@ -18,6 +18,9 @@ using StringTools;
  *
  * 支持导入：.sm / .ssc / .osu / .osz / .qua / .qp / .mid / .mc
  * 支持导出：.sm / .ssc / .osu / .qua（moonchart 的 Midi 只有解析没有 stringify，导不出）
+ *
+ * MIDI 不走 moonchart 的 Midi（它只认 1 号通道、且和弦会互相顶掉），改用 MidiTrackReader
+ * 自己解析，支持多声部选择、鼓组垫底排序、音高 → 轨道映射。
  *
  * 与直接用 moonchart FNFPsych 中转的差异（都是实测踩过的坑）：
  *  - section 构建自己写：FNFLegacy 的 8 轨取模 lane 编码会把 >7K 谱面 lane 卷绕撞车，
@@ -33,6 +36,11 @@ class ChartConvertCore
 	public static inline var MALODY_MUSIC_OFFSET:String = 'FE_MALODY_MUSIC_OFFSET';
 
 	public static var FILE_FILTER:String = '*.sm;*.ssc;*.osu;*.osz;*.qua;*.qp;*.mid;*.midi;*.mc';
+
+	/** MIDI 音高 → 轨道：按声部自身音域等分（保住旋律走向） */
+	public static inline var MIDI_LANE_RANGE:String = 'range';
+	/** MIDI 音高 → 轨道：pitch % 键数（旧行为，音高关系会被打乱） */
+	public static inline var MIDI_LANE_MOD:String = 'mod';
 
 	/** 可导出的格式（FE → 外部），顺序即导出对话框的展示顺序 */
 	public static var EXPORT_FORMATS:Array<String> = ['sm', 'ssc', 'osu', 'qua'];
@@ -76,6 +84,7 @@ class ChartConvertCore
 		var format:String = detectFormat(path);
 		if(format == null)
 			throw 'Unsupported chart file: $path';
+		if(format == 'mid') return readMidi(path).info;
 		var loaded = loadBasic(path, null, 4);
 		return loaded.info;
 	}
@@ -91,19 +100,23 @@ class ChartConvertCore
 	/**
 	 * 导入为 FE 谱面（SwagSong 结构的 Dynamic）。解析失败抛异常。
 	 * @param diff 源难度名（null = 第一个难度）
-	 * @param targetKeys 目标键数；与源键数不同时按比例重排列（MIDI 直接以目标键数做 pitch 取模）
+	 * @param targetKeys 目标键数；与源键数不同时按比例重排列
+	 * @param midiPartIds 仅 MIDI：要导入的声部 id（null / 空 = 只取优先级最高的一条）
+	 * @param midiLaneMode 仅 MIDI：音高 → 轨道映射（MIDI_LANE_RANGE / MIDI_LANE_MOD）
 	 */
-	public static function importToSong(path:String, ?diff:String, targetKeys:Int = 4):Dynamic
+	public static function importToSong(path:String, ?diff:String, targetKeys:Int = 4, ?midiPartIds:Array<Int>,
+			midiLaneMode:String = MIDI_LANE_RANGE):Dynamic
 	{
 		var format:String = detectFormat(path);
 		if(format == null)
 			throw 'Unsupported chart file: $path';
 
-		var isMidi:Bool = (format == 'mid');
-		var loaded = loadBasic(path, diff, isMidi ? targetKeys : null);
+		if(format == 'mid') return importMidiToSong(path, targetKeys, midiPartIds, midiLaneMode);
+
+		var loaded = loadBasic(path, diff, null);
 		var info:ChartImportInfo = loaded.info;
 
-		var keys:Int = isMidi ? targetKeys : info.keys;
+		var keys:Int = info.keys;
 		if(keys < 1) keys = 4;
 		if(targetKeys < 1) targetKeys = keys;
 
@@ -111,7 +124,7 @@ class ChartConvertCore
 		if(notes == null)
 			throw 'Chart has no difficulty data';
 
-		if(!isMidi && keys != targetKeys)
+		if(keys != targetKeys)
 			scaleLanes(notes, keys, targetKeys);
 
 		return buildSong(loaded.basic.meta, notes, targetKeys);
@@ -423,24 +436,110 @@ class ChartConvertCore
 		return finishQuaver(selected, 'qp', diffs);
 	}
 
-	static function loadMidi(path:String, lanes:Int):{info:ChartImportInfo, basic:BasicChart}
+	// ====================================================
+	//  MIDI（自研多轨读取，见 MidiTrackReader）
+	// ====================================================
+
+	static function readMidi(path:String):{info:ChartImportInfo, reader:MidiTrackReader, parts:Array<MidiPart>}
 	{
-		var midi:Midi = new Midi().fromFile(path);
-		// MIDI 没有轨道概念，note 的 pitch 直接对目标键数取模铺轨
-		midi.strumlinesLength = 1;
-		midi.lanesLength = lanes;
-		var name:String = path.substr(path.lastIndexOf('/') + 1);
-		name = name.substr(0, name.lastIndexOf('.'));
+		var reader:MidiTrackReader = MidiTrackReader.fromFile(path);
+		// sortedParts 会顺带算好 startMs/endMs/family/echo，对话框直接用这些字段
+		var parts:Array<MidiPart> = reader.sortedParts();
 		return {
 			info: {
 				format: 'mid',
 				formatLabel: FORMAT_LABELS.get('mid'),
 				keys: 4,
 				diffs: ['MIDI'],
-				title: name
+				title: midiTitle(path),
+				midiParts: parts
 			},
-			basic: midi.toBasicFormat()
+			reader: reader,
+			parts: parts
 		};
+	}
+
+	static function midiTitle(path:String):String
+	{
+		var name:String = path.substr(path.lastIndexOf('/') + 1);
+		name = name.substr(0, name.lastIndexOf('.'));
+		return cleanName(name, 'MIDI');
+	}
+
+	/** 没选声部时退回"优先级最高的那一条"（= 旧行为：以前只读 1 号通道那条主旋律） */
+	static function selectMidiParts(parts:Array<MidiPart>, ?ids:Array<Int>):Array<MidiPart>
+	{
+		var selected:Array<MidiPart> = [];
+		if(ids != null && ids.length > 0)
+		{
+			for(part in parts)
+				if(ids.indexOf(part.id) >= 0) selected.push(part);
+		}
+		if(selected.length == 0 && parts.length > 0) selected.push(parts[0]);
+		return selected;
+	}
+
+	static function buildMidiBasic(data:{info:ChartImportInfo, reader:MidiTrackReader, parts:Array<MidiPart>}, keys:Int,
+			?ids:Array<Int>, laneMode:String = MIDI_LANE_RANGE):BasicChart
+	{
+		var selected:Array<MidiPart> = selectMidiParts(data.parts, ids);
+		var minTickLength:Float = data.reader.division / 4;
+		var notes:Array<BasicNote> = [];
+
+		for(part in selected)
+		{
+			var span:Int = part.pitchMax - part.pitchMin;
+			for(note in part.notes)
+			{
+				var lane:Int = 0;
+				if(laneMode == MIDI_LANE_MOD || span <= 0) lane = note.pitch % keys;
+				else lane = Math.round((note.pitch - part.pitchMin) * (keys - 1) / span);
+				if(lane < 0) lane = 0;
+				if(lane > keys - 1) lane = keys - 1;
+
+				// 比 16 分音符还短的音符只当单点，免得满屏都是碎 hold
+				var tickLength:Int = note.endTick - note.startTick;
+				var length:Float = 0;
+				if(tickLength > minTickLength)
+					length = data.reader.msAt(note.endTick) - data.reader.msAt(note.startTick);
+
+				notes.push({time: data.reader.msAt(note.startTick), lane: lane, length: length, type: ''});
+			}
+		}
+		Timing.sortNotes(notes);
+
+		var diffs:Map<String, Array<BasicNote>> = new Map();
+		diffs.set('MIDI', notes);
+		var speeds:Map<String, Float> = new Map();
+		speeds.set('default', 1.0);
+		var extra:Map<String, Dynamic> = new Map();
+
+		return {
+			data: {diffs: diffs, events: []},
+			meta: {
+				title: data.info.title,
+				bpmChanges: data.reader.bpmChanges(),
+				scrollSpeeds: speeds,
+				offset: 0,
+				extraData: extra
+			}
+		};
+	}
+
+	static function loadMidi(path:String, lanes:Int):{info:ChartImportInfo, basic:BasicChart}
+	{
+		var data = readMidi(path);
+		return {info: data.info, basic: buildMidiBasic(data, lanes)};
+	}
+
+	static function importMidiToSong(path:String, keys:Int, ?ids:Array<Int>, laneMode:String = MIDI_LANE_RANGE):Dynamic
+	{
+		if(keys < 1) keys = 4;
+		var data = readMidi(path);
+		var basic:BasicChart = buildMidiBasic(data, keys, ids, laneMode);
+		var notes:Array<BasicNote> = firstDiffNotes(basic);
+		if(notes == null) notes = [];
+		return buildSong(basic.meta, notes, keys);
 	}
 
 	static function loadMalody(path:String):{info:ChartImportInfo, basic:BasicChart}
@@ -779,5 +878,7 @@ typedef ChartImportInfo =
 	formatLabel:String,
 	keys:Int,
 	diffs:Array<String>,
-	title:String
+	title:String,
+	/** 仅 MIDI：可选声部列表（已按优先级排序，鼓组垫底） */
+	?midiParts:Array<MidiPart>
 }

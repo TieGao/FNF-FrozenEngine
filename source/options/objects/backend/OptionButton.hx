@@ -10,8 +10,11 @@ import flixel.tweens.FlxEase;
 /**
  * 动作按钮（ACTION 类型，比如 Open / Reset）
  *
- * Win10 风格：平铺方角、无描边（原来的样子）
- * Win8  风格：2px 描边 + 按下填充强调色（Metro 按钮）
+ * 描边不是常驻的：**常态无边框、悬停时才亮出来、按下时再收掉**。
+ * 所以 border 是个常驻精灵，只切 visible —— 每次悬停都重画一张位图太浪费。
+ *
+ * Win10 风格：方角 + 1px 细描边（只在悬停时）
+ * Win8  风格：方角 + 2px 描边（只在悬停时）+ 按下填充强调色（Metro 按钮）
  */
 class OptionButton extends FlxSpriteGroup
 {
@@ -53,12 +56,13 @@ class OptionButton extends FlxSpriteGroup
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
 
-        if (win8)
-        {
-            border = UIControlTheme.makeFrameSprite(width, height);
-            border.color = borderColor();
-            add(border);
-        }
+        // 描边常驻、默认隐形：update() 里按 hover / pressing 开关 visible。
+        // 厚度跟控件主题走（Win8 是 2px 的 Metro 线，Win10 是 1px 细线）。
+        border = UIControlTheme.makeFrameSprite(width, height,
+            win8 ? UIControlTheme.BORDER_THICKNESS : UIControlTheme.THIN_BORDER);
+        border.color = borderColor();
+        border.visible = false;
+        add(border);
 
         actionText = new FlxText(0, 0, width, getActionText(), fontSize);
         actionText.setFormat(Paths.font('montserrat.ttf'), fontSize,
@@ -94,10 +98,14 @@ class OptionButton extends FlxSpriteGroup
     inline function baseColor():Int
         return isReset ? UITheme.dangerBase : (win8 ? UIControlTheme.face() : UITheme.control);
 
+    /**
+     * 描边色。描边只在悬停 / 键盘选中时出现，所以这里只要给"亮出来那一刻"的颜色：
+     * 普通按钮是强调色，Reset 是危险色。
+     */
     function borderColor():FlxColor
     {
         if (isReset) return UITheme.danger;
-        return (hover || pressing || keyboardHighlight) ? UIControlTheme.accent() : UIControlTheme.border();
+        return win8 ? UIControlTheme.accent() : UITheme.accent;
     }
 
     // 根据状态计算目标背景色（颜色全部来自主题）
@@ -205,6 +213,14 @@ class OptionButton extends FlxSpriteGroup
             FlxTween.cancelTweensOf(bg);
             FlxTween.color(bg, 0.1, bg.color, computeTargetColor(), {ease: FlxEase.quadOut});
             if (border != null) border.color = borderColor();
+        }
+
+        // 描边开关放在最后：本帧的 hover / pressing 都已经定下来了。
+        // 常态无边框 → 悬停（或键盘指着）亮出来 → 按住时再收掉。
+        if (border != null)
+        {
+            var showBorder:Bool = (hover || keyboardHighlight) && !pressing;
+            if (border.visible != showBorder) border.visible = showBorder;
         }
     }
 

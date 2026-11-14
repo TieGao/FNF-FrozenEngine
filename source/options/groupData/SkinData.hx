@@ -31,6 +31,16 @@ class SkinData
         };
         sub.add(openNoteColors);
 
+        var openNoteHSV = new Option('Note HSV Colors', 'Customize legacy note HSV colors', '', ACTION);
+        openNoteHSV.actionLabel = 'Open';
+        openNoteHSV.action = function() {
+            if (OptionsPageState.instance != null)
+                OptionsPageState.instance.openSubState(new options.psychoptions.NotesHSVSubState());
+            else if (options.keoptions.KEOptionsMenu.instance != null)
+                options.keoptions.KEOptionsMenu.instance.openSubState(new options.psychoptions.NotesHSVSubState());
+        };
+        sub.add(openNoteHSV);
+
 
         sub.add(new Option('Note Skins', 'Select your preferred Note skin', 'noteSkin', STRING, notes));
         sub.add(new Option('Note Splashes', 'Select your preferred Note Splash variation', 'splashSkin', STRING, splashes));
@@ -57,9 +67,10 @@ class SkinData
         holdcoverAlpha.decimals = 2;
         sub.add(holdcoverAlpha);
 
-        sub.add(new Option('Force Note Skin', 'Force using the custom note skin', 'forceNoteSkin', BOOL));
-        sub.add(new Option('Force Splash Skin', 'Force using the custom splash skin', 'forceSplashSkin', BOOL));
-        sub.add(new Option('Force RGB Shader', 'Force using the RGB shader for notes and splashes', 'forceRGBShader', BOOL));
+        // 音符 / 溅射各自的三态体系开关（auto / legacy / new），互相独立：
+        //   new  = 忽略谱面皮肤 + 强制 RGB；legacy = 沿用谱面皮肤 + 强制 HSV；auto = 引擎自己判
+        sub.add(new Option('Note System', 'auto: detect | legacy: force HSV | new: force RGB + custom skin', 'noteSystem', STRING, ['auto', 'legacy', 'new']));
+        sub.add(new Option('Splash System', 'auto: detect | legacy: force HSV | new: force RGB + custom skin', 'splashSystem', STRING, ['auto', 'legacy', 'new']));
 
         var sub = cat.section('Judgements', 'Judgements Settings');
         sub.add(new Option('Judgements Style', 'Select your preferred judgements Image', 'customUI', STRING, ratings));

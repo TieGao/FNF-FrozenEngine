@@ -5,7 +5,9 @@ import backend.NoteTypesConfig;
 
 import shaders.RGBPalette;
 import shaders.RGBPalette.RGBShaderReference;
+import shaders.NoteHSV;
 
+import backend.NoteSkinStyle;
 import objects.StrumNote;
 
 import flixel.math.FlxRect;
@@ -87,6 +89,12 @@ class Note extends FlxSprite
 
 	public var rgbShader:RGBShaderReference;
 	public static var globalRgbShaders:Array<RGBPalette> = [];
+	// 本音符的着色体系与当前贴图：noteStyle 决定走 RGBPalette 还是 HSV(ColorSwap)，见 updateNoteShader()
+	public var noteStyle:String = NoteSkinStyle.RGB;
+	public var skinPath:String = '';
+	public var useRGBShader:Bool = true;
+	// shader 槽位一生只拍板一次（构造时的第一次 reloadNote），之后引擎不再碰；见 updateNoteShader()
+	var shaderDecided:Bool = false;
 	public var inEditor:Bool = false;
 
 	public var animSuffix:String = '';
@@ -251,7 +259,7 @@ class Note extends FlxSprite
 		texture: null,
 		antialiasing: !PlayState.isPixelStage,
 		useGlobalShader: false,
-		useRGBShader: (PlayState.SONG != null) ? !(PlayState.SONG.disableNoteRGB == true) : true,
+		useRGBShader: true, // 默认不作覆盖：走 RGB 还是 HSV 由音符贴图体系（noteStyle）决定，note type 想强制旧版再置 false
 		r: -1,
 		g: -1,
 		b: -1,
@@ -344,7 +352,10 @@ class Note extends FlxSprite
 	}
 
 	private function set_noteType(value:String):String {
-		noteSplashData.texture = PlayState.SONG != null ? PlayState.SONG.splashSkin : 'noteSplashes/noteSplashes';
+		// 溅射体系设成 new（强制新版）时忽略谱面的 splashSkin（null = 让 NoteSplash 走玩家选的皮肤）。
+		// 自定义 note type 在 NoteTypesConfig 里自己写 noteSplashData.texture 的仍然生效。
+		var splashNew:Bool = (NoteSkinStyle.splashMode() == NoteSkinStyle.NEW);
+		noteSplashData.texture = (PlayState.SONG != null && !splashNew) ? PlayState.SONG.splashSkin : null;
 		defaultRGB();
 
 		if(noteData > -1 && noteType != value) {
@@ -395,124 +406,6 @@ class Note extends FlxSprite
 		initializeNote(strumTime, noteData, prevNote, sustainNote, inEditor, createdFrom);
 	}
 
-	public function reuse(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?inEditor:Bool = false, ?createdFrom:Dynamic = null)
-	{
-		resetForReuse();
-		if (animation != null)
-		{
-			animation.destroy();
-		}
-		animation = new PsychAnimationController(this);
-		initializeNote(strumTime, noteData, prevNote, sustainNote, inEditor, createdFrom);
-	}
-
-	/**
-	 * 回池前断开与其它 note 的引用链、并交还图集引用，避免静态池把整条旧链和旧图集都吊住。
-	 * 不 destroy —— 对象会进静态池跨歌复用，字段复位由 reuse()/resetForReuse() 负责。
-	 */
-	public function prepareForPool():Void
-	{
-		prevNote = null;
-		nextNote = null;
-		parent = null;
-		tail = [];
-
-		// 池里的对象跨歌存活，这期间 Paths.clearStoredMemory() / clearUnusedMemory() 会按 key
-		// 整片销毁图集（不看 useCount）：FlxGraphic.destroy() → FlxFramesCollection.destroy()
-		// 会把 frames.frames 置 null，而集合对象本身还挂在本对象上。留着这条指针，下次
-		// reuse() → resetForReuse() 复位 clipRect 时会经 set_clipRect 读 frames.frames[...] 抛空引用。
-		// set_frames(null) 连 graphic / frame 一起交出去，reloadNote() 会重新赋一套。
-		frames = null;
-	}
-
-	private function resetForReuse():Void
-	{
-		extraData = new Map<String, Dynamic>();
-		strumTime = 0;
-		noteData = 0;
-		mustPress = false;
-		canBeHit = false;
-		tooLate = false;
-		wasGoodHit = false;
-		missed = false;
-		ignoreNote = false;
-		hitByOpponent = false;
-		noteWasHit = false;
-		prevNote = null;
-		nextNote = null;
-		spawned = false;
-		tail = [];
-		parent = null;
-		blockHit = false;
-		sustainLength = 0;
-		isSustainNote = false;
-		noteType = null;
-		eventName = '';
-		eventLength = 0;
-		eventVal1 = '';
-		eventVal2 = '';
-		inEditor = false;
-		gfNote = false;
-		earlyHitMult = 1;
-		lateHitMult = 1;
-		lowPriority = false;
-		offsetX = 0;
-		offsetY = 0;
-		offsetAngle = 0;
-		multAlpha = 1;
-		multSpeed = 1;
-		hitHealth = 0.02;
-		missHealth = 0.075;
-		rating = 'unknown';
-		ratingMod = 0;
-		ratingDisabled = false;
-		noAnimation = false;
-		noMissAnimation = false;
-		hitCausesMiss = false;
-		distance = 2000;
-		hitsoundDisabled = false;
-		hitsoundChartEditor = true;
-		hitsoundForce = false;
-		hitsound = ClientPrefs.data.hitsound;
-		alpha = 1;
-		visible = true;
-		exists = true;
-		alive = true;
-		active = true;
-		velocity.set(0, 0);
-		acceleration.set(0, 0);
-		scale.set(1, 1);
-		angle = 0;
-		flipY = false;
-		noteSplashData = {
-			disabled: false,
-			texture: null,
-			antialiasing: !PlayState.isPixelStage,
-			useGlobalShader: false,
-			useRGBShader: (PlayState.SONG != null) ? !(PlayState.SONG.disableNoteRGB == true) : true,
-			r: -1,
-			g: -1,
-			b: -1,
-			a: ClientPrefs.data.splashAlpha
-		};
-
-		// 以下字段会被 initializeNote / followStrumNote / 倒计时等改脏，复用前必须复位，
-		// 否则残留状态会串到下一次使用（例如 sustain 的 correctionOffset 被带到头音符）。
-		animSuffix = '';
-		copyX = true;
-		copyY = true;
-		copyAngle = true;
-		copyAlpha = true;
-		correctionOffset = 0;
-		_lastNoteOffX = 0;
-		offset.set(0, 0);
-		origin.set(0, 0);
-		flipX = false;
-		scrollFactor.set(1, 1);
-		originalHeight = 6;
-		clipRect = null;
-	}
-
 	private function initializeNote(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false, ?inEditor:Bool = false, ?createdFrom:Dynamic = null)
 	{
 		antialiasing = ClientPrefs.data.antialiasing;
@@ -544,9 +437,8 @@ class Note extends FlxSprite
 		if(noteData > -1)
 		{
 			rgbShader = new RGBShaderReference(this, initializeGlobalRGBShader(noteData));
-			if(PlayState.SONG != null && PlayState.SONG.disableNoteRGB) rgbShader.enabled = false;
-			// 强制重载：复用对象的 texture 可能同为 ''，set_texture 的「值未变则跳过」会漏掉 reloadNote，
-			// 而 reuse() 已重建 animation controller（动画表为空），play() 会静默失败 → note 不可见。
+			// 强制重载：第一次 texture='' 时 rgbShader 还没建、updateNoteShader 只能早退；
+			// 这里直接调（不走 set_texture，值未变会跳过）让着色体系在 rgbShader 就位后拍板。
 			reloadNote('');
 			@:bypassAccessor
 			{
@@ -653,14 +545,9 @@ class Note extends FlxSprite
 		if(texture == null) texture = '';
 		if(postfix == null) postfix = '';
 
-		var skin:String = texture + postfix;
-		if(texture.length < 1)
-		{
-			skin = PlayState.SONG != null ? PlayState.SONG.arrowSkin : null;
-			if(skin == null || skin.length < 1)
-				skin = defaultNoteSkin + postfix;
-		}
-		else rgbShader.enabled = false;
+		var skin:String = (texture.length < 1) ? getNoteSkinPath(postfix) : texture + postfix;
+		// 玩家皮肤后缀叠加前的基础贴图：体系判定 / 三级回退的层级都按它认，别用叠过后缀的路径去比对
+		var styleBase:String = skin;
 
 		var animName:String = null;
 		if(animation.curAnim != null) {
@@ -678,6 +565,10 @@ class Note extends FlxSprite
 			_lastValidChecked = customSkin;
 		}
 		else skinPostfix = '';
+
+		// 贴图定下来了：记下实际用的皮肤、判定着色体系（RGB 掩码贴图 / 烤色 legacy 贴图）
+		skinPath = skin;
+		noteStyle = getNoteStyle(styleBase);
 
 		if(PlayState.isPixelStage) {
 			if(isSustainNote) {
@@ -717,6 +608,96 @@ class Note extends FlxSprite
 
 		if(animName != null)
 			animation.play(animName, true);
+
+		updateNoteShader();
+	}
+
+	/**
+	 * 拍板这张音符挂什么 shader —— **一生只决定一次**（构造时的第一次调用）。
+	 * 一个 sprite 只有一个 shader 槽位，0.6.x / 0.7+ 的共同点是「生成时挂好，之后引擎不再动」，
+	 * 所以这里拍板后就收手：模组中途换 shader（Lua/HScript 直接赋 sprite.shader）引擎不抢回来，
+	 * 换贴图触发的后续 reloadNote 也只换贴图换动画。
+	 *
+	 *   RGB 体系   → RGBPalette 一直挂着（0.7+ 行为）；
+	 *   legacy 体系 → HSV 只挂这一次（0.6.x 行为），全 0 不挂；
+	 *   auto + 谱面 disableNoteRGB → RGB、HSV 都不挂，贴图原样（谱面说啥就是啥）。
+	 */
+	public function updateNoteShader():Void
+	{
+		if (noteData < 0 || rgbShader == null) return;
+		if (shaderDecided) return;
+		shaderDecided = true;
+
+		if (NoteSkinStyle.noteMode() == NoteSkinStyle.AUTO && PlayState.SONG != null && PlayState.SONG.disableNoteRGB)
+		{
+			useRGBShader = false;
+			rgbShader.enabled = false;
+			return;
+		}
+
+		useRGBShader = (noteStyle != NoteSkinStyle.LEGACY);
+		if (useRGBShader)
+		{
+			rgbShader.enabled = true;
+			return;
+		}
+
+		rgbShader.enabled = false;
+		NoteHSV.apply(this, noteData);
+	}
+
+	/**
+	 * 这张贴图该用哪种着色体系。贴图是通道掩码还是烤色图，只有贴图自己知道，所以皮肤优先；
+	 * 谱面的 disableNoteRGB 作为皮肤未声明 / 甄别不出时的兜底（只影响体系判定，
+	 * shader 槽位挂什么由 updateNoteShader 按三态开关拍板）。
+	 */
+	public static function getNoteStyle(skin:String):String
+	{
+		var mode:String = NoteSkinStyle.noteMode();
+		if (mode == NoteSkinStyle.NEW) return NoteSkinStyle.RGB;
+		if (mode == NoteSkinStyle.LEGACY)
+		{
+			// 三级回退落到第 3 级（默认 RGB 皮肤）时不能再套 HSV —— 那等于拿通道掩码当烤色图偏移。
+			return (skin != null && skin.indexOf(defaultNoteSkin) == 0) ? NoteSkinStyle.RGB : NoteSkinStyle.LEGACY;
+		}
+		if (skin == null) skin = '';
+
+		// 像素皮肤在磁盘上是 images/pixelUI/noteSkins/...，json 声明 / 自动甄别都要按这个前缀去找
+		var key:String = (PlayState.isPixelStage ? 'pixelUI/' : '') + skin;
+
+		var style:String = NoteSkinStyle.declared(key);
+		if (style != null) return style;
+
+		if (PlayState.SONG != null && PlayState.SONG.disableNoteRGB) return NoteSkinStyle.LEGACY;
+
+		style = NoteSkinStyle.resolve(key);
+		return style != null ? style : NoteSkinStyle.RGB;
+	}
+
+	/**
+	 * 当前生效的音符贴图路径（不含 images/ 与 pixelUI/ 前缀）。
+	 * postfix 只在走默认皮肤时追加（HURT 之类的变体）；谱面指定了 arrowSkin 时不追加。
+	 *
+	 * 三级回退（legacy 体系；new / auto 只走第 1、3 级）：
+	 *   1. 谱面指定的 arrowSkin（文件存在才算数）；
+	 *   2. 引擎自带的旧版贴图 images/NOTE_assets.png（不在 noteSkins/ 里）；
+	 *   3. 都没有才退回默认（RGB）皮肤 + 玩家后缀。
+	 * new 体系跳过第 1 级 —— 它存在的意义就是把谱面自带的旧贴图换成玩家皮肤。
+	 */
+	public static function getNoteSkinPath(?postfix:String = ''):String
+	{
+		if (postfix == null) postfix = '';
+
+		var mode:String = NoteSkinStyle.noteMode();
+		if (mode == NoteSkinStyle.NEW) return defaultNoteSkin + postfix;
+
+		var chartSkin:String = (PlayState.SONG != null) ? PlayState.SONG.arrowSkin : null;
+		if (NoteSkinStyle.exists(chartSkin)) return chartSkin;
+
+		if (mode == NoteSkinStyle.LEGACY && NoteSkinStyle.exists(NoteSkinStyle.LEGACY_NOTE_SKIN))
+			return NoteSkinStyle.LEGACY_NOTE_SKIN;
+
+		return defaultNoteSkin + postfix;
 	}
 
 	public static function getNoteSkinPostfix()

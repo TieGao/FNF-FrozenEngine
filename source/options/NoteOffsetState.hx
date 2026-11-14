@@ -1,4 +1,6 @@
-package options.psychoptions;
+package options;
+
+import options.psychoptions.PsychOptionsState;
 
 import objects.Character;
 import objects.DraggableBar;

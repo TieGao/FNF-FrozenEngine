@@ -298,7 +298,7 @@ class Paths
 	 * 等最后一个引用消失后的下一次 flush 再收。
 	 *
 	 * 为什么不能直接 destroy：FlxGraphic.destroy() 会把 frames.frames 置 null，
-	 * 而精灵池 / 角色对象可能还攥着这套 frames（见 objects/Note.hx 的 prepareForPool）。
+	 * 而还在场上的精灵 / 角色对象可能还攥着这套 frames。
 	 * 为什么不交给 flixel 的 destroyOnNoUse：那条销毁路径走 BitmapData.dispose()，
 	 * 里面 gl.deleteTexture 是注释掉的（openfl 9.6），显存会漏 —— 销毁必须统一走 destroyGraphic()。
 	 */

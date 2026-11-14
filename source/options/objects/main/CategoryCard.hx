@@ -1,16 +1,22 @@
 package options.objects.main;
 
+import backend.UIControlTheme;
 import shapeEx.Rect;
 import flixel.tweens.FlxTween;
 import flixel.tweens.FlxEase;
 
 /**
  * Win10 风格的大类卡片
- * 方角背景 + 图标 + 标题 + 标签行
+ * 方角背景 + 悬停描边 + 图标 + 标题 + 标签行
  */
 class CategoryCard extends FlxSpriteGroup
 {
     public var bg:Rect;
+    /**
+     * 描边框：常态不画，鼠标悬停（或键盘选中）时才亮出来 ——
+     * 卡片面积大，靠底色变化表达交互就够了，边框只在"指着它"的时候出现。
+     */
+    public var border:FlxSprite;
     public var icon:FlxSprite;
     public var title:FlxText;
     public var tagText:FlxText;
@@ -75,6 +81,12 @@ class CategoryCard extends FlxSpriteGroup
         bg = new Rect(0, 0, width, height, 0, 0, normalColor, 1);
         bg.antialiasing = ClientPrefs.data.antialiasing;
         add(bg);
+
+        // ---------- 描边框（默认隐形，悬停 / 键盘选中时才显示） ----------
+        border = UIControlTheme.makeFrameSprite(width, height, UIControlTheme.THIN_BORDER);
+        border.color = UIControlTheme.border();
+        border.visible = false;
+        add(border);
 
         // ---------- 左侧分类图标（矢量现画，见 CategoryIcons） ----------
         var iconSize:Int = ICON_SIZE;
@@ -201,6 +213,9 @@ class CategoryCard extends FlxSpriteGroup
             FlxTween.color(bg, 0.1, bg.color, computeTargetColor());
             if (onClick != null) onClick(data);
         }
+
+        // 描边框：只在指着这张卡的时候出现（键盘选中是鼠标悬停的等价状态）
+        if (border != null) border.visible = onFocus || selected;
     }
 
     /** 键盘选中/取消选中（方向键移动时由 OptionsState 调用） */
@@ -208,6 +223,8 @@ class CategoryCard extends FlxSpriteGroup
     {
         if (selected == v) return;
         selected = v;
+
+        if (border != null) border.visible = onFocus || selected;
 
         FlxTween.cancelTweensOf(bg);
         FlxTween.color(bg, 0.12, bg.color, computeTargetColor(), {ease: FlxEase.quadOut});
@@ -237,6 +254,7 @@ class CategoryCard extends FlxSpriteGroup
     public function refreshTheme():Void
     {
         if (bg != null) bg.color = computeTargetColor();
+        if (border != null) border.color = UIControlTheme.border();
         // FlxSprite 没有 .color，主题色变了只能重画（图标有静态缓存，同色不会重复绘制）
         if (icon != null) icon.frames = CategoryIcons.draw(data.icon, ICON_SIZE * ICON_SS, UITheme.accent).imageFrame;
         if (tagText != null) tagText.color = UITheme.textSecondary;

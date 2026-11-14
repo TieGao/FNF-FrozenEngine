@@ -101,7 +101,11 @@ class UIControlTheme
 	public static function hasBorder():Bool
 		return isWin8();
 
+	/** Win8 描边厚度（Metro 的粗线） */
 	public static inline var BORDER_THICKNESS:Float = 2;
+
+	/** Win10 描边厚度（Fluent 的 1px 细线） */
+	public static inline var THIN_BORDER:Float = 2;
 
 	// ---------------------------------------------------------
 	// Win8 调色板（深浅色跟随 UITheme）
@@ -246,6 +250,43 @@ class UIControlTheme
 		shape.graphics.drawRect(0, t, t, ih - t * 2);
 		shape.graphics.drawRect(iw - t, t, t, ih - t * 2);
 		shape.graphics.endFill();
+
+		var bmd:BitmapData = new BitmapData(iw, ih, true, 0x00000000);
+		bmd.draw(shape);
+
+		spr.pixels = bmd;
+		spr.antialiasing = ClientPrefs.data.antialiasing;
+		return spr;
+	}
+
+	/**
+	 * 生成一个"圆角空心框"精灵（白色，靠 color 染色），给 Win10 控件描边用。
+	 *
+	 * makeFrameSprite 只会画方角，直接套在 4px 圆角的下拉条、胶囊开关上，四角会露出
+	 * 直角黑边；这里用 lineStyle + drawRoundRect 画一圈真正贴着圆角的细线。
+	 *
+	 * 半径的传参口径和 shapeEx.Rect 一致（把同一个数直接喂给 drawRoundRect 的
+	 * ellipseWidth），这样描边和底色的弧度天然对得上，不用去猜 openfl 内部怎么折算。
+	 *
+	 * ⚠️ 线宽是**沿路径居中**画的，所以路径整体内缩半个线宽，否则右边和下边会被裁掉一半。
+	 * ⚠️ 别往这个 Graphics 上再 beginFill：lineStyle 会跟着给每个填充块多描一圈
+	 *    （见 ToolBarIcons 的注释），要填充请另开 Shape。
+	 */
+	public static function makeRoundFrameSprite(w:Float, h:Float, radius:Float, ?thickness:Float = THIN_BORDER):FlxSprite
+	{
+		var iw:Int = Std.int(w);
+		var ih:Int = Std.int(h);
+		var t:Float = Math.max(1, thickness);
+
+		var spr:FlxSprite = new FlxSprite();
+		if (iw <= 0 || ih <= 0) return spr;
+
+		var inset:Float = t * 0.5;
+		var r:Float = Math.max(0, Math.min(radius, Math.min(iw, ih)) - t);
+
+		var shape:Shape = new Shape();
+		shape.graphics.lineStyle(t, 0xFFFFFFFF, 1);
+		shape.graphics.drawRoundRect(inset, inset, iw - t, ih - t, r, r);
 
 		var bmd:BitmapData = new BitmapData(iw, ih, true, 0x00000000);
 		bmd.draw(shape);

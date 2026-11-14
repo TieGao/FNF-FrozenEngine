@@ -241,13 +241,13 @@ class ModSettingsSubState extends Win8CharmSettings
 
 					@:privateAccess
 					{
-						newOption.getValue = function()
+						newOption.getValueOverride = function()
 						{
 							var data:Dynamic = save.get(newOption.variable);
 							if (data == null) return 'NONE';
 							return !Controls.instance.controllerMode ? data.keyboard : data.gamepad;
 						};
-						newOption.setValue = function(value:Dynamic)
+						newOption.setValueOverride = function(value:Dynamic)
 						{
 							var data:Dynamic = save.get(newOption.variable);
 							if (data == null) data = {keyboard: 'NONE', gamepad: 'NONE'};
@@ -263,8 +263,8 @@ class ModSettingsSubState extends Win8CharmSettings
 
 					@:privateAccess
 					{
-						newOption.getValue = function() return save.get(newOption.variable);
-						newOption.setValue = function(value:Dynamic) save.set(newOption.variable, value);
+						newOption.getValueOverride = function() return save.get(newOption.variable);
+						newOption.setValueOverride = function(value:Dynamic) save.set(newOption.variable, value);
 					}
 			}
 

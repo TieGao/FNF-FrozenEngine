@@ -43,6 +43,12 @@ class OptionsState extends MusicBeatState
     var cardContainer:FlxSpriteGroup;
     /** 网格列数（buildCards 和键盘上下移动共用，别让两处各写一个 4） */
     var cardCols:Int = 4;
+    /**
+     * 点击保护：已经排了一次切页就不再响应。
+     * switchState 走的是 0.5s 淡出过渡，期间本 state 仍在 update（persistentUpdate），
+     * 卡片会继续吃鼠标事件 —— 连点 / 双击会重复排切换，淡出被反复重启，看起来就是"一直跳转"。
+     */
+    var navigating:Bool = false;
 
     // ---------- 键盘导航 ----------
     // 焦点区域。界面分两类：搜索框 / 卡片网格。
@@ -617,7 +623,8 @@ class OptionsState extends MusicBeatState
     // =========================================================
 	function onCardClick(data:CategoryData)
 	{
-		FlxG.sound.play(Paths.sound('confirmMenu'));
+		// 点击保护：淡出过渡期间卡片还在 update，连点会重复排切页
+		if (navigating) return;
 
 		var cat = getCategoryOptions(data.id);
 		if (cat == null)
@@ -625,6 +632,9 @@ class OptionsState extends MusicBeatState
 			trace('Category not wired yet: ' + data.id);
 			return;
 		}
+
+		navigating = true;
+		FlxG.sound.play(Paths.sound('confirmMenu'));
 
 		// 带着当前搜索词进入分类页，进去后直接就是过滤结果 + 各子分类命中数
 		MusicBeatState.switchState(new OptionsPageState([cat], cat, function() {}, searchQuery));

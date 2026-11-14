@@ -8,7 +8,7 @@ import flixel.tweens.FlxEase;
 /**
  * 开关控件
  *
- * Win10 风格：胶囊轨道 + 圆形滑块（原来的样子）
+ * Win10 风格：胶囊轨道 + 圆形滑块，轨道带 1px 细描边（Fluent 开关）
  * Win8  风格：直角方框轨道 + 方形滑块 —— 状态表达方式和 Win10 一样（滑块停靠位置 + 轨道配色），
  *              只是全部走 Metro 的方角语言，并且**不再使用对勾**
  *
@@ -108,6 +108,12 @@ class BoolButton extends FlxSpriteGroup
             bg = new Rect(0, 0, width, height, r, r, getOffColor(), 1);
             bg.antialiasing = ClientPrefs.data.antialiasing;
             add(bg);
+
+            // 轨道带 1px 细描边：胶囊形状，描边跟着圆角走（方框会露出四个直角，
+            // 所以这里用圆角框而不是 makeFrameSprite）
+            border = UIControlTheme.makeRoundFrameSprite(width, height, r, UIControlTheme.THIN_BORDER);
+            border.color = UIControlTheme.border();
+            add(border);
 
             // 圆形圆点：直径 = height / 1.5，圆角 = 半径
             dis = new Rect(2, 4, d, d, d, d, UITheme.knob, 1);

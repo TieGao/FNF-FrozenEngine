@@ -2,71 +2,35 @@ package options.keoptions;
 
 import backend.Language;
 
+/**
+ * KEOptionsMenu 顶部选项卡：分类底板 + 标题文字 + 选中下划线。
+ * 行列表不再挂在分类上 —— 行由 KEOptionsMenu 按「根列表 / 子视图」统一构建（KEOptionRow）。
+ */
 class KEOptionCata extends FlxSprite
 {
 	public var title:String;
 	public var options:Array<KEOption>;
-	public var optionObjects:FlxTypedGroup<FlxText>;
 	public var titleObject:FlxText;
-	public var middle:Bool = false;
 
-	public function new(x:Float, y:Float, _title:String, _options:Array<KEOption>, middleType:Bool = false)
+	/** 选中时展开的横向线条；宿主菜单负责创建与动效 */
+	public var underline:FlxSprite;
+
+	public function new(x:Float, y:Float, _title:String, _options:Array<KEOption>)
 	{
 		super(x, y);
 		title = _title;
-		middle = middleType;
-		
-		// 不再在这里设置固定宽度，由上层控制
-		// 宽度将在 create() 中被重新设置
-		if (!middleType) {
-			// 先创建一个默认尺寸，将在上层被覆盖
-			makeGraphic(100, 40, FlxColor.BLACK);
-		}
+		options = _options;
+
+		// 先创建一个默认尺寸，将在上层被覆盖
+		makeGraphic(100, 40, FlxColor.BLACK);
 		alpha = 0.4;
 
-		options = _options;
-		optionObjects = new FlxTypedGroup<FlxText>();
-
-		/*for (text in optionObjects.members)
-			text.antialiasing = ClientPrefs.data.antialiasing;*/
 		var localizedTitle = Language.getPhrase(title, title);
-		
-		// 使用屏幕宽度计算居中位置
-		var screenWidth:Int = 1280;
-		
-		titleObject = new FlxText((middleType ? screenWidth / 2 : x), y + (middleType ? 0 : 8), 0, localizedTitle);
-		//titleObject.antialiasing = ClientPrefs.data.antialiasing;
-		titleObject.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK); // 字体稍微减小
-		titleObject.borderSize = 2; // 边框减小
-
-		if (middleType)
-		{
-			titleObject.x = 50 + ((screenWidth / 2) - (titleObject.fieldWidth / 2));
-		}
-		else
-		{
-			// 标题在选项卡内居中
-			// x坐标将在上层被重新计算
-		}
-
+		titleObject = new FlxText(x, y + 8, 0, localizedTitle);
+		titleObject.setFormat(Paths.font("vcr.ttf"), 28, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK);
+		titleObject.borderSize = 2;
 		titleObject.scrollFactor.set();
 		scrollFactor.set();
-
-		for (i in 0...options.length)
-		{
-			var opt = options[i];
-			// 使用屏幕宽度计算选项位置
-			var text = new FlxText((middleType ? screenWidth / 2 : 72), 120 + 54 + (46 * i), 0, opt.getValue());
-			if (middleType)
-			{
-				text.screenCenter(X);
-			}
-			text.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, OUTLINE, FlxColor.BLACK); // 字体大小
-			text.borderSize = 2;
-			text.borderQuality = 1;
-			text.scrollFactor.set();
-			optionObjects.add(text);
-		}
 	}
 
 	public function changeColor(color:FlxColor)

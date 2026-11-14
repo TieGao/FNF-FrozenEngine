@@ -1,4 +1,6 @@
-package options.psychoptions;
+package options;
+
+import options.psychoptions.BaseOptionsMenu;
 
 class GameplaySettingsSubState extends BaseOptionsMenu
 {

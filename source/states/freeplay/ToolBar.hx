@@ -13,7 +13,7 @@ import flixel.ui.FlxButton;
 import flixel.math.FlxRect;
 import flixel.util.FlxStringUtil;
 import backend.Paths;
-import options.psychoptions.GameplayChangersSubstate;
+import options.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
 import states.FreeplayState;
 import options.keoptions.KEOptionsMenu;

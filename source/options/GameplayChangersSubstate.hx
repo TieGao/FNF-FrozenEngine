@@ -1,4 +1,4 @@
-package options.psychoptions;
+package options;
 
 import options.Option;
 import options.Option.OptionType;

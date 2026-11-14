@@ -1,6 +1,7 @@
 package options;
 
 import options.objects.OptionCategory;
+import options.objects.backend.IStringValueSource;
 import flixel.util.FlxColor;
 
 typedef Keybind = {
@@ -19,7 +20,7 @@ enum OptionType {
 	COLOR;   // ← 新增
 }
 
-class Option
+class Option implements options.objects.backend.IStringValueSource
 {
 	public var child:Alphabet;
 	public var text(get, set):String;
@@ -39,6 +40,11 @@ class Option
 	public var decimals:Int = 1;
 
 	public static var onValueSaved:Option->Void = null;
+
+	/** 运行时注入的取值/写值钩子（ModSettingsSubState 用 save 映射替代 ClientPrefs 直读）。
+	 *  之前靠 dynamic 函数重赋值实现；IStringValueSource 接口化后 getValue/setValue 必须是普通方法，改走钩子。 */
+	public var getValueOverride:Void->Dynamic = null;
+	public var setValueOverride:Dynamic->Void = null;
 
 	public var displayFormat:String = '%v';
 	public var description:String = '';
@@ -233,23 +239,29 @@ class Option
 		return Language.getPhrase('setting_$_translationKey-${raw}', raw);
 	}
 
-	dynamic public function getValue():Dynamic
+	public function getValue():Dynamic
 	{
+		if (getValueOverride != null) return getValueOverride();
 		var value = Reflect.getProperty(ClientPrefs.data, variable);
 		if (type == KEYBIND) return !Controls.instance.controllerMode ? value.keyboard : value.gamepad;
 		return value;
 	}
 
-	dynamic public function setValue(value:Dynamic)
+	public function setValue(value:Dynamic):Void
 	{
+		if (setValueOverride != null)
+		{
+			setValueOverride(value);
+			return;
+		}
 		if (type == KEYBIND)
 		{
 			var keys = Reflect.getProperty(ClientPrefs.data, variable);
 			if (!Controls.instance.controllerMode) keys.keyboard = value;
 			else keys.gamepad = value;
-			return value;
+			return;
 		}
-		return Reflect.setProperty(ClientPrefs.data, variable, value);
+		Reflect.setProperty(ClientPrefs.data, variable, value);
 	}
 
 	public function saveCurrentValue():Void

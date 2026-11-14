@@ -7,6 +7,7 @@ class PsychOptionsState extends MusicBeatState
 {
 	var options:Array<String> = [
 		'Note Colors',
+		'Note HSV Colors',
 		'Controls',
 		'Adjust Delay and Combo',
 		'Graphics',
@@ -24,6 +25,8 @@ class PsychOptionsState extends MusicBeatState
 		{
 			case 'Note Colors':
 				openSubState(new options.psychoptions.NotesColorSubState());
+			case 'Note HSV Colors':
+				openSubState(new options.psychoptions.NotesHSVSubState());
 			case 'Controls':
 				openSubState(new options.psychoptions.ControlsSubState());
 			case 'Graphics':
@@ -31,9 +34,9 @@ class PsychOptionsState extends MusicBeatState
 			case 'Visuals':
 				openSubState(new options.psychoptions.VisualsSettingsSubState());
 			case 'Gameplay':
-				openSubState(new options.psychoptions.GameplaySettingsSubState());
+				openSubState(new options.GameplaySettingsSubState());
 			case 'Adjust Delay and Combo':
-				MusicBeatState.switchState(new options.psychoptions.NoteOffsetState());
+				MusicBeatState.switchState(new options.NoteOffsetState());
 			case 'Language':
 				openSubState(new options.psychoptions.LanguageSubState());
 		}

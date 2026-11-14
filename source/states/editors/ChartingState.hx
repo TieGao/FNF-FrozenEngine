@@ -5598,10 +5598,11 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 		ClientPrefs.toggleVolumeKeys(false);
 		var dialog:ChartImportDialog = new ChartImportDialog(ChartImportDialog.MODE_IMPORT, info.keys, info.keys, info.diffs, info.formatLabel,
-			info.format, info.title);
+			info.format, info.title, info.midiParts);
 		dialog.onConfirm = function(opts:ChartConvertOptions)
 		{
-			performChartImport(filePath, opts.diff, opts.convertKeys ? opts.targetKeys : info.keys, opts.action, opts.extractAudio);
+			performChartImport(filePath, opts.diff, opts.convertKeys ? opts.targetKeys : info.keys, opts.action, opts.extractAudio,
+				opts.midiParts, opts.midiLaneMode);
 		};
 		dialog.onCancel = function()
 		{
@@ -5614,12 +5615,15 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	 * 统一谱面导入（.sm/.ssc/.osu/.osz/.qua/.qp/.mid/.mc → SwagSong）
 	 * ACTION_LOAD 直接载入编辑器；ACTION_SAVE 先存转换后的 Psych JSON 再询问是否载入
 	 * @param extractAudio 仅 .osz 有效：保存时把包内音频一起落到输出目录
+	 * @param midiPartIds 仅 MIDI：选中的声部 id（null = 优先级最高的那一条）
+	 * @param midiLaneMode 仅 MIDI：音高 → 轨道映射
 	 */
-	function performChartImport(filePath:String, diff:String, targetKeys:Int, action:Int, extractAudio:Bool = false)
+	function performChartImport(filePath:String, diff:String, targetKeys:Int, action:Int, extractAudio:Bool = false,
+			?midiPartIds:Array<Int>, midiLaneMode:String = 'range')
 	{
 		try
 		{
-			var loadedChart:SwagSong = ChartConverter.importChart(filePath, diff, targetKeys);
+			var loadedChart:SwagSong = ChartConverter.importChart(filePath, diff, targetKeys, midiPartIds, midiLaneMode);
 			if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
 			{
 				showOutput('Error: Unable to read chart file', true);

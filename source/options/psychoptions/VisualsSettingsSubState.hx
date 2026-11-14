@@ -66,6 +66,21 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			option.onChange = onChangeSplashSkin;
 		}
 
+		// 音符 / 溅射体系三态开关（auto 自动判 / legacy 强制 HSV / new 强制 RGB + 自定义皮肤），两者互相独立
+		var noteSystemOption:Option = new Option('Note System',
+			"auto: detect | legacy: force HSV | new: force RGB + custom skin.",
+			'noteSystem',
+			STRING,
+			['auto', 'legacy', 'new']);
+		addOption(noteSystemOption);
+
+		var splashSystemOption:Option = new Option('Splash System',
+			"auto: detect | legacy: force HSV | new: force RGB + custom skin.",
+			'splashSystem',
+			STRING,
+			['auto', 'legacy', 'new']);
+		addOption(splashSystemOption);
+
 		var holdCovers:Array<String> = Mods.mergeAllTextsNamed('images/holdCover/list.txt');
 		if(holdCovers.length > 0)
 		{

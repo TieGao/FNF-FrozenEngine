@@ -399,7 +399,17 @@ class PsychUIInputText extends FlxSpriteGroup
 			if(focusOn.unfocus != null) focusOn.unfocus();
 			focusOn.resetCaret();
 		}
-		return (focusOn = v);
+
+		focusOn = v;
+
+		// 输入框拿到键盘就把 +/-/0 这些音量热键让出去，交还键盘再装回来。
+		// FlxG.sound 自己每帧查 volumeUpKeys / volumeDownKeys / muteKeys，不清掉的话
+		// 在搜索框里打 "-" 会顺手把音量条拖下去（负号就是减音量）。
+		// 注意不能只在"焦点变化时"调：上面的 unfocus() 可能递归回到这里把 focusOn 置空，
+		// 所以这里直接按最终状态设置，幂等即可。
+		ClientPrefs.toggleVolumeKeys(focusOn == null);
+
+		return v;
 	}
 
 	override function update(elapsed:Float)

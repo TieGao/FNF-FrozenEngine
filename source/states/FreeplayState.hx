@@ -20,7 +20,7 @@ import objects.MessageBox;
 import states.freeplay.*;
 
 import backend.AlbumConfig;
-import options.psychoptions.GameplayChangersSubstate;
+import options.GameplayChangersSubstate;
 import options.objects.win10.Win10SearchBar;
 import substates.ResetScoreSubState;
 
@@ -78,6 +78,14 @@ class FreeplayState extends MusicBeatState
     }
 
     public static var curSelected:Int = 0;
+    /**
+     * 开歌 / 进编辑器前对「选中歌身份 + 搜索关键词」做的快照，回到 Freeplay 时消费一次。
+     * 关键：过滤视图下 songs 只是子集，下标和全量列表**不是一套**。回来时列表按全量重建，
+     * 光靠 static curSelected 就会落到「全量列表的第 N 首」而不是刚玩的那首。
+     */
+    public static var pendingReturnSongKey:String = null;
+    /** 上一次生效的搜索关键词原文（保留大小写），回来时回填搜索框 */
+    public static var pendingReturnFilter:String = '';
     var lerpSelected:Float = 0;
     // 用于鼠标滚动/拖拽的滚动位置（以索引像素为单位，spacing 为每项高度）
     public var cardScrollPos:Float = 0;
@@ -294,6 +302,8 @@ class FreeplayState extends MusicBeatState
     var filterBaseSongs:Array<NewSongMetaData> = null;
     /** 已生效的关键词，避免同一串字符反复重建列表 */
     var filterAppliedQuery:String = '';
+    /** 关键词原文（保留大小写）。只给搜索框回填 / 跨状态还原用，匹配一律走小写版 filterAppliedQuery */
+    var filterRawQuery:String = '';
     /**
      * 搜索框 onChange 只把关键词记在这里，真正的列表重建留到下一帧 update 开头。
      * 输入事件是在帧末（成员 update）派发的，当场重建会先销毁全部卡片、新卡要等下一帧才建，
@@ -388,11 +398,6 @@ class FreeplayState extends MusicBeatState
 
     override function create()
     {
-        // 状态边界先清掉上一界面留下的非本地资源，再建立本界面的局部缓存。
-        //
-        // 例外：「保留上一首贴图」开着时不动手 —— 从 PlayState 回来时，上一首的角色/舞台图还在，
-        // 立刻重开同一首能全部命中缓存。真正换歌由 PlayState.create() 里那次 clearStoredMemory
-        // 按 key 的代际判定清掉，回主菜单则由本类的 destroy() 清，等于「再次切换且曲目不同再清」。
         if (!ClientPrefs.data.keepSongAssetsOnFreeplay)
         {
             Paths.clearStoredMemory();
@@ -425,6 +430,10 @@ class FreeplayState extends MusicBeatState
         SongArtConfig.loadAllConfigs();
         SongMetaConfig.loadAllConfigs();
         // 艺术图与背景按当前歌曲懒加载，避免歌曲/模组数量把 Freeplay 入口峰值推高。
+
+        // 从 PlayState / 编辑器回来：先按快照还原过滤视图与选中歌，再做下面的下标钳制。
+        // 这一步必须在 buildBackground / initializeSelection 之前 —— 它俩都按 curSelected 取歌。
+        restoreReturnSelection();
 
         if (curSelected >= songs.length || curSelected < 0)
             curSelected = 0;
@@ -714,6 +723,10 @@ class FreeplayState extends MusicBeatState
             searchBar.onClick = function() openSearchSubstate();
         add(searchBar);
 
+        // 从 PlayState 回来时把上次的关键词填回搜索框。
+        // setText 不触发 onChange，列表在 create 早期（restoreReturnSelection）就已经还原好了。
+        if (filterRawQuery.length > 0) searchBar.setText(filterRawQuery);
+
         // 命中计数只服务过滤器模式；SubState 模式下没有"列表被筛掉"这回事
         if (ClientPrefs.data.freeplaySearchInline)
         {
@@ -725,6 +738,8 @@ class FreeplayState extends MusicBeatState
             searchCountText.scrollFactor.set();
             searchCountText.visible = false;
             add(searchCountText);
+            // 还原的过滤视图要一进来就把 "N / 总数" 显示出来
+            updateSearchCount();
         }
     }
 
@@ -3336,6 +3351,10 @@ class FreeplayState extends MusicBeatState
 
         if (!loadSongIntoPlayState()) return false;
 
+        // 离开前留快照：回来时列表按全量重建，过滤视图里的下标不能直接复用
+        pendingReturnSongKey = (curSelected >= 0 && curSelected < songs.length) ? songKeyOf(songs[curSelected]) : null;
+        pendingReturnFilter = (searchBar != null) ? searchBar.getText() : filterRawQuery;
+
         persistentUpdate = false;
 
         @:privateAccess
@@ -3519,12 +3538,92 @@ class FreeplayState extends MusicBeatState
         return true;
     }
 
+    /** 过滤视图 / 回来还原共用的纯数据筛选（不碰界面）：把 base 按关键词过一遍。 */
+    private function filterSongsByQuery(base:Array<NewSongMetaData>, query:String):Array<NewSongMetaData>
+    {
+        var matched:Array<NewSongMetaData> = [];
+        for (song in base)
+            if (query.length == 0 || songMatchesQuery(song, query)) matched.push(song);
+        return matched;
+    }
+
+    /**
+     * 歌的唯一身份键：跨状态还原选中项只能靠它。
+     * 过滤视图的下标和全量列表不是一套，回来时光用 curSelected 会指到别的歌上。
+     */
+    public static function songKeyOf(song:NewSongMetaData):String
+    {
+        if (song == null) return '';
+        return song.songName
+            + '\n' + (song.folder == null ? '' : song.folder)
+            + '\n' + (song.contentRoot == null ? '' : song.contentRoot)
+            + '\n' + (song.variant == null ? '' : song.variant)
+            + '\n' + (song.customChart == null || song.customChart.directory == null ? '' : song.customChart.directory);
+    }
+
+    /** 按身份键找下标；同一首被多个周收录时取离 hint（旧下标）最近的那个，避免跳远。 */
+    private static function indexBySongKey(list:Array<NewSongMetaData>, key:String, hint:Int):Int
+    {
+        var best:Int = -1;
+        var bestDist:Int = 0;
+        for (i in 0...list.length)
+        {
+            if (songKeyOf(list[i]) != key) continue;
+            var dist:Int = (i > hint) ? i - hint : hint - i;
+            if (best < 0 || dist < bestDist)
+            {
+                best = i;
+                bestDist = dist;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * 从 PlayState / 编辑器回来时还原上一次的过滤视图与选中歌。
+     * 顺序很关键：先在**全量**列表里按歌身份定位（这时还没过滤），再套关键词过滤，
+     * 最后在过滤结果里重新求一次下标 —— 反过来做就会拿到过滤前的旧下标。
+     */
+    private function restoreReturnSelection():Void
+    {
+        var key:String = pendingReturnSongKey;
+        var rawQuery:String = pendingReturnFilter;
+        pendingReturnSongKey = null;
+        pendingReturnFilter = '';
+
+        if (key != null && key.length > 0 && songs.length > 0)
+        {
+            var idx:Int = indexBySongKey(songs, key, curSelected);
+            if (idx >= 0) curSelected = idx;
+        }
+
+        var query:String = (rawQuery == null) ? '' : rawQuery.toLowerCase().trim();
+        if (query.length == 0) return;
+        if (!ClientPrefs.data.freeplaySearch || !ClientPrefs.data.freeplaySearchInline) return;
+        if (songs.length == 0) return;
+
+        var matched:Array<NewSongMetaData> = filterSongsByQuery(songs, query);
+        // 一首都没命中就别还原了：不能把玩家丢进空列表，还留个说不清的过滤态
+        if (matched.length == 0) return;
+
+        var keep:NewSongMetaData = (curSelected >= 0 && curSelected < songs.length) ? songs[curSelected] : null;
+
+        filterBaseSongs = songs.copy();
+        filterAppliedQuery = query;
+        filterRawQuery = rawQuery.trim();
+        songs = matched;
+
+        curSelected = (keep == null) ? 0 : songs.indexOf(keep);
+        if (curSelected < 0) curSelected = 0;
+    }
+
     /** 过滤器模式下每次输入都走这里：重建 songs 子集并把界面同步过去。 */
     private function applySongFilter(rawQuery:String):Void
     {
         if (!ClientPrefs.data.freeplaySearchInline) return;
 
         var query:String = (rawQuery == null) ? '' : rawQuery.toLowerCase().trim();
+        filterRawQuery = (rawQuery == null) ? '' : rawQuery.trim();
         if (query == filterAppliedQuery) return;
         filterAppliedQuery = query;
 
@@ -3546,10 +3645,7 @@ class FreeplayState extends MusicBeatState
         // 记住当前选中的歌（对象引用），过滤后它还在结果里就继续保持选中
         var keep:NewSongMetaData = (curSelected >= 0 && curSelected < songs.length) ? songs[curSelected] : null;
 
-        var matched:Array<NewSongMetaData> = [];
-        for (song in filterBaseSongs)
-            if (query.length == 0 || songMatchesQuery(song, query)) matched.push(song);
-        songs = matched;
+        songs = filterSongsByQuery(filterBaseSongs, query);
 
         // 已物化的卡片全部摘掉重建（它们按旧下标摆位，留着会显示错歌）
         for (i in 0...cards.length)
@@ -3629,6 +3725,7 @@ class FreeplayState extends MusicBeatState
     {
         filterBaseSongs = null;
         filterAppliedQuery = '';
+        filterRawQuery = '';
         pendingFilterQuery = null;
         if (searchBar != null) searchBar.setText('');
         if (searchCountText != null) searchCountText.visible = false;

@@ -20,6 +20,8 @@ import flixel.util.FlxColor;
  * Windows 8 的"设置浮出层"（Settings flyout）：贴屏幕右侧 30% 的面板，从右边缘滑入，
  * 顶部标题栏 + 中间滚动区 + 底部说明栏。子类只重写 buildCharms() 声明分组与 Option
  * （可以是动态的，rebuildCharms() 换内容），排版 / 滚动 / 键鼠 / 深浅色 / 控件主题全由基类处理。
+ * 滚动区上下边缘（HEADER_H / FlxG.height - FOOTER_H）有真正的逐叶子裁剪，见
+ * refreshRowClipping() —— 标题文字和底部说明文字不会被滚上来的行压住。
  *
  * 两种"隐藏"别搞混：showPanel() / hidePanel() 是纯滑动、不销毁自己；关闭整个界面走
  * animateOutAndClose() → closeCharmBar() → close()。返回按钮 / ESC / 右键共用
@@ -342,7 +344,8 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 		contentGroup.scrollFactor.set();
 		add(contentGroup);
 
-		// 标题区画在内容之后 → 内容往上滚时会"钻"到标题下面（等于裁剪）
+		// 标题区画在内容之后（视觉底色）。真正的边界裁剪由 refreshRowClipping() 做：
+		// 光靠这两块不透明背景去"盖"不够，半截行 / 混合模式下的文字仍会透到标题和说明栏上。
 		panelHeader = new Rect(panelX, 0, panelW, HEADER_H, 0, 0, UIControlTheme.panelHeader(), 0);
 		panelHeader.scrollFactor.set();
 		add(panelHeader);
@@ -424,6 +427,10 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 		if (footerDivider != null) footerDivider.x = panelX + panelOffset;
 		if (footerText != null) footerText.x = footerBaseX + panelOffset;
 		if (contentGroup != null) contentGroup.x = panelOffset;
+
+		// 组 x 变了（= 所有叶子的世界坐标变了），帧坐标下的 clipRect 必须跟着重算，
+		// 否则滑入/滑出动画期间会留一帧旧裁剪。
+		refreshRowClipping();
 	}
 
 	/** 面板整体滑入/滑出（targetOffset = 0 是最终位置，panelW 是屏幕外） */
@@ -671,6 +678,8 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 		var viewTop:Float = HEADER_H;
 		var viewBottom:Float = FlxG.height - FOOTER_H;
 
+		// 整行 culling：滚出视口的行不画不停更（命中区也跟着失效）。
+		// 半截露在外面的行不在这里隐藏，交给下面的逐叶子裁剪处理。
 		for (s in sections)
 		{
 			s.y = s.baseY - scroll;
@@ -688,6 +697,69 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 			row.visible = visible;
 			row.active = visible;
 		}
+
+		refreshRowClipping();
+	}
+
+	/**
+	 * 滚动区上/下边缘的真裁剪：顶部裁在标题栏之下、底部裁在说明栏之上，
+	 * 两边都不让滚动行的文字压到标题 / 说明文字上。
+	 *
+	 * 只裁上下。左右放宽到屏幕外 —— 面板滑入/滑出时内容整体右移最多 panelW，
+	 * 放宽后不会被误裁，也省掉每帧按 panelOffset 换算左右边界。
+	 * 下拉 / 调色板弹层挂在 overlayContainer 上，不在这里，展开时必须完整显示。
+	 *
+	 * 三态（与 KEOptionsMenu.positionRows 同款）：
+	 *   整行在外 / 整行在内 → 清掉旧 clipRect（防止 stale 裁剪跟着行跑）；
+	 *   只露出一截          → 逐个真叶子 sprite 调 clipToViewBounds()。
+	 *
+	 * clipRect 是**帧坐标**，绝不能把视图矩形直接塞进去；也不能对 FlxSpriteGroup
+	 * 整体设裁剪（组的 set_clipRect 会按成员坐标平移下发，既算不了 scale/offset，
+	 * 也不会换算到帧坐标），所以这里递归到叶子再各自按自身 transform 换算。
+	 * 相机必须传本界面 cameras[0]（暂停菜单可能挂在独立 UI 相机上），否则换算会
+	 * 带上游戏相机的 scroll，裁剪整体偏移。
+	 */
+	function refreshRowClipping():Void
+	{
+		var top:Float = HEADER_H;
+		var bottom:Float = FlxG.height - FOOTER_H;
+		var cam:FlxCamera = (cameras != null && cameras.length > 0) ? cameras[0] : null;
+		var left:Float = -1000;
+		var right:Float = FlxG.width + panelW + 1000;
+
+		for (s in sections) applyRowClip(s, s.y, s.rowH, left, top, right, bottom, cam);
+		for (r in rows) applyRowClip(r, r.y, r.rowH, left, top, right, bottom, cam);
+	}
+
+	function applyRowClip(target:FlxSpriteGroup, y:Float, h:Float,
+		left:Float, top:Float, right:Float, bottom:Float, cam:FlxCamera):Void
+	{
+		if (target == null) return;
+
+		var outside:Bool = (y + h <= top) || (y >= bottom);
+		var inside:Bool = !outside && (y >= top) && (y + h <= bottom);
+
+		// 只改 clipRect，不碰任何 visible：子成员原本隐藏的东西（搜索标注、
+		// 弹层、选中描边）必须保持作者设定的可见性，culling 由 applyScroll() 在组级做。
+		applyLeafClip(target, !outside && !inside, left, top, right, bottom, cam);
+	}
+
+	/** 递归到真正的 FlxSprite 叶子；apply = false 时只清旧裁剪 */
+	function applyLeafClip(target:FlxSprite, apply:Bool,
+		left:Float, top:Float, right:Float, bottom:Float, cam:FlxCamera):Void
+	{
+		if (target == null) return;
+
+		var group:FlxSpriteGroup = Std.downcast(target, FlxSpriteGroup);
+		if (group != null)
+		{
+			for (m in group.members)
+				if (m != null) applyLeafClip(m, apply, left, top, right, bottom, cam);
+			return;
+		}
+
+		if (apply) target.clipToViewBounds(left, top, right, bottom, cam);
+		else if (target.clipRect != null) target.clipRect = null;
 	}
 
 	function updateSelectionVisual():Void
@@ -1099,6 +1171,11 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 
 		if (scrollHolder.value != scroll)
 			scrollHolder.value = scroll;
+
+		// 控件每帧可能改 scale / 帧 / 文字，裁剪必须在最终 transform 之后重算，
+		// 否则拖拽、按下动画、主题切换时会留一帧旧裁剪。放在早退分支之前，
+		// 动画中和等按键（inputModal）期间也要保持裁剪正确。
+		refreshRowClipping();
 
 		// inputModal：模态控件（等按键）正在消费输入，面板这一轮什么都不做
 		if (isAnimating || closing || inputModal) return;

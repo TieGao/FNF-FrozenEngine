@@ -61,11 +61,52 @@ class OptionInput
 	 * 指针侧与对象侧都显式传同一台相机，不再各取各的默认值。
 	 * 顺手挡掉已销毁的对象：`FlxBasic.destroy()` 会把 scrollFactor 这类内部点置成 null，
 	 * 之后再做命中判定会在 `FlxObject.getScreenPosition()` 里对 null 取字段而崩。
+	 *
+	 * @param insidePopup 我自己就是弹层里的元素 —— 绕开遮挡判定（见 beginBlock）
 	 */
-	public static function overlaps(obj:FlxBasic):Bool
+	public static function overlaps(obj:FlxBasic, ?insidePopup:Bool = false):Bool
 	{
 		if (obj == null || !obj.exists) return false;
+		if (!insidePopup && isBlocked()) return false;
 		return FlxG.mouse.overlaps(obj, camera);
+	}
+
+	// =========================================================
+	// 弹层遮挡（防穿透误触）
+	// =========================================================
+
+	/** 当前展开的弹层（下拉列表 / 调色板）的背景块 */
+	static var blockArea:FlxBasic = null;
+
+	/**
+	 * 登记"我展开了一个弹层，它盖住了别的东西"。
+	 *
+	 * 弹层是挂在 overlayContainer 上的浮层：**画**在选项行之上，但行里的控件并不知道自己被盖住了
+	 * —— 每个控件各自拿自己的 bg 做 `mouse.overlaps`，于是弹层上的点击会原样穿透到下面的按钮。
+	 * Debug 页就是活例子：「Lua Script Parser」展开的三行列表正压在「Crash Test」上，
+	 * 点列表任意一项都会顺手触发崩溃自测，游戏当场炸掉。
+	 *
+	 * 登记之后，`overlaps()` 会替**所有**控件挡掉压在弹层上的指针；
+	 * 弹层自己（列表项）用 `overlaps(obj, true)` 取原始判定。
+	 *
+	 * @param area 弹层背景块（负责"指针是否压在弹层上"的几何判定）
+	 */
+	public static function beginBlock(area:FlxBasic):Void
+	{
+		blockArea = area;
+	}
+
+	/** 撤销 own 的登记（只在它确实登记过时动手，不会误伤后来者）。 */
+	public static function endBlock(area:FlxBasic):Void
+	{
+		if (blockArea == area) blockArea = null;
+	}
+
+	/** 指针是否正压在展开的弹层上 */
+	public static function isBlocked():Bool
+	{
+		if (blockArea == null || !blockArea.exists) return false;
+		return FlxG.mouse.overlaps(blockArea, camera);
 	}
 
 	/**

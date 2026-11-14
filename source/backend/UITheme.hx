@@ -314,9 +314,11 @@ class UITheme
 		navItemActive = 0xFFDCE9F5;
 		navItemPress = 0xFFD6D6D6;
 
-		control = 0xFFFFFFFF;
-		controlHover = 0xFFEDEDED;
-		controlPress = 0xFFE0E0E0;
+		// 浅色下按钮用浅灰而不是纯白：白底页面（0xFAFAFA）上纯白按钮完全看不出边界，
+		// 只能靠描边撑，视觉上就是"没有按钮"。三档灰度保持 常态 > 悬停 > 按下。
+		control = 0xFFF0F0F0;
+		controlHover = 0xFFE6E6E6;
+		controlPress = 0xFFDADADA;
 
 		popup = 0xFFFFFFFF;
 		popupItem = 0xFFEAF2FB;

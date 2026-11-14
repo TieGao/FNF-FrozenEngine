@@ -211,7 +211,7 @@ class HScript extends Iris
 		#end
 		set('options.OptionsState', options.psychoptions.PsychOptionsState);
 		set('options.ModSettingsSubState', options.ModSettingsSubState);
-		set('options.GameplayChangersSubstate', options.psychoptions.GameplayChangersSubstate);
+		set('options.GameplayChangersSubstate', options.GameplayChangersSubstate);
 
 		// Functions & Variables
 		set('setVar', function(name:String, value:Dynamic) {

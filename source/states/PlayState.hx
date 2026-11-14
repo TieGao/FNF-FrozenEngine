@@ -170,24 +170,6 @@ class PlayState extends MusicBeatState
 	public var unspawnNotes:Array<Note> = [];
 	public var eventNotes:Array<EventNote> = [];
 
-	// 跨 PlayState 实例存活的 Note 池。池中对象不在任何被 update/draw 的组里。
-	// 注意：HScript 回调（onSpawnNote / goodNoteHit / noteMiss）会把 Note 对象交给 mod，
-	// mod 若长期持有引用，重开后读到的是被复用的对象 —— 这是池化的固有代价。
-	private static var notePool:Array<Note> = [];
-
-	// 池里这批对象属于哪首歌（歌名|难度|mod 目录）。换歌时整批丢弃，只保留"同一首歌重开"的复用。
-	// 复用对象会把上一首的残留状态带进下一首，渲染层最敏感（贴图 / 裁剪矩形 / alpha 都可能留下死值），
-	// 表现就是"第二首起某些固定位置的 note 看不见、但判定照常"。同歌重开（retry / 练习）才是池的收益点。
-	private static var notePoolOwner:String = null;
-
-	private static function discardNotePool():Void
-	{
-		for (note in notePool)
-			if (note != null) note.destroy();
-		notePool = [];
-		notePoolOwner = null;
-	}
-
 	public var camFollow:FlxObject;
 	private static var prevCamFollow:FlxObject;
 
@@ -416,52 +398,16 @@ class PlayState extends MusicBeatState
 	}
 
 	/**
-	 * 从静态池取一个 Note 复用；池空才新建。
-	 * prevNote 链语义与原 new Note(...) 完全一致，只是换成 reuse()。
+	 * 命中/丢失后把 Note 从场上撤下（kill，交给 GC）。
+	 * 与原版 1.0.4 一致：这里不 destroy —— HScript/Lua 回调（onSpawnNote / goodNoteHit / noteMiss）
+	 * 可能把 Note 对象交给 mod 长期持有，destroy 会当场掏空其内部字段；
+	 * cancelTweensOf 是给 mod 可能施加的 tween 兜底（原版没有，FE 加固）。
 	 */
-	private function obtainNote(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false):Note
-	{
-		var note:Note = (notePool.length > 0) ? notePool.pop() : null;
-		if (note == null) return new Note(strumTime, noteData, prevNote, sustainNote);
-
-		note.reuse(strumTime, noteData, prevNote, sustainNote);
-		return note;
-	}
-
-	/**
-	 * 把不再参与游戏的 Note 收回静态池：取消 tween + 断开引用链 + 入池。
-	 * 不 destroy —— 对象跨 PlayState / 跨歌曲复用。
-	 * cancelTweensOf 是给 mod（Lua/HScript）可能施加的 tween 兜底。
-	 */
-	private static function reclaimNote(note:Note):Void
+	private static function discardNote(note:Note):Void
 	{
 		if (note == null) return;
 		FlxTween.cancelTweensOf(note);
 		note.kill();
-		note.prepareForPool();
-		notePool.push(note);
-	}
-
-	/**
-	 * 退出 PlayState 时把仍在场/待场的 Note 全部收回静态池。
-	 * 必须在 super.destroy() 之前调用，否则 noteGroup 会把它们 destroy 掉。
-	 */
-	private function reclaimAllNotes():Void
-	{
-		// members 判空：FlxGroup.destroy() 会把它置 null，重复 destroy 时别在这里抛异常
-		// （一抛 super.destroy() 就不执行了）。
-		if (notes != null && notes.members != null)
-		{
-			for (note in notes.members)
-				reclaimNote(note);
-			notes.clear(); // members 是 (default, null)，不能直接赋值
-		}
-		if (unspawnNotes != null)
-		{
-			for (note in unspawnNotes)
-				reclaimNote(note);
-			unspawnNotes = [];
-		}
 	}
 
 	// 判定弹窗组注册表：每组 = 一次 popUpScore 创建的全部精灵，队首即最旧（按创建先后入队）
@@ -1809,7 +1755,7 @@ class PlayState extends MusicBeatState
 
 				daNote.kill();
 				unspawnNotes.remove(daNote);
-				reclaimNote(daNote);
+				daNote.destroy();
 			}
 			--i;
 		}
@@ -2028,16 +1974,6 @@ public function reloadCounterColors()
 
 	private function generateSong():Void
 	{
-		// 换歌就丢掉上一首留下的池对象；同一首歌重开（retry / 练习）保留，那才是池的收益点。
-		// 谱面来源（category / directory）也算身份：同名歌的不同谱面（remix / 换难度）不能共用池。
-		var poolKey:String = songName + '|' + storyDifficulty + '|' + Mods.currentModDirectory
-			+ '|' + Paths.currentChartCategory + '|' + Paths.currentChartDirectory;
-		if (notePoolOwner != poolKey)
-		{
-			discardNotePool();
-			notePoolOwner = poolKey;
-		}
-
 		// FlxG.log.add(ChartParser.parse());
 		refreshColumnCount();
 		songSpeed = PlayState.SONG.speed;
@@ -2118,9 +2054,6 @@ public function reloadCounterColors()
 					makeEvent(event, i);
 
 		var oldNote:Note = null;
-		// 幽灵音先记账、生成循环结束后再回池：当场回池会被同一轮的 obtainNote 立刻复用，
-		// 而它可能仍是别的 note 的 prevNote/oldNote，会把链搞乱。
-		var ghostReclaim:Array<Note> = [];
 		var sectionsData:Array<SwagSection> = PlayState.SONG.notes;
 		var middleActive:Bool = middleScrollActive(); // coop 下恒 false
 		
@@ -2179,19 +2112,18 @@ public function reloadCounterColors()
 							if (evilNote.tail.length > 0)
 								for (tail in evilNote.tail)
 								{
+									tail.destroy();
 									unspawnNotes.remove(tail);
-									ghostReclaim.push(tail);
 								}
+							evilNote.destroy();
 							unspawnNotes.remove(evilNote);
-							ghostReclaim.push(evilNote);
 							ghostNotesCaught++;
 							//continue;
 						}
 					}
 				}
 
-				// 整首歌的 note 从静态池取：复用上一首/上一次的对象，池空才 new
-				var swagNote:Note = obtainNote(spawnTime, noteColumn, oldNote);
+				var swagNote:Note = new Note(spawnTime, noteColumn, oldNote);
 
 				var isAlt: Bool = section.altAnim && !gottaHitNote;
 				swagNote.gfNote = (section.gfSection && gottaHitNote == section.mustHitSection);
@@ -2211,7 +2143,7 @@ public function reloadCounterColors()
 					{
 						oldNote = unspawnNotes[Std.int(unspawnNotes.length - 1)];
 
-						var sustainNote:Note = obtainNote(spawnTime + (curStepCrochet * susNote), noteColumn, oldNote, true);
+						var sustainNote:Note = new Note(spawnTime + (curStepCrochet * susNote), noteColumn, oldNote, true);
 						sustainNote.animSuffix = swagNote.animSuffix;
 						sustainNote.mustPress = swagNote.mustPress;
 						sustainNote.gfNote = swagNote.gfNote;
@@ -2283,7 +2215,6 @@ public function reloadCounterColors()
 			for (i in 0...event[1].length)
 				makeEvent(event, i);
 
-		for (n in ghostReclaim) reclaimNote(n);
 		unspawnNotes.sort(sortByTime);
 		generatedMusic = true;
 	}
@@ -3906,8 +3837,6 @@ public function reloadCounterColors()
 			daNote.visible = false;
 			invalidateNote(daNote);
 		}
-		for (note in unspawnNotes)
-			reclaimNote(note);
 		unspawnNotes = [];
 		eventNotes = [];
 	}
@@ -5240,7 +5169,7 @@ public function reloadCounterColors()
 	public function invalidateNote(note:Note):Void {
 		note.kill();
 		notes.remove(note, true); // KillNotes 的 while 依赖这里让 notes.length 递减，必须保留
-		reclaimNote(note);
+		discardNote(note);
 	}
 
 	public function spawnNoteSplashOnNote(note:Note) {
@@ -5344,9 +5273,6 @@ public function reloadCounterColors()
 		}
 
 		keyboardViewer.save();
-
-		// 回收仍在场/待场的 Note 进静态池（跨歌复用），必须在 super.destroy() 之前
-		reclaimAllNotes();
 
 		// 脚本用 makeLuaSprite 建过、但没有 addLuaSprite 的精灵只登记在 variables 里（MusicBeatState 的
 		// 实例字段，不是 static）：state 销毁时它们只会变成垃圾，而 FlxSprite 的引用计数只有在 destroy()

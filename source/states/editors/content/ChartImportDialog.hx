@@ -7,6 +7,7 @@ import backend.ui.PsychUICheckBox;
 import backend.ui.PsychUIEventHandler;
 import backend.ui.Win8DropDown;
 import backend.Language;
+import states.editors.content.MidiTrackReader.MidiPart;
 
 /**
  * 转换结果，由 onConfirm 回传。
@@ -20,6 +21,10 @@ typedef ChartConvertOptions =
 	var convertKeys:Bool;
 	var targetKeys:Int;
 	var extractAudio:Bool;
+	/** 仅 MIDI：选中的声部 id（null = 不适用 / 全不选时退回默认） */
+	var midiParts:Array<Int>;
+	/** 仅 MIDI：音高 → 轨道映射（range / mod） */
+	var midiLaneMode:String;
 }
 
 /**
@@ -64,6 +69,20 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 	private var sourceFormat:String;
 	private var songTitle:String;
 
+	// MIDI 多声部选择（列表行数超过窗口时滚轮翻页）
+	private var midiParts:Array<MidiPart> = null;
+	private var midiSelected:Array<Bool> = [];
+	private var midiRows:Array<PsychUICheckBox> = [];
+	private var midiListBg:FlxSprite = null;
+	private var midiScrollThumb:FlxSprite = null;
+	private var midiScrollRow:Int = 0;
+	private var midiViewRows:Int = 0;
+	/** 上次算滚动条拇指几何时的行号（-1 = 还没算过），避免每帧重设缩放 */
+	private var midiThumbRow:Int = -1;
+	private var laneModeDropDown:Win8DropDown = null;
+	/** 下拉展开期间挂起列表行的点击 */
+	private var uiSuspended:Bool = false;
+
 	// 导出相关
 	private var formatDropDown:Win8DropDown;
 	private var difficultyDropDown:Win8DropDown;
@@ -100,6 +119,11 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 	private static inline var BUTTON_HEIGHT:Int = 32;
 	private static inline var CANCEL_HEIGHT:Int = 28;
 	private static inline var DROPDOWN_WIDTH:Int = 220;
+	// MIDI 轨道列表
+	private static inline var MIDI_ROW_H:Int = 22;
+	private static inline var MIDI_LIST_PAD:Int = 4;
+	private static inline var MIDI_BTN_H:Int = 22;
+	private static var MIDI_MAX_ROWS:Int = 6;
 	private static inline var INFO_SIZE:Int = 16;
 	private static inline var HINT_SIZE:Int = 13;
 	private static var EXPORT_DIFFS:Array<String> = ['Beginner', 'Easy', 'Medium', 'Hard', 'Challenge', 'Edit'];
@@ -112,9 +136,10 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 	 * @param formatLabel 导入时源格式显示名（如 'osu!mania (.osu)'）
 	 * @param sourceFormat 导入时源格式 tag（如 'osz'），用于决定是否显示音频提取选项
 	 * @param songTitle 导入时源曲名（可为空；'Unknown' 视为没有）
+	 * @param midiParts 仅 MIDI：可选的声部列表（已按优先级排序，鼓组垫底）
 	 */
 	public function new(mode:Int, ?detectedKeys:Int = 4, ?currentKeys:Int = 4, ?diffs:Array<String> = null, ?formatLabel:String = '',
-			?sourceFormat:String = '', ?songTitle:String = '')
+			?sourceFormat:String = '', ?songTitle:String = '', ?midiParts:Array<MidiPart> = null)
 	{
 		super();
 		this.mode = mode;
@@ -125,6 +150,14 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 		this.sourceFormat = sourceFormat;
 		this.songTitle = songTitle;
 		this.exportFormats = ChartConvertCore.EXPORT_FORMATS;
+		this.midiParts = midiParts;
+
+		if(midiParts != null && midiParts.length > 0)
+		{
+			midiViewRows = (midiParts.length < MIDI_MAX_ROWS) ? midiParts.length : MIDI_MAX_ROWS;
+			for(i in 0...midiParts.length)
+				midiSelected.push(i == 0); // 默认只勾优先级最高的那一条（与旧版只读 1 号通道一致）
+		}
 	}
 
 	override function create()
@@ -147,6 +180,12 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 		infoH = measureTextHeight(infoMsg, INFO_SIZE);
 		hintH = measureTextHeight(hintMsg, HINT_SIZE);
 		var dialogHeight:Int = contentHeight(showDiffOption, showAudioOption);
+		// 对话框不能比屏幕高：轨道列表先按 6 行算，超出就减行数（滚轮照样能翻）
+		while(hasMidiTracks() && midiViewRows > 2 && dialogHeight > FlxG.height - 20)
+		{
+			midiViewRows--;
+			dialogHeight = contentHeight(showDiffOption, showAudioOption);
+		}
 
 		// 背景半透明遮罩：1×1 拉伸（整屏 makeGraphic 会真分配一张全屏位图）
 		bg = new FlxSprite().makeGraphic(1, 1, FlxColor.BLACK);
@@ -263,6 +302,8 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 		var content:Int = infoH;
 		if(mode == MODE_IMPORT)
 		{
+			if(hasMidiTracks())
+				content += 22 + (midiViewRows * MIDI_ROW_H + MIDI_LIST_PAD * 2) + 6 + MIDI_BTN_H + 8 + 48;
 			if(showDiffOption) content += 44;
 			content += 36 + 48; // 键数复选框 + 目标键数
 			if(showAudioOption) content += 36;
@@ -319,6 +360,9 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 			FlxColor.fromString('0xFFCCCCCC'), CENTER);
 		currentY += infoH;
 
+		// MIDI：多声部选择 + 音高映射
+		if(hasMidiTracks()) currentY = createMidiTrackList(boxBg, centerX, currentY);
+
 		// 难度选择（单难度文件不显示）
 		if(showDiffOption)
 		{
@@ -333,7 +377,8 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 		// 转换键数复选框（勾选状态直接决定下面目标键数下拉是否可用）
 		convertKeysCheck = new PsychUICheckBox(centerX - 140, currentY,
 			Language.getPhrase('chart_convert_keys', 'Convert to different key count'), 220, syncTargetKeysState);
-		convertKeysCheck.checked = (detectedKeys >= 7);
+		// MIDI 没有"原始键数"概念，键数永远由这里决定 → 默认打开
+		convertKeysCheck.checked = (detectedKeys >= 7) || hasMidiTracks();
 		convertKeysCheck.text.font = Paths.font('vcr.ttf');
 		add(cam(convertKeysCheck));
 		clickables.push(convertKeysCheck);
@@ -417,6 +462,168 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 	}
 
 	// =========================================================
+	// MIDI 轨道列表
+	// =========================================================
+
+	private function hasMidiTracks():Bool
+	{
+		return (mode == MODE_IMPORT) && midiParts != null && midiParts.length > 0 && midiViewRows > 0;
+	}
+
+	/**
+	 * MIDI 多声部选择：标题 + 可滚动勾选列表 + 全选/全不选 + 音高映射下拉。
+	 * 行数多于视口时滚轮整行翻页（不出现半行，所以不需要裁剪）。
+	 * @return 内容区下一项的 y
+	 */
+	private function createMidiTrackList(boxBg:FlxSprite, centerX:Float, startY:Float):Float
+	{
+		var listW:Int = DIALOG_WIDTH - PADDING * 2;
+		var listX:Float = boxBg.x + PADDING;
+		var listH:Int = midiViewRows * MIDI_ROW_H + MIDI_LIST_PAD * 2;
+		var y:Float = startY;
+
+		var head:String = Language.getPhrase('chart_midi_tracks', 'MIDI tracks: {1}', [Std.string(midiParts.length)]);
+		if(midiParts.length > midiViewRows)
+			head += '  ' + Language.getPhrase('chart_midi_scroll_hint', '(scroll wheel to see all)');
+		makeText(listX, y, listW, head, 15, FlxColor.WHITE, LEFT);
+		y += 22;
+
+		midiListBg = new FlxSprite(listX, y).makeGraphic(listW, listH, FlxColor.fromString('0xFF1E1E1E'));
+		add(cam(midiListBg));
+
+		for(i in 0...midiParts.length)
+		{
+			var row:PsychUICheckBox = new PsychUICheckBox(listX + 8, y + MIDI_LIST_PAD + i * MIDI_ROW_H,
+				buildMidiRowLabel(i, midiParts[i]), listW - 26);
+			row.name = Std.string(i);
+			row.text.font = Paths.font('vcr.ttf');
+			row.text.wordWrap = false;
+			row.checked = midiSelected[i];
+			row.onClick = function() onMidiRowToggled(row);
+			add(cam(row));
+			midiRows.push(row);
+		}
+
+		midiScrollThumb = new FlxSprite(0, 0).makeGraphic(3, 1, FlxColor.fromString('0xFF6B7280'));
+		add(cam(midiScrollThumb));
+
+		y += listH + 6;
+
+		var allBtn:PsychUIButton = new PsychUIButton(listX + 2, y, Language.getPhrase('chart_midi_all', 'All'),
+			function() setAllMidiRows(true), 54, MIDI_BTN_H);
+		styleMidiButton(allBtn);
+		add(cam(allBtn));
+		clickables.push(allBtn);
+
+		var noneBtn:PsychUIButton = new PsychUIButton(listX + 62, y, Language.getPhrase('chart_midi_none', 'None'),
+			function() setAllMidiRows(false), 54, MIDI_BTN_H);
+		styleMidiButton(noneBtn);
+		add(cam(noneBtn));
+		clickables.push(noneBtn);
+
+		y += MIDI_BTN_H + 8;
+
+		makeText(centerX - 160, y + 6, 140, Language.getPhrase('chart_midi_lane', 'Lane mapping:'), 16, FlxColor.WHITE, LEFT);
+		var laneOptions:Array<String> = [
+			Language.getPhrase('chart_midi_lane_range', 'Pitch range'),
+			Language.getPhrase('chart_midi_lane_mod', 'Pitch % keys')
+		];
+		laneModeDropDown = addDropDown(centerX - 20, y, laneOptions);
+		laneModeDropDown.selectedIndex = 0;
+		y += 48;
+
+		updateMidiScrollBar();
+		return y;
+	}
+
+	private function styleMidiButton(btn:PsychUIButton):Void
+	{
+		btn.normalStyle.bgColor = FlxColor.fromString('0xFF4B5563');
+		btn.normalStyle.textColor = FlxColor.WHITE;
+		btn.text.font = Paths.font('vcr.ttf');
+	}
+
+	/** 行文案：序号 + 音色族 + 通道 + 音符数 + 音域（回声轨额外标注，免得选了同一段两遍） */
+	private function buildMidiRowLabel(index:Int, part:MidiPart):String
+	{
+		var label:String = '#' + Std.string(index + 1) + '  ' + part.family + '  ch' + Std.string(part.channel + 1)
+			+ '  ' + Std.string(part.notes.length) + '  p' + Std.string(part.pitchMin) + '-' + Std.string(part.pitchMax);
+		if(part.echo) label += '  ' + Language.getPhrase('chart_midi_echo', '(echo)');
+		return label;
+	}
+
+	private function onMidiRowToggled(row:PsychUICheckBox):Void
+	{
+		var index:Null<Int> = Std.parseInt(row.name);
+		if(index == null || index < 0 || index >= midiSelected.length) return;
+		midiSelected[index] = row.checked;
+	}
+
+	private function setAllMidiRows(value:Bool):Void
+	{
+		for(i in 0...midiRows.length)
+		{
+			midiRows[i].checked = value;
+			midiSelected[i] = value;
+		}
+	}
+
+	private function maxMidiScrollRow():Int
+	{
+		if(!hasMidiTracks()) return 0;
+		var maxRow:Int = midiParts.length - midiViewRows;
+		return (maxRow > 0) ? maxRow : 0;
+	}
+
+	private function mouseOverMidiList():Bool
+	{
+		if(midiListBg == null || cameras == null || cameras.length == 0) return false;
+		var mouse:FlxPoint = FlxG.mouse.getViewPosition(cameras[0]);
+		return mouse.x >= midiListBg.x && mouse.x <= midiListBg.x + midiListBg.width
+			&& mouse.y >= midiListBg.y && mouse.y <= midiListBg.y + midiListBg.height;
+	}
+
+	/** 行位置 / 可见性 / 滚动条：视口外的行既不画也不吃点击 */
+	private function updateMidiScrollBar():Void
+	{
+		if(midiListBg == null || midiScrollThumb == null || !hasMidiTracks()) return;
+
+		var maxRow:Int = maxMidiScrollRow();
+		if(midiScrollRow > maxRow) midiScrollRow = maxRow;
+		if(midiScrollRow < 0) midiScrollRow = 0;
+
+		for(i in 0...midiRows.length)
+		{
+			var row:PsychUICheckBox = midiRows[i];
+			var inView:Bool = (i >= midiScrollRow) && (i < midiScrollRow + midiViewRows);
+			row.visible = inView;
+			row.active = inView && !uiSuspended;
+			row.y = midiListBg.y + MIDI_LIST_PAD + (i - midiScrollRow) * MIDI_ROW_H;
+		}
+
+		if(maxRow <= 0)
+		{
+			midiScrollThumb.visible = false;
+			return;
+		}
+
+		midiScrollThumb.visible = true;
+		if(midiThumbRow != midiScrollRow)
+		{
+			// 拇指高度按「可见行 / 总行」算；只有滚动位置变了才重算缩放
+			midiThumbRow = midiScrollRow;
+			var trackH:Float = midiListBg.height;
+			var thumbH:Float = trackH * midiViewRows / midiParts.length;
+			if(thumbH < 16) thumbH = 16;
+			if(thumbH > trackH) thumbH = trackH;
+			midiScrollThumb.setGraphicSize(3, Std.int(thumbH));
+			midiScrollThumb.updateHitbox();
+			midiScrollThumb.x = midiListBg.x + midiListBg.width - 7;
+			midiScrollThumb.y = midiListBg.y + (trackH - thumbH) * midiScrollRow / maxRow;
+		}
+	}
+
+	// =========================================================
 	// 导出 UI
 	// =========================================================
 
@@ -493,13 +700,26 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 	private function buildOptions(action:Int):ChartConvertOptions
 	{
 		var convertKeys:Bool = (convertKeysCheck != null && convertKeysCheck.checked);
+
+		var selectedParts:Array<Int> = null;
+		if(hasMidiTracks())
+		{
+			selectedParts = [];
+			for(i in 0...midiParts.length)
+				if(midiSelected[i]) selectedParts.push(midiParts[i].id);
+			if(selectedParts.length == 0) selectedParts = null; // 一条没勾：交给核心退回默认声部
+		}
+
 		return {
 			action: action,
 			format: (mode == MODE_IMPORT || formatDropDown == null) ? null : exportFormats[formatDropDown.selectedIndex],
 			diff: (mode == MODE_IMPORT) ? selectedDiff() : EXPORT_DIFFS[difficultyDropDown.selectedIndex],
 			convertKeys: convertKeys,
 			targetKeys: (targetKeysDropDown != null) ? targetKeysDropDown.selectedIndex + 4 : detectedKeys,
-			extractAudio: (extractAudioCheck != null && extractAudioCheck.checked)
+			extractAudio: (extractAudioCheck != null && extractAudioCheck.checked),
+			midiParts: selectedParts,
+			midiLaneMode: (laneModeDropDown != null && laneModeDropDown.selectedIndex == 1)
+				? ChartConvertCore.MIDI_LANE_MOD : ChartConvertCore.MIDI_LANE_RANGE
 		};
 	}
 
@@ -551,6 +771,18 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 		}
 		for(c in clickables)
 			if(c != null) c.active = (openDD == null);
+
+		uiSuspended = (openDD != null);
+		// 轨道列表：滚轮翻页（整行滚动，不会出现半行）
+		if(hasMidiTracks() && !uiSuspended && FlxG.mouse.wheel != 0 && mouseOverMidiList())
+		{
+			if(maxMidiScrollRow() > 0)
+			{
+				midiScrollRow -= FlxG.mouse.wheel;
+				updateMidiScrollBar();
+			}
+		}
+		else updateMidiScrollBar();
 
 		if(controls.BACK)
 		{
