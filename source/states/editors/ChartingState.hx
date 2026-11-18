@@ -3812,24 +3812,13 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 					var func:Void->Void = function()
 					{
-						// 引擎管理的谱面目录：音频与谱面同放，Paths 候选链能直接定位，
-						// 不跑音频向导也不弹缺音频警告，避免给已有谱面平白加三步选择框。
-						if (isManagedChartDirectory(filePath))
-						{
-							setChartDirectoryFromPath(filePath);
-							loadChart(loadedChart);
-							Paths.currentChartInstPath = null;
-							Song.chartPath = savedPath;
-							reloadNotesDropdowns();
-							prepareReload();
-							showOutput('Opened chart "${Song.chartPath}" successfully!');
-							return;
-						}
-
-						// 外部散落目录：分步向导补齐 Inst / Player / Opponent 音频。
-						// 用向导自带的 FileDialogHandler，不碰 ChartingState.fileDialog。
+						// 所有格式统一走音频向导，只对缺 Inst 弹警告；不按谱面格式特化。
+						// 声明了音频行的谱面按声明定位；管理目录信任同目录音频，
+						// 外部散落目录一律要求手动导入（不认目录里的通用名残留文件）。
 						var wizard:ChartAudioImportWizard = new ChartAudioImportWizard();
 						wizard.importVocals = (loadedChart.needsVoices != false);
+						wizard.allowFolderScan = isManagedChartDirectory(filePath);
+						wizard.declaredAudioPath = getDeclaredAudio(filePath);
 						wizard.start(chartDir, function(res:ChartAudioImportResult)
 						{
 							var proceed:Void->Void = function()
@@ -5504,18 +5493,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	}
 
 	/**
-	 * osu 家族谱面只有一条混合音轨，没有人声分轨。
-	 */
-	function isOsuChartFile(path:String):Bool
-	{
-		var p:String = path == null ? '' : path.toLowerCase();
-		return p.endsWith('.osu') || p.endsWith('.osz');
-	}
-
-	/**
 	 * 引擎管理的谱面目录（content/CustomCharts、assets、mods）：音频与谱面同放，
-	 * Paths.inst()/voices() 的候选链能直接定位，不需要按谱面声明独占探测，
-	 * 也不该因为声明文件缺失就弹手动选择框。
+	 * 可以信任目录里的通用名音频，不必强制手动导入。
 	 * 判据是路径类别，与谱面格式、歌名无关。
 	 */
 	function isManagedChartDirectory(path:String):Bool
@@ -5529,10 +5508,11 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	}
 
 	/**
-	 * 读 .osu 的 AudioFilename，返回谱面自己声明的音轨文件绝对路径。
-	 * 只认这个字段：谱面散落在下载目录时，按通用名盲扫会命中别处残留的音轨。
+	 * 读谱面自己声明的音轨文件，返回绝对路径；谱面没有声明行或声明文件不存在时返回 null。
+	 * 目前实现的是 osu 的 AudioFilename 字段；这属于「格式自带音频声明」的通用判据，
+	 * 与谱面来源目录无关 —— 有声明行就按它定位，不按通用名猜。
 	 */
-	function getOsuDeclaredAudio(chartPath:String):Null<String>
+	function getDeclaredAudio(chartPath:String):Null<String>
 	{
 		#if sys
 		var norm:String = (chartPath == null ? '' : chartPath).replace('\\', '/');
@@ -5961,18 +5941,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 						if(audioPath != null)
 							showOutput('Audio extracted to: $audioPath');
 
-						// 外部散落目录才需要音频向导：按 osu 声明独占探测，缺音频走手动选择。
-						// 引擎管理的谱面目录（含 Camellia 这类 osu 谱 + 同目录 FNF 分轨音频）
-						// 由 Paths 候选链直接定位，声明字段可能指向不存在的文件，不能当判据。
-						var managedDir:Bool = isManagedChartDirectory(filePath);
+						// 所有格式统一：谱面自带音频声明行就按声明定位，否则管理目录可扫同目录音频，
+						// 外部散落目录一律要求手动导入。缺 Inst 时由 loadChartOrWarnNoInst 弹警告。
 						var wizard:ChartAudioImportWizard = new ChartAudioImportWizard();
-						var osuFamily:Bool = isOsuChartFile(filePath);
-						if (osuFamily && !managedDir) loadedChart.needsVoices = false;
-						wizard.importVocals = (osuFamily && managedDir)
-							? (loadedChart.needsVoices != false)
-							: (!osuFamily && (loadedChart.needsVoices != false));
-						wizard.declaredAudioPath = managedDir ? null : getOsuDeclaredAudio(filePath);
-						wizard.chartDeclaresAudio = osuFamily && !managedDir;
+						wizard.importVocals = (loadedChart.needsVoices != false);
+						wizard.allowFolderScan = isManagedChartDirectory(filePath);
+						// osz 的解包音频即包内 .osu 声明的音轨落地结果，和 .osu 的 AudioFilename 同等对待。
+						var declared:String = getDeclaredAudio(filePath);
+						wizard.declaredAudioPath = (declared == null) ? audioPath : declared;
 						wizard.start(path, function(res:ChartAudioImportResult)
 						{
 						openSubState(new BasePrompt(400, 150, 'Import Complete', function(state:BasePrompt)
@@ -6041,29 +6017,13 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 				{
 					GRID_COLUMNS_PER_PLAYER = funkinKeys ? 4 : targetKeys;
 
-					// 引擎管理的谱面目录直接载入：音频与谱面同放，走 Paths 候选链，
-					// 不按 osu 声明独占探测，也不弹缺音频警告。
-					if (isManagedChartDirectory(filePath))
-					{
-						setChartDirectoryFromPath(filePath);
-						loadChart(loadedChart);
-						Paths.currentChartInstPath = null;
-						Song.chartPath = null;
-						reloadNotesDropdowns();
-						rebuildChartLayout();
-						prepareReload();
-						showOutput('${targetKeys}K chart loaded from: ' + filePath);
-						return;
-					}
-
-					// 外部散落目录：按 osu 声明独占探测，缺音频走手动选择。
+					// 所有格式统一走音频向导，只对缺 Inst 弹警告；不按谱面格式特化。
+					// 声明了音频行就按声明定位；管理目录信任同目录音频，外部目录一律手动导入。
 					var srcDir:String = filePath.substring(0, filePath.lastIndexOf('/') + 1);
 					var wizard:ChartAudioImportWizard = new ChartAudioImportWizard();
-					var osuFamily:Bool = isOsuChartFile(filePath);
-					if (osuFamily) loadedChart.needsVoices = false;
-					wizard.importVocals = !osuFamily && (loadedChart.needsVoices != false);
-					wizard.declaredAudioPath = getOsuDeclaredAudio(filePath);
-					wizard.chartDeclaresAudio = osuFamily;
+					wizard.importVocals = (loadedChart.needsVoices != false);
+					wizard.allowFolderScan = isManagedChartDirectory(filePath);
+					wizard.declaredAudioPath = getDeclaredAudio(filePath);
 					wizard.start(srcDir, function(res:ChartAudioImportResult)
 					{
 						var proceed:Void->Void = function()

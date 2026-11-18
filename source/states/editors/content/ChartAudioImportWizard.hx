@@ -46,13 +46,17 @@ class ChartAudioImportWizard
 	public var playerPostfix:String = 'Player';
 	public var opponentPostfix:String = 'Opponent';
 	/**
-	 * 谱面自己声明的音轨文件绝对路径（.osu 的 AudioFilename 解析结果）。
+	 * 谱面自己声明的音轨文件绝对路径（如 .osu 的 AudioFilename 解析结果）。
 	 * 设了之后只认这一条，不按通用文件名在目标目录里找 —— 谱面散落在下载目录时，
-	 * 通用名会命中上一次导入留下的无关音轨。
+	 * 通用名会命中上一次导入留下的无关音轨。声明文件缺失时返回 null，由调用方弹选择框。
 	 */
 	public var declaredAudioPath:Null<String> = null;
-	/** 谱面是否显式声明了音轨。true 时即使声明文件缺失也不回退到通用名盲扫。 */
-	public var chartDeclaresAudio:Bool = false;
+	/**
+	 * 是否允许按通用名（inst.ogg / audio.mp3 等）扫描目标目录里已有的音频。
+	 * 外部导入的谱面设为 false：一律要求手动导入，不自动认目录里的残留文件；
+	 * 新建谱面等目标目录干净的场景保持默认 true。
+	 */
+	public var allowFolderScan:Bool = true;
 
 	var _dlg:FileDialogHandler;
 	var _dir:String;
@@ -89,7 +93,7 @@ class ChartAudioImportWizard
 
 		#if sys
 		// 外部谱面（osu / osz / FNF 目录）常自带音轨：先探测已存在的音频，只为「缺失」的步骤弹框。
-		// 声明了 AudioFilename 的谱面只认那一条，不按通用名在目录里盲扫。
+		// 谱面声明了音轨时只认那一条；外部导入若关闭 allowFolderScan，则不认目录通用名、一律要求手动导入。
 		var existingInst:Null<String> = findExistingAudio('inst');
 		if (existingInst != null)
 		{
@@ -252,17 +256,17 @@ class ChartAudioImportWizard
 	}
 
 	/**
-	 * 探测已有音轨。声明了 AudioFilename 时只认那一个文件；否则按 Paths.inst()/voices()
-	 * 的候选口径找目标目录里的通用名。命中返回完整路径，否则 null。
+	 * 探测已有音轨。谱面声明了音轨就只认那一条文件；否则仅在 allowFolderScan 时
+	 * 按 Paths.inst()/voices() 的候选口径找目标目录里的通用名。命中返回完整路径，否则 null。
 	 */
 	function findExistingAudio(step:String):Null<String>
 	{
-		if (chartDeclaresAudio)
+		if (declaredAudioPath != null && declaredAudioPath.length > 0)
 		{
-			if (step == 'inst' && declaredAudioPath != null && declaredAudioPath.length > 0)
-				return FileSystem.exists(declaredAudioPath) ? declaredAudioPath : null;
+			if (step == 'inst') return FileSystem.exists(declaredAudioPath) ? declaredAudioPath : null;
 			return null;
 		}
+		if (!allowFolderScan) return null;
 		if (_dir.length < 1) return null;
 
 		var names:Array<String> = [];
