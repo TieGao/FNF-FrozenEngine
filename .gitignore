@@ -46,3 +46,5 @@ moonchart_versions.txt
 docs/openfl-dev-vs-9.6.0-dev.md
 .gitignore
 docs/engine-api-guide.md
+docs/updates/0.6.10-announcement.md
+tools/convert_cne_chart.py

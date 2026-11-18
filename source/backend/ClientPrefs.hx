@@ -52,9 +52,9 @@ import states.TitleState;
 	public var preloadTextureToVRAM:String = 'auto';
 	public var keepSongAssetsOnFreeplay:Bool = true; //打完歌回到 Freeplay 时**不立刻**清理贴图缓存。
 	public var framerate:Int = 60;
-	public var updaterate:Int = 60;
+	public var updaterate:Int = 60; // 已废弃：TPS/FPS 拆分在本引擎无效（fixedTimestep = false），仅保留存档兼容
 	public var unlimitedFPS:Bool = false;
-	public var devideDrawAndUpdate:Bool = false;
+	public var devideDrawAndUpdate:Bool = false; // 已废弃：同上，选项已注释，字段留着读旧存档不报错
 	public var camZooms:Bool = true;
 	public var hideHud:Bool = false;
 	// 游戏内 HUD / Lua 文本是否跟随语言字体（默认否，见 backend.GameFont）
@@ -185,7 +185,7 @@ import states.TitleState;
 	 *   false → 顶部搜索框只当入口，点开独立的 SearchSubState
 	 *   true  → 输入直接过滤 Freeplay 列表本身（不弹窗）
 	 */
-	public var freeplaySearchInline:Bool = false;
+	public var freeplaySearchInline:Bool = true;
 	// Freeplay 右下角补充信息（音乐人 / 谱师 / 游玩次数）
 	public var freeplaySongMeta:Bool = true;
 	// Freeplay 右侧展示元素开关（默认全开）
@@ -327,7 +327,7 @@ import states.TitleState;
 	public var hitErrorBarOffsetY:Int = 0;
 	public var noteSustainsOffset:Float = 0.0;
 	public var legacymp:Bool = true;
-	public var useSystemCursor:Bool = false;
+	public var useSystemCursor:Bool = #if mobile true #else false #end;
 	public var showEarlyLate:Bool = true;
 	public var showCombo:Bool = false;
 	public var forceNoteSkins:Bool = false;
@@ -815,46 +815,20 @@ class ClientPrefs {
 		// 而 UNCAPPED 由 lime 主循环直接放行，写这些值只会带来抖动。
 		if (data.unlimitedFPS) return;
 
-		// 核心修改：正确区分设置 Update 和 Draw 帧率
-		if (data.fpsRework)
-		{
-			// 使用 fpsRework 模式，可以完全分离 TPS 和 FPS
-			FlxG.stage.window.frameRate = data.framerate;  // 绘制帧率（屏幕刷新）
-			
-			if (data.devideDrawAndUpdate)
-			{
-				// 完全分离模式：更新速率和绘制速率可以完全不同
-				var drawFps = Std.int(FlxMath.bound(data.framerate, 30, 480));
-				var updateTps = Std.int(FlxMath.bound(data.updaterate, 30, 480));
-				
-				FlxG.drawFramerate = drawFps;
-				FlxG.updateFramerate = updateTps;
-			}
-			else
-			{
-				// 同步模式：更新速率跟随绘制速率（传统行为）
-				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
-				FlxG.drawFramerate = fps;
-				FlxG.updateFramerate = fps;
-			}
-		}
-		else
-		{
-			// 传统模式（不使用 fpsRework）
-			if (data.devideDrawAndUpdate)
-			{
-				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
-				var tps = Std.int(FlxMath.bound(data.updaterate, 30, 480));
-				FlxG.drawFramerate = fps;
-				FlxG.updateFramerate = tps;
-			}
-			else
-			{
-				var fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
-				FlxG.updateFramerate = fps;
-				FlxG.drawFramerate = fps;
-			}
-		}
+		// TPS / FPS 拆分（devideDrawAndUpdate + updaterate）已注释掉，只留一档帧率。
+		//
+		// flixel 6.2.1 里 updateFramerate 并不是"更新线程"：它只写 FlxGame._stepMS / _stepSeconds
+		// （FlxG.hx:693-694），真正"一帧里多跑几次 update"是 FlxGame.onEnterFrame 的固定步长累加器
+		// （FlxGame.hx:494-514：累加器满一次 _stepMS 才 step()，帧末统一 draw() 一次），
+		// 而那条分支只在 FlxG.fixedTimestep == true 时才会走 —— 本引擎 Main.hx:245 设了
+		// fixedTimestep = false，每帧只 step() 一次，updateFramerate 不参与逻辑，拆分等于空转。
+		//
+		// 两个字段仍写同一个值，不能只写 draw：set_drawFramerate 在 draw > update 时会
+		// FlxG.log.warn（FlxG.hx:702-705），而 flixel 的 WARNING 样式 openConsole = true
+		// （LogFrontEnd.hx:29），调试版会直接把 flixel 控制台弹出来。
+		final fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
+		FlxG.updateFramerate = fps;
+		FlxG.drawFramerate = fps;
 	}
 
 	/** GPU Caching 取值归一化：老存档是 Bool，现在只认 disabled / auto / full。 */

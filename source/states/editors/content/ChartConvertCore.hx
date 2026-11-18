@@ -103,15 +103,17 @@ class ChartConvertCore
 	 * @param targetKeys 目标键数；与源键数不同时按比例重排列
 	 * @param midiPartIds 仅 MIDI：要导入的声部 id（null / 空 = 只取优先级最高的一条）
 	 * @param midiLaneMode 仅 MIDI：音高 → 轨道映射（MIDI_LANE_RANGE / MIDI_LANE_MOD）
+	 * @param funkinKeys true = 转成 FNF 经典 4K+4K 双人布局（源 K 轨铺到 8 个绝对 lane，
+	 *        每侧 4 轨；不写 noConvert，不依赖运行时 Track Split）
 	 */
 	public static function importToSong(path:String, ?diff:String, targetKeys:Int = 4, ?midiPartIds:Array<Int>,
-			midiLaneMode:String = MIDI_LANE_RANGE):Dynamic
+			midiLaneMode:String = MIDI_LANE_RANGE, funkinKeys:Bool = false):Dynamic
 	{
 		var format:String = detectFormat(path);
 		if(format == null)
 			throw 'Unsupported chart file: $path';
 
-		if(format == 'mid') return importMidiToSong(path, targetKeys, midiPartIds, midiLaneMode);
+		if(format == 'mid') return importMidiToSong(path, targetKeys, midiPartIds, midiLaneMode, funkinKeys);
 
 		var loaded = loadBasic(path, diff, null);
 		var info:ChartImportInfo = loaded.info;
@@ -123,6 +125,14 @@ class ChartConvertCore
 		var notes:Array<BasicNote> = firstDiffNotes(loaded.basic);
 		if(notes == null)
 			throw 'Chart has no difficulty data';
+
+		if(funkinKeys)
+		{
+			// 源单侧 K 轨按比例铺到 8 个绝对 lane（0..7）：0-3 玩家侧 / 4-7 对手侧。
+			// song 元数据写每侧 4 轨；lane 上限传 8，独立于 makeSection 的每侧键数。
+			if(keys != 8) scaleLanes(notes, keys, 8);
+			return buildSong(loaded.basic.meta, notes, 4, 8);
+		}
 
 		if(keys != targetKeys)
 			scaleLanes(notes, keys, targetKeys);
@@ -532,13 +542,19 @@ class ChartConvertCore
 		return {info: data.info, basic: buildMidiBasic(data, lanes)};
 	}
 
-	static function importMidiToSong(path:String, keys:Int, ?ids:Array<Int>, laneMode:String = MIDI_LANE_RANGE):Dynamic
+	static function importMidiToSong(path:String, keys:Int, ?ids:Array<Int>, laneMode:String = MIDI_LANE_RANGE,
+			funkinKeys:Bool = false):Dynamic
 	{
 		if(keys < 1) keys = 4;
 		var data = readMidi(path);
 		var basic:BasicChart = buildMidiBasic(data, keys, ids, laneMode);
 		var notes:Array<BasicNote> = firstDiffNotes(basic);
 		if(notes == null) notes = [];
+		if(funkinKeys)
+		{
+			if(keys != 8) scaleLanes(notes, keys, 8);
+			return buildSong(basic.meta, notes, 4, 8);
+		}
 		return buildSong(basic.meta, notes, keys);
 	}
 
@@ -569,8 +585,14 @@ class ChartConvertCore
 	//  BasicChart → FE 谱面（核心 section 构建）
 	// ====================================================
 
-	static function buildSong(meta:BasicMetaData, notes:Array<BasicNote>, keys:Int):Dynamic
+	/**
+	 * @param keys 每侧键数（写进 mania/keyCount 元数据）
+	 * @param laneLimit note lane 的绝对上限；默认等于 keys。Funkin Keys 4+4 时传 8，
+	 *        使 scaleLanes 铺出的 lane 4-7（对手侧）不被 makeSection 夹掉。
+	 */
+	static function buildSong(meta:BasicMetaData, notes:Array<BasicNote>, keys:Int, ?laneLimit:Int):Dynamic
 	{
+		if(laneLimit == null) laneLimit = keys;
 		var bpmChanges:Array<BasicBPMChange> = meta.bpmChanges.copy();
 		if(bpmChanges.length <= 0)
 			bpmChanges.push({time: 0, bpm: 120, beatsPerMeasure: 4, stepsPerBeat: 4});
@@ -631,20 +653,20 @@ class ChartConvertCore
 					while(rest.length > 0 && rest[0].time < next.time)
 						subNotes.push(rest.shift());
 
-					sections.push(makeSection(subNotes, elapsedBeats, last.bpm, keys, bakeOffset));
+					sections.push(makeSection(subNotes, elapsedBeats, last.bpm, keys, bakeOffset, laneLimit));
 					pushedBeats += elapsedBeats;
 					last = next;
 				}
 
 				var tailBeats:Float = Timing.roundFloat(measure.beatsPerMeasure - pushedBeats);
 				if(tailBeats <= 0) tailBeats = 1;
-				sections.push(makeSection(rest, tailBeats, last.bpm, keys, bakeOffset));
+				sections.push(makeSection(rest, tailBeats, last.bpm, keys, bakeOffset, laneLimit));
 				lastBpm = last.bpm;
 			}
 			else
 			{
 				var change:Bool = measure.bpm != lastBpm;
-				sections.push(makeSection(measure.notes, measure.beatsPerMeasure, change ? measure.bpm : null, keys, bakeOffset));
+				sections.push(makeSection(measure.notes, measure.beatsPerMeasure, change ? measure.bpm : null, keys, bakeOffset, laneLimit));
 				lastBpm = measure.bpm;
 			}
 		}
@@ -663,7 +685,7 @@ class ChartConvertCore
 			var chunk:Array<BasicNote> = [];
 			while(tail.length > 0 && tail[0].time < sectionEnd)
 				chunk.push(tail.shift());
-			sections.push(makeSection(chunk, 4, null, keys, bakeOffset));
+			sections.push(makeSection(chunk, 4, null, keys, bakeOffset, laneLimit));
 			tailStart = sectionEnd;
 		}
 
@@ -704,14 +726,16 @@ class ChartConvertCore
 		return song;
 	}
 
-	static function makeSection(notes:Array<BasicNote>, beats:Float, bpm:Null<Float>, keys:Int, bakeOffset:Float):Dynamic
+	static function makeSection(notes:Array<BasicNote>, beats:Float, bpm:Null<Float>, keys:Int, bakeOffset:Float,
+			?laneLimit:Int):Dynamic
 	{
+		if(laneLimit == null) laneLimit = keys;
 		var sectionNotes:Array<Dynamic> = [];
 		for(note in notes)
 		{
 			var lane:Int = note.lane;
 			if(lane < 0) lane = 0;
-			if(lane >= keys) lane = keys - 1;
+			if(lane >= laneLimit) lane = laneLimit - 1;
 
 			var time:Float = note.time - bakeOffset;
 			var type:String = resolveNoteType(note.type);

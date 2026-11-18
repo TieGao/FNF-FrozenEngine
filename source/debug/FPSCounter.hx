@@ -287,7 +287,9 @@ class FPSCounter extends TextField
 				tpsUpdateTime = currentTime + 500;
 			}
 
-			// Set Update and Draw framerate to the current FPS every 1.5 second to prevent "slowness" issue
+			// 每 1.5s 把帧率上限对齐到实测 FPS（fpsRework 的自动降档）。
+			// update 和 draw 始终写同一个值：拆分在本引擎无效（fixedTimestep = false），
+			// 但 set_drawFramerate 在 draw > update 时会 log.warn 并弹调试控制台，两边必须同步。
 			if ((FlxG.updateFramerate >= currentFPS + 5 || FlxG.updateFramerate <= currentFPS - 5)
 				&& haxe.Timer.stamp() - lastFramerateUpdateTime >= 1.5
 				&& currentFPS >= 30)

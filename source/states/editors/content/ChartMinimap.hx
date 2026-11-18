@@ -26,6 +26,7 @@ import options.objects.win8.CharmIcons;
  *   buildSections()  —— 返回每个 section 的 {time, endTime, bpm, noteCount, sideNotes}
  *   getPosition()    —— 当前播放位置（毫秒）
  *   onSeek(ms)       —— 跳转到指定毫秒
+ *   onScrubStart/End —— 拖拽开始 / 结束（宿主可在此暂停 / 恢复音频，避免逐帧 seek 让音频反复重启）
  *   openSettings()   —— 齿轮被点击时调用（一般 openSubState(new ChartMinimapPanel(this))）
  *
  * 数据每 0.4 秒自动轮询一次 buildSections()，谱面改动无需手动通知。
@@ -53,6 +54,10 @@ class ChartMinimap extends FlxSpriteGroup
 	public var getPlayheadPos:Void->Float;
 	/** 跳转到指定毫秒 */
 	public var onSeek:Float->Void;
+	/** 开始拖拽 scrub（在第一个 onSeek 之前触发） */
+	public var onScrubStart:Void->Void;
+	/** 结束拖拽 scrub（松手 / 输入被打断时触发，宿主须在此恢复暂停的音频） */
+	public var onScrubEnd:Void->Void;
 	/** 齿轮被点击（宿主一般 openSubState(new ChartMinimapPanel(this))） */
 	public var openSettings:Void->Void;
 	/**
@@ -620,6 +625,7 @@ class ChartMinimap extends FlxSpriteGroup
 		// 输入框打字时不响应（与两个编辑器的 blockInput 约定一致）
 		if (PsychUIInputText.focusOn != null)
 		{
+			endScrub();
 			mouseOver = false;
 			barHovered = false;
 			tooltip.visible = false;
@@ -659,6 +665,7 @@ class ChartMinimap extends FlxSpriteGroup
 		// 白色手柄：按住拖动整条位置，松手落盘
 		if (overHandle && FlxG.mouse.justPressed)
 		{
+			endScrub();
 			draggingPos = true;
 			lastMouse.x = mx;
 			lastMouse.y = my;
@@ -699,7 +706,10 @@ class ChartMinimap extends FlxSpriteGroup
 
 		// 条：点击跳转，按住拖拽 scrub（手柄区除外）
 		if (overBar && !overHandle && FlxG.mouse.justPressed)
+		{
 			scrubbing = true;
+			if (onScrubStart != null) onScrubStart();
+		}
 		if (scrubbing)
 		{
 			if (FlxG.mouse.pressed)
@@ -708,7 +718,7 @@ class ChartMinimap extends FlxSpriteGroup
 					onSeek(timeAtMouse(mx, my));
 			}
 			else
-				scrubbing = false;
+				endScrub();
 		}
 
 		// 悬浮信息框
@@ -718,6 +728,14 @@ class ChartMinimap extends FlxSpriteGroup
 			tooltip.visible = false;
 
 		updatePlayhead();
+	}
+
+	/** 结束 scrub 并通知宿主；必须走这里，否则拖拽被打断时宿主的音频会一直停在暂停态 */
+	function endScrub():Void
+	{
+		if (!scrubbing) return;
+		scrubbing = false;
+		if (onScrubEnd != null) onScrubEnd();
 	}
 
 	/** 鼠标在条上的位置 → 歌曲时间（毫秒，按当前窗口换算） */

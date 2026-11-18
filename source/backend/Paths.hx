@@ -664,6 +664,17 @@ class Paths
 		var songPath:String = formatToSongPath(song);
 		var candidates:Array<String> = [];
 
+		// 外部谱面声明的音轨优先于目录里的通用名候选。
+		if (currentChartInstPath != null && currentChartInstPath.length > 0)
+		{
+			var declared:Sound = loadSoundCandidate(currentChartInstPath);
+			if (declared != null)
+			{
+				markAssetUsed(currentChartInstPath);
+				return declared;
+			}
+		}
+
 		// 变体难度（Erect / Pico / …）的音轨在 songs/<歌>-<变体>/ 里，文件名不带变体后缀。
 		// ⚠️ 必须排在无后缀候选之前 —— 否则变体难度会命中原曲的 Inst.ogg。
 		var variant:String = Difficulty.getAudioVariant();
@@ -1287,6 +1298,11 @@ class Paths
 	public static final CHART_ROOT:String = CONTENT_ROOT + '/' + CUSTOM_CHART_GROUP;
 	public static var currentChartCategory:String = null;
 	public static var currentChartDirectory:String = null;
+	/**
+	 * 谱面显式声明的音轨文件（外部导入时解析得到）。非空时 inst() 优先用它，
+	 * 不按通用名在同目录里猜 —— 下载目录里常有上一次导入留下的 Inst.ogg。
+	 */
+	public static var currentChartInstPath:Null<String> = null;
 	public static var currentChartAudioSuffix:String = null;
 	public static var currentChartHasVSliceMetadata:Bool = false;
 	/**
@@ -1341,6 +1357,7 @@ class Paths
 	{
 		currentChartCategory = (category != null && category.length > 0) ? category : null;
 		currentChartDirectory = (directory != null && directory.length > 0) ? directory : null;
+		currentChartInstPath = null;
 		currentChartHasVSliceMetadata = hasVSlice;
 		currentChartAudioSuffix = audioSuffix;
 		setContentRoot(contentRoot, variant);

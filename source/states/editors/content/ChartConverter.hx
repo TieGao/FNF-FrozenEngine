@@ -45,11 +45,12 @@ class ChartConverter
 	 * @param targetKeys 目标键数；与源键数不同时按比例重排列
 	 * @param midiPartIds 仅 MIDI：要导入的声部 id（null / 空 = 优先级最高的那一条）
 	 * @param midiLaneMode 仅 MIDI：音高 → 轨道映射（range / mod）
+	 * @param funkinKeys true = 转成 FNF 经典 4K+4K 双人布局（每侧 4 轨）
 	 */
 	public static function importChart(path:String, ?diff:String, targetKeys:Int = 4, ?midiPartIds:Array<Int>,
-			midiLaneMode:String = ChartConvertCore.MIDI_LANE_RANGE):SwagSong
+			midiLaneMode:String = ChartConvertCore.MIDI_LANE_RANGE, funkinKeys:Bool = false):SwagSong
 	{
-		return cast ChartConvertCore.importToSong(path, diff, targetKeys, midiPartIds, midiLaneMode);
+		return cast ChartConvertCore.importToSong(path, diff, targetKeys, midiPartIds, midiLaneMode, funkinKeys);
 	}
 
 	/**

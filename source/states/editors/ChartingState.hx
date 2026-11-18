@@ -24,6 +24,9 @@ import states.editors.content.VSlice;
 import states.editors.content.ChartConvertCore.ChartImportInfo;
 import states.editors.content.ChartImportDialog.ChartConvertOptions;
 import states.editors.content.OsuArchiveExtractor.ExtractResult;
+import states.editors.content.ChartAudioImportWizard;
+import states.editors.content.ChartAudioImportWizard.ChartAudioImportResult;
+import states.editors.content.NewChartDialog.NewChartRequest;
 import states.editors.content.Prompt;
 import states.editors.content.*;
 import states.editors.content.ChartMinimap.ChartMinimapPanel;
@@ -145,6 +148,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 
 	var chartEditorSave:FlxSave;
 	var chartMinimap:ChartMinimap;
+	/** 拖拽缩略图前音频是否在播放：松手后只恢复本来就在播的情况 */
+	var minimapWasPlaying:Bool = false;
 	var mainBox:PsychUIBox;
 	var mainBoxPosition:FlxPoint = FlxPoint.get(920, 40);
 	var infoBox:PsychUIBox;
@@ -394,6 +399,16 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		chartMinimap.buildSections = buildMinimapSections;
 		chartMinimap.getPlayheadPos = function() return FlxG.sound.music != null ? FlxG.sound.music.time : 0;
 		chartMinimap.onSeek = seekToMinimapTime;
+		chartMinimap.onScrubStart = function()
+		{
+			minimapWasPlaying = FlxG.sound.music != null && FlxG.sound.music.playing;
+			if (minimapWasPlaying) setSongPlaying(false);
+		};
+		chartMinimap.onScrubEnd = function()
+		{
+			if (minimapWasPlaying) setSongPlaying(true);
+			minimapWasPlaying = false;
+		};
 		chartMinimap.openSettings = function() openSubState(new ChartMinimapPanel(chartMinimap, camUI));
 		chartMinimap.cameras = [camUI];
 		add(chartMinimap);
@@ -566,6 +581,124 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		};
 		Song.chartPath = null;
 		loadChart(song);
+	}
+
+	/**
+	 * 新建谱面向导入口：收集存放类型 / 歌名 / BPM（mod 另选模组与 week.json），
+	 * 确认后由 createNewChart 落地目录、空谱与音频。
+	 */
+	function openNewChartWizard()
+	{
+		openSubState(new NewChartDialog(function(req:NewChartRequest)
+		{
+			createNewChart(req);
+		}));
+	}
+
+	/**
+	 * 递归建目录（createDirectory 不递归，父目录要先建好）。
+	 */
+	function mkdirChartRecursive(path:String):Void
+	{
+		#if sys
+		if (FileSystem.exists(path)) return;
+		var parent:String = path.substring(0, path.lastIndexOf('/'));
+		if (parent.length > 0 && !FileSystem.exists(parent)) mkdirChartRecursive(parent);
+		try { FileSystem.createDirectory(path); } catch (e:Dynamic) {}
+		#end
+	}
+
+	/**
+	 * 把新歌追加进 week.json 的 songs 元组（幂等：同名条目已存在则跳过）。
+	 */
+	function appendSongToWeek(weekPath:String, songName:String):Void
+	{
+		#if sys
+		try
+		{
+			if (weekPath == null || weekPath.length < 1 || !FileSystem.exists(weekPath)) return;
+			var week:Dynamic = Json.parse(File.getContent(weekPath));
+			if (week == null || week.songs == null) return;
+			for (entry in cast(week.songs, Array<Dynamic>))
+			{
+				if (entry != null && entry.length > 0 && Std.string(entry[0]) == songName) return;
+			}
+			var entry:Array<Dynamic> = [songName, 'dad', [146, 113, 253]];
+			week.songs.push(entry);
+			File.saveContent(weekPath, Json.stringify(week, null, '\t'));
+		}
+		catch (e:Dynamic)
+		{
+			showOutput('Warning: could not update week.json: $e', true);
+		}
+		#end
+	}
+
+	/**
+	 * 落地一张新谱面：建目录、写空谱、（mod）追加 week 条目、复制音频，最后载入编辑器。
+	 */
+	function createNewChart(req:NewChartRequest):Void
+	{
+		#if sys
+		try
+		{
+			var songPath:String = Paths.formatToSongPath(req.songName);
+			var isMod:Bool = (req.kind == 'mod');
+			var dir:String = isMod ? 'mods/${req.mod}/data/$songPath' : '${Paths.CHART_ROOT}/$songPath';
+			dir = StringTools.replace(dir, '\\', '/');
+			mkdirChartRecursive(dir);
+
+			var song:SwagSong = {
+				song: req.songName,
+				notes: [],
+				events: [],
+				bpm: req.bpm,
+				needsVoices: true,
+				speed: 1,
+				offset: 0,
+				player1: 'bf',
+				player2: 'dad',
+				gfVersion: 'gf',
+				stage: 'stage',
+				format: 'psych_v1'
+			};
+			var chartPath:String = '$dir/$songPath.json';
+			File.saveContent(chartPath, PsychJsonPrinter.print(song, ['sectionNotes', 'events']));
+
+			if (isMod) appendSongToWeek(req.weekPath, req.songName);
+
+			var wizard:ChartAudioImportWizard = new ChartAudioImportWizard();
+			wizard.importVocals = true;
+			wizard.overwrite = false;
+			wizard.start(dir, function(res:ChartAudioImportResult)
+			{
+				chartAudioCategory = null;
+				if (isMod)
+				{
+					Mods.currentModDirectory = req.mod;
+					Paths.currentChartCategory = null;
+					Paths.currentChartDirectory = dir;
+				}
+				else
+				{
+					Paths.currentChartCategory = Paths.CUSTOM_CHART_GROUP;
+					Paths.currentChartDirectory = dir;
+				}
+				Song.chartPath = chartPath;
+				loadChart(song);
+				reloadNotesDropdowns();
+				prepareReload();
+				showOutput('New chart "${req.songName}" created at $chartPath'
+					+ (res.anyImported ? '' : ' (audio skipped)'));
+			});
+		}
+		catch (e:Dynamic)
+		{
+			showOutput('Error creating chart: $e', true);
+		}
+		#else
+		showOutput('New chart creation requires a desktop build.', true);
+		#end
 	}
 
 	function prepareReload()
@@ -1982,6 +2115,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	function loadChart(song:SwagSong)
 	{
 		PlayState.SONG = song;
+		Paths.currentChartInstPath = null;
 		updateColumnConfig(song);
 		StageData.loadDirectory(PlayState.SONG);
 		Conductor.bpm = PlayState.SONG.bpm;
@@ -3649,18 +3783,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		var btnY = 1;
 		var btnWid = Std.int(tab.width);
 
-		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  New', function()
-		{
-			var func:Void->Void = function()
-			{
-				openNewChart();
-				reloadNotesDropdowns();
-				prepareReload();
-			}
-
-			if(!ignoreProgressCheckBox.checked) openSubState(new Prompt('Are you sure you want to start over?', func));
-			else func();
-		}, btnWid);
+		var btn:PsychUIButton = new PsychUIButton(btnX, btnY, '  New', openNewChartWizard, btnWid);
 		btn.text.alignment = LEFT;
 		tab_group.add(btn);
 
@@ -3684,15 +3807,50 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 						return;
 					}
 
+					var savedPath:String = fileDialog.path;
+					var chartDir:String = filePath.substring(0, filePath.lastIndexOf('/') + 1);
+
 					var func:Void->Void = function()
 					{
-						loadChart(loadedChart);
-						Song.chartPath = fileDialog.path;
-						reloadNotesDropdowns();
-						prepareReload();
-						showOutput('Opened chart "${Song.chartPath}" successfully!');
+						// 引擎管理的谱面目录：音频与谱面同放，Paths 候选链能直接定位，
+						// 不跑音频向导也不弹缺音频警告，避免给已有谱面平白加三步选择框。
+						if (isManagedChartDirectory(filePath))
+						{
+							setChartDirectoryFromPath(filePath);
+							loadChart(loadedChart);
+							Paths.currentChartInstPath = null;
+							Song.chartPath = savedPath;
+							reloadNotesDropdowns();
+							prepareReload();
+							showOutput('Opened chart "${Song.chartPath}" successfully!');
+							return;
+						}
+
+						// 外部散落目录：分步向导补齐 Inst / Player / Opponent 音频。
+						// 用向导自带的 FileDialogHandler，不碰 ChartingState.fileDialog。
+						var wizard:ChartAudioImportWizard = new ChartAudioImportWizard();
+						wizard.importVocals = (loadedChart.needsVoices != false);
+						wizard.start(chartDir, function(res:ChartAudioImportResult)
+						{
+							var proceed:Void->Void = function()
+							{
+								// 登记目录必须早于 prepareReload()。
+								setChartDirectoryFromPath(filePath);
+								loadChart(loadedChart);
+								Paths.currentChartInstPath = res.instPath;
+								Song.chartPath = savedPath;
+								reloadNotesDropdowns();
+								prepareReload();
+
+								var audioMsg:String = res.anyImported
+									? 'audio imported (Inst:${res.instPath != null}, P1:${res.playerVocalPath != null}, P2:${res.opponentVocalPath != null})'
+									: (res.hasInst ? 'audio detected in chart folder' : 'no audio');
+								showOutput('Opened chart "${Song.chartPath}" successfully! ($audioMsg)');
+							};
+							loadChartOrWarnNoInst(loadedChart, res, proceed);
+						});
 					}
-					
+
 					if(!ignoreProgressCheckBox.checked) openSubState(new Prompt('Warning: Any unsaved progress\nwill be lost.', func));
 					else func();
 				}
@@ -5346,6 +5504,64 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	}
 
 	/**
+	 * osu 家族谱面只有一条混合音轨，没有人声分轨。
+	 */
+	function isOsuChartFile(path:String):Bool
+	{
+		var p:String = path == null ? '' : path.toLowerCase();
+		return p.endsWith('.osu') || p.endsWith('.osz');
+	}
+
+	/**
+	 * 引擎管理的谱面目录（content/CustomCharts、assets、mods）：音频与谱面同放，
+	 * Paths.inst()/voices() 的候选链能直接定位，不需要按谱面声明独占探测，
+	 * 也不该因为声明文件缺失就弹手动选择框。
+	 * 判据是路径类别，与谱面格式、歌名无关。
+	 */
+	function isManagedChartDirectory(path:String):Bool
+	{
+		var p:String = (path == null ? '' : path).replace('\\', '/').toLowerCase();
+		var chartRoot:String = Paths.CHART_ROOT.toLowerCase();
+		if (p.startsWith(chartRoot + '/') || p.indexOf('/' + chartRoot + '/') >= 0) return true;
+		if (p.startsWith('assets/') || p.indexOf('/assets/') >= 0) return true;
+		if (p.startsWith('mods/') || p.indexOf('/mods/') >= 0) return true;
+		return false;
+	}
+
+	/**
+	 * 读 .osu 的 AudioFilename，返回谱面自己声明的音轨文件绝对路径。
+	 * 只认这个字段：谱面散落在下载目录时，按通用名盲扫会命中别处残留的音轨。
+	 */
+	function getOsuDeclaredAudio(chartPath:String):Null<String>
+	{
+		#if sys
+		var norm:String = (chartPath == null ? '' : chartPath).replace('\\', '/');
+		if (!norm.toLowerCase().endsWith('.osu') || !FileSystem.exists(norm)) return null;
+		try
+		{
+			for (line in File.getContent(norm).split('\n'))
+			{
+				var trimmed:String = StringTools.trim(line);
+				if (trimmed.toLowerCase().indexOf('audiofilename:') != 0) continue;
+				var value:String = StringTools.trim(trimmed.substr(trimmed.indexOf(':') + 1));
+				if (value.length < 1) return null;
+				value = value.replace('\\', '/');
+				var slash:Int = value.lastIndexOf('/');
+				if (slash >= 0) value = value.substr(slash + 1);
+				if (value.length < 1) return null;
+				var full:String = norm.substring(0, norm.lastIndexOf('/') + 1) + value;
+				return FileSystem.exists(full) ? full : null;
+			}
+		}
+		catch (e:Dynamic)
+		{
+			trace('[osu] AudioFilename read failed: $e');
+		}
+		#end
+		return null;
+	}
+
+	/**
 	 * 把谱面文件所在目录登记为「当前谱面目录」。
 	 * 音轨 / 人声候选靠它定位（Paths.inst / voices 的 chartDir 分支），
 	 * 缺了它就只能按歌名猜路径 —— 自定义谱面的歌名往往不等于目录名（osu 用 Title）。
@@ -5356,6 +5572,100 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		var norm:String = filePath.replace('\\', '/');
 		var slash:Int = norm.lastIndexOf('/');
 		Paths.currentChartDirectory = (slash > 0) ? norm.substring(0, slash) : null;
+	}
+
+	/**
+	 * 缺 Inst 时谱面会在第一个 section 截断（Conductor 没有音轨不推进）。
+	 * 有 Inst 直接 proceed()；否则弹三按钮警告：手动选择音轨 / 导出谱面 JSON / 取消打开。
+	 * @param loadedChart 待载入的谱面（导出用）
+	 * @param res 音频向导结果，用 hasInst 判断
+	 * @param proceed 真正载入编辑器的闭包（setChartDirectoryFromPath → loadChart → prepareReload…）
+	 */
+	function loadChartOrWarnNoInst(loadedChart:SwagSong, res:ChartAudioImportResult, proceed:Void->Void)
+	{
+		if (res.hasInst)
+		{
+			proceed();
+			return;
+		}
+
+		openSubState(new BasePrompt(640, 210,
+			'No instrumental (Inst) was selected.\nWithout it the chart stops at the first section.\n\nSelect an audio file, export the chart as JSON, or cancel?',
+			function(state:BasePrompt)
+			{
+				var btnY:Float = state.bg.y + state.bg.height - 60;
+
+				// 手动选择音轨：不覆盖目录里已有的 inst.*，靠 currentChartInstPath 直接指向选中的文件
+				var selectBtn:PsychUIButton = new PsychUIButton(0, btnY, 'Select Audio', function()
+				{
+					state.close();
+					if (!fileDialog.completed) return;
+					fileDialog.open(null, 'Select Instrumental (Inst)', [new FileFilter('Audio (ogg/mp3)', '*.ogg;*.mp3')],
+						function()
+						{
+							var src:String = fileDialog.path.replace('\\', '/');
+							if (src.length < 1) return;
+							var ext:String = src.toLowerCase().endsWith('.mp3') ? '.mp3' : '.ogg';
+							var dir:String = (res.targetDir != null && res.targetDir.length > 0)
+								? res.targetDir
+								: ((Paths.currentChartDirectory != null ? Paths.currentChartDirectory : '') + '/');
+							var dst:String = dir + (dir.endsWith('/') ? '' : '/') + 'selected-inst' + ext;
+							try
+							{
+								File.copy(src, dst);
+							}
+							catch (e:Dynamic)
+							{
+								showOutput('Error importing audio: $e', true);
+								return;
+							}
+							res.instPath = dst;
+							res.hasInst = true;
+							res.anyImported = true;
+							proceed();
+						},
+						function() showOutput('Open cancelled: no instrumental selected.'),
+						function() showOutput('Error reading audio file.', true)
+					);
+				});
+				selectBtn.normalStyle.bgColor = FlxColor.GREEN;
+				selectBtn.normalStyle.textColor = FlxColor.WHITE;
+				selectBtn.cameras = state.cameras;
+				selectBtn.screenCenter(X);
+				selectBtn.x -= 190;
+				state.add(selectBtn);
+
+				// 导出谱面 JSON
+				var exportBtn:PsychUIButton = new PsychUIButton(0, btnY, 'Export Chart JSON', function()
+				{
+					state.close();
+					if (!fileDialog.completed) return;
+					var chartData:String = PsychJsonPrinter.print(loadedChart, ['sectionNotes', 'events']);
+					var chartName:String = Paths.formatToSongPath(loadedChart.song) + '.json';
+					fileDialog.save(chartName, chartData,
+						function() showOutput('Chart exported to: ${fileDialog.path}'),
+						null,
+						function() showOutput('Error exporting chart!', true));
+				});
+				exportBtn.normalStyle.bgColor = FlxColor.GREEN;
+				exportBtn.normalStyle.textColor = FlxColor.WHITE;
+				exportBtn.cameras = state.cameras;
+				exportBtn.screenCenter(X);
+				state.add(exportBtn);
+
+				// 取消打开
+				var cancelBtn:PsychUIButton = new PsychUIButton(0, btnY, 'Cancel', function()
+				{
+					state.close();
+					showOutput('Open cancelled: no instrumental selected.');
+				});
+				cancelBtn.normalStyle.bgColor = FlxColor.RED;
+				cancelBtn.normalStyle.textColor = FlxColor.WHITE;
+				cancelBtn.cameras = state.cameras;
+				cancelBtn.screenCenter(X);
+				cancelBtn.x += 190;
+				state.add(cancelBtn);
+			}));
 	}
 
 	function loadChartFromAnyPath(path:String)
@@ -5602,7 +5912,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 		dialog.onConfirm = function(opts:ChartConvertOptions)
 		{
 			performChartImport(filePath, opts.diff, opts.convertKeys ? opts.targetKeys : info.keys, opts.action, opts.extractAudio,
-				opts.midiParts, opts.midiLaneMode);
+				opts.midiParts, opts.midiLaneMode, opts.funkinKeys);
 		};
 		dialog.onCancel = function()
 		{
@@ -5617,13 +5927,14 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 	 * @param extractAudio 仅 .osz 有效：保存时把包内音频一起落到输出目录
 	 * @param midiPartIds 仅 MIDI：选中的声部 id（null = 优先级最高的那一条）
 	 * @param midiLaneMode 仅 MIDI：音高 → 轨道映射
+	 * @param funkinKeys true = 转成 FNF 4K+4K 双人布局（每侧 4 轨）
 	 */
 	function performChartImport(filePath:String, diff:String, targetKeys:Int, action:Int, extractAudio:Bool = false,
-			?midiPartIds:Array<Int>, midiLaneMode:String = 'range')
+			?midiPartIds:Array<Int>, midiLaneMode:String = 'range', funkinKeys:Bool = false)
 	{
 		try
 		{
-			var loadedChart:SwagSong = ChartConverter.importChart(filePath, diff, targetKeys, midiPartIds, midiLaneMode);
+			var loadedChart:SwagSong = ChartConverter.importChart(filePath, diff, targetKeys, midiPartIds, midiLaneMode, funkinKeys);
 			if(loadedChart == null || !Reflect.hasField(loadedChart, 'song'))
 			{
 				showOutput('Error: Unable to read chart file', true);
@@ -5650,6 +5961,20 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 						if(audioPath != null)
 							showOutput('Audio extracted to: $audioPath');
 
+						// 外部散落目录才需要音频向导：按 osu 声明独占探测，缺音频走手动选择。
+						// 引擎管理的谱面目录（含 Camellia 这类 osu 谱 + 同目录 FNF 分轨音频）
+						// 由 Paths 候选链直接定位，声明字段可能指向不存在的文件，不能当判据。
+						var managedDir:Bool = isManagedChartDirectory(filePath);
+						var wizard:ChartAudioImportWizard = new ChartAudioImportWizard();
+						var osuFamily:Bool = isOsuChartFile(filePath);
+						if (osuFamily && !managedDir) loadedChart.needsVoices = false;
+						wizard.importVocals = (osuFamily && managedDir)
+							? (loadedChart.needsVoices != false)
+							: (!osuFamily && (loadedChart.needsVoices != false));
+						wizard.declaredAudioPath = managedDir ? null : getOsuDeclaredAudio(filePath);
+						wizard.chartDeclaresAudio = osuFamily && !managedDir;
+						wizard.start(path, function(res:ChartAudioImportResult)
+						{
 						openSubState(new BasePrompt(400, 150, 'Import Complete', function(state:BasePrompt)
 						{
 							var btnY:Float = state.bg.y + state.bg.height - 70;
@@ -5658,21 +5983,28 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 							{
 								state.close();
 
-								var func:Void->Void = function()
+								var proceed:Void->Void = function()
 								{
-									GRID_COLUMNS_PER_PLAYER = targetKeys;
+									GRID_COLUMNS_PER_PLAYER = funkinKeys ? 4 : targetKeys;
+									setChartDirectoryFromPath(savePath);
 									loadChart(loadedChart);
+									Paths.currentChartInstPath = res.instPath;
 									Song.chartPath = savePath;
 									reloadNotesDropdowns();
 									rebuildChartLayout();
 									prepareReload();
-									showOutput('Chart loaded from: ' + savePath);
+									showOutput('Chart loaded from: ' + savePath
+										+ (res.anyImported ? ' (audio imported)' : (res.hasInst ? ' (audio detected)' : ' (no audio)')));
 								};
 
-								if (!ignoreProgressCheckBox.checked)
-									openSubState(new Prompt('Warning: Any unsaved progress\nwill be lost.', func));
-								else
-									func();
+								var afterWarn:Void->Void = function()
+								{
+									if (!ignoreProgressCheckBox.checked)
+										openSubState(new Prompt('Warning: Any unsaved progress\nwill be lost.', proceed));
+									else
+										proceed();
+								};
+								loadChartOrWarnNoInst(loadedChart, res, afterWarn);
 							});
 							yesBtn.normalStyle.bgColor = FlxColor.GREEN;
 							yesBtn.normalStyle.textColor = FlxColor.WHITE;
@@ -5684,7 +6016,8 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 							var noBtn:PsychUIButton = new PsychUIButton(0, btnY, 'No, just save', function()
 							{
 								state.close();
-								showOutput('Chart converted and saved successfully: ' + savePath);
+								showOutput('Chart converted and saved successfully: ' + savePath
+									+ (res.anyImported ? ' (audio imported)' : ''));
 							});
 							noBtn.cameras = state.cameras;
 							noBtn.screenCenter(X);
@@ -5698,6 +6031,7 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 							state.add(infoTxt);
 						}
 						));
+						});
 					}, true);
 				});
 			}
@@ -5705,14 +6039,47 @@ class ChartingState extends MusicBeatState implements PsychUIEventHandler.PsychU
 			{
 				var func:Void->Void = function()
 				{
-					GRID_COLUMNS_PER_PLAYER = targetKeys;
-					setChartDirectoryFromPath(filePath);
-					loadChart(loadedChart);
-					Song.chartPath = null;
-					reloadNotesDropdowns();
-					rebuildChartLayout();
-					prepareReload();
-					showOutput('${targetKeys}K chart loaded from: ' + filePath);
+					GRID_COLUMNS_PER_PLAYER = funkinKeys ? 4 : targetKeys;
+
+					// 引擎管理的谱面目录直接载入：音频与谱面同放，走 Paths 候选链，
+					// 不按 osu 声明独占探测，也不弹缺音频警告。
+					if (isManagedChartDirectory(filePath))
+					{
+						setChartDirectoryFromPath(filePath);
+						loadChart(loadedChart);
+						Paths.currentChartInstPath = null;
+						Song.chartPath = null;
+						reloadNotesDropdowns();
+						rebuildChartLayout();
+						prepareReload();
+						showOutput('${targetKeys}K chart loaded from: ' + filePath);
+						return;
+					}
+
+					// 外部散落目录：按 osu 声明独占探测，缺音频走手动选择。
+					var srcDir:String = filePath.substring(0, filePath.lastIndexOf('/') + 1);
+					var wizard:ChartAudioImportWizard = new ChartAudioImportWizard();
+					var osuFamily:Bool = isOsuChartFile(filePath);
+					if (osuFamily) loadedChart.needsVoices = false;
+					wizard.importVocals = !osuFamily && (loadedChart.needsVoices != false);
+					wizard.declaredAudioPath = getOsuDeclaredAudio(filePath);
+					wizard.chartDeclaresAudio = osuFamily;
+					wizard.start(srcDir, function(res:ChartAudioImportResult)
+					{
+						var proceed:Void->Void = function()
+						{
+							setChartDirectoryFromPath(filePath);
+							loadChart(loadedChart);
+							Paths.currentChartInstPath = res.instPath;
+							Song.chartPath = null;
+							reloadNotesDropdowns();
+							rebuildChartLayout();
+							prepareReload();
+							showOutput('${targetKeys}K chart loaded from: ' + filePath
+								+ (res.anyImported ? ' (audio imported)' : (res.hasInst ? ' (audio detected)' : ' (no audio)')));
+						};
+						loadChartOrWarnNoInst(loadedChart, res, proceed);
+					});
 				};
 
 				if (!ignoreProgressCheckBox.checked)

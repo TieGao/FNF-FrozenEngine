@@ -20,6 +20,8 @@ typedef ChartConvertOptions =
 	var diff:String;
 	var convertKeys:Bool;
 	var targetKeys:Int;
+	/** true = 转成 FNF 经典 4K+4K 双人布局（每侧 4 轨），优先于 convertKeys/targetKeys */
+	var funkinKeys:Bool;
 	var extractAudio:Bool;
 	/** 仅 MIDI：选中的声部 id（null = 不适用 / 全不选时退回默认） */
 	var midiParts:Array<Int>;
@@ -60,6 +62,7 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 
 	// 导入相关
 	private var convertKeysCheck:PsychUICheckBox;
+	private var funkinKeysCheck:PsychUICheckBox;
 	private var targetKeysLabel:FlxText;
 	private var targetKeysDropDown:Win8DropDown;
 	private var diffDropDown:Win8DropDown;
@@ -305,7 +308,7 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 			if(hasMidiTracks())
 				content += 22 + (midiViewRows * MIDI_ROW_H + MIDI_LIST_PAD * 2) + 6 + MIDI_BTN_H + 8 + 48;
 			if(showDiffOption) content += 44;
-			content += 36 + 48; // 键数复选框 + 目标键数
+			content += 36 + 36 + 48; // 键数复选框 + Funkin Keys 复选框 + 目标键数
 			if(showAudioOption) content += 36;
 			content += hintH;
 		}
@@ -323,8 +326,8 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 	{
 		if(mode == MODE_EXPORT)
 			return Language.getPhrase('chart_export_info',
-				'Export current chart to an external format.\nCurrent key count: {1}K ({2} key mania)',
-				[Std.string(currentKeys), Std.string(currentKeys - 1)]);
+				'Export current chart to an external format.\nCurrent key count: {1}K keys per side',
+				[Std.string(currentKeys)]);
 
 		var head:String = '';
 		if(songTitle != null && songTitle.length > 0 && songTitle != 'Unknown')
@@ -333,8 +336,8 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 			head += formatLabel + '\n';
 
 		return Language.getPhrase('chart_import_detected',
-			'{1}Detected: {2}K ({3} key mania)\nChoose difficulty and target key count.',
-			[head, Std.string(detectedKeys), Std.string(detectedKeys - 1)]);
+			'{1}Detected: {2}K keys per side\nChoose difficulty and target key count.',
+			[head, Std.string(detectedKeys)]);
 	}
 
 	private function buildHintText():String
@@ -384,6 +387,16 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 		clickables.push(convertKeysCheck);
 		currentY += 36;
 
+		// Funkin Keys 4+4：把多 K 谱转成 FNF 经典「玩家 4 轨 / 对手 4 轨」双人布局。
+		// 勾选后忽略上面的「转换键数 / 目标键数」（每侧固定 4 轨）。
+		funkinKeysCheck = new PsychUICheckBox(centerX - 170, currentY,
+			Language.getPhrase('chart_funkin_keys', 'Convert to Funkin Keys (4K+4K)'), 320, syncTargetKeysState);
+		funkinKeysCheck.checked = false;
+		funkinKeysCheck.text.font = Paths.font('vcr.ttf');
+		add(cam(funkinKeysCheck));
+		clickables.push(funkinKeysCheck);
+		currentY += 36;
+
 		// 目标键数下拉菜单
 		targetKeysLabel = makeText(centerX - 160, currentY + 6, 120,
 			Language.getPhrase('chart_target_keys', 'Target Keys:'), 16, FlxColor.WHITE, LEFT);
@@ -391,7 +404,7 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 		var keyOptions:Array<String> = [];
 		for(i in 4...17) // 4-16K
 		{
-			var label:String = Std.string(i) + 'K (' + Std.string(i - 1) + ' key mania)';
+			var label:String = Std.string(i) + 'K';
 			if(i == detectedKeys) label += ' (original)';
 			keyOptions.push(label);
 		}
@@ -451,11 +464,18 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 		clickables.push(saveBtn);
 	}
 
-	/** 没勾"转换键数"时目标键数没有意义：灰掉并禁止展开 */
+	/** 没勾"转换键数"时目标键数没有意义：灰掉并禁止展开。Funkin Keys 勾选时整组让位。 */
 	private function syncTargetKeysState():Void
 	{
+		var funkin:Bool = (funkinKeysCheck != null && funkinKeysCheck.checked);
+
+		// Funkin Keys 已固定每侧 4 轨，键数转换项整体灰掉（真正的 active 禁用在 update 里做，
+		// 因为每帧 clickables 循环会重置 active，PsychUICheckBox 也没有 enabled 字段）
+		if(convertKeysCheck != null)
+			convertKeysCheck.alpha = funkin ? 0.45 : 1;
+
 		if(targetKeysDropDown == null) return;
-		var on:Bool = (convertKeysCheck != null && convertKeysCheck.checked);
+		var on:Bool = !funkin && (convertKeysCheck != null && convertKeysCheck.checked);
 		targetKeysDropDown.enabled = on;
 		if(targetKeysLabel != null)
 			targetKeysLabel.color = on ? FlxColor.WHITE : FlxColor.fromString('0xFF666666');
@@ -716,6 +736,7 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 			diff: (mode == MODE_IMPORT) ? selectedDiff() : EXPORT_DIFFS[difficultyDropDown.selectedIndex],
 			convertKeys: convertKeys,
 			targetKeys: (targetKeysDropDown != null) ? targetKeysDropDown.selectedIndex + 4 : detectedKeys,
+			funkinKeys: (funkinKeysCheck != null && funkinKeysCheck.checked),
 			extractAudio: (extractAudioCheck != null && extractAudioCheck.checked),
 			midiParts: selectedParts,
 			midiLaneMode: (laneModeDropDown != null && laneModeDropDown.selectedIndex == 1)
@@ -771,6 +792,13 @@ class ChartImportDialog extends MusicBeatSubstate implements PsychUIEventHandler
 		}
 		for(c in clickables)
 			if(c != null) c.active = (openDD == null);
+
+		// Funkin Keys 勾选时强制禁用键数转换复选框（覆盖上面 clickables 的 active 重置），
+		// 每侧固定 4 轨，convertKeys/targetKeys 不再起作用。
+		if(mode == MODE_IMPORT && funkinKeysCheck != null && funkinKeysCheck.checked)
+		{
+			if(convertKeysCheck != null) convertKeysCheck.active = false;
+		}
 
 		uiSuspended = (openDD != null);
 		// 轨道列表：滚轮翻页（整行滚动，不会出现半行）

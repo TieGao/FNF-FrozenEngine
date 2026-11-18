@@ -1290,9 +1290,10 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Shaders", "Enable shader effects", "shaders", "bool"),
 			KEOption.create("Wide Screen", "Enable 21:9 widescreen mode", "wideScreen", "bool"),
 			KEOption.createStringOption("GPU Caching", "Texture caching mode: disabled = RAM only; auto = drop the CPU copy after the first draw; full = upload and drop the CPU copy at load (least RAM, risky on low VRAM)", "gpuCaching", ["disabled", "auto", "full"], "disabled"),
-			KEOption.create("Divide Draw And Update", "Draw and Update in separate threads", "devideDrawAndUpdate", "bool"),
+			// TPS/FPS 拆分已废弃：flixel 的 updateFramerate 依赖 fixedTimestep，本引擎关掉了（见 ClientPrefs.applyFrameTiming）。
+			// KEOption.create("Divide Draw And Update", "Draw and Update in separate threads", "devideDrawAndUpdate", "bool"),
 			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 480, 1),
-			KEOption.create("Update Rate", "Target update rate", "updaterate", "int", 60, 60, 480, 1),
+			// KEOption.create("Update Rate", "Target update rate", "updaterate", "int", 60, 60, 480, 1),
 			KEOption.create("Unlimited FPS", "Remove framerate cap (lime UNCAPPED, takes priority over FPS Rework)", "unlimitedFPS", "bool"),
 			KEOption.create("FPS Rework", "Make ur game more smooth", "fpsRework", "bool")
 		];
