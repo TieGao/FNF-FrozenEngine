@@ -28,6 +28,7 @@ import backend.MusicBeatState;
 import backend.MusicBeatSubstate;
 import backend.CustomFadeTransition;
 import backend.ClientPrefs;
+import backend.IdleFPSManager;
 import backend.UITheme;
 import backend.Conductor;
 import backend.BaseStage;

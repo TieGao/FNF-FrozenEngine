@@ -80,6 +80,15 @@ class GraphicsData
         sub.add(new Option('Unlimited FPS', 'Remove framerate cap (lime UNCAPPED, takes priority over FPS Rework)', 'unlimitedFPS', BOOL));
         sub.add(new Option('FPS Rework', 'Make ur game more smooth', 'fpsRework', BOOL));
 
+        // 闲置节能（FPS 减速器）：无输入一段时间后压低帧率省电（backend.IdleFPSManager）
+        sub.add(new Option('Idle FPS Saver', 'Enter power-saving mode after no input, lowering the framerate to save energy', 'idleFPSReducer', BOOL));
+        var idleTime = new Option('Idle Delay', 'Seconds of inactivity before entering power-saving mode', 'idleFPSTime', INT);
+        idleTime.minValue = 10; idleTime.maxValue = 600; idleTime.changeValue = 5;
+        sub.add(idleTime);
+        var idleFps = new Option('Idle FPS', 'Framerate cap used in power-saving mode', 'idleFPSValue', INT);
+        idleFps.minValue = 5; idleFps.maxValue = 60; idleFps.changeValue = 1;
+        sub.add(idleFps);
+
         var sub2 = cat.section('FPSCounter', 'FPS Counter');
         sub2.add(new Option('FPS Counter', 'Show FPS counter', 'showFPS', BOOL));
         sub2.add(new Option('Show OS', 'Show operating system in FPS Counter', 'showOS', BOOL));

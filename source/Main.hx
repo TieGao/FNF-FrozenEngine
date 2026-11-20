@@ -246,6 +246,9 @@ class Main extends Sprite
 		FlxG.game.focusLostFramerate = 60;
 		FlxG.keys.preventDefaultKeys = [TAB];
 
+		// 闲置节能（FPS 减速器）：无输入一段时间后降帧省电，任意输入恢复（backend.IdleFPSManager）
+		IdleFPSManager.init();
+
 		#if CRASH_HANDLER
 		BlueScreenCrashHandler.install();
 		#end

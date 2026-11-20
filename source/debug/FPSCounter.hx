@@ -260,9 +260,13 @@ class FPSCounter extends TextField
 		// update/draw 帧率和 window.frameRate 改来改去；无限帧率优先，直接跳过。
 		if (ClientPrefs.data.fpsRework && !ClientPrefs.data.unlimitedFPS)
 		{
-			// Flixel keeps reseting this to 60 on focus gained
-			if (FlxG.stage.window.frameRate != ClientPrefs.data.framerate && FlxG.stage.window.frameRate != FlxG.game.focusLostFramerate)
-				FlxG.stage.window.frameRate = ClientPrefs.data.framerate;
+			// 闲置节能接管帧率期间只测量不回写：frameRate 归 IdleFPSManager 管，两边抢会打架
+			if (!IdleFPSManager.active)
+			{
+				// Flixel keeps reseting this to 60 on focus gained
+				if (FlxG.stage.window.frameRate != ClientPrefs.data.framerate && FlxG.stage.window.frameRate != FlxG.game.focusLostFramerate)
+					FlxG.stage.window.frameRate = ClientPrefs.data.framerate;
+			}
 
 			var currentTime = openfl.Lib.getTimer();
 			framesCount++;
@@ -290,7 +294,8 @@ class FPSCounter extends TextField
 			// 每 1.5s 把帧率上限对齐到实测 FPS（fpsRework 的自动降档）。
 			// update 和 draw 始终写同一个值：拆分在本引擎无效（fixedTimestep = false），
 			// 但 set_drawFramerate 在 draw > update 时会 log.warn 并弹调试控制台，两边必须同步。
-			if ((FlxG.updateFramerate >= currentFPS + 5 || FlxG.updateFramerate <= currentFPS - 5)
+			if (!IdleFPSManager.active
+				&& (FlxG.updateFramerate >= currentFPS + 5 || FlxG.updateFramerate <= currentFPS - 5)
 				&& haxe.Timer.stamp() - lastFramerateUpdateTime >= 1.5
 				&& currentFPS >= 30)
 			{

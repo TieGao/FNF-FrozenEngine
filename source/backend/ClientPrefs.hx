@@ -55,6 +55,10 @@ import states.TitleState;
 	public var updaterate:Int = 60; // 已废弃：TPS/FPS 拆分在本引擎无效（fixedTimestep = false），仅保留存档兼容
 	public var unlimitedFPS:Bool = false;
 	public var devideDrawAndUpdate:Bool = false; // 已废弃：同上，选项已注释，字段留着读旧存档不报错
+	// 闲置节能（FPS 减速器）：无输入一段时间后压低帧率省电，逻辑见 backend.IdleFPSManager
+	public var idleFPSReducer:Bool = true;
+	public var idleFPSTime:Int = 60;   // 触发闲置的秒数（10~600）
+	public var idleFPSValue:Int = 15;  // 节能模式的帧率上限（5~60）
 	public var camZooms:Bool = true;
 	public var hideHud:Bool = false;
 	// 游戏内 HUD / Lua 文本是否跟随语言字体（默认否，见 backend.GameFont）
@@ -783,6 +787,8 @@ class ClientPrefs {
 
 	/**
 	 * 统一应用帧率 / lime 帧调度。loadPrefs() 与三套设置菜单的即时生效都走这里。
+	 * 传 idleFps（仅 backend.IdleFPSManager 调用）= 闲置节能档：强制 BALANCED + 关 vsync，
+	 * 帧率压到 idleFps（UNCAPPED 档无视 frameRate，必须临时切走）；无参调用即恢复常规档。
 	 *
 	 * unlimitedFPS 用 lime 8.4.0 官方的 FrameProfile.UNCAPPED：主循环忽略 window.frameRate，
 	 * 一帧结束立刻开下一帧（UncapMode.SOFT 保留常规事件处理）。必须同时关掉 vsync，
@@ -792,28 +798,37 @@ class ClientPrefs {
 	 * SDLApplication::ApplyMainLoopSettings() 把 <= 0 的帧率当成 effectiveFrameRate = 1.0
 	 * （约 1 FPS），flixel 6.2.1 那边还会算出 _stepMS / _maxAccumulation = Inf。
 	 */
-	public static function applyFrameTiming():Void
+	public static function applyFrameTiming(?idleFps:Int):Void
 	{
 		#if (!html5 && !switch)
 		if (FlxG.stage != null && FlxG.stage.application != null)
 		{
 			final app = FlxG.stage.application;
-			if (data.unlimitedFPS)
+			if (idleFps != null)
+			{
+				// 闲置节能档：UNCAPPED 完全无视 frameRate，必须临时切回 BALANCED；
+				// vsync 一并关掉，防止显示器刷新率把 idle 帧率顶回去。唤醒走无参路径还原。
+				app.configureFrameTiming(lime.app.FrameProfile.BALANCED,
+					{uncapMode: lime.app.UncapMode.OFF}, lime.app.VSyncMode.OFF);
+			}
+			else if (data.unlimitedFPS)
 			{
 				app.configureFrameTiming(lime.app.FrameProfile.UNCAPPED,
 					{uncapMode: lime.app.UncapMode.SOFT}, lime.app.VSyncMode.OFF);
 				return;
 			}
-
-			app.configureFrameTiming(lime.app.FrameProfile.BALANCED,
-				{uncapMode: lime.app.UncapMode.OFF},
-				data.vsync ? lime.app.VSyncMode.ON : lime.app.VSyncMode.OFF);
+			else
+			{
+				app.configureFrameTiming(lime.app.FrameProfile.BALANCED,
+					{uncapMode: lime.app.UncapMode.OFF},
+					data.vsync ? lime.app.VSyncMode.ON : lime.app.VSyncMode.OFF);
+			}
 		}
 		#end
 
 		// 无限制帧率时不动 FlxG.*Framerate：它们只决定 stage.frameRate 与固定步长，
 		// 而 UNCAPPED 由 lime 主循环直接放行，写这些值只会带来抖动。
-		if (data.unlimitedFPS) return;
+		if (idleFps == null && data.unlimitedFPS) return;
 
 		// TPS / FPS 拆分（devideDrawAndUpdate + updaterate）已注释掉，只留一档帧率。
 		//
@@ -826,7 +841,9 @@ class ClientPrefs {
 		// 两个字段仍写同一个值，不能只写 draw：set_drawFramerate 在 draw > update 时会
 		// FlxG.log.warn（FlxG.hx:702-705），而 flixel 的 WARNING 样式 openConsole = true
 		// （LogFrontEnd.hx:29），调试版会直接把 flixel 控制台弹出来。
-		final fps = Std.int(FlxMath.bound(data.framerate, 30, 480));
+		final fps = (idleFps != null)
+			? Std.int(FlxMath.bound(idleFps, 5, 60))
+			: Std.int(FlxMath.bound(data.framerate, 30, 480));
 		FlxG.updateFramerate = fps;
 		FlxG.drawFramerate = fps;
 	}

@@ -1295,7 +1295,10 @@ class KEOptionsMenu extends MusicBeatState
 			KEOption.create("Framerate", "Target framerate", "framerate", "int", 60, 60, 480, 1),
 			// KEOption.create("Update Rate", "Target update rate", "updaterate", "int", 60, 60, 480, 1),
 			KEOption.create("Unlimited FPS", "Remove framerate cap (lime UNCAPPED, takes priority over FPS Rework)", "unlimitedFPS", "bool"),
-			KEOption.create("FPS Rework", "Make ur game more smooth", "fpsRework", "bool")
+			KEOption.create("FPS Rework", "Make ur game more smooth", "fpsRework", "bool"),
+			KEOption.create("Idle FPS Saver", "Enter power-saving mode after no input, lowering the framerate to save energy", "idleFPSReducer", "bool"),
+			KEOption.create("Idle Delay", "Seconds of inactivity before entering power-saving mode", "idleFPSTime", "int", 60, 10, 600, 5),
+			KEOption.create("Idle FPS", "Framerate cap used in power-saving mode", "idleFPSValue", "int", 15, 5, 60, 1)
 		];
 	}
 

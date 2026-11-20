@@ -67,7 +67,7 @@ class EditorPlayState extends MusicBeatSubstate
 	var guitarHeroSustains:Bool = false;
 
 	var _noteList:Array<Note>;
-	public function new(noteList:Array<Note>, allVocals:Array<FlxSound>)
+	public function new(noteList:Array<Note>, allVocals:Array<FlxSound>, ?startTimeMs:Float)
 	{
 		super();
 		
@@ -75,7 +75,7 @@ class EditorPlayState extends MusicBeatSubstate
 		this.vocals = allVocals[0];
 		this.opponentVocals = allVocals[1];
 		this._noteList = noteList;
-		this.startPos = Conductor.songPosition;
+		this.startPos = startTimeMs != null ? startTimeMs : Conductor.songPosition;
 		Conductor.songPosition = startPos;
 
 		#if FLX_PITCH
