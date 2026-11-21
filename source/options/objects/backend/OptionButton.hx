@@ -105,7 +105,7 @@ class OptionButton extends FlxSpriteGroup
     function borderColor():FlxColor
     {
         if (isReset) return UITheme.danger;
-        return win8 ? UIControlTheme.accent() : UITheme.accent;
+        return win8 ? UIControlTheme.accentHover() : UITheme.accentHover;
     }
 
     // 根据状态计算目标背景色（颜色全部来自主题）
@@ -124,8 +124,8 @@ class OptionButton extends FlxSpriteGroup
     function computeTextColor():FlxColor
     {
         if (isReset) return confirmPending ? UITheme.danger : UITheme.textPrimary;
-        if (win8) return pressing ? UIControlTheme.onAccent() : ((hover || keyboardHighlight) ? UIControlTheme.accent() : UIControlTheme.text());
-        return (hover || keyboardHighlight) ? UITheme.accent : UITheme.textPrimary;
+        if (win8) return pressing ? UIControlTheme.onAccent() : ((hover || keyboardHighlight) ? UIControlTheme.accentHover() : UIControlTheme.text());
+        return (hover || keyboardHighlight) ? UITheme.accentHover : UITheme.textPrimary;
     }
 
     override function update(elapsed:Float)

@@ -13,6 +13,7 @@ import flixel.ui.FlxButton;
 import flixel.math.FlxRect;
 import flixel.util.FlxStringUtil;
 import backend.Paths;
+import backend.UITheme;
 import options.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
 import states.FreeplayState;
@@ -44,6 +45,13 @@ class ToolBar extends FlxSpriteGroup
     public var buttonHeight:Int = 32;
     /** 斜度：和 StoryMode 的 BTN_SKEW/BTN_H（28/70）同量级的角度，平行四边形才看得出来 */
     public var buttonSkew:Int = 12;
+    /** 整排按钮离屏幕左右边的最小留白，块数多时按这个反推单块最大宽度 */
+    static inline var BUTTON_STRIP_MARGIN:Float = 40;
+    /**
+     * 实际烘进贴图的按钮宽度。宽度是画进图里的（SlantQuad 缓存键也带它），
+     * 只能在造按钮之前定死，所以 createButtons 里算一次，layoutButtons 直接用。
+     */
+    private var layoutWidth:Float = 200;
 
     /** 需要"当前有选中歌"才有意义的几块（RESET / LISTEN / EDITOR）：没歌时置灰禁用 */
     private var songButtons:Array<ToolBarButton> = [];
@@ -67,6 +75,14 @@ class ToolBar extends FlxSpriteGroup
     // ★★★ 人声切换按钮 ★★★
     public var voiceToggleButton:FlxButton;
     public var voicesMuted:Bool = false;
+
+    // ★★★ 循环模式（单曲 / 列表 / 随机 / 只放一次）★★★
+    public var loopModeButton:FlxButton;
+    public var loopModeText:FlxText;
+    /** 循环按钮当前画的是哪种图标（变了才重画） */
+    private var loopIconKind:String = '';
+    /** 循环模式文字标签的固定宽度（居中显示，宽度写死摆位才不跳） */
+    static inline var LOOP_TEXT_WIDTH:Int = 120;
     
     /** 当前栏高：正常模式 50，音乐播放器模式 64 */
     public var barHeight:Int = BAR_HEIGHT_NORMAL;
@@ -75,6 +91,8 @@ class ToolBar extends FlxSpriteGroup
     private var playIconKind:String = '';
     /** 人声按钮当前画的是哪种图标（变了才重画） */
     private var voiceIconKind:String = '';
+    /** 已套用的强调色版本号，和 UITheme.version 不一致时重画图集 */
+    private var accentVersion:Int = -1;
     
     // ★★★ 音频可视化对象 ★★★
     public var audioDisplay:AudioDisplay;
@@ -243,6 +261,7 @@ class ToolBar extends FlxSpriteGroup
             {label: Language.getPhrase("options", "OPTIONS"), needsSong: false, action: openOptions},
             {label: Language.getPhrase("gameplay", "GAMEPLAY"), needsSong: false, action: openGameplayChangers},
             {label: Language.getPhrase("reset", "RESET"), needsSong: true, action: resetScore},
+            {label: Language.getPhrase("random", "RANDOM"), needsSong: true, action: randomSong},
             {label: Language.getPhrase("listen", "LISTEN"), needsSong: true, action: toggleListenMode},
             {label: Language.getPhrase("editor", "EDITOR"), needsSong: true, action: openChartEditor}
         ];
@@ -250,12 +269,19 @@ class ToolBar extends FlxSpriteGroup
         if (hasExtraButton)
             buttonData.insert(1, {label: "EXTRA", needsSong: false, action: openExtraSettings});
 
+        // 斜切块整条宽 = n*W - (n-1)*skew。内容包分类会多一块 EXTRA（7 块），
+        // 按原宽 200 算出来 1328 > 1280 会顶出屏幕两侧，所以块数多时把宽度压到刚好放下。
+        var count:Int = buttonData.length;
+        var avail:Float = FlxG.width - BUTTON_STRIP_MARGIN * 2;
+        var maxW:Float = (avail + (count - 1) * buttonSkew) / count;
+        layoutWidth = Math.min(buttonWidth, Math.floor(maxW));
+
         for (i in 0...buttonData.length)
         {
             var data = buttonData[i];
             // 先按 (0,0) 造，位置统一由 layoutButtons() 摆 —— 位置只会有一处算，
             // 不会出现"创建时算一次、setXY 再算一次"两套公式打架
-            var btn = new ToolBarButton(0, 0, buttonWidth, buttonHeight, buttonSkew, data.label, 20,
+            var btn = new ToolBarButton(0, 0, layoutWidth, buttonHeight, buttonSkew, data.label, 20,
                 makeButtonAction(data.action));
             add(btn);
             buttons.push(btn);
@@ -274,8 +300,8 @@ class ToolBar extends FlxSpriteGroup
         var count:Int = buttons.length;
         if (count < 1) return;
 
-        var step:Float = buttonWidth - buttonSkew;
-        var stripW:Float = buttonWidth + (count - 1) * step;
+        var step:Float = layoutWidth - buttonSkew;
+        var stripW:Float = layoutWidth + (count - 1) * step;
         var left:Float = (FlxG.width - stripW) * 0.5;
         // 只按"可见栏高"垂直居中：不要用 background.height，那是按最大栏高造的，多 50px 模糊出血
         var top:Float = FlxG.height - barHeight * 0.5 - buttonHeight * 0.5;
@@ -345,11 +371,14 @@ class ToolBar extends FlxSpriteGroup
         playPauseButton = makePlayerButton('play', PLAYER_BTN_SIZE_MAIN, playPauseAction);
         nextButton = makePlayerButton('next', PLAYER_BTN_SIZE, nextAction);
         stopButton = makePlayerButton('stop', PLAYER_BTN_SIZE, stopAction);
+        loopModeButton = makePlayerButton(loopIconFor(MusicPlayerLegacy.loopMode), PLAYER_BTN_SIZE, cycleLoopMode);
         voiceToggleButton = makePlayerButton('mic', PLAYER_BTN_SIZE, voiceToggleAction);
         volumeDownButton = makePlayerButton('volume_down', PLAYER_BTN_SIZE, volumeDownAction);
         volumeUpButton = makePlayerButton('volume_up', PLAYER_BTN_SIZE, volumeUpAction);
         playIconKind = 'play';
         voiceIconKind = 'mic';
+        // 循环图标不在这里记 kind：交给下面的 updateLoopModeButton 第一次画，
+        // 否则「进来时模式已经是列表循环」的情况下描边色会停在默认灰
         
         // 音量文本（夹在两个音量键中间）
         volumeText = new FlxText(0, 0, 60, "100%", 18);
@@ -357,6 +386,14 @@ class ToolBar extends FlxSpriteGroup
         volumeText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER);
         volumeText.scrollFactor.set();
         add(volumeText);
+
+        // 循环模式文字（贴在循环按钮右边，图标看不懂时靠它）
+        loopModeText = new FlxText(0, 0, LOOP_TEXT_WIDTH, "", 18);
+        loopModeText.antialiasing = ClientPrefs.data.antialiasing;
+        loopModeText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER);
+        loopModeText.scrollFactor.set();
+        add(loopModeText);
+        updateLoopModeButton();
         
         // 默认隐藏播放器控件
         setPlayerControlsVisible(false);
@@ -499,6 +536,58 @@ class ToolBar extends FlxSpriteGroup
         voiceToggleButton.loadGraphic(ToolBarIcons.buttonStrip(kind, PLAYER_BTN_SIZE, tint), true, PLAYER_BTN_SIZE, PLAYER_BTN_SIZE);
         voiceToggleButton.antialiasing = ClientPrefs.data.antialiasing;
     }
+
+    // ===== 循环模式 =====
+
+    /** 循环切换：只放一次 → 列表循环 → 单曲循环 → 随机 → 只放一次 */
+    private function cycleLoopMode():Void
+    {
+        MusicPlayerLegacy.loopMode = (MusicPlayerLegacy.loopMode + 1) % MusicPlayerLegacy.LOOP_MODE_COUNT;
+        updateLoopModeButton();
+        FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
+    }
+
+    /** 图标 + 文字一起刷。图标没变就别重画贴图（自造图会被 clearStoredMemory 连带 dispose，掉了靠 isGraphicDead 判活） */
+    private function updateLoopModeButton():Void
+    {
+        if (loopModeButton == null) return;
+
+        var mode:Int = MusicPlayerLegacy.loopMode;
+        var kind:String = loopIconFor(mode);
+        if (loopIconKind != kind || isGraphicDead(loopModeButton))
+        {
+            loopIconKind = kind;
+            // 只放一次用灰的，开着循环 / 随机用黄色 —— 不用点开也知道现在是不是在循环
+            var tint:Int = (mode == MusicPlayerLegacy.LOOP_ONCE) ? ToolBarIcons.ICON_NORMAL : ToolBarIcons.iconActive();
+            loopModeButton.loadGraphic(ToolBarIcons.buttonStrip(kind, PLAYER_BTN_SIZE, tint), true, PLAYER_BTN_SIZE, PLAYER_BTN_SIZE);
+            loopModeButton.antialiasing = ClientPrefs.data.antialiasing;
+        }
+
+        if (loopModeText != null)
+            loopModeText.text = loopModeLabel(mode);
+    }
+
+    private inline function loopIconFor(mode:Int):String
+    {
+        switch (mode)
+        {
+            case MusicPlayerLegacy.LOOP_ALL: return 'repeat';
+            case MusicPlayerLegacy.LOOP_ONE: return 'repeat_one';
+            case MusicPlayerLegacy.LOOP_SHUFFLE: return 'shuffle';
+            default: return 'play_once';
+        }
+    }
+
+    private inline function loopModeLabel(mode:Int):String
+    {
+        switch (mode)
+        {
+            case MusicPlayerLegacy.LOOP_ALL: return Language.getPhrase('musicplayer_mode_all', 'LOOP ALL');
+            case MusicPlayerLegacy.LOOP_ONE: return Language.getPhrase('musicplayer_mode_one', 'LOOP ONE');
+            case MusicPlayerLegacy.LOOP_SHUFFLE: return Language.getPhrase('musicplayer_mode_shuffle', 'SHUFFLE');
+            default: return Language.getPhrase('musicplayer_mode_once', 'ONCE');
+        }
+    }
     
     private function volumeDownAction():Void
     {
@@ -569,6 +658,8 @@ class ToolBar extends FlxSpriteGroup
         if (volumeUpButton != null) { volumeUpButton.visible = visible; volumeUpButton.active = visible; }
         if (volumeText != null) volumeText.visible = visible;
         if (voiceToggleButton != null) { voiceToggleButton.visible = visible; voiceToggleButton.active = visible; }
+        if (loopModeButton != null) { loopModeButton.visible = visible; loopModeButton.active = visible; }
+        if (loopModeText != null) loopModeText.visible = visible;
     }
     
     public function setNormalMode(force:Bool = false):Void
@@ -624,6 +715,7 @@ class ToolBar extends FlxSpriteGroup
         updatePlayPauseButton(musicPlayer != null ? musicPlayer.playing : true);
         updateVolumeText();
         updateVoiceButton();
+        updateLoopModeButton();
         
         // 创建可视化
         createAudioDisplay();
@@ -653,6 +745,46 @@ class ToolBar extends FlxSpriteGroup
         playPauseButton.antialiasing = ClientPrefs.data.antialiasing;
     }
     
+    /**
+     * 强调色变了：重画播放器按钮的图集，并刷新斜切按钮的交互态。
+     * 图集是现画的 BitmapData，颜色烘在像素里，只能整块重建。
+     */
+    private function refreshAccentColors():Void
+    {
+        if (playPauseButton != null)
+        {
+            var kind:String = (playIconKind.length > 0) ? playIconKind : 'play';
+            reloadButtonGraphic(playPauseButton, ToolBarIcons.buttonStrip(kind, PLAYER_BTN_SIZE_MAIN), PLAYER_BTN_SIZE_MAIN);
+        }
+
+        if (voiceToggleButton != null)
+        {
+            var kind:String = voicesMuted ? 'mic_off' : 'mic';
+            var tint:Int = voicesMuted ? ToolBarIcons.ICON_MUTED : ToolBarIcons.ICON_NORMAL;
+            reloadButtonGraphic(voiceToggleButton, ToolBarIcons.buttonStrip(kind, PLAYER_BTN_SIZE, tint), PLAYER_BTN_SIZE);
+        }
+
+        if (loopModeButton != null)
+        {
+            var kind:String = (loopIconKind.length > 0) ? loopIconKind : 'play_once';
+            var tint:Int = (MusicPlayerLegacy.loopMode == MusicPlayerLegacy.LOOP_ONCE)
+                ? ToolBarIcons.ICON_NORMAL : ToolBarIcons.iconActive();
+            reloadButtonGraphic(loopModeButton, ToolBarIcons.buttonStrip(kind, PLAYER_BTN_SIZE, tint), PLAYER_BTN_SIZE);
+        }
+
+        for (b in buttons)
+            if (b != null) b.refreshVisual();
+    }
+
+    /** 换图集：先摘掉旧 frames 再销毁 graphic，避免 FlxG.bitmap 缓存里堆积废图 */
+    private function reloadButtonGraphic(btn:FlxButton, bmd:openfl.display.BitmapData, size:Int):Void
+    {
+        btn.frames = null;
+        if (btn.graphic != null) btn.graphic.destroy();
+        btn.loadGraphic(bmd, true, size, size);
+        btn.antialiasing = ClientPrefs.data.antialiasing;
+    }
+
     private function updatePlayerPositions():Void
     {
         var centerY:Float = FlxG.height - barHeight / 2;
@@ -660,7 +792,7 @@ class ToolBar extends FlxSpriteGroup
         
         // 一行里从左到右的控件：音量百分比夹在两个音量键中间
         var row:Array<FlxSprite> = [prevButton, playPauseButton, nextButton, stopButton,
-            voiceToggleButton, volumeDownButton, volumeText, volumeUpButton];
+            loopModeButton, loopModeText, voiceToggleButton, volumeDownButton, volumeText, volumeUpButton];
         
         var visibleItems:Array<FlxSprite> = [];
         var totalWidth:Float = 0;
@@ -687,6 +819,13 @@ class ToolBar extends FlxSpriteGroup
     override public function update(elapsed:Float):Void
     {
         super.update(elapsed);
+
+        // 设置页改完强调色回到 Freeplay 时，按钮图集还烘着旧色，靠版本号补刷
+        if (accentVersion != UITheme.version)
+        {
+            accentVersion = UITheme.version;
+            refreshAccentColors();
+        }
 
         if (inputLock > 0) inputLock -= elapsed;
 
@@ -735,6 +874,11 @@ class ToolBar extends FlxSpriteGroup
             {
                 voiceIconKind = '';
                 updateVoiceButton();
+            }
+            if (isGraphicDead(loopModeButton))
+            {
+                loopIconKind = '';
+                updateLoopModeButton();
             }
             
             // ★★★ 保持人声状态与UI同步 ★★★
@@ -810,6 +954,13 @@ class ToolBar extends FlxSpriteGroup
         // 延迟重建音频谱
         needsAudioDisplayRebuild = true;
         return true;
+    }
+
+    /** 随机选曲：只在普通模式下换选中项（试听中按钮本来就是隐藏的） */
+    private function randomSong():Bool
+    {
+        if (freeplayState == null) return false;
+        return freeplayState.randomSelectSong();
     }
 
     /**
@@ -888,6 +1039,8 @@ class ToolBar extends FlxSpriteGroup
         volumeUpButton = FlxDestroyUtil.destroy(volumeUpButton);
         volumeText = FlxDestroyUtil.destroy(volumeText);
         voiceToggleButton = FlxDestroyUtil.destroy(voiceToggleButton);
+        loopModeButton = FlxDestroyUtil.destroy(loopModeButton);
+        loopModeText = FlxDestroyUtil.destroy(loopModeText);
         
         freeplayState = null;
         parentState = null;

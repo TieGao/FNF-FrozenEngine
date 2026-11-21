@@ -17,8 +17,25 @@ class MusicPlayerLegacy extends FlxGroup
 
 	public var playing(get, never):Bool;
 
-	public var playingMusic:Bool = false;
+		public var playingMusic:Bool = false;
 	public var curTime:Float;
+
+	// ===== 播放器的循环模式（工具栏播放器模式右上那枚按钮）=====
+	/** 只放一次：播完就退回普通栏（老行为，默认） */
+	public static inline var LOOP_ONCE:Int = 0;
+	/** 列表循环：播完自动下一首，到末尾回到第一首 */
+	public static inline var LOOP_ALL:Int = 1;
+	/** 单曲循环：原地从头再放一遍 */
+	public static inline var LOOP_ONE:Int = 2;
+	/** 随机播放：播完随机换一首（不重复当前这首） */
+	public static inline var LOOP_SHUFFLE:Int = 3;
+	public static inline var LOOP_MODE_COUNT:Int = 4;
+
+	/**
+	 * 当前循环模式。放 static 是故意的：退出 Freeplay 再进来还保留玩家上次的选择。
+	 * 真正执行在 FreeplayState.handlePreviewComplete()。
+	 */
+	public static var loopMode:Int = LOOP_ONCE;
 
 	var songBG:FlxSprite;
 	var songTxt:FlxText;

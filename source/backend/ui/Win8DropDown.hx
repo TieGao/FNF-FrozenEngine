@@ -128,8 +128,8 @@ class Win8DropDown extends FlxSpriteGroup
 		if (face == null) return;
 		var active:Bool = !enabled ? false : (hover || isOpen);
 		face.color = active ? UIControlTheme.faceHover() : UIControlTheme.face();
-		outline.color = active ? UIControlTheme.accent() : UIControlTheme.border();
-		label.color = !enabled ? UIControlTheme.textSecondary() : (active ? UIControlTheme.accent() : UIControlTheme.text());
+		outline.color = active ? UIControlTheme.accentHover() : UIControlTheme.border();
+		label.color = !enabled ? UIControlTheme.textSecondary() : (active ? UIControlTheme.accentHover() : UIControlTheme.text());
 	}
 
 	/**
@@ -455,7 +455,7 @@ class Win8DropDown extends FlxSpriteGroup
 		var cy:Float = h * 0.5;
 		var dir:Float = isOpen ? -1 : 1;
 		var col:FlxColor = !enabled ? UIControlTheme.textSecondary()
-			: ((hover || isOpen) ? UIControlTheme.accent() : UIControlTheme.textSecondary());
+			: ((hover || isOpen) ? UIControlTheme.accentHover() : UIControlTheme.textSecondary());
 
 		drawThickLine(bmd, cx - size, cy - size * 0.4 * dir, cx, cy + size * 0.4 * dir, thickness, col);
 		drawThickLine(bmd, cx, cy + size * 0.4 * dir, cx + size, cy - size * 0.4 * dir, thickness, col);

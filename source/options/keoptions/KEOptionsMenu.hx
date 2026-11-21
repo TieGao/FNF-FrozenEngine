@@ -1413,6 +1413,8 @@ class KEOptionsMenu extends MusicBeatState
 				KEOption.create("Difficulty Blocks", "Show the clickable difficulty blocks in Freeplay", "freeplayDiffCarousel", "bool"),
 				KEOption.create("Freeplay ToolBar", "Show tool bar in freeplay", "toolBar", "bool"),
 				KEOption.create("New Freeplay Space BackGround", "Just a cool background lol", "freeplayspace", "bool"),
+				KEOption.createStringOption("Background Transition", "How the Freeplay background switches when you change mod folder",
+					"freeplayBgTransition", ["fade", "mosaic"], "fade"),
 				KEOption.create("Save Freeplay Cache", "Save freeplay song metadata cache to disk", "saveFreeplayCache", "bool"),
 				KEOption.create("Threaded Song Conversion", "Parse chart info on a background thread (turn off if Freeplay stutters)", "freeplayThreadedParse", "bool"),
 				KEOption.create("Space Back Ground EveryWhere", "Show space background everywhere", "globalspace", "bool"),

@@ -997,7 +997,7 @@ class Win8CharmSettings extends backend.MusicBeatSubstate
 
 	function cycleColor(opt:Option, dir:Int):Void
 	{
-		var pal:Array<Int> = Option.COLOR_PALETTE;
+		var pal:Array<Int> = opt.paletteOf();
 		var idx:Int = pal.indexOf(cast opt.getValue());
 		if (idx < 0) idx = opt.curOption;
 		idx = FlxMath.wrap(idx + dir, 0, pal.length - 1);

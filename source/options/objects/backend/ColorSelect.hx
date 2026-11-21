@@ -106,7 +106,7 @@ class ColorSelect extends FlxSpriteGroup
     // 配色
     // ---------------------------------------------------------
     inline function accentColor():FlxColor
-        return win8 ? UIControlTheme.accent() : UITheme.accent;
+        return win8 ? UIControlTheme.accentHover() : UITheme.accentHover;
 
     inline function mainTextColor():FlxColor
         return win8 ? UIControlTheme.text() : UITheme.textPrimary;
@@ -118,13 +118,13 @@ class ColorSelect extends FlxSpriteGroup
         return win8 ? UIControlTheme.textSecondary() : UITheme.icon;
 
     function borderColor():FlxColor
-        return (hover || isOpen || keyboardHighlight) ? UIControlTheme.accent() : UIControlTheme.border();
+        return (hover || isOpen || keyboardHighlight) ? UIControlTheme.accentHover() : UIControlTheme.border();
 
     public function refreshValue()
     {
         var v:Int = cast follow.getValue();
         swatch.color = v;
-        var name = Option.colorName(v);
+        var name = follow.colorNameOf(v);
         var hex = Option.intToHex(v);
         dis.text = name + '   ' + hex;
         dis.color = (hover || isOpen || keyboardHighlight) ? accentColor() : mainTextColor();
@@ -253,7 +253,8 @@ class ColorSelect extends FlxSpriteGroup
         popupTexts = [];
         popupSwatches = [];
 
-        var pal = Option.COLOR_PALETTE;
+        var pal = follow.paletteOf();
+        var names = follow.paletteNamesOf();
         var rows = Math.ceil(pal.length / COLS);
         var gridW = COLS * CELL + (COLS - 1) * CELL_PAD;
         var gridH = rows * CELL + (rows - 1) * CELL_PAD;
@@ -294,7 +295,7 @@ class ColorSelect extends FlxSpriteGroup
             popupSwatches.push(outline);
 
             // 名称（画在色块中心，用对比色）
-            var t = new FlxText(cx, cy, CELL, Option.COLOR_NAMES[i], 10);
+            var t = new FlxText(cx, cy, CELL, i < names.length ? names[i] : Option.intToHex(pal[i]), 10);
             t.setFormat(Paths.font('montserrat.ttf'), 10,
                 Option.contrastText(pal[i]), CENTER);
             t.borderStyle = NONE;
@@ -398,7 +399,7 @@ class ColorSelect extends FlxSpriteGroup
 
             if (itHover && mouse.justReleased)
             {
-                var newColor:Int = Option.COLOR_PALETTE[i];
+                var newColor:Int = follow.paletteOf()[i];
                 follow.setValue(newColor);
                 follow.curOption = i;
                 follow.change();

@@ -89,8 +89,17 @@ class UITheme
 	// ---------------------------------------------------------
 	// 强调色 / 图标
 	// ---------------------------------------------------------
+	/**
+	 * 强调色的三个档位全部由 ClientPrefs.data.uiAccent 派生（见 applyAccent）。
+	 * 这里给的字面量只是"还没调用 ensure() 时"的占位值，applyAccent 会覆盖。
+	 */
 	public static var accent:FlxColor = 0xFF4CC2FF;
+	/** 次要槽位：悬停与轻量反馈，来自 ClientPrefs.data.uiAccentHover */
+	public static var accentHover:FlxColor = 0xFF67CBFF;
+	/** 主色压暗一档，用于搜索框聚焦线这类"需要更沉"的位置 */
 	public static var accentDeep:FlxColor = 0xFF0078D4;
+	/** 主色压暗两档，按下态 */
+	public static var accentPress:FlxColor = 0xFF2E9BD6;
 	public static var icon:FlxColor = 0xFFCCCCCC;
 
 	// ---------------------------------------------------------
@@ -228,6 +237,67 @@ class UITheme
 
 		if (isLight) applyLight();
 		else applyDark();
+
+		// 强调色必须在明暗配色之后应用：applyDark/applyLight 不再写 accent 系列字段，
+		// 否则切换深浅色会把用户自定义色冲回默认。
+		applyAccent();
+	}
+
+	// ---------------------------------------------------------
+	// 强调色派生
+	// ---------------------------------------------------------
+	static inline var DEFAULT_ACCENT:FlxColor = 0xFF4CC2FF;
+	static inline var DEFAULT_ACCENT_HOVER:FlxColor = 0xFF67CBFF;
+
+	/**
+	 * 从一个主色派生出整套强调色。
+	 * 明暗两套共用同一个用户色（不做暗色特判），只按 isLight 调整"混合到背景"的比例。
+	 */
+	static function applyAccent():Void
+	{
+		if (ClientPrefs.data == null) return;
+
+		accent = sanitize(ClientPrefs.data.uiAccent, DEFAULT_ACCENT);
+		accentHover = sanitize(ClientPrefs.data.uiAccentHover, DEFAULT_ACCENT_HOVER);
+
+		accentPress = shade(accent, 0.22);
+		accentDeep = shade(accent, 0.28);
+		textOnAccent = contrastText(accent);
+
+		sliderFill = accent;
+		sliderKnob = accent;
+		switchOn = accent;
+		// 旋钮悬停：暗色提亮到白，浅色压暗一档
+		sliderKnobHover = isLight ? shade(accent, 0.2) : 0xFFFFFFFF;
+		// 滑块数值文字：浅色直接用正文色，暗色用主色混白，保持同一色相
+		sliderValueText = isLight ? textPrimary : FlxColor.interpolate(accent, 0xFFFFFFFF, 0.72);
+
+		// 选中行 / 下拉项底色：往当前面板底色里混一点主色，暗色也能看出色相
+		var panelBase:FlxColor = isLight ? 0xFFFFFFFF : 0xFF2B2B2B;
+		navItemActive = FlxColor.interpolate(isLight ? 0xFFF0F0F0 : 0xFF2B2B2B, accent, isLight ? 0.16 : 0.12);
+		popupItem = FlxColor.interpolate(panelBase, accent, isLight ? 0.08 : 0.10);
+	}
+
+	/** 0 视为"没设置"，回落默认；顺手把 alpha 补成不透明 */
+	static inline function sanitize(v:FlxColor, def:FlxColor):FlxColor
+		return (v == 0) ? def : (v | 0xFF000000);
+
+	/** 往黑色插值，amt 是压暗强度（0~1） */
+	static inline function shade(c:FlxColor, amt:Float):FlxColor
+		return FlxColor.interpolate(c, 0xFF000000, amt);
+
+	/**
+	 * 强调色底上的文字色：按感知亮度自动选黑/白。
+	 * 默认阈值 186 是为了让默认色 #4CC2FF（亮度 165.7）仍取白字，保持现有观感。
+	 * 色块预览这类"大面积纯色"传更低的阈值，更早转黑字。
+	 */
+	public static function contrastText(c:FlxColor, threshold:Float = 186):FlxColor
+	{
+		var r:Int = (c >> 16) & 0xFF;
+		var g:Int = (c >> 8) & 0xFF;
+		var b:Int = c & 0xFF;
+		var lum:Float = 0.299 * r + 0.587 * g + 0.114 * b;
+		return lum > threshold ? 0xFF000000 : 0xFFFFFFFF;
 	}
 
 	static function applyDark():Void
@@ -247,7 +317,6 @@ class UITheme
 
 		navItem = 0xFF2B2B2B;
 		navItemHover = 0xFF3A3A3A;
-		navItemActive = 0xFF3A3A3A;
 		navItemPress = 0xFF222222;
 
 		control = 0xFF3A3A3A;
@@ -255,7 +324,6 @@ class UITheme
 		controlPress = 0xFF2B2B2B;
 
 		popup = 0xFF2B2B2B;
-		popupItem = 0xFF3A3A3A;
 
 		searchBG = 0xFF1F1F1F;
 		searchBGFocus = 0xFF2B2B2B;
@@ -264,8 +332,6 @@ class UITheme
 		searchText = 0xFFFFFFFF;
 		searchHint = 0xFF9A9A9A;
 
-		accent = 0xFF4CC2FF;
-		accentDeep = 0xFF0078D4;
 		icon = 0xFFCCCCCC;
 
 		toast = 0xFF14406F;
@@ -274,7 +340,6 @@ class UITheme
 		textPrimary = 0xFFFFFFFF;
 		textSecondary = 0xFFAAAAAA;
 		textMuted = 0xFFE0E0E0;
-		textOnAccent = 0xFFFFFFFF;
 
 		danger = 0xFFFF6363;
 		dangerBase = 0xFF5A2B2B;
@@ -283,13 +348,8 @@ class UITheme
 
 		sliderTrack = 0xFF363535;
 		sliderTrackAlpha = 0.4;
-		sliderFill = 0xFF0064FA;
-		sliderKnob = 0xFF0064FA;
-		sliderKnobHover = 0xFFFFFFFF;
 		sliderKnobPress = 0xFF808080;
-		sliderValueText = 0xFFD6E8FF;
 		switchOff = 0xFF666666;
-		switchOn = 0xFF4CC2FF;
 		knob = 0xFFFFFFFF;
 		previewLine = 0xFFFFFFFF;
 	}
@@ -311,7 +371,6 @@ class UITheme
 
 		navItem = 0xFFF0F0F0;
 		navItemHover = 0xFFE4E4E4;
-		navItemActive = 0xFFDCE9F5;
 		navItemPress = 0xFFD6D6D6;
 
 		// 浅色下按钮用浅灰而不是纯白：白底页面（0xFAFAFA）上纯白按钮完全看不出边界，
@@ -321,7 +380,6 @@ class UITheme
 		controlPress = 0xFFDADADA;
 
 		popup = 0xFFFFFFFF;
-		popupItem = 0xFFEAF2FB;
 
 		searchBG = 0xFFFFFFFF;
 		searchBGFocus = 0xFFFFFFFF;
@@ -330,8 +388,6 @@ class UITheme
 		searchText = 0xFF1B1B1B;
 		searchHint = 0xFF767676;
 
-		accent = 0xFF0078D4;
-		accentDeep = 0xFF0078D4;
 		icon = 0xFF5A5A5A;
 
 		toast = 0xFF14406F;
@@ -340,7 +396,6 @@ class UITheme
 		textPrimary = 0xFF1B1B1B;
 		textSecondary = 0xFF5A5A5A;
 		textMuted = 0xFF2B2B2B;
-		textOnAccent = 0xFFFFFFFF;
 
 		danger = 0xFFC42B1C;
 		dangerBase = 0xFFFDE7E9;
@@ -349,13 +404,8 @@ class UITheme
 
 		sliderTrack = 0xFFBDBDBD;
 		sliderTrackAlpha = 0.5;
-		sliderFill = 0xFF0078D4;
-		sliderKnob = 0xFF0078D4;
-		sliderKnobHover = 0xFF005A9E;
 		sliderKnobPress = 0xFF8A8A8A;
-		sliderValueText = 0xFF1B1B1B;
 		switchOff = 0xFF9A9A9A;
-		switchOn = 0xFF0078D4;
 		knob = 0xFFFFFFFF;
 		previewLine = 0xFF3A3A3A;
 	}

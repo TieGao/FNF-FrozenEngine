@@ -1,6 +1,7 @@
 package states.freeplay;
 
 import backend.Mods;
+import backend.UITheme;
 import backend.CustomChartData;
 import backend.MusicBeatState;
 import backend.MouseMove;
@@ -62,6 +63,10 @@ class ModFolderSubstate extends MusicBeatSubstate
 	var selectedModIcon:FlxSprite;
 
 	var openFolderButton:PsychUIButton;
+	/** 快捷入口：直接跳到 ModsMenu（那边按 BACK 回 Freeplay）。 */
+	var modsMenuButton:PsychUIButton;
+	/** 已经点了「模组菜单」、正在切状态：本界面后续输入全部作废。 */
+	var switchingAway:Bool = false;
 
 	var modsGroup:FlxTypedGroup<ModFolderItem>;
 
@@ -190,6 +195,18 @@ class ModFolderSubstate extends MusicBeatSubstate
 		openFolderButton.scrollFactor.set();
 		add(openFolderButton);
 
+		// 「模组菜单」快捷入口：叠在「打开文件夹」正上方，面板任何层级都可见可点。
+		// 打开后由 ModsMenuState 的 BACK 回到 Freeplay。
+		modsMenuButton = new PsychUIButton(openFolderX, FlxG.height - 122,
+			Language.getPhrase('mod_folder_mods_menu', 'MODS MENU'), goToModsMenu, BUTTON_WIDTH, 44);
+		modsMenuButton.text.setFormat(Paths.font('vcr.ttf'), 20, FlxColor.WHITE, CENTER);
+		modsMenuButton.text.fieldWidth = BUTTON_WIDTH;
+		modsMenuButton.normalStyle = {bgColor: 0xFF2E4A6B, textColor: FlxColor.WHITE, bgAlpha: 0.9};
+		modsMenuButton.hoverStyle = {bgColor: 0xFF4A74A8, textColor: FlxColor.WHITE, bgAlpha: 1};
+		modsMenuButton.clickStyle = {bgColor: 0xFF7FA8D8, textColor: FlxColor.WHITE, bgAlpha: 1};
+		modsMenuButton.scrollFactor.set();
+		add(modsMenuButton);
+
 		// 建列表（定位依赖 bgList，必须排在面板创建之后）
 		buildList();
 
@@ -205,6 +222,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 	selectedModDesc.x = startX;
 	selectedModInfo.x = startX;
 	openFolderButton.x = startX + (openFolderX - targetX);
+	modsMenuButton.x = startX + (openFolderX - targetX);
 
 	for (item in modsGroup)
 		item.x = startX + 10;
@@ -217,6 +235,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 	FlxTween.tween(selectedModDesc, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
 	FlxTween.tween(selectedModInfo, {x: targetX + PANEL_WIDTH + 50}, 0.6, {ease: FlxEase.circOut});
 	FlxTween.tween(openFolderButton, {x: openFolderX}, 0.6, {ease: FlxEase.circOut});
+	FlxTween.tween(modsMenuButton, {x: openFolderX}, 0.6, {ease: FlxEase.circOut});
 
 		for (item in modsGroup)
 			FlxTween.tween(item, {x: targetX + 10}, 0.6, {ease: FlxEase.circOut});
@@ -498,6 +517,9 @@ class ModFolderSubstate extends MusicBeatSubstate
 	{
 		super.update(elapsed);
 
+		// 已经点了「模组菜单」：本帧余下的按键 / 点击都别再当成本界面的操作
+		if (switchingAway) return;
+
 		if (shouldClose)
 		{
 			clearPressedItem();
@@ -544,19 +566,19 @@ class ModFolderSubstate extends MusicBeatSubstate
 			return;
 		}
 
-		// 点击面板外空白处退出。右侧的「打开文件夹」在面板外，也要算作界面内。
-		if (FlxG.mouse.justPressed && !isMouseOverPanel() && !isMouseOverOpenFolder())
+		// 点击面板外空白处退出。右侧的「模组菜单 / 打开文件夹」在面板外，也要算作界面内。
+		if (FlxG.mouse.justPressed && !isMouseOverPanel() && !isMouseOverSideButtons())
 		{
 			close();
 			return;
 		}
 
-		// 「打开文件夹」按钮现在在右侧空白区，不再盖列表；留着这个判断只是保险
-		var overOpenFolder:Bool = (openFolderButton != null && FlxG.mouse.overlaps(openFolderButton));
+		// 右侧两个按钮都在面板外，不再盖列表；留着这个判断只是保险
+		var overSideButtons:Bool = isMouseOverSideButtons();
 
 		// 按下项保存在成员中，才能在后续松开帧与命中项比较。
 		var releasedItem:Int = -1;
-		if (overOpenFolder)
+		if (overSideButtons)
 		{
 			clearPressedItem();
 		}
@@ -581,7 +603,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 		if (FlxG.mouse.justReleased)
 		{
-			if (!overOpenFolder)
+			if (!overSideButtons)
 			{
 				for (i in 0...modsGroup.members.length)
 				{
@@ -596,7 +618,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 
 			var clickedItem:Int = pressedItem;
 			clearPressedItem();
-			if (!overOpenFolder && releasedItem >= 0 && releasedItem == clickedItem)
+			if (!overSideButtons && releasedItem >= 0 && releasedItem == clickedItem)
 			{
 				curSelected = releasedItem;
 				scrollToItemMiddle(releasedItem);
@@ -609,7 +631,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 		for (i in 0...modsGroup.members.length)
 		{
 			var item = modsGroup.members[i];
-			if (item.visible && !overOpenFolder && item.overlapsMouse())
+			if (item.visible && !overSideButtons && item.overlapsMouse())
 			{
 				item.updateHover(true);
 			}
@@ -641,10 +663,24 @@ class ModFolderSubstate extends MusicBeatSubstate
 			   mouseY >= bgList.y && mouseY <= bgList.y + bgList.height;
 	}
 
-	/** 「打开文件夹」按钮现在在右侧空白区（面板矩形外），退出判定要单独算它。 */
-	function isMouseOverOpenFolder():Bool
+	/** 「模组菜单 / 打开文件夹」两个按钮都在右侧空白区（面板矩形外），退出判定要单独算它们。 */
+	function isMouseOverSideButtons():Bool
 	{
-		return openFolderButton != null && FlxG.mouse.overlaps(openFolderButton);
+		// 用按钮自己的 bg 判定（和 PsychUIButton 内部同一套命中），别拿 FlxSpriteGroup 的包围盒
+		if (openFolderButton != null && openFolderButton.bg != null && FlxG.mouse.overlaps(openFolderButton.bg)) return true;
+		if (modsMenuButton != null && modsMenuButton.bg != null && FlxG.mouse.overlaps(modsMenuButton.bg)) return true;
+		return false;
+	}
+
+	/**
+	 * 「模组菜单」快捷入口：把后续收尾交给 FreeplayState（切状态后本界面随 parent 一起销毁）。
+	 */
+	function goToModsMenu():Void
+	{
+		if (switchingAway || shouldClose || parent == null) return;
+		switchingAway = true;
+		clearPressedItem();
+		parent.openModsMenu();
 	}
 
 	/**
@@ -897,6 +933,7 @@ class ModFolderSubstate extends MusicBeatSubstate
 		FlxTween.tween(selectedModDesc, {x: startX}, 0.6, {ease: FlxEase.circOut});
 		FlxTween.tween(selectedModInfo, {x: startX}, 0.6, {ease: FlxEase.circOut});
 		FlxTween.tween(openFolderButton, {x: startX + (openFolderX - targetX)}, 0.6, {ease: FlxEase.circOut});
+		FlxTween.tween(modsMenuButton, {x: startX + (openFolderX - targetX)}, 0.6, {ease: FlxEase.circOut});
 
 		for (item in modsGroup)
 		{
@@ -948,8 +985,12 @@ class ModFolderItem extends FreeplayListItem
 		this.filter = filter;
 		this.filterSub = filterSub;
 
-		// 配色沿用这个列表原来的绿/蓝三点式（选中绿是它的既有语义）
-		setColors(0xFF888888, 0xFF4488FF, 0xFF66AAFF, 0xFF00FF00, 0.3);
+		// 中性底 + 强调色交互态（悬停 / 按下 / 选中）
+		var base:FlxColor = 0xFF888888;
+		setColors(base,
+			FlxColor.interpolate(base, UITheme.accent, 0.18),
+			FlxColor.interpolate(base, UITheme.accent, 0.28),
+			UITheme.accent, 0.3);
 
 		icon = new FlxSprite(5, 5);
 		icon.antialiasing = ClientPrefs.data.antialiasing;

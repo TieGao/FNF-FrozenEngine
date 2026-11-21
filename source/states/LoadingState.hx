@@ -14,6 +14,8 @@ import flixel.FlxState;
 import flash.media.Sound;
 
 import backend.MemoryStats;
+import backend.UITheme;
+import backend.LoadingCover;
 import backend.Song;
 import backend.StageData;
 import backend.LuaScriptPreload;
@@ -99,8 +101,6 @@ class LoadingState extends MusicBeatState
 	var isSpinning:Bool = false;
 	var spawnedPessy:Bool = false;
 	var pressedTimes:Int = 0;
-	#else
-	var funkay:FlxSprite;
 	#end
 
 	#if HSCRIPT_ALLOWED
@@ -187,18 +187,11 @@ class LoadingState extends MusicBeatState
 		addBehindBar(logo);
 
 		#else // BASE GAME LOADING SCREEN
-		var bg = new FlxSprite().makeGraphic(1, 1, 0xFFCAFF4D);
-		bg.scale.set(FlxG.width, FlxG.height);
-		bg.updateHitbox();
+		// 和 CustomFadeTransition 共用同一张合成盖板，交接瞬间不会跳色或跳位
+		var bg = new FlxSprite().loadGraphic(LoadingCover.build(FlxG.width, FlxG.height));
+		bg.scrollFactor.set();
 		bg.screenCenter();
 		addBehindBar(bg);
-
-		funkay = new FlxSprite(0, 0).loadGraphic(Paths.image('funkay'));
-		funkay.antialiasing = ClientPrefs.data.antialiasing;
-		funkay.setGraphicSize(0, FlxG.height);
-		funkay.updateHitbox();
-		funkay.screenCenter();
-		addBehindBar(funkay);
 		#end
 		
 		// loading 过渡用不透明的纯色盖板接管画面：进场时上一段过渡刚把同一张盖板铺满到 1.0，

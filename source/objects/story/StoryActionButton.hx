@@ -1,6 +1,7 @@
 package objects.story;
 
 import shapeEx.SlantQuad;
+import backend.UITheme;
 
 /**
  * StoryMode 右下角的斜切功能块（纯文字版）。
@@ -21,10 +22,12 @@ class StoryActionButton extends FlxSpriteGroup
 {
 	public static inline var COLOR_NORMAL:FlxColor = 0xE6141414;
 	public static inline var COLOR_HOVER:FlxColor = 0xE63C3C3C;
-	public static inline var COLOR_PRESS:FlxColor = 0xFFF9CF51;
 	public static inline var COLOR_LABEL:FlxColor = 0xFFF2F2F2;
-	public static inline var COLOR_LABEL_PRESS:FlxColor = 0xFF101010;
 	public static inline var COLOR_BORDER:FlxColor = 0xFFFFFFFF;
+
+	/** 按下态的底色 / 文字色跟随全局强调色（必须是函数，inline var 会被编译期内联） */
+	public static function colorPress():FlxColor return UITheme.accent;
+	public static function colorLabelPress():FlxColor return UITheme.textOnAccent;
 
 	/** 每块往四周外胀这么多，两块拼起来正好 2px 重叠 */
 	public static inline var SEAM_OVERLAP:Float = 1;
@@ -145,8 +148,8 @@ class StoryActionButton extends FlxSpriteGroup
 
 		if (pressing)
 		{
-			bg.color = COLOR_PRESS;
-			label.color = COLOR_LABEL_PRESS;
+			bg.color = colorPress();
+			label.color = colorLabelPress();
 		}
 		else
 		{

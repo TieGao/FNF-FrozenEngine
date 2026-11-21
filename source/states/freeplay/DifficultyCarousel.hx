@@ -6,6 +6,7 @@ import flixel.math.FlxMath;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import backend.Difficulty;
+import backend.DiffRating;
 import backend.Paths;
 import shapeEx.SlantQuad;
 
@@ -151,7 +152,9 @@ class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 			FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 	}
 
-	/** 评级数字是异步算出来的，数据到了调一次刷新。provider 返回负数表示"还没有"。 */
+	/** 评级数字是异步算出来的，数据到了调一次刷新。provider 返回负数表示"还没有"。
+	 *  数字按系数自身 0~10 走 DiffRating 色带（系数越高越靠后），并补足亮度保证压在
+	 *  深灰块 / 难度色块上都读得清。 */
 	public function refreshRatings(provider:Int->Float):Void
 	{
 		for (i in 0...diffCount)
@@ -162,7 +165,19 @@ class DifficultyCarousel extends FlxTypedGroup<FlxSprite>
 
 			var v:Float = (provider == null) ? -1 : provider(i);
 			rating.text = (v < 0) ? '--' : Std.string(v);
+			rating.color = (v < 0) ? 0xFFAAAAAA : readableRatingColor(v);
 		}
+	}
+
+	/** 色带末段是接近黑的深灰，直接涂在方块上看不清 —— 按亮度往白里补，色相不变。 */
+	public static function readableRatingColor(rating:Float):FlxColor
+	{
+		var color:FlxColor = DiffRating.getColorFromRating(Math.max(0, rating));
+		var lum:Float = 0.299 * color.red + 0.587 * color.green + 0.114 * color.blue;
+		var target:Float = 150; // 0~255
+		if (lum >= target) return color;
+		var t:Float = ((target - lum) / (255 - lum)) * 0.85;
+		return FlxColor.interpolate(color, FlxColor.WHITE, t);
 	}
 
 	/** 返回被点中的难度下标；没点中返回 -1。调用方负责判 FlxG.mouse.justPressed。 */

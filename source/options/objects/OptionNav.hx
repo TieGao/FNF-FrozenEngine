@@ -142,10 +142,10 @@ class OptionNav
 		opt.setValue(opt.options[idx]);
 	}
 
-	/** COLOR：在 COLOR_PALETTE 里循环 */
+	/** COLOR：在选项自己的色板里循环 */
 	public static function cycleColor(opt:Option, dir:Int):Void
 	{
-		var pal:Array<Int> = Option.COLOR_PALETTE;
+		var pal:Array<Int> = opt.paletteOf();
 		var idx:Int = pal.indexOf(cast opt.getValue());
 		if (idx < 0) idx = opt.curOption;
 		idx = FlxMath.wrap(idx + dir, 0, pal.length - 1);

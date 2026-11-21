@@ -384,6 +384,13 @@ class VisualsSettingsSubState extends BaseOptionsMenu
 			BOOL);
 		addOption(option);
 
+		var option:Option = new Option('Background Transition',
+			"How the Freeplay background switches when you change mod folder",
+			'freeplayBgTransition',
+			STRING,
+			['fade', 'mosaic']);
+		addOption(option);
+
 		var option:Option = new Option('Inline Search Filter',
 			"Type into the Freeplay search bar to filter the song list in place instead of opening the search popup",
 			'freeplaySearchInline',

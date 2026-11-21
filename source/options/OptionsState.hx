@@ -249,7 +249,7 @@ class OptionsState extends MusicBeatState
             new CategoryData(
                 'OuterUI',
                 ['Outer UI', 'Outer UI'],
-                ['Freeplay', 'Main Menu', 'Transition'],
+                ['Freeplay', 'Main Menu', 'Transition', 'Theme', 'Accent'],
                 '',
                 'menu'
             ),

@@ -21,7 +21,6 @@ import openfl.display.BitmapData;
 class Win10SearchBar extends FlxSpriteGroup
 {
     // forceDark 用的一套固定深色（取值与 UITheme 的 dark 档一致）
-    static inline var DARK_ACCENT:Int = 0xFF0078D4;
     static inline var DARK_BG:Int = 0xFF1F1F1F;
     static inline var DARK_BG_FOCUS:Int = 0xFF2B2B2B;
     static inline var DARK_BORDER:Int = 0xFF5A5A5A;
@@ -146,7 +145,8 @@ class Win10SearchBar extends FlxSpriteGroup
         add(clearBtn);
     }
 
-    inline function accentColor():Int return forceDark ? DARK_ACCENT : UITheme.accentDeep;          // 聚焦时的边框
+    // 聚焦时的边框：forceDark 是恒深底，用更亮的原色；普通界面用压暗一档
+    inline function accentColor():Int return forceDark ? UITheme.accent : UITheme.accentDeep;
     inline function borderIdle():Int return forceDark ? DARK_BORDER : UITheme.searchBorder;
     inline function borderHover():Int return forceDark ? DARK_BORDER_HOVER : UITheme.searchBorderHover;
     inline function bgIdle():Int return forceDark ? DARK_BG : UITheme.searchBG;

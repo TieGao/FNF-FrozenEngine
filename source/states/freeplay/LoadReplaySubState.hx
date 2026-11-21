@@ -1,6 +1,7 @@
 package states.freeplay;
 
 import backend.Replay as FrameReplay;
+import backend.UITheme;
 import backend.ReplayLauncher;
 import backend.MusicBeatState;
 import backend.MouseMove;
@@ -1184,9 +1185,12 @@ class ReplayItem extends FreeplayListItem
         this.filename = filename;
         this.dateStr = dateStr;
 
-        // 配色沿用这个列表原来的蓝灰三点式
-        setColors(0xFF888888, FlxColor.fromRGB(40, 55, 80), FlxColor.fromRGB(70, 95, 140),
-            FlxColor.fromRGB(50, 70, 110), 0.3);
+        // 中性底 + 强调色交互态（悬停 / 按下 / 选中）
+        var base:FlxColor = 0xFF888888;
+        setColors(base,
+            FlxColor.interpolate(base, UITheme.accent, 0.18),
+            FlxColor.interpolate(base, UITheme.accent, 0.28),
+            UITheme.accent, 0.3);
 
         // 歌曲名称
         var displayName = songName;

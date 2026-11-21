@@ -1,5 +1,6 @@
 package states.freeplay;
 
+import backend.UITheme;
 import openfl.display.Shape;
 import openfl.display.Graphics;
 import openfl.display.BitmapData;
@@ -23,12 +24,15 @@ class ToolBarIcons
 	// ---------------------------------------------------------
 	public static inline var BG_NORMAL:Int = 0xFF333333;
 	public static inline var BG_HOVER:Int = 0xFF44445F;
-	public static inline var BG_PRESS:Int = 0xFF5C5C88;
 	public static inline var ICON_NORMAL:Int = 0xFFDCDCDC;
 	public static inline var ICON_HOVER:Int = 0xFFFFFFFF;
-	public static inline var ICON_PRESS:Int = 0xFFFFFFFF;
 	/** 人声静音时的图标色 */
 	public static inline var ICON_MUTED:Int = 0xFFFF6B6B;
+
+	// 按下态与"已启用"态跟随全局强调色。必须是函数：inline var 会被编译期内联。
+	public static function bgPress():Int return UITheme.accent;
+	public static function iconPress():Int return UITheme.textOnAccent;
+	public static function iconActive():Int return UITheme.accent;
 
 	/** 图标占按钮边长的比例 */
 	static inline var ICON_RATIO:Float = 0.52;
@@ -36,6 +40,7 @@ class ToolBarIcons
 	/**
 	 * 单画一个图标（透明底）。
 	 * @param kind prev / next / play / pause / stop / mic / mic_off / volume_down / volume_up
+	 *             / play_once / repeat / repeat_one / shuffle
 	 */
 	public static function draw(kind:String, size:Int, color:FlxColor):BitmapData
 	{
@@ -64,8 +69,8 @@ class ToolBarIcons
 		var inset:Float = (s - iconSize) * 0.5;
 		var r:Float = s * 0.22;
 
-		var bgColors:Array<Int> = [BG_NORMAL, BG_HOVER, BG_PRESS];
-		var iconColors:Array<Int> = [iconNormal, ICON_HOVER, ICON_PRESS];
+		var bgColors:Array<Int> = [BG_NORMAL, BG_HOVER, bgPress()];
+		var iconColors:Array<Int> = [iconNormal, ICON_HOVER, iconPress()];
 
 		var bmd:BitmapData = new BitmapData(s, s * 3, true, 0x00000000);
 
@@ -120,6 +125,10 @@ class ToolBarIcons
 			case 'mic_off': drawMicOff(g, s, color, t);
 			case 'volume_down': drawVolume(g, s, color, t, 1);
 			case 'volume_up': drawVolume(g, s, color, t, 2);
+			case 'play_once': drawPlayOnce(g, s, color, t);
+			case 'repeat': drawRepeat(g, s, color, t, false);
+			case 'repeat_one': drawRepeat(g, s, color, t, true);
+			case 'shuffle': drawShuffle(g, s, color, t);
 			default: drawDot(g, s, color);
 		}
 	}
@@ -258,5 +267,117 @@ class ToolBarIcons
 		g.beginFill(color);
 		g.drawCircle(s * 0.5, s * 0.5, s * 0.30);
 		g.endFill();
+	}
+
+	// =========================================================
+	// 循环模式图标（播放器模式那枚按钮）
+	// =========================================================
+
+	/** 只放一次：一根右向箭头。没有环 = 不循环 */
+	static function drawPlayOnce(g:Graphics, s:Int, color:FlxColor, t:Float):Void
+	{
+		// 先画填充箭头，再画线 —— 反过来 lineStyle 还开着，填充块会多吃一圈同色描边
+		g.beginFill(color);
+		g.moveTo(s * 0.92, s * 0.50);
+		g.lineTo(s * 0.56, s * 0.26);
+		g.lineTo(s * 0.56, s * 0.74);
+		g.endFill();
+
+		g.lineStyle(t, color, 1);
+		g.moveTo(s * 0.10, s * 0.50);
+		g.lineTo(s * 0.60, s * 0.50);
+		g.lineStyle(t, color, 0);
+	}
+
+	/**
+	 * 循环：圆角环 + 顶边右侧一枚右向箭头（表示顺时针绕圈）。
+	 * 图标只有 20 出头个像素，环和箭头都得画粗一点，细线降采样后会糊成一团。
+	 * @param one true 时环中间再画个「1」= 单曲循环
+	 */
+	static function drawRepeat(g:Graphics, s:Int, color:FlxColor, t:Float, one:Bool):Void
+	{
+		var lt:Float = t * 1.15;
+		var x:Float = s * 0.15;
+		var y:Float = s * 0.26;
+		var w:Float = s * 0.70;
+		var h:Float = s * 0.48;
+		var r:Float = s * 0.15;
+
+		g.lineStyle(lt, color, 1);
+		drawRoundRing(g, x, y, w, h, r);
+		g.lineStyle(lt, color, 0);
+
+		g.beginFill(color);
+		g.moveTo(s * 0.87, y);
+		g.lineTo(s * 0.58, y - s * 0.13);
+		g.lineTo(s * 0.58, y + s * 0.13);
+		g.endFill();
+
+		if (one)
+		{
+			// 「1」用填充多边形而不是细线：斜头 + 竖杆，22px 下仍然认得出
+			g.beginFill(color);
+			g.moveTo(s * 0.39, s * 0.45);
+			g.lineTo(s * 0.50, s * 0.34);
+			g.lineTo(s * 0.56, s * 0.34);
+			g.lineTo(s * 0.56, s * 0.66);
+			g.lineTo(s * 0.44, s * 0.66);
+			g.lineTo(s * 0.44, s * 0.50);
+			g.endFill();
+		}
+	}
+
+	/** 随机：两条交叉斜线 + 两枚箭头（↘ ↗） */
+	static function drawShuffle(g:Graphics, s:Int, color:FlxColor, t:Float):Void
+	{
+		g.lineStyle(t, color, 1);
+		g.moveTo(s * 0.10, s * 0.28);
+		g.lineTo(s * 0.62, s * 0.50);
+		g.moveTo(s * 0.10, s * 0.72);
+		g.lineTo(s * 0.62, s * 0.50);
+		g.moveTo(s * 0.62, s * 0.50);
+		g.lineTo(s * 0.78, s * 0.60);
+		g.moveTo(s * 0.62, s * 0.50);
+		g.lineTo(s * 0.78, s * 0.40);
+		g.lineStyle(t, color, 0);
+
+		g.beginFill(color);
+		g.moveTo(s * 0.62, s * 0.40);
+		g.lineTo(s * 0.88, s * 0.62);
+		g.lineTo(s * 0.58, s * 0.68);
+		g.endFill();
+
+		g.beginFill(color);
+		g.moveTo(s * 0.62, s * 0.60);
+		g.lineTo(s * 0.88, s * 0.38);
+		g.lineTo(s * 0.58, s * 0.32);
+		g.endFill();
+	}
+
+	/**
+	 * 圆角矩形路径（只建路径，填充/描边走外面当前的 lineStyle / beginFill）。
+	 * 不用 Graphics.drawRoundRect：那是个独立命令，各家后端对「描边圆角矩形」的处理不一致，
+	 * 手画 curveTo 路径在 cairo 下必出。
+	 */
+	static function drawRoundRing(g:Graphics, x:Float, y:Float, w:Float, h:Float, r:Float):Void
+	{
+		var anchor:Float = 1 - Math.sin(45 * Math.PI / 180);
+		var control:Float = 1 - Math.tan(22.5 * Math.PI / 180);
+		var a:Float = r * anchor;
+		var c:Float = r * control;
+
+		g.moveTo(x + r, y);
+		g.lineTo(x + w - r, y);
+		g.curveTo(x + w - c, y, x + w - a, y + a);
+		g.curveTo(x + w, y + c, x + w, y + r);
+		g.lineTo(x + w, y + h - r);
+		g.curveTo(x + w, y + h - c, x + w - a, y + h - a);
+		g.curveTo(x + w - c, y + h, x + w - r, y + h);
+		g.lineTo(x + r, y + h);
+		g.curveTo(x + c, y + h, x + a, y + h - a);
+		g.curveTo(x, y + h - c, x, y + h - r);
+		g.lineTo(x, y + r);
+		g.curveTo(x, y + c, x + a, y + a);
+		g.curveTo(x + c, y, x + r, y);
 	}
 }

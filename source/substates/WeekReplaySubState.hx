@@ -1,6 +1,7 @@
 package substates;
 
 import backend.WeekData;
+import backend.UITheme;
 import backend.WeekReplay;
 import backend.ReplayLibrary;
 import backend.MetroEase;
@@ -89,7 +90,7 @@ class WeekReplaySubState extends MusicBeatSubstate
 		add(cardBg);
 
 		titleText = new FlxText(cardX + 20, cardY + 8, 300, 'WEEK REPLAY', 16);
-		titleText.setFormat(Paths.font('vcr.ttf'), 16, 0xFFF9CF51, LEFT);
+		titleText.setFormat(Paths.font('vcr.ttf'), 16, UITheme.accent, LEFT);
 		titleText.antialiasing = ClientPrefs.data.antialiasing;
 		add(titleText);
 
@@ -349,8 +350,8 @@ class WeekReplaySubState extends MusicBeatSubstate
 		FlxTween.cancelTweensOf(playBg);
 		if (press)
 		{
-			playBg.color = StoryActionButton.COLOR_PRESS;
-			playIcon.color = StoryActionButton.COLOR_LABEL_PRESS;
+			playBg.color = StoryActionButton.colorPress();
+			playIcon.color = StoryActionButton.colorLabelPress();
 		}
 		else
 		{

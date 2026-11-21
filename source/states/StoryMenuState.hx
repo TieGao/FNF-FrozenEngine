@@ -1,6 +1,7 @@
 package states;
 
 import backend.WeekData;
+import backend.UITheme;
 import backend.Highscore;
 import backend.Song;
 import backend.MouseMove;
@@ -57,6 +58,11 @@ class StoryMenuState extends MusicBeatState
 	var actionButtons:Array<StoryActionButton> = [];
 	/** 周锁定时要单独置灰的那块 */
 	var replayButton:StoryActionButton;
+
+	/** 周横幅底色：纯白贴图 + color 染色，强调色变了只改 color，不重建 */
+	var bgYellow:FlxSprite;
+	/** 已套用的主题版本号，和 UITheme.version 不一致时重刷强调色 */
+	var themeVersion:Int = -1;
 
 	var loadedWeeks:Array<WeekData> = [];
 
@@ -185,7 +191,8 @@ class StoryMenuState extends MusicBeatState
 		txtWeekTitle.alpha = 0.7;
 
 		var ui_tex = Paths.getSparrowAtlas('campaign_menu_UI_assets');
-		var bgYellow:FlxSprite = new FlxSprite(0, 56).makeGraphic(FlxG.width, 386, 0xFFF9CF51);
+		bgYellow = new FlxSprite(0, 56).makeGraphic(FlxG.width, 386, 0xFFFFFFFF);
+		bgYellow.color = UITheme.accent;
 		bgSprite = new FlxSprite(0, 56);
 
 		grpWeekText = new FlxTypedGroup<MenuItem>();
@@ -443,6 +450,15 @@ class StoryMenuState extends MusicBeatState
 	// ---------------------------------------------------------
 	override function update(elapsed:Float)
 	{
+		// 设置页是 push 上来的，回到本界面时强调色可能已经变了，靠版本号补刷
+		if (themeVersion != UITheme.version)
+		{
+			themeVersion = UITheme.version;
+			if (bgYellow != null) bgYellow.color = UITheme.accent;
+			for (b in actionButtons)
+				if (b != null) b.refreshVisual();
+		}
+
 		starsBG.x -= 0.05;
         starsFG.x -= 0.15;
 

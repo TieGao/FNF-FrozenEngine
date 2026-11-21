@@ -19,6 +19,8 @@ class OuterUIData
         sub.add(new Option('Difficulty Blocks', 'Show the clickable difficulty blocks in Freeplay', 'freeplayDiffCarousel', BOOL));
         sub.add(new Option('Freeplay ToolBar', 'Show tool bar in freeplay', 'toolBar', BOOL));
         sub.add(new Option('New Freeplay Space BackGround', 'Just a cool background lol', 'freeplayspace', BOOL));
+        sub.add(new Option('Background Transition', 'How the Freeplay background switches when you change mod folder',
+            'freeplayBgTransition', STRING, ['fade', 'mosaic']));
         sub.add(new Option('Save Freeplay Cache', 'Save freeplay song metadata cache to disk', 'saveFreeplayCache', BOOL));
         sub.add(new Option('Threaded Song Conversion', 'Parse chart info on a background thread (turn off if Freeplay stutters)', 'freeplayThreadedParse', BOOL));
         sub.add(new Option('Space Back Ground EveryWhere', 'Show space background everywhere', 'globalspace', BOOL));
@@ -55,10 +57,23 @@ class OuterUIData
         sub.add(new Option('Freeplay List Style', 'Background style of the Freeplay list items (search / mod folder / replay)',
             'freeplayListStyle', STRING, ['blur', 'win8', 'win10']));
 
-        // 菜单/场景过渡相关的显示效果。
+        // 菜单/场景过渡 + 全局外观（主题、强调色）集中在这一段。
         var menu = cat.section('Menu', 'Menu');
         menu.add(new Option('Transition Type', 'Choose the transition animation style when switching scenes', 'transitionType', STRING, ['fade', 'pixel', 'loading']));
         menu.add(new Option('Blur Effect', 'Enable blur effect on background elements', 'blurEffects', BOOL));
+
+        menu.add(new Option('Color Mode', 'Switch between dark and white mode', 'colorMode', STRING, ['dark', 'white']));
+        menu.add(new Option('Control Theme', 'Choose the button style: auto (each UI uses its own style), win10 or win8',
+            'controlTheme', STRING, ['auto', 'win10', 'win8']));
+        menu.add(new Option('Options Style', 'Choose which options menu style to use', 'optionstype', STRING, ['new', 'psych', 'ke']));
+
+        var accent = new Option('Accent Color', 'Primary color for selections, toggles, sliders and badges', 'uiAccent', COLOR);
+        accent.setPalette(Option.ACCENT_PALETTE, Option.ACCENT_NAMES);
+        menu.add(accent);
+
+        var accentHover = new Option('Accent Hover', 'Secondary color for hover and light feedback', 'uiAccentHover', COLOR);
+        accentHover.setPalette(Option.ACCENT_PALETTE, Option.ACCENT_NAMES);
+        menu.add(accentHover);
 
         return cat;
     }

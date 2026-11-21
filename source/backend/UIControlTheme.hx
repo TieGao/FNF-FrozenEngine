@@ -113,14 +113,20 @@ class UIControlTheme
 	public static function accent():FlxColor
 	{
 		UITheme.ensure();
-		return UITheme.isLight ? 0xFF2672EC : 0xFF3B8EF0;
+		return UITheme.accent;
 	}
 
 	public static function accentHover():FlxColor
-		return UITheme.hoverTint(accent());
+	{
+		UITheme.ensure();
+		return UITheme.accentHover;
+	}
 
 	public static function accentPress():FlxColor
-		return UITheme.pressTint(accent());
+	{
+		UITheme.ensure();
+		return UITheme.accentPress;
+	}
 
 	public static function face():FlxColor
 	{

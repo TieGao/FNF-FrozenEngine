@@ -161,10 +161,19 @@ class CoolUtil
 
 	inline public static function openFolder(folder:String, absolute:Bool = false) {
 		#if sys
-			if(!absolute) folder =  Sys.getCwd() + '$folder';
+			if (!absolute && !isAbsolutePath(folder))
+			{
+				var cwd = Sys.getCwd();
+				if (!cwd.endsWith('/') && !cwd.endsWith('\\')) cwd += '/';
+				folder = cwd + folder;
+			}
 
+			#if windows
 			folder = folder.replace('/', '\\');
-			if(folder.endsWith('/')) folder.substr(0, folder.length - 1);
+			while (folder.length > 3 && folder.endsWith('\\')) folder = folder.substr(0, folder.length - 1);
+			#else
+			while (folder.length > 1 && folder.endsWith('/')) folder = folder.substr(0, folder.length - 1);
+			#end
 
 			#if linux
 			var command:String = '/usr/bin/xdg-open';
@@ -176,6 +185,17 @@ class CoolUtil
 		#else
 			FlxG.error("Platform is not supported for CoolUtil.openFolder");
 		#end
+	}
+
+	/** 路径已带盘符或根目录时不能再拼 cwd，否则 explorer 会打开错误位置。 */
+	static function isAbsolutePath(path:String):Bool
+	{
+		if (path == null || path.length == 0) return false;
+		if (path.startsWith('/') || path.startsWith('\\')) return true;
+		if (path.length < 3 || path.charAt(1) != ':') return false;
+		var letter = path.charAt(0);
+		if ('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'.indexOf(letter) < 0) return false;
+		return path.charAt(2) == '/' || path.charAt(2) == '\\';
 	}
 
 		@:access(flixel.group.FlxTypedGroup.resolveGroup)

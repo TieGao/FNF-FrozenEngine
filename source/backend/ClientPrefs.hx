@@ -143,6 +143,13 @@ import states.TitleState;
 	public var healthText:Bool = true;
 	public var ImpStory:Bool = false;
 	public var freeplayspace:Bool = false;
+	/**
+	 * Freeplay 主背景（menuDesat）切模组文件夹时的过渡特效：
+	 *   'fade'   → 旧图快照压在新图之上淡出，快照层自带一次 BlurFilter 失焦（默认）
+	 *   'mosaic' → 先用 MosaicEffect 糊成马赛克再换图
+	 * 两个分支都在 FreeplayState.changeBackground() 里，改这个值即可互换。
+	 */
+	public var freeplayBgTransition:String = 'fade';
 	public var saveFreeplayCache:Bool = true;
 	/**
 	 * Freeplay 的谱面信息解析放到后台线程。
@@ -172,6 +179,13 @@ import states.TitleState;
 	public var scoreScreen:Bool = true;
 	public var optionstype:String = 'new';
 	public var colorMode:String = 'dark';
+	/**
+	 * UI 强调色：选中、开关、滑块、徽章、描边等交互态的主色。
+	 * 深浅色模式共用同一个值，不再按 colorMode 分两套。
+	 */
+	public var uiAccent:FlxColor = 0xFF4CC2FF;
+	/** 强调色的次要槽位：只用于悬停与轻量反馈 */
+	public var uiAccentHover:FlxColor = 0xFF67CBFF;
 	/**
 	 * 控件主题：决定设置界面里的"按键元素"用哪套风格。
 	 *   'auto'  → 跟随界面（Win10 界面用 Win10 控件，Win8 Charm 边栏用 Win8 控件）

@@ -116,7 +116,7 @@ class StringSelect extends FlxSpriteGroup
     }
 
     inline function accentColor():FlxColor
-        return win8 ? UIControlTheme.accent() : UITheme.accent;
+        return win8 ? UIControlTheme.accentHover() : UITheme.accentHover;
 
     inline function mainTextColor():FlxColor
         return win8 ? UIControlTheme.text() : UITheme.textPrimary;

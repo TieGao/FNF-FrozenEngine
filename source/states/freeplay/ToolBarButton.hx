@@ -1,6 +1,7 @@
 package states.freeplay;
 
 import shapeEx.SlantQuad;
+import backend.UITheme;
 
 /**
  * Freeplay 底部工具条的斜切按钮（平行四边形）。
@@ -22,16 +23,18 @@ import shapeEx.SlantQuad;
 class ToolBarButton extends FlxSpriteGroup
 {
 	public static inline var COLOR_NORMAL:FlxColor = 0xFF33333C;
-	public static inline var COLOR_HOVER:FlxColor = 0xFF4E4E70;
-	public static inline var COLOR_PRESS:FlxColor = 0xFFF9CF51;
 
 	public static inline var COLOR_LABEL:FlxColor = 0xFFDDDDE4;
 	public static inline var COLOR_LABEL_HOVER:FlxColor = 0xFFFFFFFF;
-	public static inline var COLOR_LABEL_PRESS:FlxColor = 0xFF141414;
 
 	/** 描边是**不透明**的：FlxSprite.color 里的 alpha 不参与渲染，只能整块上色 */
 	public static inline var COLOR_OUTLINE:FlxColor = 0xFF5C5C70;
-	public static inline var COLOR_OUTLINE_HOVER:FlxColor = 0xFFB4B4D2;
+
+	// 交互态跟随全局强调色。必须是函数：inline var 会被编译期内联，运行时改不动。
+	public static function colorHover():FlxColor return FlxColor.interpolate(COLOR_NORMAL, UITheme.accent, 0.22);
+	public static function colorPress():FlxColor return UITheme.accent;
+	public static function colorLabelPress():FlxColor return UITheme.textOnAccent;
+	public static function colorOutlineHover():FlxColor return UITheme.accentHover;
 
 	/** 每块往四周各胀 1px，两块拼起来正好 2px 重叠（同 StoryActionButton.SEAM_OVERLAP） */
 	public static inline var SEAM_OVERLAP:Float = 1;
@@ -165,9 +168,9 @@ class ToolBarButton extends FlxSpriteGroup
 		{
 			// 按下瞬间就到位，不走渐变 —— 按住期间还在渐变会显得发闷。
 			// 位移反馈一律不给：斜切块不能缩放（会错开接缝），文字也不能动（组坐标是绝对值）
-			bg.color = COLOR_PRESS;
-			label.color = COLOR_LABEL_PRESS;
-			setOutlineColor(COLOR_PRESS, 0);
+			bg.color = colorPress();
+			label.color = colorLabelPress();
+			setOutlineColor(colorPress(), 0);
 			return;
 		}
 
@@ -177,9 +180,9 @@ class ToolBarButton extends FlxSpriteGroup
 
 		if (hovered)
 		{
-			wantBg = COLOR_HOVER;
+			wantBg = colorHover();
 			wantLabel = COLOR_LABEL_HOVER;
-			wantOutline = COLOR_OUTLINE_HOVER;
+			wantOutline = colorOutlineHover();
 		}
 
 		FlxTween.color(bg, FADE_TIME, bg.color, wantBg, {ease: FlxEase.quadOut});
@@ -191,8 +194,8 @@ class ToolBarButton extends FlxSpriteGroup
 	{
 		// 先把按下色"顶住"，再交给 refreshVisual 渐变回 hover/常态 ——
 		// 松手生效这一下要看得见落点，不能瞬间跳色
-		bg.color = COLOR_PRESS;
-		label.color = COLOR_LABEL_PRESS;
+		bg.color = colorPress();
+		label.color = colorLabelPress();
 		refreshVisual();
 		if (onClick != null) onClick();
 	}

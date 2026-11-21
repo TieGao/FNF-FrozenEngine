@@ -23,7 +23,6 @@ class CustomFadeTransition extends MusicBeatSubstate {
 	var transitionType:String;
 
 	// loading 模式专用变量
-	var loadingSprite:FlxSprite;
 	var greenBg:FlxSprite;
 	var coverTween:FlxTween;
 	var isLoadingMode:Bool = false;
@@ -47,30 +46,16 @@ class CustomFadeTransition extends MusicBeatSubstate {
 		{
 			isLoadingMode = true;
 
-			// 纯色底用 1×1 缩放，别分配整屏贴图
-			greenBg = new FlxSprite().makeGraphic(1, 1, 0xFFCAFF4D);
-			greenBg.scale.set(width, height);
-			greenBg.updateHitbox();
+			// 底色 + funkay 先合成成单层整屏图，再对整张图做 alpha。
+			// 拆成两个半透明精灵时，funkay 轮廓区会叠两层（合成 alpha = v + v*(1-v)），
+			// 比四周纯色底更实，淡出时能看到图标先于背景浮现。
+			greenBg = new FlxSprite().loadGraphic(LoadingCover.build(width, height));
 			greenBg.scrollFactor.set();
 			greenBg.screenCenter();
 			greenBg.alpha = isTransIn ? 1 : 0;
 			add(greenBg);
 
-			loadingSprite = new FlxSprite().loadGraphic(Paths.image('funkay'));
-			loadingSprite.scrollFactor.set();
-			// 和 LoadingState 里的 funkay 保持完全一致的缩放 / 抗锯齿，交接瞬间才看不出换过手
-			loadingSprite.antialiasing = ClientPrefs.data.antialiasing;
-			loadingSprite.setGraphicSize(0, Std.int(height));
-			// ★ 先按缩放后的尺寸刷 hitbox 再居中，落点才和 LoadingState 里的 funkay 完全一致
-			//   （以前是先 screenCenter 再 setGraphicSize，funkay 会偏左，交接时横向跳一大截）
-			loadingSprite.updateHitbox();
-			loadingSprite.screenCenter();
-			loadingSprite.alpha = isTransIn ? 1 : 0;
-			add(loadingSprite);
-
-			// 两个精灵走同一条时间轴，只在两者都到位的时刻收尾：
-			// 以前 greenBg 在 duration * 0.7 就回调切状态，那时 funkay 才 ~0.79 不透明度，
-			// 接手的 LoadingState 又是满不透明，视觉上 funkay 会突然"跳实"一下
+			// 盖板整体走同一条时间轴，只在完全到位时收尾
 			startCoverTween(isTransIn ? 1 : 0, isTransIn ? 0 : 1, function() {
 				if (isTransIn)
 				{
@@ -191,9 +176,8 @@ class CustomFadeTransition extends MusicBeatSubstate {
 				onDone();
 			}
 		}, function(v:Float) {
-			// 底色和 funkay 同一条曲线，保证收尾那一刻两者都精确到达 0 / 1
+			// 单层盖板：整张图 alpha 一致
 			if (greenBg != null) greenBg.alpha = v;
-			if (loadingSprite != null) loadingSprite.alpha = v;
 		});
 	}
 
@@ -215,6 +199,13 @@ class CustomFadeTransition extends MusicBeatSubstate {
 			shaderFilter = null;
 		}
 		
+		// 合成盖板是整屏贴图，转场结束及时释放，别等 GC
+		if (greenBg != null)
+		{
+			greenBg.destroy();
+			greenBg = null;
+		}
+
 		super.close();
 
 		if(finishCallback != null)

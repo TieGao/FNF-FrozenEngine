@@ -9,6 +9,10 @@ import backend.DiffRating;
 
 typedef ParsedSongInfo = {
     bpm:Float,
+    /** 谱面里出现过的 BPM 变化的最低值（没有变化时 = bpm）。Freeplay 显示 "BPM: 基础 (最低~最高)" 用。 */
+    bpmMin:Float,
+    /** 同上，最高值。 */
+    bpmMax:Float,
     length:Float,
     formattedLength:String,
     noteCount:Int,
@@ -171,6 +175,22 @@ class SongInfoParser
         profStats += tRating - tStats;
         #end
 
+        // BPM 变化范围：主 BPM + 所有 changeBPM 分节。和 Conductor 建 bpmChangeMap 的口径一致
+        // （本引擎的变速只认分节，不认事件），没有变化时 min == max == 主 BPM。
+        var bpmMin:Float = (chart.bpm > 0) ? chart.bpm : 0;
+        var bpmMax:Float = bpmMin;
+        if (chart.notes != null)
+        {
+            for (section in chart.notes)
+            {
+                if (section == null || section.changeBPM == null || !section.changeBPM) continue;
+                var sectionBpm:Float = (section.bpm == null) ? 0 : section.bpm;
+                if (sectionBpm <= 0) continue;
+                if (bpmMin <= 0 || sectionBpm < bpmMin) bpmMin = sectionBpm;
+                if (sectionBpm > bpmMax) bpmMax = sectionBpm;
+            }
+        }
+
         var playerRating:Float = 0;
         var opponentRating:Float = 0;
         var coopRating:Float = 0;
@@ -214,6 +234,8 @@ class SongInfoParser
 
         return {
             bpm: chart.bpm,
+            bpmMin: bpmMin,
+            bpmMax: bpmMax,
             length: songLength,
             formattedLength: formatLength(songLength),
             noteCount: playerCount + opponentCount,
@@ -714,6 +736,8 @@ class SongInfoParser
     {
         return {
             bpm: 0,
+            bpmMin: 0,
+            bpmMax: 0,
             length: 0,
             formattedLength: "0:00",
             noteCount: 0,

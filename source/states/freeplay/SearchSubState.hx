@@ -1,6 +1,7 @@
 package states.freeplay;
 
 import backend.ui.PsychUIInputText;
+import backend.UITheme;
 import flixel.FlxG;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup.FlxTypedGroup;
@@ -520,9 +521,12 @@ class SearchCard extends FreeplayListItem
         _cardWidth = cardWidth;
         _cardHeight = cardHeight;
 
-        // 浅色卡片背景（这个列表原本就不靠 blur 面板，而是实色块 + 悬停变亮）
-        setColors(FlxColor.fromRGB(45, 45, 45), FlxColor.fromRGB(70, 70, 70),
-            FlxColor.fromRGB(90, 90, 90), FlxColor.fromRGB(70, 70, 70), 0.85);
+        // 深色卡片背景（这个列表原本就不靠 blur 面板，而是实色块 + 悬停变亮）
+        var base:FlxColor = FlxColor.fromRGB(45, 45, 45);
+        setColors(base,
+            FlxColor.interpolate(base, UITheme.accent, 0.18),
+            FlxColor.interpolate(base, UITheme.accent, 0.28),
+            UITheme.accent, 0.85);
 
         // 注意：所有子元素坐标一次性在构造里定好，之后只靠 setItemPosition 移动整行，
         // 不要再在 updatePosition 里写 icon.x 之类的绝对坐标 —— 那会触发

@@ -86,7 +86,7 @@ class Win8CharmIcon extends FlxSpriteGroup
 	{
 		if (icon == null) return;
 
-		var c:FlxColor = isHover ? UIControlTheme.accent() : UIControlTheme.textSecondary();
+		var c:FlxColor = isHover ? UIControlTheme.accentHover() : UIControlTheme.textSecondary();
 
 		// 判活，而不是判 `icon.pixels != null` —— 那个 getter 就是 `graphic.bitmap`，
 		// 图被 dispose 之后仍然非 null，拿它当"图还在"会让这个按钮永远不重画。

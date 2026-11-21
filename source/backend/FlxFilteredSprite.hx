@@ -36,6 +36,7 @@ import openfl.display._internal.CairoGraphics as GfxRenderer;
 @:access(openfl.geom.Rectangle)
 @:access(openfl.filters.BitmapFilter)
 @:access(flixel.graphics.frames.FlxFrame)
+@:access(openfl.display.BitmapData) // 释放滤镜缓冲要碰 __texture（openfl 只在 dispose 里把它置 null）
 class FlxFilteredSprite extends FlxSprite
 {
   @:noCompletion var _renderer:FlxAnimateFilterRenderer = new FlxAnimateFilterRenderer();
@@ -205,9 +206,11 @@ class FlxFilteredSprite extends FlxSprite
       {
         if (_blankFrame.parent != null)
         {
+          // 同 destroy()：先把纹理句柄放掉，再让图自己 dispose
+          _filterBmp1 = releaseFilterBitmap(_filterBmp1);
+          _filterBmp2 = releaseFilterBitmap(_filterBmp2);
+          releaseFilterBitmap(_blankFrame.parent.bitmap);
           _blankFrame.parent.destroy();
-          _filterBmp1.dispose();
-          _filterBmp2.dispose();
         }
 
         _blankFrame.parent = FlxGraphic.fromRectangle(Math.ceil(_flashRect.width * 1.25), Math.ceil(_flashRect.height * 1.25), 0, true);
@@ -249,6 +252,38 @@ class FlxFilteredSprite extends FlxSprite
   override public function destroy()
   {
     super.destroy();
+
+    // 滤镜路径自己建了 3 张全尺寸位图（结果帧 + 两张 ping-pong），flixel 不管它们：
+    // 不显式释放就只剩 GC 托管，而 openfl 的 BitmapData.dispose() 不调 gl.deleteTexture
+    // （源码里那句是注释掉的），显存要等进程退出才回。全屏 sprite 一次就漏十几 MB。
+    // 顺序：先按句柄释放纹理，再 destroy 图 —— destroy 会先 dispose() 把 __texture 置 null，
+    // 之后就拿不到纹理了（parent.bitmap 可能就是某张 ping-pong，重复释放由 null 判活挡掉）。
+    _filterBmp1 = releaseFilterBitmap(_filterBmp1);
+    _filterBmp2 = releaseFilterBitmap(_filterBmp2);
+    if (_blankFrame != null)
+    {
+      if (_blankFrame.parent != null)
+      {
+        releaseFilterBitmap(_blankFrame.parent.bitmap);
+        _blankFrame.parent.destroy();
+      }
+      @:nullSafety(Off)
+      _blankFrame = null;
+    }
+  }
+
+  /**
+   * 释放滤镜缓冲的像素 + 显存。
+   * 统一口径见 `Paths.destroyGraphic()`：先 `__texture.dispose()` 再 `dispose()`，
+   * 否则 openfl 只把 `__texture` 置 null、`gl.deleteTexture` 永远不执行。
+   */
+  @:nullSafety(Off)
+  static function releaseFilterBitmap(bitmap:BitmapData):BitmapData
+  {
+    if (bitmap == null) return null;
+    if (bitmap.__texture != null) bitmap.__texture.dispose();
+    bitmap.dispose();
+    return null;
   }
 }
 

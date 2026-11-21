@@ -27,7 +27,6 @@ class AdvancedData
         sub.add(new Option('Disable GC While Playing', 'Disable hxcpp garbage collection during gameplay', 'disablePlayStateGC', BOOL));
         sub.add(new Option('Frequent GC', 'Full GC + heap compact on every state transition: returns freed textures to the OS, may cause short hitches', 'frequentGC', BOOL));
         sub.add(new Option('Discord RPC', 'Enable Discord Rich Presence', 'discordRPC', BOOL));
-        sub.add(new Option('Options Style', 'Choose which options menu style to use', 'optionstype', STRING, ['new', 'psych', 'ke']));
         sub.add(new Option('Use Default Mouse Cursor', 'Use ur system\'s default mouse cursor in game', 'useSystemCursor', BOOL));
 
         // 脚本诊断与日志输出单独一页。选项一律挂在自己的 section 上：用 cat.add 直挂主分类会

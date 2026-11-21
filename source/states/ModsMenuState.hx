@@ -83,9 +83,16 @@ class ModsMenuState extends MusicBeatState
 
 	var _lastControllerMode:Bool = false;
 	var startMod:String = null;
-	public function new(startMod:String = null)
+	/**
+	 * 是否是从 Freeplay 的 ModFolder 面板进来的。
+	 * true 时 BACK 回 Freeplay 而不是主菜单。
+	 */
+	public var returnToFreeplay:Bool = false;
+
+	public function new(startMod:String = null, returnToFreeplay:Bool = false)
 	{
 		this.startMod = startMod;
+		this.returnToFreeplay = returnToFreeplay;
 		super();
 	}
 	override function create()
@@ -197,11 +204,13 @@ class ModsMenuState extends MusicBeatState
 		
 		modDesc = new FlxText(bgDescription.x + 15, bgDescription.y + 15, bgDescription.width - 30, "", 24);
 		modDesc.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, LEFT);
+		modDesc.antialiasing = ClientPrefs.data.antialiasing;
 		add(modDesc);
 
 		var myHeight = 200;
 		modRestartText = new FlxText(bgDescription.x + 15, bgDescription.y + bgDescription.height - myHeight - 25, bgDescription.width - 30, Language.getPhrase('mod_restart', '* Moving or Toggling On/Off this Mod will restart the game.'), 16);
 		modRestartText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT);
+		modRestartText.antialiasing = ClientPrefs.data.antialiasing;
 		add(modRestartText);
 
 		bgButtons = FlxSpriteUtil.drawRoundRectComplex(new FlxSprite(panelX, buttonsY).makeGraphic(panelW, buttonsH, FlxColor.TRANSPARENT), 0, 0, panelW, buttonsH, 0, 0, 15, 15, FlxColor.WHITE);
@@ -335,7 +344,7 @@ class ModsMenuState extends MusicBeatState
 		add(groupContent);
 		_lastControllerMode = controls.controllerMode;
 
-		scrollBarTrack = new FlxSprite(bgList.x + bgList.width - 20, bgList.y + 20).makeGraphic(8, Std.int(bgList.height - 40), FlxColor.WHITE);
+		scrollBarTrack = new FlxSprite(bgList.x + bgList.width, bgList.y + 20).makeGraphic(8, Std.int(bgList.height - 40), FlxColor.WHITE);
 		scrollBarTrack.alpha = 0.3;
 		add(scrollBarTrack);
 		var scrollBarThumb:Float = Math.max(30, (bgList.height - 40) * ((bgList.height - 10) / Math.max(1, curList().all.length * ROW_H)));
@@ -373,11 +382,19 @@ class ModsMenuState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
-		if(controls.BACK && hoveringOnMods)
+		// 从 Freeplay 进来时 BACK 永远有效：那边没有主菜单的返回兜底，卡在按钮焦点上也不能退不出去
+		if(controls.BACK && (hoveringOnMods || returnToFreeplay))
 		{
 			saveTxt();
 
 			FlxG.sound.play(Paths.sound('cancelMenu'));
+
+			if(returnToFreeplay)
+			{
+				goBackToFreeplay();
+				return;
+			}
+
 			if(waitingToRestart)
 			{
 				//MusicBeatState.switchState(new TitleState());
@@ -1258,6 +1275,7 @@ class ModsMenuState extends MusicBeatState
 			noModsTxt = new FlxText(myX, 0, FlxG.width - myX - 20, '', 48);
 			noModsTxt.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 			noModsTxt.borderSize = 2;
+			noModsTxt.antialiasing = ClientPrefs.data.antialiasing;
 			add(noModsTxt);
 			noModsTxt.screenCenter(Y);
 		}
@@ -1265,6 +1283,7 @@ class ModsMenuState extends MusicBeatState
 		{
 			noModsHint = new FlxText(bgList.x + 15, bgList.y + 15, bgList.width - 30, '', 16);
 			noModsHint.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE);
+			noModsHint.antialiasing = ClientPrefs.data.antialiasing;
 			add(noModsHint);
 		}
 
@@ -1333,7 +1352,39 @@ class ModsMenuState extends MusicBeatState
 		var startKey:String = (curMod != null) ? curMod.folder : null;
 		// 带着"页签 + 选中项"回来，别一 Reload 就掉回 MODS 页第一项
 		if(startKey != null && usingContent) startKey = CONTENT_PREFIX + startKey;
-		MusicBeatState.switchState(new ModsMenuState(startKey));
+		// Reload 后仍是「从 Freeplay 进来」的上下文，返回按钮不会丢
+		MusicBeatState.switchState(new ModsMenuState(startKey, returnToFreeplay));
+	}
+
+	/**
+	 * 返回 Freeplay（从 ModFolder 面板进来时 BACK 走这里）。
+	 * 有模组标记了必须重启就只能重启游戏；否则直接切回 Freeplay ——
+	 * 新状态会重扫歌曲列表，刚开关的内容包立刻生效，选中歌由 FreeplayState 的快照还原。
+	 */
+	function goBackToFreeplay()
+	{
+		if(waitingToRestart)
+		{
+			TitleState.initialized = false;
+			TitleState.closedState = false;
+			if(FlxG.sound.music != null) FlxG.sound.music.fadeOut(0.3);
+			if(FreeplayState.vocals != null)
+			{
+				FreeplayState.vocals.fadeOut(0.3);
+				FreeplayState.vocals = null;
+			}
+			FlxG.camera.fade(FlxColor.BLACK, 0.5, false, FlxG.resetGame, false);
+			FlxG.mouse.visible = false;
+		}
+		else
+		{
+			// Freeplay 是鼠标界面：光标留着，别在淡出那半秒里闪一下
+			FlxG.mouse.visible = true;
+			MusicBeatState.switchState(new FreeplayState());
+		}
+
+		persistentUpdate = false;
+		FlxG.autoPause = ClientPrefs.data.autoPause;
 	}
 	
 	function saveTxt()
@@ -1359,6 +1410,20 @@ class ModsMenuState extends MusicBeatState
 
 class ModItem extends FlxSpriteGroup
 {
+	// ------------------------------------------------------------------
+	// 卡片排版（**可调参数**：想微调就只改这几个数，其余位置自动跟着走）
+	// ------------------------------------------------------------------
+	/** 图标左缘 */
+	public static var cardIconX:Float = 15;
+	/** 图标上缘 */
+	public static var cardIconY:Float = 5;
+	/** 图标显示边长：pack.png 是 150×150 的帧，卡片上按 0.5 缩放 → 75 */
+	public static var cardIconSize:Float = 75;
+	/** 名字左缘 = 图标右缘 + 这个间距。**名字想再往右挪就把它调大**（文字宽度会自动让出空间，顶不出列表） */
+	public static var cardNameGap:Float = 10;
+	/** 卡片内容的右边界（列表宽 340，左右各留 5）：名字宽度 = 这个值 - 名字左缘 */
+	public static var cardContentRight:Float = 330;
+
 	public var selectBg:FlxSprite;
 	public var icon:FlxSprite;
 	public var text:FlxText;
@@ -1431,15 +1496,17 @@ class ModItem extends FlxSpriteGroup
 		selectBg.visible = false;
 		add(selectBg);
 
-		// 图标左移 30px（原来是 5）
-		icon = new FlxSprite(15, 5);
+		icon = new FlxSprite(cardIconX, cardIconY);
 		icon.antialiasing = ClientPrefs.data.antialiasing;
 		add(icon);
 
-		// 文字跟着左移 30px，保持与图标的相对间距
-		text = new FlxText(95 - 30, 38, 230, "", 16);
+		// 名字左缘 = 图标右缘 + cardNameGap，宽度自动吃满到 cardContentRight，
+		// 所以调 gap 时不会顶出列表（也不会再压到图标上）。
+		var textX:Float = cardIconX + cardIconSize + cardNameGap;
+		text = new FlxText(textX, 38, cardContentRight - textX, "", 16);
 		text.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		text.borderSize = 2;
+		text.antialiasing = ClientPrefs.data.antialiasing;
 		text.y -= Std.int(text.height / 2);
 		add(text);
 
